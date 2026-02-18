@@ -1,49 +1,49 @@
 # PROFIBREW.COM — SYSTEM DESIGN DOCUMENT
-## Architektonický blueprint pro vývoj SaaS ERP
-### Verze: 2.0 | Datum: 17.02.2026
+## Architectural Blueprint for SaaS ERP Development
+### Version: 2.0 | Date: 17.02.2026
 
 ---
 
-## ZMĚNOVÝ LOG
+## CHANGE LOG
 
-| Verze | Datum | Změny |
-|-------|-------|-------|
-| 2.1 | 17.02.2026 | Pricing model: tier-based + add-on moduly + overage per hl. Temporální plans/subscriptions v DB. Subscription decoupled z tenants tabulky. Usage records pro billing. |
-| 2.0 | 17.02.2026 | Hybrid items model, unified Partner, excise/equipment/shop/cashflow do MVP, card view, lot tracking, i18n, Drizzle ORM, konfigurovatelné číslovací řady, rozšířený datový model na základě Bubble auditu |
-| 1.0 | 17.02.2026 | Iniciální draft |
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.1 | 17.02.2026 | Pricing model: tier-based + add-on modules + overage per hl. Temporal plans/subscriptions in DB. Subscription decoupled from tenants table. Usage records for billing. |
+| 2.0 | 17.02.2026 | Hybrid items model, unified Partner, excise/equipment/shop/cashflow into MVP, card view, lot tracking, i18n, Drizzle ORM, configurable numbering sequences, extended data model based on Bubble audit |
+| 1.0 | 17.02.2026 | Initial draft |
 
 ---
 
-## 1. PŘEHLED SYSTÉMU
+## 1. SYSTEM OVERVIEW
 
-### 1.1 Co stavíme
+### 1.1 What We Are Building
 
-ProfiBrew je **multi-tenant SaaS aplikace** — informační systém pro minipivovary. Každý pivovar (tenant) má vlastní izolovaná data, uživatele a konfiguraci, ale sdílí jednu aplikaci a databázi.
+ProfiBrew is a **multi-tenant SaaS application** — an information system for microbreweries. Each brewery (tenant) has its own isolated data, users, and configuration, but shares a single application and database.
 
-### 1.2 Architektonická rozhodnutí
+### 1.2 Architectural Decisions
 
-| Oblast | Rozhodnutí | Důvod |
-|--------|-----------|-------|
-| **Multi-tenancy** | Shared DB + tenant_id | Jednoduchá správa, levný provoz, dostatečné pro 500+ tenantů |
-| **Frontend** | Next.js 14+ (App Router) | SSR/SSG, API routes, Claude Code to umí nejlépe |
-| **UI knihovna** | shadcn/ui + Tailwind CSS | Konzistentní design, reusable komponenty, rychlý vývoj |
-| **Backend/DB** | Supabase (PostgreSQL) | Auth, RLS, realtime, storage — vše z krabice |
-| **ORM** | **Drizzle** | Type-safe, SQL-blízký, lehký, dobrý na edge |
+| Area | Decision | Reason |
+|------|----------|--------|
+| **Multi-tenancy** | Shared DB + tenant_id | Simple management, low operating costs, sufficient for 500+ tenants |
+| **Frontend** | Next.js 14+ (App Router) | SSR/SSG, API routes, Claude Code handles it best |
+| **UI Library** | shadcn/ui + Tailwind CSS | Consistent design, reusable components, rapid development |
+| **Backend/DB** | Supabase (PostgreSQL) | Auth, RLS, realtime, storage — all out of the box |
+| **ORM** | **Drizzle** | Type-safe, SQL-close, lightweight, good for edge |
 | **Hosting** | Vercel | Zero-config deploy, edge functions, preview deploys |
-| **Jazyk** | TypeScript strict | Typová bezpečnost, lepší AI code generation |
-| **i18n** | **next-intl od začátku** | Plánovaná expanze mimo ČR (SK, PL…) |
-| **Měrné jednotky** | **Base unit v DB** | Vždy litry/gramy, konverze v UI. Definice jednotek + vztahů later. |
-| **Číslovací řady** | **Konfigurovatelné per tenant** | Přednastavené defaulty, tenant si mění prefix/formát |
-| **Item model** | **Hybrid (unified items + views)** | Jedna tabulka s flagy, filtrované pohledy pro suroviny/produkty |
-| **Partner model** | **Unified Partner** | Jeden partner = zákazník i dodavatel (flagy) |
+| **Language** | TypeScript strict | Type safety, better AI code generation |
+| **i18n** | **next-intl from the start** | Planned expansion beyond CZ (SK, PL…) |
+| **Units of measure** | **Base unit in DB** | Always liters/grams, conversion in UI. Unit definitions + relationships later. |
+| **Numbering sequences** | **Configurable per tenant** | Preset defaults, tenant can change prefix/format |
+| **Item model** | **Hybrid (unified items + views)** | Single table with flags, filtered views for materials/products |
+| **Partner model** | **Unified Partner** | One partner = customer and supplier (flags) |
 
-### 1.3 High-Level architektura
+### 1.3 High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    VERCEL (Hosting)                  │
 │  ┌───────────────────────────────────────────────┐  │
-│  │              NEXT.JS APLIKACE                  │  │
+│  │              NEXT.JS APPLICATION               │  │
 │  │                                                │  │
 │  │  ┌─────────┐  ┌──────────┐  ┌──────────────┐ │  │
 │  │  │  Pages   │  │   API    │  │  Middleware   │ │  │
@@ -74,39 +74,39 @@ ProfiBrew je **multi-tenant SaaS aplikace** — informační systém pro minipiv
                          │
               ┌──────────┴──────────┐
               │  EXTERNAL SERVICES  │
-              │  - Účetní systémy   │
+              │  - Accounting sys.  │
               │  - Email (Resend)   │
-              │  - Platby (Stripe)  │
-              │  - ARES (IČO)       │
+              │  - Payments (Stripe)│
+              │  - ARES (ICO)       │
               │  - Monitoring       │
               └─────────────────────┘
 ```
 
 ---
 
-## 2. MULTI-TENANT ARCHITEKTURA
+## 2. MULTI-TENANT ARCHITECTURE
 
-### 2.1 Tenant izolace
+### 2.1 Tenant Isolation
 
 **Model: Shared Database, Shared Schema, Tenant ID Isolation**
 
-Každá tabulka obsahující tenant-specifická data má sloupec `tenant_id`. Přístup k datům je vynucen na třech úrovních:
+Every table containing tenant-specific data has a `tenant_id` column. Data access is enforced at three levels:
 
 ```
-Úroveň 1: Supabase RLS (Row Level Security)
-  → Databáze NIKDY nevrátí data jiného tenanta
-  → Nejsilnější ochrana — funguje i při chybě v kódu
+Level 1: Supabase RLS (Row Level Security)
+  → Database NEVER returns data from another tenant
+  → Strongest protection — works even if there is a bug in the code
 
-Úroveň 2: API middleware
-  → Každý API request ověří tenant_id z JWT tokenu
-  → Automatické filtrování v query builderu
+Level 2: API middleware
+  → Every API request verifies tenant_id from the JWT token
+  → Automatic filtering in the query builder
 
-Úroveň 3: Frontend context
-  → TenantProvider obaluje celou aplikaci
-  → Komponenty mají přístup k tenant_id přes hook
+Level 3: Frontend context
+  → TenantProvider wraps the entire application
+  → Components have access to tenant_id via hook
 ```
 
-### 2.2 Tenant datový model
+### 2.2 Tenant Data Model
 
 ```sql
 -- ============================================================
@@ -114,20 +114,20 @@ Každá tabulka obsahující tenant-specifická data má sloupec `tenant_id`. P�
 -- ============================================================
 CREATE TABLE tenants (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name            TEXT NOT NULL,                    -- Název pivovaru
-  slug            TEXT UNIQUE NOT NULL,             -- URL-friendly identifikátor
+  name            TEXT NOT NULL,                    -- Brewery name
+  slug            TEXT UNIQUE NOT NULL,             -- URL-friendly identifier
   status          TEXT NOT NULL DEFAULT 'trial',    -- trial | active | suspended | cancelled
-  trial_ends_at   TIMESTAMPTZ,                     -- Konec trial období
-  settings        JSONB DEFAULT '{}',              -- Tenant-specific konfigurace
+  trial_ends_at   TIMESTAMPTZ,                     -- End of trial period
+  settings        JSONB DEFAULT '{}',              -- Tenant-specific configuration
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- POZNÁMKA: Plán NENÍ atribut tenantu. Tenant má subscription (viz 2.3),
--- která odkazuje na konkrétní verzi plánu. Důvod: plány se mění v čase,
--- tenant musí být svázán s konkrétní verzí podmínek.
+-- NOTE: Plan is NOT an attribute of the tenant. Tenant has a subscription (see 2.3),
+-- which references a specific plan version. Reason: plans change over time,
+-- tenant must be bound to a specific version of terms.
 
--- settings JSONB struktura:
+-- settings JSONB structure:
 -- {
 --   "currency": "CZK",
 --   "locale": "cs",
@@ -143,191 +143,191 @@ CREATE TABLE tenants (
 
 ### 2.3 Subscription & Pricing Model
 
-#### Princip
+#### Principle
 
-Tier-based pricing s modulární flexibilitou a usage-based overage. Klíčové vlastnosti:
+Tier-based pricing with modular flexibility and usage-based overage. Key properties:
 
-- **Tier = balíček modulů** s included hektolitry/měsíc
-- **Add-on moduly** dokupitelné na nižších tierech za flat fee
-- **Overage billing** za hl nad included limit (Kč/hl/měsíc)
-- **Neomezení uživatelé** od Starter tieru
-- **Vše konfigurovatelné v DB** — plány, limity, ceny mají časovou platnost (valid_from/valid_to)
+- **Tier = module bundle** with included hectoliters/month
+- **Add-on modules** purchasable on lower tiers for a flat fee
+- **Overage billing** per hl above included limit (CZK/hl/month)
+- **Unlimited users** from the Starter tier
+- **Everything configurable in DB** — plans, limits, prices have temporal validity (valid_from/valid_to)
 
 ```
                     FREE          STARTER        PRO            BUSINESS
 ────────────────────────────────────────────────────────────────────────
-Cena/měsíc          0 Kč          TBD            TBD            TBD
-Included hl/měs     TBD           TBD            TBD            TBD
-Overage Kč/hl       —             TBD            TBD            TBD
+Price/month         0 CZK         TBD            TBD            TBD
+Included hl/mo      TBD           TBD            TBD            TBD
+Overage CZK/hl      —             TBD            TBD            TBD
 ────────────────────────────────────────────────────────────────────────
-Moduly              Pivovar       Pivovar        Všechny        Všechny
-                                  Sklad                         + API
-                                                                + integrace
+Modules             Brewery       Brewery        All            All
+                                  Stock                         + API
+                                                                + integrations
 ────────────────────────────────────────────────────────────────────────
-Add-on moduly       +flat/měs     +flat/měs      —              —
-Uživatelé           2             Unlimited      Unlimited      Unlimited
+Add-on modules      +flat/mo      +flat/mo       —              —
+Users               2             Unlimited      Unlimited      Unlimited
 ────────────────────────────────────────────────────────────────────────
 
-TBD = Bude stanoveno na základě samostatné analýzy CZ trhu a konkurence.
+TBD = To be determined based on a separate CZ market and competition analysis.
 
-Launch promo: "Prvních X měsíců bez omezení hektolitrů na všech plánech"
+Launch promo: "First X months without hectoliter limits on all plans"
 ```
 
-#### Proč temporální data
+#### Why Temporal Data
 
-Plány se budou měnit — ceny, limity, included moduly. Tenant, který začal na "Starter v1" za 1 490 Kč, musí zůstat na těchto podmínkách, dokud aktivně nepřejde na novou verzi. Proto:
+Plans will change — prices, limits, included modules. A tenant who started on "Starter v1" for 1,490 CZK must stay on those terms until they actively switch to a new version. Therefore:
 
-- **Plán** má `valid_from` / `valid_to` — verze plánu v čase
-- **Subscription** tenantu odkazuje na **konkrétní verzi** plánu
-- Nová verze plánu = nový záznam, starý dostane `valid_to`
-- Migrace tenantu na nový plán = nová subscription s vazbou na novou verzi
+- **Plan** has `valid_from` / `valid_to` — plan version over time
+- **Subscription** of a tenant references a **specific version** of a plan
+- New plan version = new record, old one gets `valid_to`
+- Migrating a tenant to a new plan = new subscription with a reference to the new version
 
-#### DB schema: Subscription & Billing
+#### DB Schema: Subscription & Billing
 
 ```sql
 -- ============================================================
--- PLANS (definice tarifních plánů — verzované v čase)
+-- PLANS (tariff plan definitions — versioned over time)
 -- ============================================================
 CREATE TABLE plans (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug            TEXT NOT NULL,              -- 'free' | 'starter' | 'pro' | 'business'
   name            TEXT NOT NULL,              -- 'Starter'
   description     TEXT,
-  
+
   -- === PRICING ===
-  base_price      DECIMAL NOT NULL DEFAULT 0, -- Měsíční cena (Kč)
+  base_price      DECIMAL NOT NULL DEFAULT 0, -- Monthly price (CZK)
   currency        TEXT NOT NULL DEFAULT 'CZK',
   billing_period  TEXT DEFAULT 'monthly',     -- 'monthly' | 'yearly'
-  
+
   -- === LIMITS ===
-  included_hl     DECIMAL,                    -- Included hl/měsíc (NULL = unlimited)
-  overage_per_hl  DECIMAL,                    -- Kč za hl nad limit (NULL = no overage, hard stop)
-  max_users       INTEGER,                    -- Max uživatelů (NULL = unlimited)
-  
+  included_hl     DECIMAL,                    -- Included hl/month (NULL = unlimited)
+  overage_per_hl  DECIMAL,                    -- CZK per hl above limit (NULL = no overage, hard stop)
+  max_users       INTEGER,                    -- Max users (NULL = unlimited)
+
   -- === FEATURES ===
   included_modules TEXT[] NOT NULL,           -- {'brewery'} | {'brewery','stock'} | {'brewery','stock','sales','finance','plan'}
   api_access      BOOLEAN DEFAULT false,
   integrations    BOOLEAN DEFAULT false,
   priority_support BOOLEAN DEFAULT false,
-  
+
   -- === VERSIONING ===
-  version         INTEGER NOT NULL DEFAULT 1, -- Verze plánu
-  valid_from      DATE NOT NULL,              -- Platnost od
-  valid_to        DATE,                       -- Platnost do (NULL = aktuálně platný)
-  is_active       BOOLEAN DEFAULT true,       -- Lze na tento plán přejít
-  is_public       BOOLEAN DEFAULT true,       -- Zobrazit na pricing page
-  
+  version         INTEGER NOT NULL DEFAULT 1, -- Plan version
+  valid_from      DATE NOT NULL,              -- Valid from
+  valid_to        DATE,                       -- Valid to (NULL = currently active)
+  is_active       BOOLEAN DEFAULT true,       -- Can be switched to
+  is_public       BOOLEAN DEFAULT true,       -- Show on pricing page
+
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- Index pro rychlé nalezení aktuálně platné verze plánu
+-- Index for quick lookup of the currently valid plan version
 CREATE INDEX idx_plans_active ON plans(slug, valid_from) WHERE valid_to IS NULL;
 
 -- ============================================================
--- PLAN ADD-ONS (dokupitelné moduly k nižším tierům)
+-- PLAN ADD-ONS (purchasable modules for lower tiers)
 -- ============================================================
 CREATE TABLE plan_addons (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug            TEXT NOT NULL,              -- 'module_sales' | 'module_finance' | 'module_plan'
-  name            TEXT NOT NULL,              -- 'Obchod modul'
+  name            TEXT NOT NULL,              -- 'Sales module'
   module          TEXT NOT NULL,              -- 'sales' | 'finance' | 'plan'
-  price           DECIMAL NOT NULL,           -- Flat fee Kč/měsíc
+  price           DECIMAL NOT NULL,           -- Flat fee CZK/month
   currency        TEXT NOT NULL DEFAULT 'CZK',
-  
+
   -- === COMPATIBILITY ===
-  available_on_plans TEXT[] NOT NULL,         -- {'free','starter'} — na kterých plánech lze přidat
-  
+  available_on_plans TEXT[] NOT NULL,         -- {'free','starter'} — which plans allow this add-on
+
   -- === VERSIONING ===
   valid_from      DATE NOT NULL,
   valid_to        DATE,
   is_active       BOOLEAN DEFAULT true,
-  
+
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- ============================================================
--- SUBSCRIPTIONS (tenant ↔ plan — co tenant aktuálně platí)
+-- SUBSCRIPTIONS (tenant ↔ plan — what the tenant currently pays)
 -- ============================================================
 CREATE TABLE subscriptions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  plan_id         UUID NOT NULL REFERENCES plans(id),  -- Konkrétní VERZE plánu
+  plan_id         UUID NOT NULL REFERENCES plans(id),  -- Specific plan VERSION
   status          TEXT NOT NULL DEFAULT 'active',
     -- 'trialing' | 'active' | 'past_due' | 'cancelled' | 'paused'
-  
-  -- === OBDOBÍ ===
+
+  -- === PERIOD ===
   started_at      DATE NOT NULL,
   current_period_start DATE NOT NULL,
   current_period_end   DATE NOT NULL,
   cancelled_at    DATE,
-  cancel_at_period_end BOOLEAN DEFAULT false,  -- Zruší se na konci období
-  
+  cancel_at_period_end BOOLEAN DEFAULT false,  -- Cancel at end of period
+
   -- === PROMO / OVERRIDE ===
   promo_code      TEXT,
-  overage_waived_until DATE,                  -- Launch promo: hl neomezeno do tohoto data
-  price_override  DECIMAL,                    -- Individuální cena (NULL = dle plánu)
-  
+  overage_waived_until DATE,                  -- Launch promo: unlimited hl until this date
+  price_override  DECIMAL,                    -- Individual price (NULL = per plan)
+
   -- === STRIPE ===
   stripe_subscription_id TEXT,
   stripe_customer_id     TEXT,
-  
+
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- Tenant má vždy max 1 aktivní subscription
-CREATE UNIQUE INDEX idx_subscriptions_active 
-  ON subscriptions(tenant_id) 
+-- Tenant always has at most 1 active subscription
+CREATE UNIQUE INDEX idx_subscriptions_active
+  ON subscriptions(tenant_id)
   WHERE status IN ('trialing', 'active', 'past_due');
 
 -- ============================================================
--- SUBSCRIPTION ADD-ONS (aktivní add-ony tenantu)
+-- SUBSCRIPTION ADD-ONS (tenant's active add-ons)
 -- ============================================================
 CREATE TABLE subscription_addons (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subscription_id UUID NOT NULL REFERENCES subscriptions(id),
-  addon_id        UUID NOT NULL REFERENCES plan_addons(id),  -- Konkrétní verze add-onu
+  addon_id        UUID NOT NULL REFERENCES plan_addons(id),  -- Specific add-on version
   started_at      DATE NOT NULL,
   cancelled_at    DATE,
-  price_override  DECIMAL,                    -- Individuální cena (NULL = dle add-onu)
+  price_override  DECIMAL,                    -- Individual price (NULL = per add-on)
   created_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE(subscription_id, addon_id)
 );
 
 -- ============================================================
--- USAGE RECORDS (měsíční záznamy o spotřebě hl)
+-- USAGE RECORDS (monthly hl consumption records)
 -- ============================================================
 CREATE TABLE usage_records (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  period_start    DATE NOT NULL,              -- První den měsíce
-  period_end      DATE NOT NULL,              -- Poslední den měsíce
-  
-  -- === MĚŘENÍ ===
-  total_hl        DECIMAL NOT NULL DEFAULT 0, -- Celkem evidovaných hl za období
-  included_hl     DECIMAL NOT NULL,           -- Kolik hl bylo v ceně (snapshot z plánu)
+  period_start    DATE NOT NULL,              -- First day of month
+  period_end      DATE NOT NULL,              -- Last day of month
+
+  -- === MEASUREMENT ===
+  total_hl        DECIMAL NOT NULL DEFAULT 0, -- Total recorded hl for the period
+  included_hl     DECIMAL NOT NULL,           -- How many hl were included in price (snapshot from plan)
   overage_hl      DECIMAL GENERATED ALWAYS AS (GREATEST(total_hl - included_hl, 0)) STORED,
-  overage_rate    DECIMAL,                    -- Sazba Kč/hl (snapshot z plánu)
+  overage_rate    DECIMAL,                    -- Rate CZK/hl (snapshot from plan)
   overage_amount  DECIMAL GENERATED ALWAYS AS (GREATEST(total_hl - included_hl, 0) * COALESCE(overage_rate, 0)) STORED,
-  overage_waived  BOOLEAN DEFAULT false,      -- Promo: overage odpuštěn
-  
-  -- === ZDROJ DAT ===
-  batch_ids       UUID[],                     -- Šarže zahrnuté do výpočtu
-  calculated_at   TIMESTAMPTZ,                -- Kdy byl výpočet proveden
-  
+  overage_waived  BOOLEAN DEFAULT false,      -- Promo: overage waived
+
+  -- === DATA SOURCE ===
+  batch_ids       UUID[],                     -- Batches included in the calculation
+  calculated_at   TIMESTAMPTZ,                -- When the calculation was performed
+
   -- === BILLING ===
   invoiced        BOOLEAN DEFAULT false,
   stripe_invoice_item_id TEXT,
-  
+
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE(tenant_id, period_start)
 );
 
 -- ============================================================
--- SUBSCRIPTION HISTORY (log všech změn — audit trail)
+-- SUBSCRIPTION HISTORY (log of all changes — audit trail)
 -- ============================================================
 CREATE TABLE subscription_events (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -339,117 +339,117 @@ CREATE TABLE subscription_events (
     -- 'promo_applied' | 'overage_invoiced' | 'payment_failed' | 'payment_succeeded'
   old_plan_id     UUID REFERENCES plans(id),
   new_plan_id     UUID REFERENCES plans(id),
-  metadata        JSONB DEFAULT '{}',         -- Detaily události
-  created_by      UUID REFERENCES auth.users(id),  -- NULL = systém
+  metadata        JSONB DEFAULT '{}',         -- Event details
+  created_by      UUID REFERENCES auth.users(id),  -- NULL = system
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-#### Jak systém funguje za běhu
+#### How the System Works at Runtime
 
 ```
-Kontrola přístupu k modulu:
-  1. Najdi aktivní subscription tenantu
-  2. Z plan_id získej included_modules
-  3. Z subscription_addons získej extra moduly
-  4. Sjednoť → výsledná množina povolených modulů
-  5. Kešuj v JWT / session (invalidate při změně subscription)
+Module access check:
+  1. Find the tenant's active subscription
+  2. Get included_modules from plan_id
+  3. Get extra modules from subscription_addons
+  4. Merge → resulting set of allowed modules
+  5. Cache in JWT / session (invalidate on subscription change)
 
-Měsíční billing cycle (CRON / Supabase Edge Function):
-  1. Pro každého tenanta spočítej hl z batches za období
-  2. Vytvoř/updatuj usage_record
-  3. Pokud overage_waived (promo) → skip
-  4. Pokud overage_hl > 0 → vytvoř Stripe invoice item
-  5. Stripe vygeneruje fakturu: base fee + overage
+Monthly billing cycle (CRON / Supabase Edge Function):
+  1. For each tenant, calculate hl from batches for the period
+  2. Create/update usage_record
+  3. If overage_waived (promo) → skip
+  4. If overage_hl > 0 → create Stripe invoice item
+  5. Stripe generates invoice: base fee + overage
 
-Změna plánu:
-  1. Nová subscription s novým plan_id
-  2. Stará subscription status → 'cancelled'
-  3. Zápis do subscription_events (upgrade/downgrade)
-  4. Prorate přes Stripe (automaticky)
+Plan change:
+  1. New subscription with new plan_id
+  2. Old subscription status → 'cancelled'
+  3. Write to subscription_events (upgrade/downgrade)
+  4. Prorate via Stripe (automatically)
 ```
 
-#### Otevřené pricing otázky (→ samostatná analýza)
+#### Open Pricing Questions (→ separate analysis)
 
-| # | Otázka | Status |
-|---|--------|--------|
-| P1 | Konkrétní ceny tierů (Kč/měsíc) | 🔜 Analýza CZ trhu |
-| P2 | Included hl limity per tier | 🔜 Analýza CZ trhu |
-| P3 | Overage sazby (Kč/hl) | 🔜 Analýza CZ trhu |
-| P4 | Add-on ceny per modul | 🔜 Analýza CZ trhu |
-| P5 | Free tier limity (users, hl) | 🔜 Analýza CZ trhu |
-| P6 | Délka launch promo (měsíce bez overage) | 🔜 Business decision |
-| P7 | Roční vs měsíční billing (sleva za roční?) | 🔜 Business decision |
+| # | Question | Status |
+|---|----------|--------|
+| P1 | Specific tier prices (CZK/month) | 🔜 CZ market analysis |
+| P2 | Included hl limits per tier | 🔜 CZ market analysis |
+| P3 | Overage rates (CZK/hl) | 🔜 CZ market analysis |
+| P4 | Add-on prices per module | 🔜 CZ market analysis |
+| P5 | Free tier limits (users, hl) | 🔜 CZ market analysis |
+| P6 | Launch promo duration (months without overage) | 🔜 Business decision |
+| P7 | Annual vs monthly billing (discount for annual?) | 🔜 Business decision |
 
 ---
 
-## 3. AUTENTIZACE A ŘÍZENÍ PŘÍSTUPU (RBAC)
+## 3. AUTHENTICATION AND ACCESS CONTROL (RBAC)
 
-### 3.1 Auth flow
+### 3.1 Auth Flow
 
 ```
-Registrace nového pivovaru:
-  1. Uživatel vyplní registrační formulář
-  2. Systém vytvoří tenant + user + přiřadí roli "owner"
-  3. Supabase Auth vytvoří session
-  4. Redirect do onboarding wizard
-  5. Wizard: základní info o pivovaru, první provozovna, výrobní zařízení
+New brewery registration:
+  1. User fills in the registration form
+  2. System creates tenant + user + assigns "owner" role
+  3. Supabase Auth creates session
+  4. Redirect to onboarding wizard
+  5. Wizard: basic brewery info, first shop, production equipment
 
-Přihlášení existujícího uživatele:
-  1. Email + heslo (nebo magic link)
-  2. Supabase Auth ověří credentials
-  3. Middleware načte tenant_id + role z DB
-  4. JWT token obsahuje: user_id, tenant_id, role
+Existing user login:
+  1. Email + password (or magic link)
+  2. Supabase Auth verifies credentials
+  3. Middleware loads tenant_id + role from DB
+  4. JWT token contains: user_id, tenant_id, role
 ```
 
-### 3.2 Role a oprávnění
+### 3.2 Roles and Permissions
 
-| Role | Popis | Typický uživatel |
-|------|-------|------------------|
-| **owner** | Plný přístup + správa tenantu, billing | Majitel pivovaru |
-| **admin** | Plný přístup k datům, správa uživatelů | Provozní manažer |
-| **brewer** | Výroba, receptury, šarže, inventory | Sládek |
-| **sales** | Prodej, zákazníci, objednávky | Obchodník |
-| **viewer** | Pouze čtení | Externí konzultant, účetní |
+| Role | Description | Typical User |
+|------|-------------|--------------|
+| **owner** | Full access + tenant management, billing | Brewery owner |
+| **admin** | Full data access, user management | Operations manager |
+| **brewer** | Production, recipes, batches, inventory | Brewmaster |
+| **sales** | Sales, customers, orders | Sales representative |
+| **viewer** | Read only | External consultant, accountant |
 
-### 3.3 Permission matice
+### 3.3 Permission Matrix
 
 ```
 ┌──────────────────┬────────┬────────┬────────┬────────┬──────────┐
-│ Modul            │ owner  │ admin  │ brewer │ sales  │ viewer   │
+│ Module           │ owner  │ admin  │ brewer │ sales  │ viewer   │
 ├──────────────────┼────────┼────────┼────────┼────────┼──────────┤
-│ Položky/Suroviny │ CRUD   │ CRUD   │ CRU    │ R      │ R        │
-│ Receptury        │ CRUD   │ CRUD   │ CRUD   │ R      │ R        │
-│ Šarže/Výroba     │ CRUD   │ CRUD   │ CRUD   │ R      │ R        │
+│ Items/Materials  │ CRUD   │ CRUD   │ CRU    │ R      │ R        │
+│ Recipes          │ CRUD   │ CRUD   │ CRUD   │ R      │ R        │
+│ Batches/Brewing  │ CRUD   │ CRUD   │ CRUD   │ R      │ R        │
 │ Equipment        │ CRUD   │ CRUD   │ CRU    │ R      │ R        │
-│ Sklad            │ CRUD   │ CRUD   │ CRU    │ R      │ R        │
-│ Partneři         │ CRUD   │ CRUD   │ R      │ CRUD   │ R        │
-│ Objednávky       │ CRUD   │ CRUD   │ R      │ CRUD   │ R        │
-│ Ekonomika        │ CRUD   │ CRUD   │ -      │ R      │ R        │
-│ Spotřební daň    │ CRUD   │ CRUD   │ R      │ -      │ R        │
-│ Reporty          │ R      │ R      │ R*     │ R*     │ R*       │
-│ Provozovny       │ CRUD   │ CRU    │ R      │ R      │ R        │
-│ Uživatelé        │ CRUD   │ CRU    │ -      │ -      │ -        │
-│ Nastavení        │ CRUD   │ R      │ -      │ -      │ -        │
+│ Stock            │ CRUD   │ CRUD   │ CRU    │ R      │ R        │
+│ Partners         │ CRUD   │ CRUD   │ R      │ CRUD   │ R        │
+│ Orders           │ CRUD   │ CRUD   │ R      │ CRUD   │ R        │
+│ Finance          │ CRUD   │ CRUD   │ -      │ R      │ R        │
+│ Excise Tax       │ CRUD   │ CRUD   │ R      │ -      │ R        │
+│ Reports          │ R      │ R      │ R*     │ R*     │ R*       │
+│ Shops            │ CRUD   │ CRU    │ R      │ R      │ R        │
+│ Users            │ CRUD   │ CRU    │ -      │ -      │ -        │
+│ Settings         │ CRUD   │ R      │ -      │ -      │ -        │
 │ Billing          │ CRUD   │ -      │ -      │ -      │ -        │
 ├──────────────────┴────────┴────────┴────────┴────────┴──────────┤
-│ CRUD = Create, Read, Update, Delete | R = Read only             │
-│ R* = Read, omezeno na relevantní data pro roli | - = Bez přístupu│
-└─────────────────────────────────────────────────────────────────┘
+│ CRUD = Create, Read, Update, Delete | R = Read only              │
+│ R* = Read, limited to role-relevant data | - = No access         │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.4 DB struktura pro Auth + RBAC
+### 3.4 DB Structure for Auth + RBAC
 
 ```sql
 -- ============================================================
--- USERS (rozšíření Supabase auth.users)
+-- USERS (extension of Supabase auth.users)
 -- ============================================================
 CREATE TABLE user_profiles (
   id              UUID PRIMARY KEY REFERENCES auth.users(id),
   full_name       TEXT,
   avatar_url      TEXT,
   phone           TEXT,
-  is_superadmin   BOOLEAN DEFAULT false,   -- Systémový flag, přístup k admin panelu
+  is_superadmin   BOOLEAN DEFAULT false,   -- System flag, access to admin panel
   preferences     JSONB DEFAULT '{}',     -- UI preferences (menu state, preferred module, etc.)
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
@@ -464,7 +464,7 @@ CREATE TABLE user_profiles (
 -- }
 
 -- ============================================================
--- TENANT ↔ USER VZTAH
+-- TENANT ↔ USER RELATIONSHIP
 -- ============================================================
 CREATE TABLE tenant_users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -480,11 +480,11 @@ CREATE TABLE tenant_users (
 );
 
 -- ============================================================
--- ROLE PERMISSIONS (systémové + custom per tenant)
+-- ROLE PERMISSIONS (system + custom per tenant)
 -- ============================================================
 CREATE TABLE roles (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID REFERENCES tenants(id),    -- NULL = systémová role
+  tenant_id       UUID REFERENCES tenants(id),    -- NULL = system role
   name            TEXT NOT NULL,
   slug            TEXT NOT NULL,
   is_system       BOOLEAN DEFAULT false,
@@ -496,12 +496,12 @@ CREATE TABLE role_permissions (
   role_id         UUID NOT NULL REFERENCES roles(id),
   module          TEXT NOT NULL,       -- 'items', 'recipes', 'batches', 'orders'...
   action          TEXT NOT NULL,       -- 'create', 'read', 'update', 'delete'
-  conditions      JSONB,              -- Volitelná row-level omezení
+  conditions      JSONB,              -- Optional row-level restrictions
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- ============================================================
--- MODULE + AGENDA RIGHTS (granulární per user)
+-- MODULE + AGENDA RIGHTS (granular per user)
 -- ============================================================
 CREATE TABLE user_module_rights (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -531,71 +531,71 @@ CREATE TABLE user_agenda_rights (
 
 ## 4. REUSABLE COMPONENT LIBRARY
 
-### 4.1 Filozofie
+### 4.1 Philosophy
 
-Každá agenda v ProfiBrew používá **stejné stavební bloky**. Cíl: definovat jednou, použít všude. Claude Code dostane specifikaci komponent a generuje moduly jako skládanku z konfigurace.
+Every agenda in ProfiBrew uses the **same building blocks**. Goal: define once, use everywhere. Claude Code receives the component specification and generates modules as a puzzle from configuration.
 
-### 4.2 DataBrowser — hlavní browsovací komponenta
+### 4.2 DataBrowser — Main Browsing Component
 
-Podporuje dva režimy zobrazení: **List View** (tabulka) a **Card View** (dlaždice).
+Supports two display modes: **List View** (table) and **Card View** (tiles).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ DataBrowser                                                      │
 │                                                                  │
 │ ┌─ Toolbar ────────────────────────────────────────────────────┐ │
-│ │ [+ Nový záznam]  [≡ List] [⊞ Cards]  [Filtry ▾]             │ │
-│ │ [Uložené pohledy ▾]  🔍 Hledat      [Řazení ▾] [↕ A-Z]     │ │
+│ │ [+ New record]  [≡ List] [⊞ Cards]  [Filters ▾]             │ │
+│ │ [Saved views ▾]  🔍 Search          [Sort ▾] [↕ A-Z]        │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Quick Filters (tab-style) ──────────────────────────────────┐ │
-│ │ [Vše] [Slady a přísady] [Chmel] [Kvasnice] [···▾]           │ │
+│ │ [All] [Malts & adjuncts] [Hops] [Yeast] [···▾]              │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
-│ ┌─ Active Filters (chips — pokud nějaké aktivní) ──────────────┐ │
-│ │ Status: Aktivní ✕ │ Výrobce: Malina ✕ │ Vymazat vše         │ │
+│ ┌─ Active Filters (chips — if any active) ─────────────────────┐ │
+│ │ Status: Active ✕ │ Manufacturer: Malina ✕ │ Clear all        │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ═══════════════════════════════════════════════════════════════  │
 │                                                                  │
 │ LIST VIEW:                          CARD VIEW:                   │
 │ ┌─────────────────────────────┐     ┌──────┐ ┌──────┐ ┌──────┐ │
-│ │ ☐│Kód  │Název    │Cena│... │     │ img  │ │ img  │ │ img  │ │
-│ │ ☐│it001│Apollo   │990 │... │     │ Slad │ │ Chmel│ │ Slad │ │
-│ │ ☐│it002│Aromatic.│   -│... │     │Apollo│ │Citra │ │Aroma │ │
-│ │ ☐│it003│Cara Aro.│  50│... │     │990Kč │ │13,8α │ │50 Kč │ │
+│ │ ☐│Code │Name     │Price│...│     │ img  │ │ img  │ │ img  │ │
+│ │ ☐│it001│Apollo   │990  │...│     │ Malt │ │ Hop  │ │ Malt │ │
+│ │ ☐│it002│Aromatic.│   - │...│     │Apollo│ │Citra │ │Aroma │ │
+│ │ ☐│it003│Cara Aro.│  50 │...│     │990CZK│ │13.8α │ │50 CZK│ │
 │ └─────────────────────────────┘     │ 🗑📋↗│ │ 🗑📋↗│ │ 🗑📋↗│ │
 │                                      └──────┘ └──────┘ └──────┘ │
 │                                                                  │
-│ ┌─ Parametric Filter Panel (vysuvný z levé strany) ────────────┐ │
-│ │ Název:     [____________]                                    │ │
-│ │ Značka:    [Vyber ▾      ]                                   │ │
-│ │ ☐ Prodejní položka                                           │ │
-│ │ ☐ Zpřístupněno na pokladně                                   │ │
-│ │ Typ suroviny: [Vyber ▾  ]                                    │ │
-│ │ ☐ Základní vyráběná položka                                  │ │
-│ │ Kategorie: [Vyber ▾     ]                                    │ │
-│ │ [Použít filtr]  [Vymazat]                                    │ │
+│ ┌─ Parametric Filter Panel (slide-out from left) ─────────────┐ │
+│ │ Name:      [____________]                                    │ │
+│ │ Brand:     [Select ▾     ]                                   │ │
+│ │ ☐ Sale item                                                  │ │
+│ │ ☐ Available at POS                                           │ │
+│ │ Material type: [Select ▾ ]                                   │ │
+│ │ ☐ Base production item                                       │ │
+│ │ Category:  [Select ▾     ]                                   │ │
+│ │ [Apply filter]  [Clear]                                      │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Pagination ─────────────────────────────────────────────────┐ │
-│ │ celkem položek: 29 │ 15 ▾ položek na stránku │ ‹‹ ‹ 1 of 2 › ››│
+│ │ total items: 29 │ 15 ▾ items per page │ ‹‹ ‹ 1 of 2 › ››   │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
-│ ┌─ Bulk Actions (pokud vybrány záznamy) ───────────────────────┐ │
-│ │ Vybráno: 3  │  [Exportovat]  [Smazat]  [Změnit status]      │ │
+│ ┌─ Bulk Actions (if records selected) ─────────────────────────┐ │
+│ │ Selected: 3  │  [Export]  [Delete]  [Change status]          │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Konfigurace DataBrowseru (per agenda):**
+**DataBrowser Configuration (per agenda):**
 
 ```typescript
-// Příklad konfigurace pro agendu Položky (Items) — pohled "Suroviny"
+// Example configuration for the Items agenda — "Materials" view
 const materialsBrowserConfig: DataBrowserConfig = {
   entity: "items",
-  title: "Suroviny",
-  baseFilter: { is_brew_material: true }, // Filtr pro tento pohled
+  title: "Materials",
+  baseFilter: { is_brew_material: true }, // Filter for this view
 
   // === VIEW MODES ===
   views: {
@@ -604,10 +604,10 @@ const materialsBrowserConfig: DataBrowserConfig = {
       enabled: true,
       imageField: "image_url",
       titleField: "name",
-      subtitleField: "material_type",  // "Slad", "Chmel"...
+      subtitleField: "material_type",  // "Malt", "Hop"...
       badgeFields: ["is_brew_material", "is_sale_item"],
       metricFields: [
-        { key: "cost_price", label: "Cena", format: "currency" },
+        { key: "cost_price", label: "Price", format: "currency" },
         { key: "alpha", label: "Alpha", format: "0.0", showIf: "material_type=hop" },
       ],
       actions: ["delete", "duplicate", "detail"],
@@ -616,34 +616,34 @@ const materialsBrowserConfig: DataBrowserConfig = {
 
   // === LIST COLUMNS ===
   columns: [
-    { key: "code",           label: "Kód",           type: "text",    sortable: true, width: 100 },
-    { key: "name",           label: "Název",          type: "link",    sortable: true },
-    { key: "cost_price",     label: "Cena",           type: "number",  sortable: true, format: "currency" },
-    { key: "is_brew_material", label: "Surovina",     type: "boolean", sortable: false },
-    { key: "is_sale_item",   label: "Prodejní",       type: "boolean", sortable: false },
+    { key: "code",           label: "Code",           type: "text",    sortable: true, width: 100 },
+    { key: "name",           label: "Name",           type: "link",    sortable: true },
+    { key: "cost_price",     label: "Price",          type: "number",  sortable: true, format: "currency" },
+    { key: "is_brew_material", label: "Material",     type: "boolean", sortable: false },
+    { key: "is_sale_item",   label: "Sale item",      type: "boolean", sortable: false },
     { key: "alpha",          label: "Alpha",          type: "number",  sortable: true, format: "0.00" },
-    { key: "brand",          label: "Výrobce",        type: "text",    sortable: true },
-    { key: "from_library",   label: "Z knihovny",     type: "icon",    sortable: false },
+    { key: "brand",          label: "Manufacturer",   type: "text",    sortable: true },
+    { key: "from_library",   label: "From library",   type: "icon",    sortable: false },
   ],
 
-  // === QUICK FILTERS (tabs v toolbaru) ===
+  // === QUICK FILTERS (tabs in toolbar) ===
   quickFilters: [
-    { label: "Vše",              filter: {} },
-    { label: "Slady a přísady", filter: { material_type: ["malt", "adjunct"] } },
-    { label: "Chmel",           filter: { material_type: "hop" } },
-    { label: "Kvasnice",        filter: { material_type: "yeast" } },
+    { label: "All",                filter: {} },
+    { label: "Malts & adjuncts",  filter: { material_type: ["malt", "adjunct"] } },
+    { label: "Hops",              filter: { material_type: "hop" } },
+    { label: "Yeast",             filter: { material_type: "yeast" } },
   ],
 
-  // === PARAMETRIC FILTERS (vysuvný panel) ===
+  // === PARAMETRIC FILTERS (slide-out panel) ===
   filters: [
-    { key: "name",              label: "Název",            type: "text" },
-    { key: "brand",             label: "Značka/výrobce",   type: "select", optionsFrom: "items.brand" },
-    { key: "is_sale_item",      label: "Prodejní položka", type: "boolean" },
-    { key: "pos_available",     label: "Na pokladně",      type: "boolean" },
-    { key: "material_type",     label: "Typ suroviny",     type: "multiselect",
+    { key: "name",              label: "Name",              type: "text" },
+    { key: "brand",             label: "Brand/manufacturer",type: "select", optionsFrom: "items.brand" },
+    { key: "is_sale_item",      label: "Sale item",         type: "boolean" },
+    { key: "pos_available",     label: "At POS",            type: "boolean" },
+    { key: "material_type",     label: "Material type",     type: "multiselect",
       options: ["malt", "hop", "yeast", "adjunct", "other"] },
-    { key: "is_base_product",   label: "Zákl. vyráběná",   type: "boolean" },
-    { key: "stock_category",    label: "Kategorie skladu",  type: "select", optionsFrom: "categories" },
+    { key: "is_base_product",   label: "Base production",   type: "boolean" },
+    { key: "stock_category",    label: "Stock category",    type: "select", optionsFrom: "categories" },
   ],
 
   defaultSort: { key: "name", direction: "asc" },
@@ -651,7 +651,7 @@ const materialsBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50, 100],
 
   actions: {
-    create: { label: "Surovina", enabled: true },
+    create: { label: "Material", enabled: true },
     bulkDelete: true,
     bulkExport: true,
     rowClick: "detail",
@@ -666,182 +666,182 @@ const materialsBrowserConfig: DataBrowserConfig = {
 };
 ```
 
-### 4.3 Saved Views (Uložené pohledy)
+### 4.3 Saved Views
 
 ```sql
 CREATE TABLE saved_views (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  user_id         UUID REFERENCES auth.users(id),   -- NULL = sdílený pohled
+  user_id         UUID REFERENCES auth.users(id),   -- NULL = shared view
   entity          TEXT NOT NULL,                     -- 'items', 'batches', 'orders'...
-  name            TEXT NOT NULL,                     -- 'Aktivní ležáky'
+  name            TEXT NOT NULL,                     -- 'Active lagers'
   is_default      BOOLEAN DEFAULT false,
   is_shared       BOOLEAN DEFAULT false,
   view_mode       TEXT DEFAULT 'list',               -- 'list' | 'card'
-  config          JSONB NOT NULL,                    -- Kompletní stav browseru
+  config          JSONB NOT NULL,                    -- Complete browser state
   -- config: { filters, quickFilter, sort, columns, pageSize, viewMode }
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-### 4.4 DetailView (Detailní pohled záznamu)
+### 4.4 DetailView (Record Detail View)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ DetailView                                                       │
 │                                                                  │
 │ ┌─ Header ─────────────────────────────────────────────────────┐ │
-│ │ ◄ Zpět na seznam │ Editace položky        [🌐][🗑][📋][↗][💾][✕]│
-│ │                   │ [Právnická osoba ▾]    [Aktualizovat z ARES]│
+│ │ ◄ Back to list │ Edit item               [🌐][🗑][📋][↗][💾][✕]│
+│ │                │ [Legal entity ▾]         [Update from ARES]  │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Tabs ───────────────────────────────────────────────────────┐ │
-│ │ [Základní info] [Kontakty] [Bank.účty] [Adresy]             │ │
-│ │ [Obch.podmínky] [Doklady] [Logo, přílohy]                   │ │
+│ │ [Basic info] [Contacts] [Bank accts] [Addresses]             │ │
+│ │ [Trade terms] [Documents] [Logo, attachments]                │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Content Area ───────────────────────────────────────────────┐ │
 │ │                                                              │ │
-│ │  FormSection / vnořený DataBrowser / custom komponenta       │ │
+│ │  FormSection / nested DataBrowser / custom component         │ │
 │ │                                                              │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Footer ─────────────────────────────────────────────────────┐ │
-│ │                                    [Storno]  [Uložit]        │ │
+│ │                                    [Cancel]  [Save]          │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.5 FormSection (Formulářová sekce)
+### 4.5 FormSection
 
 ```
-Reusable formulářová komponenta:
-- Automaticky generovaná z field definice
-- Inline validace (Zod schema)
-- Podporované typy polí:
+Reusable form component:
+- Automatically generated from field definitions
+- Inline validation (Zod schema)
+- Supported field types:
     text, textarea, number, decimal, date, datetime,
     select, multiselect, toggle/checkbox, file_upload,
-    relation (lookup do jiné entity s vyhledáváním),
-    computed (read-only kalkulované pole),
-    color (barva položky),
-    currency (částka s měnou)
-- Responzivní grid layout (1-4 sloupce)
-- Režimy: create | edit | readonly
-- Conditional visibility (pole viditelné jen při splnění podmínky)
+    relation (lookup to another entity with search),
+    computed (read-only calculated field),
+    color (item color),
+    currency (amount with currency)
+- Responsive grid layout (1-4 columns)
+- Modes: create | edit | readonly
+- Conditional visibility (field visible only when condition is met)
 ```
 
-### 4.6 Layout a navigace
+### 4.6 Layout and Navigation
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ TopBar: [Pivovar Pancíř]  Pivovar│Sklad│Obchod│Finance│Plán     │
+│ TopBar: [Pivovar Pancíř]  Brewery│Stock│Sales│Finance│Plan       │
 │                                    [📋][🔔][❗][👤 Giorgina ▾]   │
 ├──────────┬───────────────────────────────────────────────────────┤
 │ Sidebar  │  Main Content Area                                    │
 │ «        │                                                       │
-│ ★ Přehled│  ┌─ Breadcrumb ─────────────────────────────────┐    │
-│          │  │ Pivovar > Suroviny > Apollo                   │    │
-│ PIVOVAR  │  └───────────────────────────────────────────────┘    │
+│ ★ Overview│  ┌─ Breadcrumb ─────────────────────────────────┐    │
+│          │  │ Brewery > Materials > Apollo                   │    │
+│ BREWERY  │  └───────────────────────────────────────────────┘    │
 │ 👥Partner│                                                       │
-│ 📇Kontakt│  ┌─ Page Content ────────────────────────────────┐    │
-│ 🧪Surovin│  │                                                │    │
-│ 📜Recept.│  │  DataBrowser / DetailView / Dashboard          │    │
-│ 🍺Vary   │  │                                                │    │
-│ 🫙Spilka │  └────────────────────────────────────────────────┘    │
-│ 🏪Sklep  │                                                       │
-│ 🍶Stáčírn│                                                       │
+│ 📇Contact│  ┌─ Page Content ────────────────────────────────┐    │
+│ 🧪Materi.│  │                                                │    │
+│ 📜Recipe │  │  DataBrowser / DetailView / Dashboard          │    │
+│ 🍺Batches│  │                                                │    │
+│ 🫙Fermen.│  └────────────────────────────────────────────────┘    │
+│ 🏪Cellar │                                                       │
+│ 🍶Packag.│                                                       │
 │          │                                                       │
-│ SKLAD    │                                                       │
-│ 📦Položky│                                                       │
-│ 📊Pohyby │                                                       │
-│ 📍Trackin│                                                       │
-│ 🏷️ Daň.p│                                                       │
-│ 📑Měs.pod│                                                       │
+│ STOCK    │                                                       │
+│ 📦Items  │                                                       │
+│ 📊Movem. │                                                       │
+│ 📍Tracki.│                                                       │
+│ 🏷️ Exc.t│                                                       │
+│ 📑Mo.rep.│                                                       │
 │          │                                                       │
-│ OBCHOD   │                                                       │
-│ 📋Objedn.│                                                       │
-│ (ceníky) │                                                       │
+│ SALES    │                                                       │
+│ 📋Orders │                                                       │
+│ (pricelst)│                                                       │
 │          │                                                       │
 │ FINANCE  │                                                       │
 │ 💰CashFl.│                                                       │
 │          │                                                       │
 │ ──────── │                                                       │
-│ ⚙️Nastav.│                                                       │
+│ ⚙️Settin.│                                                       │
 │ General  │                                                       │
 ├──────────┴───────────────────────────────────────────────────────┤
-│ Sidebar je collapsible (« ikony only)                            │
+│ Sidebar is collapsible (« icons only)                            │
 └──────────────────────────────────────────────────────────────────┘
 
-Navigační logika:
-- TopBar: Moduly jako hlavní sekce (Pivovar, Sklad, Obchod, Finance, Plán)
-- Sidebar: Agendy v rámci aktivního modulu
-- Sidebar se pamatuje stav (collapsed/expanded) per user
-- Aktivní modul/agenda zvýrazněn
+Navigation logic:
+- TopBar: Modules as main sections (Brewery, Stock, Sales, Finance, Plan)
+- Sidebar: Agendas within the active module
+- Sidebar remembers state (collapsed/expanded) per user
+- Active module/agenda is highlighted
 ```
 
 ---
 
-## 5. DATOVÝ MODEL — KOMPLETNÍ ENTITY
+## 5. DATA MODEL — COMPLETE ENTITIES
 
-### 5.1 Konvence
+### 5.1 Conventions
 
-**Každá tenant-scoped tabulka obsahuje:**
+**Every tenant-scoped table contains:**
 
-| Sloupec | Typ | Popis |
-|---------|-----|-------|
+| Column | Type | Description |
+|--------|------|-------------|
 | `id` | UUID PK | gen_random_uuid() |
-| `tenant_id` | UUID FK NOT NULL | Vazba na tenanta |
+| `tenant_id` | UUID FK NOT NULL | Reference to tenant |
 | `created_at` | TIMESTAMPTZ | DEFAULT now() |
 | `updated_at` | TIMESTAMPTZ | Trigger on update |
-| `created_by` | UUID FK | Kdo vytvořil (kde relevantní) |
+| `created_by` | UUID FK | Who created (where relevant) |
 
-**Pojmenování:**
-- Tabulky: snake_case, plurál (`items`, `batches`, `recipe_items`)
-- Sloupce: snake_case (`batch_number`, `created_at`)
-- Enum/status hodnoty: snake_case (`in_preparation`, `dry_hop`)
-- Soft delete: `is_active BOOLEAN` nebo `status = 'archived'`
+**Naming:**
+- Tables: snake_case, plural (`items`, `batches`, `recipe_items`)
+- Columns: snake_case (`batch_number`, `created_at`)
+- Enum/status values: snake_case (`in_preparation`, `dry_hop`)
+- Soft delete: `is_active BOOLEAN` or `status = 'archived'`
 
-**Base units pro ukládání:**
-- Objem: litry (l)
-- Hmotnost: gramy (g)
-- Teplota: °C
-- Čas: minuty
+**Base units for storage:**
+- Volume: liters (l)
+- Weight: grams (g)
+- Temperature: °C
+- Time: minutes
 
-### 5.2 Číslovací řady
+### 5.2 Numbering Sequences
 
 ```sql
 -- ============================================================
--- COUNTERS (konfigurovatelné číslovací řady)
+-- COUNTERS (configurable numbering sequences)
 -- ============================================================
 CREATE TABLE counters (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   entity          TEXT NOT NULL,          -- 'batch', 'order', 'stock_issue', 'item'...
   prefix          TEXT NOT NULL,          -- 'V', 'OBJ', 'PR', 'VD'...
-  include_year    BOOLEAN DEFAULT true,   -- Zda prefix obsahuje rok (V-2026-xxx)
-  current_number  INTEGER DEFAULT 0,      -- Poslední použité číslo
-  padding         INTEGER DEFAULT 3,      -- Počet cifer (001, 0001...)
-  separator       TEXT DEFAULT '-',       -- Oddělovač (V-2026-001 vs V/2026/001)
-  reset_yearly    BOOLEAN DEFAULT true,   -- Reset na 0 na začátku roku
+  include_year    BOOLEAN DEFAULT true,   -- Whether prefix includes year (V-2026-xxx)
+  current_number  INTEGER DEFAULT 0,      -- Last used number
+  padding         INTEGER DEFAULT 3,      -- Number of digits (001, 0001...)
+  separator       TEXT DEFAULT '-',       -- Separator (V-2026-001 vs V/2026/001)
+  reset_yearly    BOOLEAN DEFAULT true,   -- Reset to 0 at the beginning of each year
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE(tenant_id, entity)
 );
 
--- Defaultní řady při vytvoření tenantu:
+-- Default sequences when creating a tenant:
 -- batch:       V-{YYYY}-{NNN}       → V-2026-001
 -- order:       OBJ-{YYYY}-{NNNN}    → OBJ-2026-0001
--- stock_issue: PR-{YYYY}-{NNN}      → PR-2026-001 (příjemka)
---              VD-{YYYY}-{NNN}       → VD-2026-001 (výdejka)
+-- stock_issue: PR-{YYYY}-{NNN}      → PR-2026-001 (receipt, "příjemka")
+--              VD-{YYYY}-{NNN}      → VD-2026-001 (issue, "výdejka")
 -- item:        it{NNNNN}             → it00001
 ```
 
-### 5.3 Provozovny a zařízení
+### 5.3 Shops and Equipment
 
 ```sql
 -- ============================================================
--- SHOPS (Provozovny — pivovar, taproom, výčep, sklad)
+-- SHOPS (Locations — brewery, taproom, bar, warehouse)
 -- ============================================================
 CREATE TABLE shops (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -849,7 +849,7 @@ CREATE TABLE shops (
   name            TEXT NOT NULL,             -- "Pivovar Pancíř", "Taproom Žižkov"
   shop_type       TEXT NOT NULL,             -- 'brewery' | 'taproom' | 'warehouse' | 'office'
   address         JSONB,                     -- { street, city, zip, country }
-  is_default      BOOLEAN DEFAULT false,     -- Výchozí provozovna
+  is_default      BOOLEAN DEFAULT false,     -- Default location
   is_active       BOOLEAN DEFAULT true,
   settings        JSONB DEFAULT '{}',
   created_at      TIMESTAMPTZ DEFAULT now(),
@@ -857,86 +857,86 @@ CREATE TABLE shops (
 );
 
 -- ============================================================
--- EQUIPMENT (Výrobní zařízení — tanky, varny, stáčecí linky)
+-- EQUIPMENT (Production equipment — tanks, brewhouses, packaging lines)
 -- ============================================================
 CREATE TABLE equipment (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  shop_id         UUID REFERENCES shops(id), -- V které provozovně
-  name            TEXT NOT NULL,              -- "Varna 500l", "CKT #1"
+  shop_id         UUID REFERENCES shops(id), -- At which location
+  name            TEXT NOT NULL,              -- "Brewhouse 500l", "CKT #1"
   equipment_type  TEXT NOT NULL,              -- 'brewhouse' | 'fermenter' | 'brite_tank' |
                                               -- 'conditioning' | 'bottling_line' | 'keg_washer'
-  volume_l        DECIMAL,                   -- Kapacita v litrech (base unit)
+  volume_l        DECIMAL,                   -- Capacity in liters (base unit)
   status          TEXT DEFAULT 'available',   -- 'available' | 'in_use' | 'maintenance' | 'retired'
-  current_batch_id UUID REFERENCES batches(id), -- Aktuálně obsazující šarže
-  properties      JSONB DEFAULT '{}',        -- Specifické vlastnosti dle typu
+  current_batch_id UUID REFERENCES batches(id), -- Currently occupying batch
+  properties      JSONB DEFAULT '{}',        -- Type-specific properties
   notes           TEXT,
   is_active       BOOLEAN DEFAULT true,
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- properties příklady:
+-- properties examples:
 -- Fermenter: { "material": "stainless", "cooling": true, "pressure_rated": true }
 -- Brewhouse: { "mash_tun_volume_l": 600, "kettle_volume_l": 500 }
 ```
 
-### 5.4 Položky (Hybrid Items)
+### 5.4 Items (Hybrid Items)
 
 ```sql
 -- ============================================================
--- ITEMS (Unified — suroviny, produkty, vše v jednom)
+-- ITEMS (Unified — materials, products, everything in one)
 -- ============================================================
 CREATE TABLE items (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id         UUID NOT NULL REFERENCES tenants(id),
-  code              TEXT NOT NULL,              -- it00001 (z counteru)
+  code              TEXT NOT NULL,              -- it00001 (from counter)
   name              TEXT NOT NULL,              -- "Apollo", "Bomba 13 ležák"
-  brand             TEXT,                       -- Značka / výrobce
+  brand             TEXT,                       -- Brand / manufacturer
 
-  -- === FLAGS (co tato položka je) ===
-  is_brew_material  BOOLEAN DEFAULT false,      -- Surovina pro výrobu piva
-  is_production_item BOOLEAN DEFAULT false,     -- Položka pro evidenci výroby (pivo)
-  is_sale_item      BOOLEAN DEFAULT false,      -- Prodejní položka
-  is_excise_relevant BOOLEAN DEFAULT false,     -- Podléhá spotřební dani
+  -- === FLAGS (what this item is) ===
+  is_brew_material  BOOLEAN DEFAULT false,      -- Material for beer production
+  is_production_item BOOLEAN DEFAULT false,     -- Item for production tracking (beer)
+  is_sale_item      BOOLEAN DEFAULT false,      -- Sale item
+  is_excise_relevant BOOLEAN DEFAULT false,     -- Subject to excise tax ("spotřební daň")
 
   -- === STOCK ===
   stock_category    TEXT,                       -- 'raw_material' | 'finished_product' | 'packaging' | 'other'
   issue_mode        TEXT DEFAULT 'fifo',        -- 'fifo' | 'lifo' | 'average'
-  unit_id           UUID REFERENCES units(id),  -- Měrná jednotka
-  base_unit_amount  DECIMAL,                   -- Přepočet na základní jednotku
+  unit_id           UUID REFERENCES units(id),  -- Unit of measure
+  base_unit_amount  DECIMAL,                   -- Conversion to base unit
 
   -- === MATERIAL-SPECIFIC ===
   material_type     TEXT,                       -- 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
-  alpha             DECIMAL,                   -- Alfa kyseliny (chmel)
-  ebc               DECIMAL,                   -- Barva EBC (slad)
-  extract_percent   DECIMAL,                   -- Výtěžnost % (slad)
+  alpha             DECIMAL,                   -- Alpha acids (hops)
+  ebc               DECIMAL,                   -- Color EBC (malt)
+  extract_percent   DECIMAL,                   -- Yield % (malt)
 
   -- === PRODUCT-SPECIFIC ===
   packaging_type    TEXT,                       -- 'keg_30' | 'keg_50' | 'bottle_500' | 'can_330'...
-  volume_l          DECIMAL,                   -- Objem balení (l)
+  volume_l          DECIMAL,                   -- Package volume (l)
   abv               DECIMAL,                   -- ABV %
-  plato             DECIMAL,                   -- Stupňovitost (°P)
-  ean               TEXT,                       -- EAN kód
+  plato             DECIMAL,                   -- Original gravity (°P)
+  ean               TEXT,                       -- EAN code
 
   -- === PRICING ===
-  cost_price        DECIMAL,                   -- Kalkulační (nákupní) cena
-  avg_price         DECIMAL,                   -- Průměrná skladová cena
-  sale_price        DECIMAL,                   -- Prodejní cena
-  overhead_manual   BOOLEAN DEFAULT false,     -- Režie nastavená ručně
-  overhead_price    DECIMAL,                   -- Režijní cena pro prodej
+  cost_price        DECIMAL,                   -- Cost (purchase) price
+  avg_price         DECIMAL,                   -- Average stock price
+  sale_price        DECIMAL,                   -- Sale price
+  overhead_manual   BOOLEAN DEFAULT false,     -- Overhead set manually
+  overhead_price    DECIMAL,                   -- Overhead price for sales
 
   -- === POS / WEB ===
-  pos_available     BOOLEAN DEFAULT false,     -- Zpřístupnit na pokladně
-  web_available     BOOLEAN DEFAULT false,     -- Nabízet na webu
-  color             TEXT,                       -- Barva položky (hex)
+  pos_available     BOOLEAN DEFAULT false,     -- Available at POS
+  web_available     BOOLEAN DEFAULT false,     -- Offer on web
+  color             TEXT,                       -- Item color (hex)
 
   -- === META ===
   image_url         TEXT,
   notes             TEXT,
   is_active         BOOLEAN DEFAULT true,
-  is_from_library   BOOLEAN DEFAULT false,     -- Importováno z veřejné knihovny
-  source_library_id UUID,                      -- Odkaz na záznam v knihovně
+  is_from_library   BOOLEAN DEFAULT false,     -- Imported from public library
+  source_library_id UUID,                      -- Reference to library record
 
   created_by        UUID REFERENCES auth.users(id),
   created_at        TIMESTAMPTZ DEFAULT now(),
@@ -949,11 +949,11 @@ CREATE INDEX idx_items_tenant_product ON items(tenant_id) WHERE is_sale_item;
 CREATE INDEX idx_items_tenant_active ON items(tenant_id, is_active);
 
 -- ============================================================
--- ITEM CATEGORIES (systém kategorií)
+-- ITEM CATEGORIES (category system)
 -- ============================================================
 CREATE TABLE categories (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID REFERENCES tenants(id),  -- NULL = globální/systémová
+  tenant_id       UUID REFERENCES tenants(id),  -- NULL = global/system
   name            TEXT NOT NULL,
   category_type   TEXT NOT NULL,          -- 'stock' | 'cashflow' | 'product'
   parent_id       UUID REFERENCES categories(id),
@@ -968,23 +968,23 @@ CREATE TABLE item_categories (
 );
 
 -- ============================================================
--- UNITS (měrné jednotky)
+-- UNITS (units of measure)
 -- ============================================================
 CREATE TABLE units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID REFERENCES tenants(id),  -- NULL = systémová
-  name            TEXT NOT NULL,                 -- "kg", "l", "ks"
-  base_unit       TEXT,                         -- Pro konverze: 'g', 'ml' (base units)
+  tenant_id       UUID REFERENCES tenants(id),  -- NULL = system
+  name            TEXT NOT NULL,                 -- "kg", "l", "pcs"
+  base_unit       TEXT,                         -- For conversions: 'g', 'ml' (base units)
   conversion_factor DECIMAL,                    -- 1 kg = 1000 g → factor = 1000
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-### 5.5 Partneři (Unified)
+### 5.5 Partners (Unified)
 
 ```sql
 -- ============================================================
--- PARTNERS (zákazníci + dodavatelé v jednom)
+-- PARTNERS (customers + suppliers in one)
 -- ============================================================
 CREATE TABLE partners (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -999,8 +999,8 @@ CREATE TABLE partners (
   legal_form      TEXT,                         -- 'individual' | 'legal_entity'
   ico             TEXT,
   dic             TEXT,
-  dic_validated   BOOLEAN DEFAULT false,        -- Ověřeno přes ARES
-  legal_form_code TEXT,                         -- Kód právní formy z ARES
+  dic_validated   BOOLEAN DEFAULT false,        -- Verified via ARES
+  legal_form_code TEXT,                         -- Legal form code from ARES
 
   -- === CONTACT ===
   email           TEXT,
@@ -1008,35 +1008,35 @@ CREATE TABLE partners (
   mobile          TEXT,
   web             TEXT,
 
-  -- === ADDRESS (primární) ===
+  -- === ADDRESS (primary) ===
   address_street  TEXT,
   address_city    TEXT,
   address_zip     TEXT,
   country_id      UUID REFERENCES countries(id),
 
   -- === COMMERCIAL ===
-  payment_terms   INTEGER DEFAULT 14,           -- Splatnost ve dnech
-  price_list_id   UUID,                         -- FK na ceník (Fáze 2)
+  payment_terms   INTEGER DEFAULT 14,           -- Payment due in days
+  price_list_id   UUID,                         -- FK to price list (Phase 2)
   credit_limit    DECIMAL,
 
   -- === META ===
   logo_url        TEXT,
   notes           TEXT,
   is_active       BOOLEAN DEFAULT true,
-  last_sync_at    TIMESTAMPTZ,                  -- Poslední sync z ARES
+  last_sync_at    TIMESTAMPTZ,                  -- Last sync from ARES
 
   created_by      UUID REFERENCES auth.users(id),
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === KONTAKTY (více kontaktů na partnera) ===
+-- === CONTACTS (multiple contacts per partner) ===
 CREATE TABLE contacts (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   partner_id      UUID NOT NULL REFERENCES partners(id),
   name            TEXT NOT NULL,
-  position        TEXT,                         -- "ředitel", "nákupčí"
+  position        TEXT,                         -- "director", "buyer"
   email           TEXT,
   phone           TEXT,
   mobile          TEXT,
@@ -1046,13 +1046,13 @@ CREATE TABLE contacts (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === ADRESY (více adres na partnera) ===
+-- === ADDRESSES (multiple addresses per partner) ===
 CREATE TABLE addresses (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   partner_id      UUID NOT NULL REFERENCES partners(id),
   address_type    TEXT NOT NULL,                -- 'billing' | 'delivery' | 'other'
-  label           TEXT,                         -- "Hlavní sklad", "Provozovna Vinohrady"
+  label           TEXT,                         -- "Main warehouse", "Vinohrady location"
   street          TEXT,
   city            TEXT,
   zip             TEXT,
@@ -1061,25 +1061,25 @@ CREATE TABLE addresses (
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === BANKOVNÍ ÚČTY ===
+-- === BANK ACCOUNTS ===
 CREATE TABLE partner_bank_accounts (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   partner_id      UUID NOT NULL REFERENCES partners(id),
   bank_name       TEXT,
-  account_number  TEXT,                         -- Číslo účtu
+  account_number  TEXT,                         -- Account number
   iban            TEXT,
   swift           TEXT,
   is_default      BOOLEAN DEFAULT false,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === PŘÍLOHY (generické — použitelné pro partnery i jiné entity) ===
+-- === ATTACHMENTS (generic — usable for partners and other entities) ===
 CREATE TABLE attachments (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   entity_type     TEXT NOT NULL,                -- 'partner', 'item', 'batch', 'order'...
-  entity_id       UUID NOT NULL,                -- ID záznamu
+  entity_id       UUID NOT NULL,                -- Record ID
   file_name       TEXT NOT NULL,
   file_url        TEXT NOT NULL,                -- Supabase Storage URL
   file_size       INTEGER,
@@ -1089,7 +1089,7 @@ CREATE TABLE attachments (
 );
 CREATE INDEX idx_attachments_entity ON attachments(tenant_id, entity_type, entity_id);
 
--- === COUNTRIES (systémový číselník) ===
+-- === COUNTRIES (system codebook) ===
 CREATE TABLE countries (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code            TEXT UNIQUE NOT NULL,         -- 'CZ', 'SK', 'PL'
@@ -1099,7 +1099,7 @@ CREATE TABLE countries (
 );
 ```
 
-### 5.6 Receptury
+### 5.6 Recipes
 
 ```sql
 -- ============================================================
@@ -1108,26 +1108,26 @@ CREATE TABLE countries (
 CREATE TABLE recipes (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             UUID NOT NULL REFERENCES tenants(id),
-  code                  TEXT,                     -- Interní kód
+  code                  TEXT,                     -- Internal code
   name                  TEXT NOT NULL,
   beer_style_id         UUID REFERENCES beer_styles(id),
   status                TEXT DEFAULT 'draft',     -- 'draft' | 'active' | 'archived'
 
-  -- === PARAMETRY ===
-  batch_size_l          DECIMAL,                 -- Cílový objem (litry, net)
-  batch_size_bruto_l    DECIMAL,                 -- Bruto objem
-  beer_volume_l         DECIMAL,                 -- Objem hotového piva
+  -- === PARAMETERS ===
+  batch_size_l          DECIMAL,                 -- Target volume (liters, net)
+  batch_size_bruto_l    DECIMAL,                 -- Gross volume
+  beer_volume_l         DECIMAL,                 -- Finished beer volume
   og                    DECIMAL,                 -- Original gravity (Plato)
   fg                    DECIMAL,                 -- Final gravity
-  abv                   DECIMAL,                 -- Alkohol %
-  ibu                   DECIMAL,                 -- Hořkost
-  ebc                   DECIMAL,                 -- Barva
-  boil_time_min         INTEGER,                 -- Délka chmelovaru
-  cost_price            DECIMAL,                 -- Kalkulovaná cena várky
+  abv                   DECIMAL,                 -- Alcohol %
+  ibu                   DECIMAL,                 -- Bitterness
+  ebc                   DECIMAL,                 -- Color
+  boil_time_min         INTEGER,                 -- Boil duration
+  cost_price            DECIMAL,                 -- Calculated batch cost
 
-  -- === FERMENTACE ===
-  duration_fermentation_days INTEGER,             -- Doba hlavního kvašení
-  duration_conditioning_days INTEGER,             -- Doba dokvašování
+  -- === FERMENTATION ===
+  duration_fermentation_days INTEGER,             -- Primary fermentation duration
+  duration_conditioning_days INTEGER,             -- Conditioning duration
 
   -- === META ===
   notes                 TEXT,
@@ -1139,24 +1139,24 @@ CREATE TABLE recipes (
   updated_at            TIMESTAMPTZ DEFAULT now()
 );
 
--- === RECIPE ITEMS (suroviny v receptuře) ===
+-- === RECIPE ITEMS (ingredients in recipe) ===
 CREATE TABLE recipe_items (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   recipe_id       UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   item_id         UUID NOT NULL REFERENCES items(id),
   category        TEXT NOT NULL,               -- 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
-  amount_g        DECIMAL NOT NULL,            -- Množství v gramech (base unit)
+  amount_g        DECIMAL NOT NULL,            -- Amount in grams (base unit)
   use_stage       TEXT,                        -- 'mash' | 'boil' | 'whirlpool' | 'fermentation' | 'dry_hop'
-  use_time_min    INTEGER,                     -- Čas přidání (min)
-  hop_phase       TEXT,                        -- Fáze chmelení (pro chmely)
+  use_time_min    INTEGER,                     -- Addition time (min)
+  hop_phase       TEXT,                        -- Hop addition phase (for hops)
   notes           TEXT,
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === RECIPE STEPS (rmutovací / výrobní kroky) ===
+-- === RECIPE STEPS (mashing / production steps) ===
 CREATE TABLE recipe_steps (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
@@ -1165,36 +1165,36 @@ CREATE TABLE recipe_steps (
   step_type       TEXT NOT NULL,               -- 'mash_in' | 'rest' | 'decoction' | 'mash_out' |
                                                 -- 'boil' | 'whirlpool' | 'cooling'
   name            TEXT NOT NULL,
-  temperature_c   DECIMAL,                     -- Cílová teplota (°C)
-  time_min        INTEGER,                     -- Délka kroku (min)
-  ramp_time_min   INTEGER,                     -- Čas ohřevu na cílovou teplotu
-  temp_gradient   DECIMAL,                     -- Teplotní gradient
+  temperature_c   DECIMAL,                     -- Target temperature (°C)
+  time_min        INTEGER,                     -- Step duration (min)
+  ramp_time_min   INTEGER,                     -- Ramp time to target temperature
+  temp_gradient   DECIMAL,                     -- Temperature gradient
   notes           TEXT,
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === MASHING PROFILES (znovupoužitelné rmutovací profily) ===
+-- === MASHING PROFILES (reusable mashing profiles) ===
 CREATE TABLE mashing_profiles (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID REFERENCES tenants(id),  -- NULL = systémový/knihovna
+  tenant_id       UUID REFERENCES tenants(id),  -- NULL = system/library
   name            TEXT NOT NULL,
-  steps           JSONB NOT NULL,               -- Array kroků { name, temp, time, ramp_time }
+  steps           JSONB NOT NULL,               -- Array of steps { name, temp, time, ramp_time }
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === RECIPE CALCULATION (snapshot kalkulace) ===
+-- === RECIPE CALCULATION (calculation snapshot) ===
 CREATE TABLE recipe_calculations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   recipe_id       UUID NOT NULL REFERENCES recipes(id),
   calculated_at   TIMESTAMPTZ DEFAULT now(),
-  data            JSONB NOT NULL,              -- Kompletní kalkulace (cena, OG, IBU...)
+  data            JSONB NOT NULL,              -- Complete calculation (cost, OG, IBU...)
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === BEER STYLES (systémový číselník — BJCP) ===
+-- === BEER STYLES (system codebook — BJCP) ===
 CREATE TABLE beer_styles (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bjcp_number     TEXT,                         -- "2A"
@@ -1226,48 +1226,48 @@ CREATE TABLE beer_style_groups (
 );
 ```
 
-### 5.7 Výroba (Šarže / Várky)
+### 5.7 Production (Batches / Brews)
 
 ```sql
 -- ============================================================
--- BATCHES (Šarže / Várky)
+-- BATCHES (Batches / Brews)
 -- ============================================================
 CREATE TABLE batches (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id         UUID NOT NULL REFERENCES tenants(id),
-  batch_number      TEXT NOT NULL,              -- V-2026-001 (z counteru)
-  batch_seq         INTEGER,                    -- Pořadové číslo várky
+  batch_number      TEXT NOT NULL,              -- V-2026-001 (from counter)
+  batch_seq         INTEGER,                    -- Sequential batch number
   recipe_id         UUID REFERENCES recipes(id),
-  item_id           UUID REFERENCES items(id),  -- Výrobní položka (pivo)
+  item_id           UUID REFERENCES items(id),  -- Production item (beer)
   status            TEXT DEFAULT 'planned',
     -- 'planned' | 'brewing' | 'fermenting' | 'conditioning' |
     -- 'carbonating' | 'packaging' | 'completed' | 'dumped'
-  brew_status       TEXT,                       -- Detailnější status vaření
+  brew_status       TEXT,                       -- More detailed brewing status
 
   -- === DATES ===
-  planned_date      DATE,                       -- Plánovaný den vaření
-  brew_date         DATE,                       -- Skutečný den vaření
-  end_brew_date     DATE,                       -- Konec výroby
+  planned_date      DATE,                       -- Planned brewing day
+  brew_date         DATE,                       -- Actual brewing day
+  end_brew_date     DATE,                       -- End of production
 
   -- === ACTUAL VALUES ===
-  actual_volume_l   DECIMAL,                    -- Skutečný objem
-  og_actual         DECIMAL,                    -- Skutečná OG (Plato)
+  actual_volume_l   DECIMAL,                    -- Actual volume
+  og_actual         DECIMAL,                    -- Actual OG (Plato)
   fg_actual         DECIMAL,
   abv_actual        DECIMAL,
 
   -- === EQUIPMENT ===
-  equipment_id      UUID REFERENCES equipment(id),  -- Primární tank
+  equipment_id      UUID REFERENCES equipment(id),  -- Primary tank
 
   -- === BATCH LINKING ===
-  primary_batch_id  UUID REFERENCES batches(id),  -- Pro split/blend: odkaz na primární šarži
+  primary_batch_id  UUID REFERENCES batches(id),  -- For split/blend: reference to primary batch
 
   -- === EXCISE ===
-  excise_relevant_hl  DECIMAL,                  -- Objem podléhající spotřební dani (hl)
-  excise_reported_hl  DECIMAL,                  -- Objem nahlášený celní správě
+  excise_relevant_hl  DECIMAL,                  -- Volume subject to excise tax (hl)
+  excise_reported_hl  DECIMAL,                  -- Volume reported to customs authority
   excise_status       TEXT,                     -- 'pending' | 'reported' | 'paid'
 
   -- === META ===
-  is_paused         BOOLEAN DEFAULT false,      -- Pozastaveno
+  is_paused         BOOLEAN DEFAULT false,      -- Paused
   notes             TEXT,
   brewer_id         UUID REFERENCES auth.users(id),
   created_by        UUID REFERENCES auth.users(id),
@@ -1279,85 +1279,85 @@ CREATE TABLE batches (
 CREATE INDEX idx_batches_tenant_status ON batches(tenant_id, status);
 CREATE INDEX idx_batches_tenant_date ON batches(tenant_id, brew_date);
 
--- === BATCH STEPS (kroky vaření — instance z recipe_steps) ===
+-- === BATCH STEPS (brewing steps — instances from recipe_steps) ===
 CREATE TABLE batch_steps (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   batch_id        UUID NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
-  step_type       TEXT NOT NULL,                -- Typ kroku (z recipe)
+  step_type       TEXT NOT NULL,                -- Step type (from recipe)
   brew_phase      TEXT NOT NULL,                -- 'mashing' | 'boiling' | 'fermentation' | 'conditioning'
   name            TEXT NOT NULL,
   temperature_c   DECIMAL,
-  time_min        INTEGER,                      -- Plánovaný čas
-  pause_min       INTEGER,                      -- Pauza
-  auto_switch     BOOLEAN DEFAULT false,        -- Automatický přechod na další krok
+  time_min        INTEGER,                      -- Planned time
+  pause_min       INTEGER,                      -- Pause
+  auto_switch     BOOLEAN DEFAULT false,        -- Automatic transition to next step
   equipment_id    UUID REFERENCES equipment(id),
 
   -- === ACTUAL ===
-  start_time_plan TIMESTAMPTZ,                  -- Plánovaný start
-  start_time_real TIMESTAMPTZ,                  -- Skutečný start
-  end_time_real   TIMESTAMPTZ,                  -- Skutečný konec
+  start_time_plan TIMESTAMPTZ,                  -- Planned start
+  start_time_real TIMESTAMPTZ,                  -- Actual start
+  end_time_real   TIMESTAMPTZ,                  -- Actual end
 
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === BATCH MEASUREMENTS (měření během výroby) ===
+-- === BATCH MEASUREMENTS (measurements during production) ===
 CREATE TABLE batch_measurements (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   batch_id        UUID NOT NULL REFERENCES batches(id),
   measurement_type TEXT NOT NULL,               -- 'gravity' | 'temperature' | 'ph' | 'volume' | 'pressure'
-  value           DECIMAL,                      -- Hlavní hodnota
-  value_plato     DECIMAL,                      -- Stupňovitost (°P)
+  value           DECIMAL,                      -- Main value
+  value_plato     DECIMAL,                      -- Gravity (°P)
   value_sg        DECIMAL,                      -- Specific gravity
-  temperature_c   DECIMAL,                      -- Teplota při měření
-  is_start        BOOLEAN DEFAULT false,        -- Počáteční měření
-  is_end          BOOLEAN DEFAULT false,        -- Koncové měření
+  temperature_c   DECIMAL,                      -- Temperature at measurement
+  is_start        BOOLEAN DEFAULT false,        -- Starting measurement
+  is_end          BOOLEAN DEFAULT false,        -- Ending measurement
   notes           TEXT,
   measured_at     TIMESTAMPTZ DEFAULT now(),
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === BATCH NOTES (poznámky ke krokům / šarži) ===
+-- === BATCH NOTES (notes on steps / batch) ===
 CREATE TABLE batch_notes (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   batch_id        UUID NOT NULL REFERENCES batches(id),
-  batch_step_id   UUID REFERENCES batch_steps(id),  -- NULL = poznámka k celé šarži
+  batch_step_id   UUID REFERENCES batch_steps(id),  -- NULL = note for the entire batch
   text            TEXT NOT NULL,
   created_by      UUID REFERENCES auth.users(id),
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === BOTTLING ITEMS (stáčení) ===
+-- === BOTTLING ITEMS (packaging) ===
 CREATE TABLE bottling_items (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   batch_id        UUID NOT NULL REFERENCES batches(id),
-  item_id         UUID NOT NULL REFERENCES items(id),    -- Produkt (lahev, sud...)
-  quantity        DECIMAL NOT NULL,                      -- Počet kusů
-  base_units      DECIMAL,                               -- Celkový objem v base unit (l)
+  item_id         UUID NOT NULL REFERENCES items(id),    -- Product (bottle, keg...)
+  quantity        DECIMAL NOT NULL,                      -- Number of units
+  base_units      DECIMAL,                               -- Total volume in base unit (l)
   bottled_at      DATE NOT NULL,
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-### 5.8 Skladové hospodářství
+### 5.8 Inventory Management
 
 ```sql
 -- ============================================================
--- WAREHOUSES (Sklady)
+-- WAREHOUSES
 -- ============================================================
 CREATE TABLE warehouses (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   shop_id         UUID REFERENCES shops(id),
   code            TEXT NOT NULL,
-  name            TEXT NOT NULL,                   -- "Hlavní sklad", "Sklad surovin"
-  is_excise_relevant BOOLEAN DEFAULT false,        -- Sklad podléhá daňové evidenci
-  categories      TEXT[],                          -- Povolené kategorie v tomto skladu
+  name            TEXT NOT NULL,                   -- "Main warehouse", "Raw materials warehouse"
+  is_excise_relevant BOOLEAN DEFAULT false,        -- Warehouse subject to tax records
+  categories      TEXT[],                          -- Allowed categories in this warehouse
   is_default      BOOLEAN DEFAULT false,
   is_active       BOOLEAN DEFAULT true,
   created_at      TIMESTAMPTZ DEFAULT now(),
@@ -1366,7 +1366,7 @@ CREATE TABLE warehouses (
 );
 
 -- ============================================================
--- STOCK ISSUES (Skladové doklady — příjemky + výdejky)
+-- STOCK ISSUES (Stock documents — receipts + issues)
 -- ============================================================
 CREATE TABLE stock_issues (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1384,13 +1384,13 @@ CREATE TABLE stock_issues (
 
   -- === REFERENCES ===
   warehouse_id    UUID NOT NULL REFERENCES warehouses(id),
-  partner_id      UUID REFERENCES partners(id),     -- Dodavatel/odběratel
-  order_id        UUID REFERENCES orders(id),       -- Obchodní objednávka
-  batch_id        UUID REFERENCES batches(id),      -- Výrobní šarže
-  season          TEXT,                             -- Sezóna
+  partner_id      UUID REFERENCES partners(id),     -- Supplier/customer
+  order_id        UUID REFERENCES orders(id),       -- Sales order
+  batch_id        UUID REFERENCES batches(id),      -- Production batch
+  season          TEXT,                             -- Season
 
-  additional_cost DECIMAL DEFAULT 0,                -- Vedlejší pořizovací náklady
-  total_cost      DECIMAL DEFAULT 0,                -- Celková hodnota dokladu
+  additional_cost DECIMAL DEFAULT 0,                -- Additional acquisition costs
+  total_cost      DECIMAL DEFAULT 0,                -- Total document value
 
   notes           TEXT,
   created_by      UUID REFERENCES auth.users(id),
@@ -1399,44 +1399,44 @@ CREATE TABLE stock_issues (
   UNIQUE(tenant_id, code)
 );
 
--- === STOCK ISSUE LINES (řádky dokladu) ===
+-- === STOCK ISSUE LINES (document lines) ===
 CREATE TABLE stock_issue_lines (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   stock_issue_id  UUID NOT NULL REFERENCES stock_issues(id) ON DELETE CASCADE,
   item_id         UUID NOT NULL REFERENCES items(id),
   line_no         INTEGER,
-  requested_qty   DECIMAL NOT NULL,                -- Požadované množství
-  issued_qty      DECIMAL,                         -- Skutečně vydané/přijaté
-  missing_qty     DECIMAL,                         -- Chybějící
-  unit_price      DECIMAL,                         -- Jednotková cena
-  total_cost      DECIMAL,                         -- Řádek celkem
-  issue_mode_snapshot TEXT,                        -- Snapshot FIFO/LIFO z item
+  requested_qty   DECIMAL NOT NULL,                -- Requested quantity
+  issued_qty      DECIMAL,                         -- Actually issued/received
+  missing_qty     DECIMAL,                         -- Missing
+  unit_price      DECIMAL,                         -- Unit price
+  total_cost      DECIMAL,                         -- Line total
+  issue_mode_snapshot TEXT,                        -- Snapshot of FIFO/LIFO from item
   notes           TEXT,
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === STOCK ISSUE ALLOCATIONS (FIFO/LIFO alokace) ===
+-- === STOCK ISSUE ALLOCATIONS (FIFO/LIFO allocations) ===
 CREATE TABLE stock_issue_allocations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   stock_issue_line_id UUID NOT NULL REFERENCES stock_issue_lines(id),
-  source_movement_id  UUID NOT NULL REFERENCES stock_movements(id),  -- Z jakého příjmu
+  source_movement_id  UUID NOT NULL REFERENCES stock_movements(id),  -- From which receipt
   quantity        DECIMAL NOT NULL,
-  unit_price      DECIMAL NOT NULL,                -- Cena z příjmu
+  unit_price      DECIMAL NOT NULL,                -- Price from receipt
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === STOCK MOVEMENTS (atomické pohyby) ===
+-- === STOCK MOVEMENTS (atomic movements) ===
 CREATE TABLE stock_movements (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   item_id         UUID NOT NULL REFERENCES items(id),
   warehouse_id    UUID NOT NULL REFERENCES warehouses(id),
   movement_type   TEXT NOT NULL,                    -- 'in' | 'out'
-  quantity        DECIMAL NOT NULL,                 -- Kladné = příjem, záporné = výdej
-  unit_price      DECIMAL,                         -- Cena za jednotku
+  quantity        DECIMAL NOT NULL,                 -- Positive = receipt, negative = issue
+  unit_price      DECIMAL,                         -- Price per unit
 
   -- === REFERENCES ===
   stock_issue_id  UUID REFERENCES stock_issues(id),
@@ -1445,7 +1445,7 @@ CREATE TABLE stock_movements (
   batch_id        UUID REFERENCES batches(id),
   lot_id          UUID REFERENCES material_lots(id),  -- Lot tracking
 
-  is_closed       BOOLEAN DEFAULT false,            -- Uzavřeno (plně alokováno)
+  is_closed       BOOLEAN DEFAULT false,            -- Closed (fully allocated)
   date            DATE NOT NULL,
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT now()
@@ -1454,40 +1454,40 @@ CREATE TABLE stock_movements (
 CREATE INDEX idx_movements_tenant_item ON stock_movements(tenant_id, item_id, date);
 CREATE INDEX idx_movements_tenant_warehouse ON stock_movements(tenant_id, warehouse_id, date);
 
--- === STOCK STATUS (materializovaný stav skladu — per item, per warehouse) ===
+-- === STOCK STATUS (materialized stock state — per item, per warehouse) ===
 CREATE TABLE stock_status (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   item_id         UUID NOT NULL REFERENCES items(id),
   warehouse_id    UUID NOT NULL REFERENCES warehouses(id),
-  quantity        DECIMAL DEFAULT 0,               -- Aktuální stav
-  reserved_qty    DECIMAL DEFAULT 0,               -- Rezervováno (naplánované výdeje)
+  quantity        DECIMAL DEFAULT 0,               -- Current stock
+  reserved_qty    DECIMAL DEFAULT 0,               -- Reserved (planned issues)
   available_qty   DECIMAL GENERATED ALWAYS AS (quantity - reserved_qty) STORED,
   updated_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE(tenant_id, item_id, warehouse_id)
 );
 
 -- ============================================================
--- MATERIAL LOTS (Lot tracking surovin)
+-- MATERIAL LOTS (Lot tracking of materials)
 -- ============================================================
 CREATE TABLE material_lots (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   item_id         UUID NOT NULL REFERENCES items(id),
-  lot_number      TEXT NOT NULL,                    -- Číslo šarže dodavatele
-  supplier_id     UUID REFERENCES partners(id),     -- Dodavatel
-  received_date   DATE,                             -- Datum příjmu
-  expiry_date     DATE,                             -- Datum expirace
-  quantity_initial DECIMAL,                         -- Původní množství
-  quantity_remaining DECIMAL,                       -- Zbývající množství
-  unit_price      DECIMAL,                         -- Nákupní cena
-  properties      JSONB DEFAULT '{}',              -- Certifikát, analýza...
+  lot_number      TEXT NOT NULL,                    -- Supplier's lot number
+  supplier_id     UUID REFERENCES partners(id),     -- Supplier
+  received_date   DATE,                             -- Receipt date
+  expiry_date     DATE,                             -- Expiration date
+  quantity_initial DECIMAL,                         -- Initial quantity
+  quantity_remaining DECIMAL,                       -- Remaining quantity
+  unit_price      DECIMAL,                         -- Purchase price
+  properties      JSONB DEFAULT '{}',              -- Certificate, analysis...
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === LOT ↔ BATCH vazba (jaké loty surovin šly do které šarže) ===
+-- === LOT ↔ BATCH link (which material lots went into which batch) ===
 CREATE TABLE batch_material_lots (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
@@ -1499,17 +1499,17 @@ CREATE TABLE batch_material_lots (
 );
 ```
 
-### 5.9 Objednávky
+### 5.9 Orders
 
 ```sql
 -- ============================================================
--- ORDERS (Obchodní objednávky)
+-- ORDERS (Sales orders)
 -- ============================================================
 CREATE TABLE orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   order_number    TEXT NOT NULL,                    -- OBJ-2026-0001
-  order_no        INTEGER,                         -- Pořadové číslo
+  order_no        INTEGER,                         -- Sequential number
   partner_id      UUID NOT NULL REFERENCES partners(id),
   status          TEXT DEFAULT 'draft',
     -- 'draft' | 'confirmed' | 'in_preparation' | 'shipped' |
@@ -1523,7 +1523,7 @@ CREATE TABLE orders (
   total_excl_vat  DECIMAL DEFAULT 0,
   total_vat       DECIMAL DEFAULT 0,
   total_incl_vat  DECIMAL DEFAULT 0,
-  cashflow_id     UUID REFERENCES cashflows(id),    -- Vazba na cash flow
+  cashflow_id     UUID REFERENCES cashflows(id),    -- Link to cash flow
 
   -- === META ===
   notes           TEXT,
@@ -1534,7 +1534,7 @@ CREATE TABLE orders (
   UNIQUE(tenant_id, order_number)
 );
 
--- === ORDER ITEMS (řádky objednávky) ===
+-- === ORDER ITEMS (order lines) ===
 CREATE TABLE order_items (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
@@ -1545,40 +1545,40 @@ CREATE TABLE order_items (
   vat_rate        DECIMAL DEFAULT 21,
   discount_pct    DECIMAL DEFAULT 0,
   total_excl_vat  DECIMAL,
-  deposit_id      UUID REFERENCES deposits(id),     -- Záloha (sudy)
+  deposit_id      UUID REFERENCES deposits(id),     -- Deposit (kegs)
   notes           TEXT,
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === DEPOSITS (zálohy za obaly — sudy, přepravky) ===
+-- === DEPOSITS (container deposits — kegs, crates) ===
 CREATE TABLE deposits (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  name            TEXT NOT NULL,                    -- "Sud 30l", "Přepravka"
-  deposit_amount  DECIMAL NOT NULL,                -- Výše zálohy
+  name            TEXT NOT NULL,                    -- "Keg 30l", "Crate"
+  deposit_amount  DECIMAL NOT NULL,                -- Deposit amount
   is_active       BOOLEAN DEFAULT true,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-### 5.10 Ekonomika (CashFlow)
+### 5.10 Finance (CashFlow)
 
 ```sql
 -- ============================================================
--- CASHFLOWS (Příjmy a výdaje)
+-- CASHFLOWS (Income and expenses)
 -- ============================================================
 CREATE TABLE cashflows (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   code            TEXT,                             -- CF-2026-001
   cashflow_type   TEXT NOT NULL,                    -- 'income' | 'expense'
-  category_id     UUID REFERENCES categories(id),   -- Kategorie příjmu/výdaje
+  category_id     UUID REFERENCES categories(id),   -- Income/expense category
   amount          DECIMAL NOT NULL,
   currency        TEXT DEFAULT 'CZK',
   date            DATE NOT NULL,
-  due_date        DATE,                             -- Splatnost
-  paid_date       DATE,                             -- Datum zaplacení
+  due_date        DATE,                             -- Due date
+  paid_date       DATE,                             -- Payment date
   status          TEXT DEFAULT 'planned',            -- 'planned' | 'pending' | 'paid' | 'cancelled'
 
   -- === REFERENCES ===
@@ -1587,7 +1587,7 @@ CREATE TABLE cashflows (
   stock_issue_id  UUID REFERENCES stock_issues(id),
 
   -- === RECURRING ===
-  template_id     UUID REFERENCES cashflow_templates(id),  -- Z jaké šablony generováno
+  template_id     UUID REFERENCES cashflow_templates(id),  -- From which template generated
   is_recurring    BOOLEAN DEFAULT false,
 
   description     TEXT,
@@ -1597,11 +1597,11 @@ CREATE TABLE cashflows (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === CASHFLOW TEMPLATES (šablony pro opakované příjmy/výdaje) ===
+-- === CASHFLOW TEMPLATES (templates for recurring income/expenses) ===
 CREATE TABLE cashflow_templates (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  name            TEXT NOT NULL,                    -- "Nájem provozovny", "Pojištění"
+  name            TEXT NOT NULL,                    -- "Premises rent", "Insurance"
   cashflow_type   TEXT NOT NULL,                    -- 'income' | 'expense'
   category_id     UUID REFERENCES categories(id),
   amount          DECIMAL NOT NULL,
@@ -1609,10 +1609,10 @@ CREATE TABLE cashflow_templates (
 
   -- === RECURRENCE ===
   frequency       TEXT NOT NULL,                    -- 'weekly' | 'monthly' | 'quarterly' | 'yearly'
-  day_of_month    INTEGER,                         -- Den v měsíci (pro monthly)
+  day_of_month    INTEGER,                         -- Day of month (for monthly)
   start_date      DATE NOT NULL,
-  end_date        DATE,                             -- NULL = neomezeně
-  next_date       DATE,                             -- Další plánované generování
+  end_date        DATE,                             -- NULL = indefinite
+  next_date       DATE,                             -- Next planned generation
 
   partner_id      UUID REFERENCES partners(id),
   description     TEXT,
@@ -1621,12 +1621,12 @@ CREATE TABLE cashflow_templates (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === CASH DESK (Pokladna — pro taproom/výčep) ===
+-- === CASH DESK (Cash register — for taproom/bar) ===
 CREATE TABLE cash_desks (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   shop_id         UUID REFERENCES shops(id),
-  name            TEXT NOT NULL,                    -- "Pokladna taproom"
+  name            TEXT NOT NULL,                    -- "Taproom cash register"
   balance         DECIMAL DEFAULT 0,
   is_active       BOOLEAN DEFAULT true,
   created_at      TIMESTAMPTZ DEFAULT now(),
@@ -1646,37 +1646,37 @@ CREATE TABLE cash_desk_items (
 );
 ```
 
-### 5.11 Spotřební daň (Excise)
+### 5.11 Excise Tax
 
 ```sql
 -- ============================================================
--- EXCISE TAX (Spotřební daň z piva)
+-- EXCISE TAX ("spotřební daň" = excise tax on beer)
 -- ============================================================
--- Poznámka: Spotřební daň je povinná pro české pivovary.
--- Podléhá jí pivo nad 0.5% ABV, sazba závisí na kategorii
--- pivovaru (roční výstav) a stupňovitosti.
+-- Note: Excise tax is mandatory for Czech breweries.
+-- Beer above 0.5% ABV is subject to it, the rate depends on
+-- the brewery category (annual output) and original gravity.
 
--- Konfigurace je v tenants.settings:
+-- Configuration is in tenants.settings:
 -- excise_enabled, excise_tax_point_mode, excise_default_plato_source
 
--- === EXCISE MOVEMENTS (daňové pohyby) ===
+-- === EXCISE MOVEMENTS (tax movements) ===
 CREATE TABLE excise_movements (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   batch_id        UUID REFERENCES batches(id),
   movement_type   TEXT NOT NULL,                    -- 'production' | 'release' | 'export' | 'destruction' | 'adjustment'
-  volume_hl       DECIMAL NOT NULL,                -- Objem v hl
-  plato           DECIMAL,                         -- Stupňovitost
+  volume_hl       DECIMAL NOT NULL,                -- Volume in hl
+  plato           DECIMAL,                         -- Original gravity
   plato_source    TEXT,                            -- 'recipe' | 'measurement'
-  tax_amount      DECIMAL,                         -- Vypočtená daň
+  tax_amount      DECIMAL,                         -- Calculated tax
   date            DATE NOT NULL,
-  period          TEXT,                             -- '2026-01' (rok-měsíc)
+  period          TEXT,                             -- '2026-01' (year-month)
   status          TEXT DEFAULT 'draft',             -- 'draft' | 'confirmed' | 'reported'
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- === MONTHLY SUBMISSIONS (měsíční podání celní správě) ===
+-- === MONTHLY SUBMISSIONS (monthly submissions to customs authority) ===
 CREATE TABLE excise_monthly_reports (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
@@ -1685,25 +1685,25 @@ CREATE TABLE excise_monthly_reports (
   total_volume_hl DECIMAL,
   total_tax       DECIMAL,
   submitted_at    TIMESTAMPTZ,
-  data            JSONB,                            -- Kompletní data podání
+  data            JSONB,                            -- Complete submission data
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now(),
   UNIQUE(tenant_id, period)
 );
 ```
 
-### 5.12 Veřejné knihovny (read-only číselníky)
+### 5.12 Public Libraries (read-only codebooks)
 
 ```sql
--- Tyto tabulky jsou globální (bez tenant_id), read-only pro uživatele.
--- Pivovar si z nich může importovat do svých items/recipes.
+-- These tables are global (without tenant_id), read-only for users.
+-- Brewery can import from them into its own items/recipes.
 
--- beer_styles          — BJCP styly piva (viz 5.6)
--- beer_style_groups    — Skupiny stylů
--- beer_colors          — EBC/SRM barvy
--- beer_hop_phases      — Fáze chmelení (číselník)
--- countries            — Státy
--- Budoucí: veřejná knihovna surovin, receptur (marketplace)
+-- beer_styles          — BJCP beer styles (see 5.6)
+-- beer_style_groups    — Style groups
+-- beer_colors          — EBC/SRM colors
+-- beer_hop_phases      — Hop addition phases (codebook)
+-- countries            — Countries
+-- Future: public ingredient library, recipe library (marketplace)
 ```
 
 ---
@@ -1712,27 +1712,27 @@ CREATE TABLE excise_monthly_reports (
 
 ```
 tenants
-  ├── subscriptions → plans (verzované v čase)
+  ├── subscriptions → plans (versioned over time)
   │     ├── subscription_addons → plan_addons
   │     └── subscription_events (audit trail)
   │
-  ├── usage_records (měsíční hl spotřeba)
+  ├── usage_records (monthly hl consumption)
   │
-  ├── shops (provozovny)
-  │     └── equipment (zařízení)
-  │     └── warehouses (sklady)
-  │     └── cash_desks (pokladny)
+  ├── shops (locations)
+  │     └── equipment
+  │     └── warehouses
+  │     └── cash_desks (cash registers)
   │
   ├── tenant_users → user_profiles
   │     ├── user_module_rights
   │     └── user_agenda_rights
   │
-  ├── items (unified: suroviny + produkty)
+  ├── items (unified: materials + products)
   │     ├── item_categories → categories
   │     ├── material_lots (lot tracking)
   │     └── stock_status (per warehouse)
   │
-  ├── partners (zákazníci + dodavatelé)
+  ├── partners (customers + suppliers)
   │     ├── contacts
   │     ├── addresses
   │     └── partner_bank_accounts
@@ -1765,124 +1765,126 @@ tenants
   │
   ├── excise_monthly_reports
   │
-  ├── counters (číslovací řady)
+  ├── counters (numbering sequences)
   ├── saved_views
-  ├── attachments (generické přílohy)
-  ├── categories (hierarchické kategorie)
-  └── units (měrné jednotky)
+  ├── attachments (generic attachments)
+  ├── categories (hierarchical categories)
+  └── units (units of measure)
 
-plans (globální — bez tenant_id, verzované)
-  └── plan_addons (globální — bez tenant_id, verzované)
+plans (global — without tenant_id, versioned)
+  └── plan_addons (global — without tenant_id, versioned)
 ```
 
 ---
 
-## 7. MODULOVÁ MAPA A PRIORITY
+## 7. MODULE MAP AND PRIORITIES
 
-### 7.1 MVP (Fáze 1) — rozšířený scope
+### 7.1 MVP (Phase 1) — Extended Scope
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              FÁZE 1 — MVP (týdny 1-14)                          │
-│              "Pivovar umí vařit, prodávat a evidovat"           │
+│              PHASE 1 — MVP (weeks 1-14)                          │
+│              "Brewery can brew, sell, and track"                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  SPRINT 0 (T1-T2): INFRASTRUKTURA                               │
+│  SPRINT 0 (W1-W2): INFRASTRUCTURE                                │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ Auth, Multi-tenant, Layout, Sidebar/TopBar, i18n,          │ │
 │  │ DataBrowser framework (list + card view), FormSection,     │ │
 │  │ SavedViews, Counters, Supabase + Drizzle setup, Deploy     │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
-│  SPRINT 1 (T3-T4): ZÁKLADY                                      │
+│  SPRINT 1 (W3-W4): FOUNDATIONS                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │ PROVOZOVNY   │  │  EQUIPMENT   │  │  POLOŽKY (Items)     │  │
-│  │ (shops)      │  │  (tanky...)  │  │  unified + views     │  │
+│  │ SHOPS        │  │  EQUIPMENT   │  │  ITEMS               │  │
+│  │ (locations)  │  │  (tanks...)  │  │  unified + views     │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 │  ┌──────────────┐  ┌──────────────┐                             │
-│  │  PARTNEŘI    │  │  KONTAKTY,   │                             │
-│  │  (unified)   │  │  ADRESY, BÚ  │                             │
+│  │  PARTNERS    │  │  CONTACTS,   │                             │
+│  │  (unified)   │  │  ADDRESSES,  │                             │
+│  │              │  │  BANK ACCTS  │                             │
 │  └──────────────┘  └──────────────┘                             │
 │                                                                  │
-│  SPRINT 2 (T5-T7): VÝROBA                                       │
+│  SPRINT 2 (W5-W7): PRODUCTION                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  RECEPTURY   │  │    ŠARŽE     │  │  KROKY + MĚŘENÍ      │  │
-│  │  + suroviny  │  │  + workflow  │  │  + stáčení           │  │
+│  │  RECIPES     │  │   BATCHES    │  │  STEPS + MEASUREMENTS│  │
+│  │  + materials │  │  + workflow  │  │  + packaging         │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 │                                                                  │
-│  SPRINT 3 (T8-T9): SKLAD                                        │
+│  SPRINT 3 (W8-W9): STOCK                                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  WAREHOUSE   │  │  PŘÍJEMKY/   │  │  LOT TRACKING        │  │
-│  │  MGMT        │  │  VÝDEJKY     │  │  (surovin)           │  │
+│  │  WAREHOUSE   │  │  RECEIPTS/   │  │  LOT TRACKING        │  │
+│  │  MGMT        │  │  ISSUES      │  │  (materials)         │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 │                                                                  │
-│  SPRINT 4 (T10-T11): PRODEJ + FINANCE                           │
+│  SPRINT 4 (W10-W11): SALES + FINANCE                            │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  OBJEDNÁVKY  │  │  CASHFLOW    │  │  ŠABLONY + RECURRING │  │
-│  │  + zálohy    │  │  + pokladna  │  │  generování          │  │
+│  │  ORDERS      │  │  CASHFLOW    │  │  TEMPLATES +RECURRING│  │
+│  │  + deposits  │  │  + cash desk │  │  generation          │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 │                                                                  │
-│  SPRINT 5 (T12-T13): EXCISE + DASHBOARD                         │
+│  SPRINT 5 (W12-W13): EXCISE + DASHBOARD                         │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  SPOTŘEBNÍ   │  │  DASHBOARD   │  │  ONBOARDING WIZARD   │  │
-│  │  DAŇ         │  │  (KPI panel) │  │  + settings          │  │
+│  │  EXCISE      │  │  DASHBOARD   │  │  ONBOARDING WIZARD   │  │
+│  │  TAX         │  │  (KPI panel) │  │  + settings          │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 │                                                                  │
-│  SPRINT 6 (T14): POLISH + LAUNCH                                │
+│  SPRINT 6 (W14): POLISH + LAUNCH                                │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ Bug fixes, UX polish, RBAC finalizace, dokumentace,        │ │
-│  │ tenant onboarding flow, monitoring, BETA LAUNCH             │ │
+│  │ Bug fixes, UX polish, RBAC finalization, documentation,    │ │
+│  │ tenant onboarding flow, monitoring, BETA LAUNCH            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│              FÁZE 2 — GROWTH (měsíce 5-7)                       │
+│              PHASE 2 — GROWTH (months 5-7)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  Ceníky + slevy, Plánování výroby (kalendář), Dodavatelé +      │
-│  nákup, Pokročilé reporty, Fakturační integrace, Custom role    │
+│  Price lists + discounts, Production planning (calendar),        │
+│  Suppliers + purchasing, Advanced reports, Invoicing integration, │
+│  Custom roles                                                    │
 │                                                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│              FÁZE 3 — ECOSYSTEM (měsíce 8-12)                   │
+│              PHASE 3 — ECOSYSTEM (months 8-12)                   │
 ├─────────────────────────────────────────────────────────────────┤
-│  API pro partnery, B2B portál, Integrace účetních systémů,      │
-│  Kvalita (QC), Veřejná knihovna (marketplace), Offline/PWA      │
+│  API for partners, B2B portal, Accounting system integration,    │
+│  Quality (QC), Public library (marketplace), Offline/PWA         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Sprint dependencies
+### 7.2 Sprint Dependencies
 
 ```
-Sprint 0: Infrastruktura
-  │  (žádné závislosti — vše se staví od nuly)
+Sprint 0: Infrastructure
+  │  (no dependencies — everything built from scratch)
   │
-  ├→ Sprint 1: Základy
-  │    │  (závisí na: DataBrowser, FormSection, Auth)
+  ├→ Sprint 1: Foundations
+  │    │  (depends on: DataBrowser, FormSection, Auth)
   │    │
-  │    ├→ Sprint 2: Výroba
-  │    │    (závisí na: Items, Equipment)
+  │    ├→ Sprint 2: Production
+  │    │    (depends on: Items, Equipment)
   │    │
-  │    ├→ Sprint 3: Sklad
-  │    │    (závisí na: Items, Partners, Warehouses)
+  │    ├→ Sprint 3: Stock
+  │    │    (depends on: Items, Partners, Warehouses)
   │    │
-  │    └→ Sprint 4: Prodej + Finance
-  │         (závisí na: Items, Partners, Orders)
+  │    └→ Sprint 4: Sales + Finance
+  │         (depends on: Items, Partners, Orders)
   │
   └→ Sprint 5: Excise + Dashboard
-       (závisí na: Batches, Stock Movements)
+       (depends on: Batches, Stock Movements)
 ```
 
 ---
 
-## 8. PROJEKT STRUKTURA — Feature-Module Pattern
+## 8. PROJECT STRUCTURE — Feature-Module Pattern
 
-Každý business modul je **self-contained složka** v `src/modules/`. Page soubory jsou tenké (import + render). Sdílené komponenty žijí v `src/components/`.
+Each business module is a **self-contained folder** in `src/modules/`. Page files are thin (import + render). Shared components live in `src/components/`.
 
 ```
 profibrew/
 ├── CLAUDE.md                          # Claude Code instructions
-├── docs/                              # Dokumentace
+├── docs/                              # Documentation
 │
 ├── src/
-│   ├── app/[locale]/                  # ROUTES ONLY — tenké page soubory
+│   ├── app/[locale]/                  # ROUTES ONLY — thin page files
 │   │   ├── (auth)/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── register/page.tsx
@@ -1978,7 +1980,7 @@ profibrew/
 │   │   └── permissions.ts
 │   │
 │   ├── i18n/messages/
-│   │   ├── cs/                        # České překlady — SPLIT PER MODUL
+│   │   ├── cs/                        # Czech translations — SPLIT PER MODULE
 │   │   │   ├── common.json
 │   │   │   ├── auth.json
 │   │   │   ├── nav.json
@@ -1991,7 +1993,7 @@ profibrew/
 │   └── styles/
 │
 ├── drizzle/
-│   ├── schema/                        # DB schema (centrální — Drizzle requirement)
+│   ├── schema/                        # DB schema (central — Drizzle requirement)
 │   │   ├── tenants.ts
 │   │   ├── auth.ts
 │   │   ├── items.ts
@@ -2019,63 +2021,63 @@ profibrew/
 └── package.json
 ```
 
-### Pravidla Feature-Module Pattern
+### Feature-Module Pattern Rules
 
-1. **Page soubory jsou tenké** — max 10–15 řádků, jen import z `modules/` a render
-2. **Modul je self-contained** — components/, config.ts, actions.ts, hooks.ts, types.ts, schema.ts, index.ts
-3. **Cross-module imports pouze přes index.ts** (public API)
-4. **Drizzle schema centrálně** v `drizzle/schema/` (Drizzle requirement pro migrace)
-5. **i18n per modul** — překlady v `src/i18n/messages/{locale}/{modul}.json`
+1. **Page files are thin** — max 10-15 lines, just import from `modules/` and render
+2. **Module is self-contained** — components/, config.ts, actions.ts, hooks.ts, types.ts, schema.ts, index.ts
+3. **Cross-module imports only through index.ts** (public API)
+4. **Drizzle schema centrally** in `drizzle/schema/` (Drizzle requirement for migrations)
+5. **i18n per module** — translations in `src/i18n/messages/{locale}/{module}.json`
 
 ---
 
-## 9. CODING STANDARDS PRO CLAUDE CODE
+## 9. CODING STANDARDS FOR CLAUDE CODE
 
 ```
 1.  TypeScript strict mode, NO `any` types
-2.  React Server Components kde možné, 'use client' jen kde nutné
-3.  Tailwind CSS + shadcn/ui ONLY, žádné CSS moduly
-4.  Drizzle ORM pro všechny DB operace
-5.  Zod schema pro validaci na API i frontend
-6.  SWR pro client-side data fetching
-7.  next-intl pro všechny user-facing texty
-8.  KAŽDÝ DB dotaz MUSÍ filtrovat přes tenant_id
-9.  KAŽDÝ API route MUSÍ kontrolovat oprávnění
-10. Všechny číselné hodnoty v DB v base units (l, g, °C, min)
-11. Naming: PascalCase komponenty, camelCase utility, snake_case DB
-12. Error handling: try/catch na každém API route, user-friendly chybové hlášky
-13. Logování: strukturované logy (JSON) pro debugging
+2.  React Server Components where possible, 'use client' only where necessary
+3.  Tailwind CSS + shadcn/ui ONLY, no CSS modules
+4.  Drizzle ORM for all DB operations
+5.  Zod schema for validation on both API and frontend
+6.  SWR for client-side data fetching
+7.  next-intl for all user-facing texts
+8.  EVERY DB query MUST filter by tenant_id
+9.  EVERY API route MUST check permissions
+10. All numeric values in DB in base units (l, g, °C, min)
+11. Naming: PascalCase components, camelCase utilities, snake_case DB
+12. Error handling: try/catch on every API route, user-friendly error messages
+13. Logging: structured logs (JSON) for debugging
 ```
 
 ---
 
-## 10. OTEVŘENÉ OTÁZKY
+## 10. OPEN QUESTIONS
 
-| # | Otázka | Status |
-|---|--------|--------|
+| # | Question | Status |
+|---|----------|--------|
 | 1 | ORM: Prisma vs Drizzle | ✅ **Drizzle** |
-| 2 | i18n od začátku? | ✅ **Ano, next-intl** |
-| 3 | Číslovací řady | ✅ **Konfigurovatelné + defaulty** |
-| 4 | Lot tracking | ✅ **V MVP, po šaržích surovin** |
-| 5 | Offline/PWA | 🔜 Fáze 3 |
-| 6 | Měrné jednotky | ✅ **Base unit v DB, konverze v UI** |
+| 2 | i18n from the start? | ✅ **Yes, next-intl** |
+| 3 | Numbering sequences | ✅ **Configurable + defaults** |
+| 4 | Lot tracking | ✅ **In MVP, by material batches** |
+| 5 | Offline/PWA | 🔜 Phase 3 |
+| 6 | Units of measure | ✅ **Base unit in DB, conversion in UI** |
 | 7 | Items model | ✅ **Hybrid (unified + views)** |
 | 8 | Partner model | ✅ **Unified (customer + supplier)** |
-| 9 | Card view | ✅ **Od začátku (list + card)** |
-| 10 | Excise v MVP | ✅ **Ano** |
-| 11 | Equipment v MVP | ✅ **Ano** |
-| 12 | Shops v MVP | ✅ **Ano** |
-| 13 | CashFlow v MVP | ✅ **Ano (příjmy, výdaje, šablony, recurring)** |
-| 14 | Pricing model | ✅ **Tier-based + add-on moduly + overage per hl** |
-| 15 | Pricing v DB | ✅ **Temporální data (valid_from/to), subscription per tenant** |
-| 16 | Konkrétní ceny a limity tierů | 🔜 **Samostatná analýza CZ trhu** |
-| 17 | Launch promo parametry | 🔜 **Business decision** |
-| 18 | Roční vs měsíční billing (sleva?) | 🔜 **Business decision** |
+| 9 | Card view | ✅ **From the start (list + card)** |
+| 10 | Excise in MVP | ✅ **Yes** |
+| 11 | Equipment in MVP | ✅ **Yes** |
+| 12 | Shops in MVP | ✅ **Yes** |
+| 13 | CashFlow in MVP | ✅ **Yes (income, expenses, templates, recurring)** |
+| 14 | Pricing model | ✅ **Tier-based + add-on modules + overage per hl** |
+| 15 | Pricing in DB | ✅ **Temporal data (valid_from/to), subscription per tenant** |
+| 16 | Specific tier prices and limits | 🔜 **Separate CZ market analysis** |
+| 17 | Launch promo parameters | 🔜 **Business decision** |
+| 18 | Annual vs monthly billing (discount?) | 🔜 **Business decision** |
 
 ---
 
-**Připravil:** Claude AI Agent
-**Pro:** ProfiBrew.com
-**Verze:** 2.1
-**Datum:** 17.02.2026
-**Status:** DRAFT — připraveno k finálnímu review
+**Prepared by:** Claude AI Agent
+**For:** ProfiBrew.com
+**Version:** 2.1
+**Date:** 17.02.2026
+**Status:** DRAFT — ready for final review

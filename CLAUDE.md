@@ -1,161 +1,192 @@
+<!-- Language: English. Czech documents: docs/PRD.md, docs/PRODUCT-SPEC.md, docs/CHANGELOG.md -->
+
 # CLAUDE.md — ProfiBrew Project Instructions
 
-## Co je ProfiBrew
+## What is ProfiBrew
 
-SaaS ERP systém pro české minipivovary. Multi-tenant aplikace s modulární architekturou.
+SaaS ERP system for Czech craft breweries. Multi-tenant application with modular architecture.
 
 ## Tech Stack
 
 - **Framework:** Next.js 14+ (App Router)
-- **UI:** shadcn/ui + Tailwind CSS (NIKDY jiné CSS řešení)
-- **DB:** Supabase (PostgreSQL s RLS)
-- **ORM:** Drizzle ORM (NIKDY Prisma)
+- **UI:** shadcn/ui + Tailwind CSS (NEVER any other CSS solution)
+- **DB:** Supabase (PostgreSQL with RLS)
+- **ORM:** Drizzle ORM (NEVER Prisma)
 - **Auth:** Supabase Auth
-- **i18n:** next-intl (čeština default, angličtina secondary)
-- **Validace:** Zod
+- **i18n:** next-intl (Czech default, English secondary)
+- **Validation:** Zod
 - **Data fetching (client):** SWR
 - **Hosting:** Vercel
-- **Jazyk:** TypeScript strict mode
+- **Language:** TypeScript strict mode
 
-## Dokumentace projektu
+## Project Documentation
 
-- `docs/PRD.md` — product requirements, business context, user stories (stabilní, mění se zřídka)
-- `docs/SYSTEM-DESIGN.md` — architektura, datový model, komponenty, technická rozhodnutí
-- `docs/PRODUCT-SPEC.md` — **ŽIVÝ DOKUMENT** — jak systém funguje, byznys pravidla, aktualizováno per sprint
-- `docs/CHANGELOG.md` — co je hotové, co se změnilo, per sprint
-- `docs/sprints/sprint-X-spec.md` — detailní zadání per sprint
+- `docs/PRD.md` — product requirements, business context, user stories (stable, rarely changes)
+- `docs/SYSTEM-DESIGN.md` — architecture, data model, components, technical decisions
+- `docs/PRODUCT-SPEC.md` — **LIVING DOCUMENT** — how the system works, business rules, updated per sprint
+- `docs/CHANGELOG.md` — what's done, what changed, per sprint
+- `docs/sprints/sprint-X-spec.md` — detailed specification per sprint
 
-**Před implementací čehokoli si VŽDY přečti relevantní dokumentaci.**
-- Řešíš DataBrowser → sekce 4.2 v SYSTEM-DESIGN.md + sekce 3 v PRODUCT-SPEC.md
-- Řešíš DB schema → sekce 5 v SYSTEM-DESIGN.md
-- Řešíš byznys logiku → PRODUCT-SPEC.md (pravidla a workflow)
-- Potřebuješ kontext proč něco děláme → PRD.md
+**Before implementing anything, ALWAYS read the relevant documentation.**
+- Working on DataBrowser → section 4.2 in SYSTEM-DESIGN.md + section 3 in PRODUCT-SPEC.md
+- Working on DB schema → section 5 in SYSTEM-DESIGN.md
+- Working on business logic → PRODUCT-SPEC.md (rules and workflows)
+- Need context on why we're doing something → PRD.md
 
-### POVINNÁ DOKUMENTAČNÍ PRAVIDLA
+### MANDATORY DOCUMENTATION RULES
 
-**Po každé dokončené fázi nebo významné změně MUSÍŠ aktualizovat dokumentaci:**
+**After every completed phase or significant change, you MUST update the documentation:**
 
 #### CHANGELOG.md
-- Odškrtni hotové položky (`- [ ]` → `- [x]`)
-- Přidej nové položky pokud jsi implementoval něco nad rámec spec
-- Zapiš breaking changes nebo odchylky od spec
-- Formát: pod aktuální sprint sekci
+- Check off completed items (`- [ ]` → `- [x]`)
+- Add new items if you implemented something beyond the spec
+- Record breaking changes or deviations from spec
+- Format: under the current sprint section
 
 #### PRODUCT-SPEC.md
-- Změň status entity/funkce: `📋` → `✅` když je implementováno, `📋` → `🚧` když je rozpracováno
-- Pokud se implementace liší od spec (jiný UX, jiná byznys pravidla, přidané pole) → **AKTUALIZUJ SPEC** tak aby odpovídal realitě. PRODUCT-SPEC.md vždy popisuje skutečný stav, ne plán.
-- Přidej nové sekce pokud jsi implementoval něco co v spec chybí
-- Aktualizuj "Aktualizováno" datum a "Poslední sprint" v hlavičce
+- Change entity/feature status: `📋` → `✅` when implemented, `📋` → `🚧` when in progress
+- If the implementation differs from the spec (different UX, different business rules, added fields) → **UPDATE THE SPEC** so it matches reality. PRODUCT-SPEC.md always describes the actual state, not the plan.
+- Add new sections if you implemented something missing from the spec
+- Update the "Updated" date and "Last sprint" in the header
 
 #### SYSTEM-DESIGN.md
-- Aktualizuj POUZE pokud se změní architektura, datový model nebo technické rozhodnutí
-- Nové tabulky → přidej do sekce 5 (Datový model) a sekce 6 (ER overview)
-- Nová rozhodnutí → přidej do příslušné sekce a tabulky rozhodnutí
+- Update ONLY if the architecture, data model, or technical decisions change
+- New tables → add to section 5 (Data model) and section 6 (ER overview)
+- New decisions → add to the appropriate section and decisions table
 
-#### Kdy dokumentovat
-- **Na konci každé fáze** (0A, 0B, 0C...) — minimálně CHANGELOG
-- **Při odchylce od spec** — okamžitě PRODUCT-SPEC.md
-- **Při novém DB schema** — okamžitě SYSTEM-DESIGN.md
-- **NIKDY** necommituj kód bez odpovídající aktualizace dokumentace
+#### When to Document
+- **At the end of every phase** (0A, 0B, 0C...) — at minimum CHANGELOG
+- **When deviating from spec** — immediately PRODUCT-SPEC.md
+- **When adding new DB schema** — immediately SYSTEM-DESIGN.md
+- **NEVER** commit code without a corresponding documentation update
 
-#### Commit pravidla pro docs
-- Dokumentační změny mohou být v kódovém commitu (`feat: implement partners CRUD + update docs`)
-- Nebo samostatný commit (`docs: update PRODUCT-SPEC after Sprint 1`)
-- CHANGELOG se aktualizuje průběžně, ne jednorázově na konci sprintu
+#### Commit Rules for Docs
+- Documentation changes can be in a code commit (`feat: implement partners CRUD + update docs`)
+- Or a separate commit (`docs: update PRODUCT-SPEC after Sprint 1`)
+- CHANGELOG is updated continuously, not all at once at the end of a sprint
 
-## Coding Standards (STRIKTNÍ)
+## Coding Standards (STRICT)
 
 ### TypeScript
-- `strict: true` — žádné výjimky
-- **ZAKÁZÁNO:** `any` typ, `as` cast bez komentáře proč, `@ts-ignore`
-- Preferuj `unknown` + type guard místo `any`
-- Všechny funkce mají explicitní return type
+- `strict: true` — no exceptions
+- **FORBIDDEN:** `any` type, `as` cast without a comment explaining why, `@ts-ignore`
+- Prefer `unknown` + type guard instead of `any`
+- All functions have explicit return types
 
 ### React / Next.js
-- **Server Components defaultně** — `'use client'` JEN kde je interaktivita (useState, onClick, hooks)
-- Stránky (`page.tsx`) jsou VŽDY Server Components
-- Client komponenty extrahuj do samostatných souborů v `components/`
-- Používej `async` Server Components pro data fetching
+- **Server Components by default** — `'use client'` ONLY where interactivity is needed (useState, onClick, hooks)
+- Pages (`page.tsx`) are ALWAYS Server Components
+- Extract client components into separate files in `components/`
+- Use `async` Server Components for data fetching
 
 ### Styling
-- **Tailwind CSS ONLY** — žádné CSS moduly, styled-components, inline styles
-- **shadcn/ui** pro všechny UI primitiva — NEVYMÝŠLEJ vlastní buttony, inputy, dialogy
-- `cn()` helper pro conditional classes (z `@/lib/utils`)
+- **Tailwind CSS ONLY** — no CSS modules, styled-components, inline styles
+- **shadcn/ui** for all UI primitives — DO NOT invent your own buttons, inputs, dialogs
+- `cn()` helper for conditional classes (from `@/lib/utils`)
 
 ### Naming
-- **Soubory komponent:** PascalCase (`DataBrowser.tsx`, `FilterBar.tsx`)
-- **Soubory utility/hooks:** camelCase (`useTenant.ts`, `withTenant.ts`)
-- **DB tabulky a sloupce:** snake_case (`tenant_users`, `batch_number`)
-- **TypeScript typy/interfaces:** PascalCase (`TenantContext`, `DataBrowserConfig`)
-- **Env proměnné:** SCREAMING_SNAKE (`NEXT_PUBLIC_SUPABASE_URL`)
+- **Component files:** PascalCase (`DataBrowser.tsx`, `FilterBar.tsx`)
+- **Utility/hooks files:** camelCase (`useTenant.ts`, `withTenant.ts`)
+- **DB tables and columns:** snake_case (`tenant_users`, `batch_number`)
+- **TypeScript types/interfaces:** PascalCase (`TenantContext`, `DataBrowserConfig`)
+- **Env variables:** SCREAMING_SNAKE (`NEXT_PUBLIC_SUPABASE_URL`)
 
-### Databáze
-- **KAŽDÝ dotaz MUSÍ filtrovat přes `tenant_id`** — bez výjimky (kromě admin/ a globálních tabulek jako plans)
-- Používej helper `withTenant()` pro automatické filtrování
-- Číselné hodnoty v DB vždy v base units: litry (objem), gramy (hmotnost), °C (teplota), minuty (čas)
-- Konverze na display units (kg, hl, °F) POUZE v UI vrstvě
-- Soft delete: `is_active = false` nebo `status = 'archived'`, nikdy fyzický DELETE
-- Všechny tenant-scoped tabulky: `id` (UUID PK), `tenant_id` (UUID FK NOT NULL), `created_at`, `updated_at`
+### Database
+- **EVERY query MUST filter by `tenant_id`** — no exceptions (except admin/ and global tables like plans)
+- Use the `withTenant()` helper for automatic filtering
+- Numeric values in DB always in base units: liters (volume), grams (weight), °C (temperature), minutes (time)
+- Conversion to display units (kg, hl, °F) ONLY in the UI layer
+- Soft delete: `is_active = false` or `status = 'archived'`, never physical DELETE
+- All tenant-scoped tables: `id` (UUID PK), `tenant_id` (UUID FK NOT NULL), `created_at`, `updated_at`
 
 ### i18n
-- **ŽÁDNÉ hardcoded české stringy v komponentách** — vše přes `useTranslations()` nebo `getTranslations()`
-- Překlady v `src/i18n/messages/{locale}/{modul}.json` — split per modul
-- Klíče: hierarchické, tečkou oddělené (`dataBrowser.noResults`, `auth.login`)
+- **NO hardcoded Czech strings in components** — everything via `useTranslations()` or `getTranslations()`
+- Translations in `src/i18n/messages/{locale}/{module}.json` — split per module
+- Keys: hierarchical, dot-separated (`dataBrowser.noResults`, `auth.login`)
 
 ### Error Handling
-- Každý `async` server action / API route v `try/catch`
-- User-facing chyby: `toast` (sonner) s českou hláškou
-- Technické chyby: `console.error` se strukturovaným logem
-- NIKDY nezobrazuj stack trace uživateli
+- Every `async` server action / API route in `try/catch`
+- User-facing errors: `toast` (sonner) with a Czech message
+- Technical errors: `console.error` with structured logging
+- NEVER show stack traces to the user
 
 ### Git
-- Commit messages v angličtině
+- Commit messages in English
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
-- Jeden commit = jedna logická změna
+- One commit = one logical change
 
-## Architektonická pravidla
+## Subagents
 
-### Multi-tenant izolace (3 vrstvy)
-1. **Supabase RLS** — DB nikdy nevrátí data jiného tenantu
-2. **API middleware** — každý request ověří tenant_id z JWT
-3. **Frontend TenantProvider** — kontext s tenant_id pro komponenty
+Use subagents (Task tool) for complex phases and tasks. Each subagent gets an isolated context and specific assignment.
 
-### Module Access Control (4 vrstvy)
+### When to use subagents
+- Implementing an entire feature module (partners, items, batches...)
+- Parallel work on independent parts (e.g., DB schema + UI components)
+- Isolated tasks: seed data, migrations, i18n translations
+- Code review and testing
 
-Přístup k business modulům (Sklad, Obchod, Finance, Plán) se řídí subscription tenantu. Kontrola na **4 úrovních** — žádnou nelze vynechat:
+### How to assign a subagent
+- Always specify EXACTLY which files to read/create/edit
+- Reference specific documentation sections (e.g., "Read docs/PRODUCT-SPEC.md section 4.1 Partners")
+- Define acceptance criteria ("Done when: npm run build passes, types are correct, i18n keys exist")
+- Subagent MUST follow all rules from CLAUDE.md (shadcn/ui only, strict TS, tenant_id filter...)
+
+### Example
+When implementing the "Partners" feature module:
+- Subagent 1: DB schema (drizzle/schema/partners.ts) + migration
+- Subagent 2: Module logic (src/modules/partners/*) — types, config, actions, hooks, components
+- Subagent 3: i18n translations (cs/partners.json, en/partners.json)
+- Main agent: integration, review, documentation
+
+### Rules
+- Subagent NEVER edits files outside its scope
+- Subagent ALWAYS reports what it created/changed
+- Main agent ALWAYS verifies subagent output (build, types, lint)
+- Documentation updates (CHANGELOG, PRODUCT-SPEC) are done by main agent, not subagents
+
+## Architectural Rules
+
+### Multi-tenant Isolation (3 layers)
+1. **Supabase RLS** — DB never returns data from another tenant
+2. **API middleware** — every request verifies tenant_id from JWT
+3. **Frontend TenantProvider** — context with tenant_id for components
+
+### Module Access Control (4 layers)
+
+Access to business modules (Stock, Sales, Finance, Plan) is governed by the tenant's subscription. Checked at **4 levels** — none can be skipped:
 
 ```
-Vrstva 1: Next.js Middleware (src/middleware.ts)
-  → Mapuje URL path → required module (config/module-routes.ts)
-  → Kontroluje subscription z JWT/session
-  → Pokud modul není v plánu → redirect na /upgrade
+Layer 1: Next.js Middleware (src/middleware.ts)
+  → Maps URL path → required module (config/module-routes.ts)
+  → Checks subscription from JWT/session
+  → If module is not in the plan → redirect to /upgrade
 
-Vrstva 2: Dashboard Layout (ModuleGuard component)
-  → Server component wrapper v (dashboard)/layout.tsx
-  → Dvojitá pojistka — pokud middleware propustí, layout zachytí
-  → Zobrazí upgrade prompt místo obsahu
+Layer 2: Dashboard Layout (ModuleGuard component)
+  → Server component wrapper in (dashboard)/layout.tsx
+  → Double safety net — if middleware lets through, layout catches it
+  → Shows upgrade prompt instead of content
 
-Vrstva 3: TopBar UI
-  → Moduly mimo plán: šedé s 🔒 ikonou
-  → Klik na zamčený modul → redirect na /upgrade (ne jen vizuální blok)
+Layer 3: TopBar UI
+  → Modules outside the plan: grayed out with lock icon
+  → Click on locked module → redirect to /upgrade (not just visual block)
 
-Vrstva 4: API / Server Actions
-  → withModuleAccess() wrapper na každé server action
-  → Vrací 403 pokud modul není v subscription
-  → NELZE obejít přes přímý API call
+Layer 4: API / Server Actions
+  → withModuleAccess() wrapper on every server action
+  → Returns 403 if module is not in subscription
+  → CANNOT be bypassed via direct API call
 ```
 
 **Route → Module mapping** (`src/config/module-routes.ts`):
 ```typescript
 export const moduleRoutes: Record<string, string> = {
-  '/brewery':  'brewery',   // Vždy dostupný (i Free tier)
+  '/brewery':  'brewery',   // Always available (even Free tier)
   '/stock':    'stock',     // Subscription-gated
   '/sales':    'sales',     // Subscription-gated
   '/finance':  'finance',   // Subscription-gated
   '/plan':     'plan',      // Subscription-gated
-  '/settings': '_always',   // Vždy dostupný
-  '/dashboard':'_always',   // Vždy dostupný
-  '/upgrade':  '_always',   // Vždy dostupný
+  '/settings': '_always',   // Always available
+  '/dashboard':'_always',   // Always available
+  '/upgrade':  '_always',   // Always available
 }
 ```
 
@@ -163,33 +194,33 @@ export const moduleRoutes: Record<string, string> = {
 ```typescript
 async function hasModuleAccess(tenantId: string, moduleSlug: string): Promise<boolean> {
   if (moduleSlug === '_always' || moduleSlug === 'brewery') return true
-  // 1. Načti aktivní subscription + plan
-  // 2. Zkontroluj plan.included_modules
-  // 3. Zkontroluj subscription_addons
-  // 4. Vrať true/false
+  // 1. Load active subscription + plan
+  // 2. Check plan.included_modules
+  // 3. Check subscription_addons
+  // 4. Return true/false
 }
 ```
 
-### Reusable komponenty
-- **DataBrowser** — univerzální browsovací komponenta (list + card view), konfigurovaná per agenda
-- **FormSection** — formulářová sekce generovaná z field definice
-- **DetailView** — detail záznamu s taby a FormSections
-- Konfigurace komponent v `src/modules/{modul}/config.ts`
+### Reusable Components
+- **DataBrowser** — universal browsing component (list + card view), configured per agenda
+- **FormSection** — form section generated from field definitions
+- **DetailView** — record detail with tabs and FormSections
+- Component configuration in `src/modules/{module}/config.ts`
 
-## Struktura projektu — Feature-Module Pattern
+## Project Structure — Feature-Module Pattern
 
 ### 4 Route Groups
 
-Aplikace má **4 route groups** — každá s vlastním layoutem, auth požadavky a účelem:
+The application has **4 route groups** — each with its own layout, auth requirements, and purpose:
 
-| Route Group | Auth | Layout | Účel |
-|-------------|------|--------|------|
+| Route Group | Auth | Layout | Purpose |
+|-------------|------|--------|---------|
 | `(marketing)` | Public | MarketingLayout (header + footer) | Homepage, pricing, features, blog |
 | `(auth)` | Public | Minimal (centered card) | Login, register |
-| `(dashboard)` | Protected + tenant | DashboardLayout (TopBar + Sidebar) + ModuleGuard | Hlavní ERP aplikace |
+| `(dashboard)` | Protected + tenant | DashboardLayout (TopBar + Sidebar) + ModuleGuard | Main ERP application |
 | `(admin)` | Protected + superadmin | AdminLayout (admin sidebar) | SaaS management |
 
-### Kompletní adresářová struktura
+### Complete Directory Structure
 
 ```
 profibrew/
@@ -202,7 +233,7 @@ profibrew/
 │   └── sprints/
 │
 ├── drizzle/
-│   ├── schema/                        # DB schema (centrální — Drizzle requirement)
+│   ├── schema/                        # DB schema (centralized — Drizzle requirement)
 │   │   ├── tenants.ts
 │   │   ├── auth.ts
 │   │   ├── subscriptions.ts
@@ -230,16 +261,16 @@ profibrew/
 │   │   ├── (dashboard)/               # ★ PROTECTED — tenant ERP app
 │   │   │   ├── layout.tsx             # DashboardLayout + ModuleGuard
 │   │   │   ├── dashboard/page.tsx
-│   │   │   ├── brewery/               # Module: brewery (vždy dostupný)
+│   │   │   ├── brewery/               # Module: brewery (always available)
 │   │   │   ├── stock/                 # Module: stock (subscription-gated)
 │   │   │   ├── sales/                 # Module: sales (subscription-gated)
 │   │   │   ├── finance/               # Module: finance (subscription-gated)
-│   │   │   ├── plan/                  # Module: plan (Fáze 2, subscription-gated)
-│   │   │   ├── settings/              # Vždy dostupný
+│   │   │   ├── plan/                  # Module: plan (Phase 2, subscription-gated)
+│   │   │   ├── settings/              # Always available
 │   │   │   └── upgrade/page.tsx       # Upsell/paywall page
 │   │   │
 │   │   ├── (admin)/                   # ★ PROTECTED — superadmin only
-│   │   │   ├── layout.tsx             # AdminLayout (vlastní sidebar, BEZ tenant contextu)
+│   │   │   ├── layout.tsx             # AdminLayout (own sidebar, WITHOUT tenant context)
 │   │   │   ├── admin/page.tsx         # Admin dashboard (MRR, active tenants, KPI)
 │   │   │   ├── admin/tenants/
 │   │   │   │   ├── page.tsx           # Tenant list
@@ -344,9 +375,9 @@ profibrew/
 └── public/
 ```
 
-### Pravidla pro moduly
+### Module Rules
 
-**Page je tenký** — max 10-15 řádků:
+**Pages are thin** — max 10-15 lines:
 ```typescript
 // (dashboard) page → imports from modules/
 import { PartnerBrowser } from '@/modules/partners'
@@ -361,18 +392,18 @@ import { PricingPage } from '@/marketing/pricing'
 export default function Pricing() { return <PricingPage /> }
 ```
 
-**3 logic složky, 3 účely:**
-- `src/modules/` — tenant business logika (partners, batches, orders...)
-- `src/admin/` — SaaS admin logika (tenant management, billing, monitoring)
-- `src/marketing/` — public page logika (homepage, pricing, blog)
+**3 logic folders, 3 purposes:**
+- `src/modules/` — tenant business logic (partners, batches, orders...)
+- `src/admin/` — SaaS admin logic (tenant management, billing, monitoring)
+- `src/marketing/` — public page logic (homepage, pricing, blog)
 
-**Modul je self-contained:** components/, config.ts, actions.ts, hooks.ts, types.ts, schema.ts, index.ts
+**A module is self-contained:** components/, config.ts, actions.ts, hooks.ts, types.ts, schema.ts, index.ts
 
-**Cross-module imports POUZE přes index.ts**
+**Cross-module imports ONLY through index.ts**
 
-**Drizzle schema centrálně** v `drizzle/schema/` (Drizzle requirement)
+**Drizzle schema centralized** in `drizzle/schema/` (Drizzle requirement)
 
-**i18n per modul** — překlady v `src/i18n/messages/{locale}/{module}.json`
+**i18n per module** — translations in `src/i18n/messages/{locale}/{module}.json`
 
 ## Auth & Access Control Summary
 
@@ -385,19 +416,19 @@ Route              Auth Required    Additional Check           Tenant Context
 (admin)/*          ✅ Supabase      + superadmin check         ❌ Cross-tenant
 ```
 
-**Superadmin** = flag `user_profiles.is_superadmin` (Boolean). Není tenant role — systémový příznak. Superadmin vidí data napříč tenanty v admin panelu. V MVP ruční nastavení v DB.
+**Superadmin** = flag `user_profiles.is_superadmin` (Boolean). Not a tenant role — a system-level flag. Superadmin can see data across tenants in the admin panel. In MVP, set manually in the DB.
 
-## Co NEDĚLAT
+## What NOT to Do
 
-- NEVYMÝŠLEJ vlastní UI komponenty kde existuje shadcn/ui alternativa
-- NEPOUŽÍVEJ `any` typ — radši se zeptej na správný typ
-- NEPIŠ CSS moduly ani styled-components
-- NEDÁVEJ business logiku do page souborů — vše do `modules/`, `admin/`, nebo `marketing/`
-- NEDÁVEJ DataBrowser config do page souborů — patří do `modules/{modul}/config.ts`
-- NEIMPORTUJ přímo interní soubory jiného modulu — jen přes `index.ts`
-- NEUKLÁDEJ tenant_id v localStorage — vždy z JWT/session
-- NEVYNECHÁVEJ tenant_id filtr v DB dotazech — ani "dočasně"
-- NEVYNECHÁVEJ module access check — ani na frontend, ani na API
-- NECOMMITUJ .env soubory
-- NEPIŠ české stringy přímo do JSX — vždy přes i18n
-- NEZAPOMEŇ aktualizovat dokumentaci (viz Povinná dokumentační pravidla výše)
+- DO NOT invent your own UI components where a shadcn/ui alternative exists
+- DO NOT use the `any` type — ask for the correct type instead
+- DO NOT write CSS modules or styled-components
+- DO NOT put business logic in page files — everything goes in `modules/`, `admin/`, or `marketing/`
+- DO NOT put DataBrowser config in page files — it belongs in `modules/{module}/config.ts`
+- DO NOT import internal files from another module directly — only through `index.ts`
+- DO NOT store tenant_id in localStorage — always from JWT/session
+- DO NOT skip the tenant_id filter in DB queries — not even "temporarily"
+- DO NOT skip the module access check — neither on frontend nor on API
+- DO NOT commit .env files
+- DO NOT write Czech strings directly in JSX — always through i18n
+- DO NOT forget to update documentation (see Mandatory Documentation Rules above)

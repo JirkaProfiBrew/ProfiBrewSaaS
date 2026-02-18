@@ -1,26 +1,26 @@
-# SPRINT 0 — INFRASTRUKTURA
-## Zadání pro Claude Code | ProfiBrew.com
-### Verze: 1.0 | Datum: 17.02.2026
+# SPRINT 0 — INFRASTRUCTURE
+## Specification for Claude Code | ProfiBrew.com
+### Version: 1.0 | Date: 17.02.2026
 
 ---
 
-## CÍL SPRINTU
+## SPRINT GOAL
 
-Postavit kompletní základ aplikace: projekt scaffold, auth, multi-tenant izolace, layout s navigací, DataBrowser framework (list + card view), FormSection komponentu a základní i18n. Na konci sprintu musí běžet aplikace s funkčním přihlášením, prázdným dashboardem a jednou demo agendou (placeholder) využívající DataBrowser.
+Build the complete application foundation: project scaffold, auth, multi-tenant isolation, layout with navigation, DataBrowser framework (list + card view), FormSection component, and basic i18n. At the end of the sprint, the application must run with functional login, an empty dashboard, and one demo agenda (placeholder) utilizing DataBrowser.
 
-**Časový odhad:** 2 týdny (T1-T2)
-
----
-
-## REFERENČNÍ DOKUMENT
-
-Kompletní architektura je v `profibrew-system-design-v2.md`. Tento dokument je **zadání** — obsahuje co a jak. Zde je **specifikace** — obsahuje přesné kroky.
+**Time estimate:** 2 weeks (T1-T2)
 
 ---
 
-## FÁZE 0A: PROJECT SCAFFOLD
+## REFERENCE DOCUMENT
 
-### 0A.1 Inicializace projektu
+The complete architecture is in `profibrew-system-design-v2.md`. That document is the **specification** — it contains what and how. This document is the **step-by-step plan** — it contains exact steps.
+
+---
+
+## PHASE 0A: PROJECT SCAFFOLD
+
+### 0A.1 Project initialization
 
 ```bash
 npx create-next-app@latest profibrew \
@@ -32,7 +32,7 @@ npx create-next-app@latest profibrew \
   --import-alias "@/*"
 ```
 
-### 0A.2 Závislosti
+### 0A.2 Dependencies
 
 ```bash
 # Core
@@ -44,7 +44,7 @@ npm install swr
 
 # UI
 npx shadcn@latest init
-# Nainstalovat shadcn komponenty:
+# Install shadcn components:
 npx shadcn@latest add button input label card table badge
 npx shadcn@latest add dialog sheet dropdown-menu select checkbox
 npx shadcn@latest add tabs separator avatar tooltip
@@ -65,7 +65,7 @@ npm install -D @types/node
 
 ### 0A.3 TypeScript strict mode
 
-`tsconfig.json` — ověřit/nastavit:
+`tsconfig.json` — verify/configure:
 ```json
 {
   "compilerOptions": {
@@ -78,7 +78,7 @@ npm install -D @types/node
 
 ### 0A.4 Environment variables
 
-`.env.local` (template — skutečné hodnoty se nedávají do repa):
+`.env.local` (template — actual values are not committed to the repo):
 ```
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
@@ -93,13 +93,13 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_DEFAULT_LOCALE=cs
 ```
 
-### 0A.5 Projekt struktura
+### 0A.5 Project structure
 
-Vytvořit kompletní adresářovou strukturu dle **Feature-Module Pattern** definovaného v CLAUDE.md:
+Create the complete directory structure according to the **Feature-Module Pattern** defined in CLAUDE.md:
 
 ```
 src/
-├── app/[locale]/                      # ROUTES ONLY — tenké soubory
+├── app/[locale]/                      # ROUTES ONLY — thin files
 │   ├── (auth)/login/page.tsx
 │   ├── (auth)/register/page.tsx
 │   ├── (dashboard)/layout.tsx
@@ -107,7 +107,7 @@ src/
 │   └── (dashboard)/brewery/partners/page.tsx   # Demo agenda
 │
 ├── modules/                           # BUSINESS LOGIC
-│   └── partners/                      # Demo modul (Sprint 0 = mock data)
+│   └── partners/                      # Demo module (Sprint 0 = mock data)
 │       ├── components/
 │       │   └── PartnerBrowser.tsx
 │       ├── config.ts
@@ -141,23 +141,23 @@ src/
 │   │   ├── auth.json
 │   │   ├── nav.json
 │   │   ├── dataBrowser.json
-│   │   └── partners.json             # Demo modul translations
+│   │   └── partners.json             # Demo module translations
 │   └── en/
 │       └── ...
 └── styles/
 ```
 
-Prázdné složky pro budoucí moduly (`items/`, `recipes/`, `batches/`, ...) **NEVYTVÁŘET** — přibudou v příslušných sprintech. Vytvořit pouze to co se v Sprint 0 skutečně implementuje.
+Empty folders for future modules (`items/`, `recipes/`, `batches/`, ...) should **NOT be created** — they will be added in their respective sprints. Create only what is actually implemented in Sprint 0.
 
 ---
 
-## FÁZE 0B: SUPABASE + DRIZZLE SETUP
+## PHASE 0B: SUPABASE + DRIZZLE SETUP
 
-### 0B.1 Supabase klient
+### 0B.1 Supabase client
 
-Vytvořit dva klienty:
+Create two clients:
 
-**`src/lib/supabase/client.ts`** — browser klient (pro client components):
+**`src/lib/supabase/client.ts`** — browser client (for client components):
 ```typescript
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -169,7 +169,7 @@ export function createClient() {
 }
 ```
 
-**`src/lib/supabase/server.ts`** — server klient (pro server components, API routes):
+**`src/lib/supabase/server.ts`** — server client (for server components, API routes):
 ```typescript
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -193,7 +193,7 @@ export async function createServerSupabaseClient() {
 }
 ```
 
-**`src/lib/supabase/middleware.ts`** — pro Next.js middleware (refresh session):
+**`src/lib/supabase/middleware.ts`** — for Next.js middleware (refresh session):
 ```typescript
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
@@ -221,36 +221,36 @@ export async function updateSession(request: NextRequest) {
 }
 ```
 
-### 0B.2 Drizzle schema — Sprint 0 tabulky
+### 0B.2 Drizzle schema — Sprint 0 tables
 
-Pro Sprint 0 potřebujeme jen tyto tabulky (zbytek se přidá v dalších sprintech):
+For Sprint 0 we only need these tables (the rest will be added in later sprints):
 
 **`drizzle/schema/tenants.ts`**
-- `tenants` tabulka (dle System Design 2.2)
+- `tenants` table (per System Design 2.2)
 
 **`drizzle/schema/auth.ts`**
-- `user_profiles` tabulka (dle System Design 3.4) — přidat `is_superadmin BOOLEAN DEFAULT false`
-- `tenant_users` tabulka (dle System Design 3.4)
+- `user_profiles` table (per System Design 3.4) — add `is_superadmin BOOLEAN DEFAULT false`
+- `tenant_users` table (per System Design 3.4)
 
 **`drizzle/schema/subscriptions.ts`**
-- `plans` tabulka (dle System Design 2.3) — seed s 4 plány (Free/Starter/Pro/Business) s placeholder cenami
+- `plans` table (per System Design 2.3) — seed with 4 plans (Free/Starter/Pro/Business) with placeholder prices
 
 **`drizzle/schema/system.ts`**
-- `saved_views` tabulka (dle System Design 4.3)
+- `saved_views` table (per System Design 4.3)
 
 **`src/config/module-routes.ts`** — Route → Module mapping:
 ```typescript
-// Mapuje URL path segment na required module slug
-// Používá middleware + ModuleGuard pro access control
+// Maps URL path segment to required module slug
+// Used by middleware + ModuleGuard for access control
 export const moduleRoutes: Record<string, string> = {
-  '/brewery':  'brewery',   // Vždy dostupný (i Free tier)
+  '/brewery':  'brewery',   // Always available (even Free tier)
   '/stock':    'stock',     // Subscription-gated
   '/sales':    'sales',     // Subscription-gated
   '/finance':  'finance',   // Subscription-gated
-  '/plan':     'plan',      // Subscription-gated (Fáze 2)
-  '/settings': '_always',   // Vždy dostupný
-  '/dashboard':'_always',   // Vždy dostupný
-  '/upgrade':  '_always',   // Vždy dostupný
+  '/plan':     'plan',      // Subscription-gated (Phase 2)
+  '/settings': '_always',   // Always available
+  '/dashboard':'_always',   // Always available
+  '/upgrade':  '_always',   // Always available
 }
 ```
 
@@ -274,7 +274,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as tenantSchema from '@/../drizzle/schema/tenants'
 import * as authSchema from '@/../drizzle/schema/auth'
-// ... další schémata
+// ... additional schemas
 
 const client = postgres(process.env.DATABASE_URL!)
 export const db = drizzle(client, {
@@ -284,27 +284,27 @@ export const db = drizzle(client, {
 
 ### 0B.3 RLS policies
 
-Po migraci vytvořit základní RLS policies v Supabase:
+After migration, create basic RLS policies in Supabase:
 
 ```sql
--- Tenant izolace pro všechny tenant-scoped tabulky
+-- Tenant isolation for all tenant-scoped tables
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
--- tenant_users: uživatel vidí jen svoje záznamy
+-- tenant_users: user can only see their own records
 CREATE POLICY "Users can view own tenant memberships"
   ON tenant_users FOR SELECT
   USING (user_id = auth.uid());
 
--- tenants: uživatel vidí jen tenanty kde je členem
+-- tenants: user can only see tenants where they are a member
 CREATE POLICY "Users can view own tenants"
   ON tenants FOR SELECT
   USING (id IN (
     SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()
   ));
 
--- user_profiles: uživatel vidí a edituje vlastní profil
+-- user_profiles: user can view and edit their own profile
 CREATE POLICY "Users can view own profile"
   ON user_profiles FOR SELECT
   USING (id = auth.uid());
@@ -316,89 +316,89 @@ CREATE POLICY "Users can update own profile"
 
 ---
 
-## FÁZE 0C: AUTENTIZACE
+## PHASE 0C: AUTHENTICATION
 
 ### 0C.1 Middleware
 
 **`src/middleware.ts`**:
 
-Logika:
-1. Zavolej `updateSession()` (refresh Supabase token)
-2. Extrahuj locale z URL path (`/cs/...` nebo `/en/...`)
-3. Pokud URL nemá locale → redirect na default locale
+Logic:
+1. Call `updateSession()` (refresh Supabase token)
+2. Extract locale from URL path (`/cs/...` or `/en/...`)
+3. If URL has no locale → redirect to default locale
 4. **Route group detection:**
-   - `(marketing)` routes → public, žádné kontroly
-   - `(auth)` routes → pokud user JE přihlášen → redirect na dashboard
-   - `(dashboard)` routes → pokud user NENÍ přihlášen → redirect na login
-   - `(admin)` routes → pokud user NENÍ přihlášen → redirect na login, pokud není superadmin → 403
-5. **Module access check** (jen pro dashboard routes):
-   - Mapuj URL path na required module přes `config/module-routes.ts`
-   - Pokud module === '_always' || module === 'brewery' → OK
-   - Jinak zkontroluj subscription → pokud modul není v plánu → redirect na `/[locale]/upgrade`
-6. Protected routes = vše pod `/(dashboard)/` a `/(admin)/`
+   - `(marketing)` routes → public, no checks
+   - `(auth)` routes → if user IS logged in → redirect to dashboard
+   - `(dashboard)` routes → if user IS NOT logged in → redirect to login
+   - `(admin)` routes → if user IS NOT logged in → redirect to login, if not superadmin → 403
+5. **Module access check** (only for dashboard routes):
+   - Map URL path to required module via `config/module-routes.ts`
+   - If module === '_always' || module === 'brewery' → OK
+   - Otherwise check subscription → if module is not in the plan → redirect to `/[locale]/upgrade`
+6. Protected routes = everything under `/(dashboard)/` and `/(admin)/`
 7. Public routes = `(marketing)`, `(auth)`
 
 ### 0C.2 Login page
 
 **`src/app/[locale]/(auth)/login/page.tsx`**
 
-Jednoduchý login formulář:
-- Email + heslo
+Simple login form:
+- Email + password
 - "Přihlásit se" button
-- Link na registraci
-- Link na "Zapomenuté heslo" (TODO: Sprint 6)
+- Link to registration
+- Link to "Zapomenuté heslo?" (TODO: Sprint 6)
 - Supabase `signInWithPassword`
-- Po úspěchu: redirect na dashboard
-- Chybová hláška při špatném loginu
-- Design: čistý, centered card, ProfiBrew logo nahoře
+- On success: redirect to dashboard
+- Error message on failed login
+- Design: clean, centered card, ProfiBrew logo on top
 
 ### 0C.3 Register page
 
 **`src/app/[locale]/(auth)/register/page.tsx`**
 
-Registrační formulář:
-- Jméno pivovaru (→ tenant.name)
+Registration form:
+- Brewery name (→ tenant.name)
 - Email
-- Heslo + potvrzení hesla
-- Souhlas s podmínkami (checkbox)
+- Password + password confirmation
+- Terms agreement (checkbox)
 - "Vytvořit účet" button
 
-Registrační flow (server action):
+Registration flow (server action):
 1. `supabase.auth.signUp({ email, password })`
-2. Vytvoř `user_profiles` záznam
-3. Vytvoř `tenants` záznam (name = brewery name, slug = slugify(name), status = 'trial')
-4. Vytvoř `tenant_users` záznam (role = 'owner')
-5. Vytvoř default `subscription` (plan = Free, status = 'trialing', trial_ends_at = +14 dní)
-6. Redirect na dashboard (nebo onboarding — TODO Sprint 5)
+2. Create `user_profiles` record
+3. Create `tenants` record (name = brewery name, slug = slugify(name), status = 'trial')
+4. Create `tenant_users` record (role = 'owner')
+5. Create default `subscription` (plan = Free, status = 'trialing', trial_ends_at = +14 days)
+6. Redirect to dashboard (or onboarding — TODO Sprint 5)
 
 ### 0C.4 Auth context/hooks
 
 **`src/lib/auth/hooks.ts`**:
-- `useUser()` — aktuální Supabase user
+- `useUser()` — current Supabase user
 - `useSession()` — session data
 
 **`src/lib/auth/actions.ts`** — server actions:
-- `signIn(email, password)` 
+- `signIn(email, password)`
 - `signUp(email, password, breweryName)`
 - `signOut()`
 
 ---
 
-## FÁZE 0D: MULTI-TENANT CONTEXT
+## PHASE 0D: MULTI-TENANT CONTEXT
 
 ### 0D.1 Tenant Provider
 
 **`src/lib/hooks/useTenant.ts`**:
 
-Po přihlášení:
-1. Načti `tenant_users` pro aktuálního usera
-2. Pokud má jeden tenant → nastav jako aktivní
-3. Pokud má víc tenantů → zobraz výběr (edge case, later)
-4. Ulož tenant_id + role do React context
+After login:
+1. Load `tenant_users` for the current user
+2. If user has one tenant → set as active
+3. If user has multiple tenants → show selection (edge case, later)
+4. Store tenant_id + role in React context
 
 **`src/components/providers/TenantProvider.tsx`**:
 ```typescript
-// Context poskytuje:
+// Context provides:
 interface TenantContext {
   tenantId: string
   tenantName: string
@@ -406,10 +406,10 @@ interface TenantContext {
   userRole: 'owner' | 'admin' | 'brewer' | 'sales' | 'viewer'
   subscription: {
     planSlug: string
-    modules: string[]    // Povolené moduly (z plan.included_modules + subscription_addons)
+    modules: string[]    // Allowed modules (from plan.included_modules + subscription_addons)
     status: string
   }
-  hasModule: (moduleSlug: string) => boolean  // Helper pro rychlou kontrolu
+  hasModule: (moduleSlug: string) => boolean  // Helper for quick check
 }
 ```
 
@@ -417,27 +417,27 @@ interface TenantContext {
 
 **`src/components/layout/ModuleGuard.tsx`**:
 
-Server component wrapper použitý v `(dashboard)/layout.tsx`:
+Server component wrapper used in `(dashboard)/layout.tsx`:
 ```typescript
-// Extrahuje module slug z URL path
-// Kontroluje přes hasModuleAccess()
-// Pokud modul není dostupný → renderuje <UpgradePrompt /> místo children
-// Pokud modul je dostupný → renderuje children normálně
+// Extracts module slug from URL path
+// Checks via hasModuleAccess()
+// If module is not available → renders <UpgradePrompt /> instead of children
+// If module is available → renders children normally
 ```
 
 **`src/app/[locale]/(dashboard)/upgrade/page.tsx`**:
 
-Upsell/paywall stránka:
-- Zobrazí aktuální plán uživatele
-- Ukáže co získá upgradem (tabulka plánů)
-- CTA button na upgrade (v MVP: odkaz na billing v settings)
-- Parametr `?module=stock` → zvýrazní modul kvůli kterému přišel
+Upsell/paywall page:
+- Shows the user's current plan
+- Shows what they gain by upgrading (plan comparison table)
+- CTA button for upgrade (in MVP: link to billing in settings)
+- Parameter `?module=stock` → highlights the module that brought them here
 
-### 0D.4 Skeleton route groups pro marketing a admin
+### 0D.4 Skeleton route groups for marketing and admin
 
-Vytvořit prázdné layout soubory pro budoucí route groups:
+Create empty layout files for future route groups:
 
-**`src/app/[locale]/(marketing)/layout.tsx`** — prázdný layout s placeholder:
+**`src/app/[locale]/(marketing)/layout.tsx`** — empty layout with placeholder:
 ```typescript
 // TODO: Sprint 6 — MarketingLayout (header, footer, CTA)
 export default function MarketingLayout({ children }) { return <>{children}</> }
@@ -449,10 +449,10 @@ export default function MarketingLayout({ children }) { return <>{children}</> }
 export default function HomePage() { return <div>ProfiBrew — Coming Soon</div> }
 ```
 
-**`src/app/[locale]/(admin)/layout.tsx`** — prázdný layout s auth check:
+**`src/app/[locale]/(admin)/layout.tsx`** — empty layout with auth check:
 ```typescript
 // TODO: Sprint 6 — AdminLayout
-// Musí kontrolovat is_superadmin, jinak redirect
+// Must check is_superadmin, otherwise redirect
 export default function AdminLayout({ children }) { return <>{children}</> }
 ```
 
@@ -462,24 +462,24 @@ export default function AdminLayout({ children }) { return <>{children}</> }
 export default function AdminPage() { return <div>Admin Dashboard — Coming Soon</div> }
 ```
 
-Tyto skeletony zajistí, že route groups existují od začátku a middleware je může správně routovat.
+These skeletons ensure that route groups exist from the beginning and middleware can route them correctly.
 
 ### 0D.2 API tenant middleware
 
 **`src/lib/db/with-tenant.ts`**:
 
-Helper pro všechny DB dotazy:
+Helper for all DB queries:
 ```typescript
-// Každý DB dotaz MUSÍ projít přes tuto funkci
+// Every DB query MUST go through this function
 export async function withTenant<T>(
   fn: (tenantId: string, db: DrizzleDB) => Promise<T>
 ): Promise<T> {
-  const tenantId = await getCurrentTenantId() // z session/JWT
+  const tenantId = await getCurrentTenantId() // from session/JWT
   if (!tenantId) throw new AuthError('No tenant context')
   return fn(tenantId, db)
 }
 
-// Použití:
+// Usage:
 const items = await withTenant(async (tenantId, db) => {
   return db.select().from(items).where(eq(items.tenantId, tenantId))
 })
@@ -487,9 +487,9 @@ const items = await withTenant(async (tenantId, db) => {
 
 ---
 
-## FÁZE 0E: i18n SETUP
+## PHASE 0E: i18n SETUP
 
-### 0E.1 next-intl konfigurace
+### 0E.1 next-intl configuration
 
 **`src/i18n/request.ts`**:
 ```typescript
@@ -514,9 +514,9 @@ export const routing = defineRouting({
 })
 ```
 
-### 0E.2 Základní překlady
+### 0E.2 Base translations
 
-Překlady split per modul — každý modul má vlastní JSON soubor.
+Translations are split per module — each module has its own JSON file.
 
 **`src/i18n/messages/cs/common.json`**:
 ```json
@@ -609,11 +609,11 @@ Překlady split per modul — každý modul má vlastní JSON soubor.
 }
 ```
 
-**`src/i18n/messages/cs/partners.json`**: viz Fáze 0I (demo agenda)
+**`src/i18n/messages/cs/partners.json`**: see Phase 0I (demo agenda)
 
-**`src/i18n/messages/en/`** — anglická verze všech souborů (analogicky).
+**`src/i18n/messages/en/`** — English version of all files (analogously).
 
-**i18n loader** musí skládat per-module JSONy do jednoho messages objektu:
+**i18n loader** must compose per-module JSONs into a single messages object:
 ```typescript
 // src/i18n/request.ts
 export default getRequestConfig(async ({ requestLocale }) => {
@@ -630,17 +630,17 @@ export default getRequestConfig(async ({ requestLocale }) => {
 })
 ```
 
-Pozn.: V budoucích sprintech se přidávají nové moduly — stačí přidat import dalšího JSON souboru.
+Note: In future sprints, new modules are added — just add an import for the additional JSON file.
 
 ---
 
-## FÁZE 0F: LAYOUT — TOPBAR + SIDEBAR
+## PHASE 0F: LAYOUT — TOPBAR + SIDEBAR
 
 ### 0F.1 Dashboard layout
 
 **`src/app/[locale]/(dashboard)/layout.tsx`**
 
-Hlavní layout pro celou aplikaci po přihlášení:
+Main layout for the entire application after login:
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -648,7 +648,7 @@ Hlavní layout pro celou aplikaci po přihlášení:
 ├──────────┬───────────────────────────────────────────┤
 │ Sidebar  │ Main Content (scrollable)                  │
 │ (w-64    │                                            │
-│  nebo    │  ┌─ Breadcrumb ──────────────────────┐    │
+│  or      │  ┌─ Breadcrumb ──────────────────────┐    │
 │  w-16    │  └───────────────────────────────────┘    │
 │  collapsed│                                           │
 │          │  {children}                                │
@@ -660,24 +660,24 @@ Hlavní layout pro celou aplikaci po přihlášení:
 
 **`src/components/layout/TopBar.tsx`**
 
-- Levá strana: tenant name (pivovar), module tabs (Pivovar | Sklad | Obchod | Finance | Plán)
-- Pravá strana: notifications icon (placeholder), user avatar + dropdown (profil, nastavení, odhlásit)
-- Module tabs: zvýrazněný aktivní modul, kliknutí přepne modul a sidebar agendy
-- Module tabs reagují na subscription — pokud modul není v plánu, zobrazí se šedě s lock ikonou
-- Responsive: na mobilu se tabs schovají do hamburger menu
+- Left side: tenant name (brewery), module tabs (Pivovar | Sklad | Obchod | Finance | Plán)
+- Right side: notifications icon (placeholder), user avatar + dropdown (profile, settings, logout)
+- Module tabs: highlighted active module, clicking switches module and sidebar agendas
+- Module tabs react to subscription — if a module is not in the plan, it appears grayed out with a lock icon
+- Responsive: on mobile, tabs collapse into a hamburger menu
 
 ### 0F.3 Sidebar
 
 **`src/components/layout/Sidebar.tsx`**
 
-- Collapsible (« button) — při collapse zobrazí jen ikony
-- Stav collapse/expand uložen v user_profiles.preferences (localStorage fallback)
-- Agendy se mění podle aktivního modulu (TopBar)
-- Aktivní agenda zvýrazněna
-- Logo ProfiBrew dole
-- Scrollovatelný pokud hodně agend
+- Collapsible (« button) — when collapsed shows only icons
+- Collapse/expand state saved in user_profiles.preferences (localStorage fallback)
+- Agendas change based on the active module (TopBar)
+- Active agenda is highlighted
+- ProfiBrew logo at the bottom
+- Scrollable if many agendas
 
-### 0F.4 Navigační konfigurace
+### 0F.4 Navigation configuration
 
 **`src/config/navigation.ts`**:
 
@@ -686,7 +686,7 @@ export interface NavModule {
   slug: string           // 'brewery' | 'stock' | 'sales' | 'finance' | 'plan'
   labelKey: string       // i18n key
   icon: LucideIcon
-  requiredModule: string // Pro subscription check
+  requiredModule: string // For subscription check
   agendas: NavAgenda[]
 }
 
@@ -694,7 +694,7 @@ export interface NavAgenda {
   slug: string
   labelKey: string
   icon: LucideIcon
-  href: string          // Relative path v rámci modulu
+  href: string          // Relative path within the module
   requiredPermission?: string  // 'items.read', 'batches.create'...
 }
 
@@ -727,48 +727,48 @@ export const modules: NavModule[] = [
       { slug: 'monthlyReport', labelKey: 'nav.agendas.monthlyReport', icon: FileText, href: '/stock/monthly-report' },
     ]
   },
-  // ... sales, finance, plan analogicky
+  // ... sales, finance, plan analogously
 ]
 ```
 
 ---
 
-## FÁZE 0G: DATABROWSER FRAMEWORK
+## PHASE 0G: DATABROWSER FRAMEWORK
 
-Tohle je nejkritičtější komponenta celého systému. DataBrowser se použije na KAŽDÉ agendě.
+This is the most critical component of the entire system. DataBrowser will be used on EVERY agenda.
 
 ### 0G.1 DataBrowser types
 
 **`src/components/data-browser/types.ts`**:
 
-Kompletní TypeScript interface pro konfiguraci DataBrowseru — viz System Design sekce 4.2. Klíčové typy:
+Complete TypeScript interface for DataBrowser configuration — see System Design section 4.2. Key types:
 
 ```typescript
 export interface DataBrowserConfig<T = any> {
   entity: string
   title: string
   baseFilter?: Record<string, any>
-  
+
   views: {
     list: { enabled: boolean; default?: boolean }
     card: CardViewConfig | false
   }
-  
+
   columns: ColumnDef[]
   quickFilters?: QuickFilter[]
   filters?: FilterDef[]
-  
+
   defaultSort: { key: string; direction: 'asc' | 'desc' }
   pageSize: number
   pageSizeOptions: number[]
-  
+
   actions: {
     create?: { label: string; enabled: boolean }
     bulkDelete?: boolean
     bulkExport?: boolean
     rowClick?: 'detail' | 'edit' | 'none'
   }
-  
+
   permissions: {
     create: string[]
     read: string[]
@@ -807,79 +807,79 @@ export interface FilterDef {
   label: string
   type: 'text' | 'select' | 'multiselect' | 'boolean' | 'date_range' | 'number_range'
   options?: { value: string; label: string }[]
-  optionsFrom?: string  // Dynamické options z DB
+  optionsFrom?: string  // Dynamic options from DB
 }
 ```
 
-### 0G.2 DataBrowser komponenta
+### 0G.2 DataBrowser component
 
 **`src/components/data-browser/DataBrowser.tsx`**:
 
 Props: `config: DataBrowserConfig`, `data: T[]`, `totalCount: number`, `isLoading: boolean`, `onParamsChange: (params) => void`
 
-Stav (URL search params pro shareable links):
+State (URL search params for shareable links):
 - `view`: 'list' | 'card'
 - `page`: number
 - `pageSize`: number
 - `sort`: string (e.g. 'name:asc')
 - `search`: string
-- `quickFilter`: string (slug aktivního quick filtru)
-- `filters`: JSON string (aktivní parametrické filtry)
+- `quickFilter`: string (slug of active quick filter)
+- `filters`: JSON string (active parametric filters)
 
-Renderuje:
+Renders:
 1. **Toolbar**: Create button, view toggle (list/card), filter toggle, saved views dropdown, search input, sort selector
-2. **QuickFilters**: Tab-style horizontální filtry
-3. **Active filter chips**: Zobrazení aktivních filtrů s ✕ pro odebrání
-4. **Content**: ListView NEBO CardView dle stavu
-5. **ParametricFilterPanel**: Sheet/drawer z levé strany
-6. **Pagination**: Dole
-7. **BulkActions**: Sticky bar dole pokud vybrány záznamy
+2. **QuickFilters**: Tab-style horizontal filters
+3. **Active filter chips**: Display of active filters with x for removal
+4. **Content**: ListView OR CardView based on state
+5. **ParametricFilterPanel**: Sheet/drawer from the left side
+6. **Pagination**: Bottom
+7. **BulkActions**: Sticky bar at the bottom when records are selected
 
 ### 0G.3 ListView
 
 **`src/components/data-browser/ListView.tsx`**
 
 - shadcn/ui Table
-- Sortovatelné sloupce (klik na header → toggle asc/desc)
-- Checkbox pro bulk select
-- Kliknutí na řádek → navigace na detail (dle config.actions.rowClick)
-- Row actions menu (⋮) — edit, delete, duplicate, custom
-- Responsive: horizontální scroll na malém displeji
+- Sortable columns (click on header → toggle asc/desc)
+- Checkbox for bulk select
+- Row click → navigate to detail (per config.actions.rowClick)
+- Row actions menu (...) — edit, delete, duplicate, custom
+- Responsive: horizontal scroll on small screens
 
 ### 0G.4 CardView
 
 **`src/components/data-browser/CardView.tsx`**
 
-- CSS Grid (responsive: 1-5 sloupců dle šířky)
-- Card layout dle CardViewConfig: image, title, subtitle, badges, metrics, action icons
-- Klik na card → detail
-- Action icons ve spodní části karty
+- CSS Grid (responsive: 1-5 columns based on width)
+- Card layout per CardViewConfig: image, title, subtitle, badges, metrics, action icons
+- Card click → detail
+- Action icons at the bottom of the card
 
 ### 0G.5 FilterBar, QuickFilters, Pagination, BulkActions
 
-Samostatné sub-komponenty. Viz System Design 4.2 wireframe.
+Separate sub-components. See System Design 4.2 wireframe.
 
 ### 0G.6 ParametricFilterPanel
 
 **`src/components/data-browser/ParametricFilterPanel.tsx`**
 
-- shadcn/ui Sheet (z levé strany)
-- Dynamicky generované filtry z `config.filters`
-- "Použít" a "Vymazat" tlačítka
-- Filtr hodnoty se propagují do URL params
+- shadcn/ui Sheet (from the left side)
+- Dynamically generated filters from `config.filters`
+- "Apply" and "Clear" buttons
+- Filter values propagate to URL params
 
 ### 0G.7 SavedViews
 
 **`src/components/data-browser/SavedViews.tsx`**
 
-- Dropdown s uloženými pohledy
-- "Uložit aktuální pohled" → dialog s názvem + shared checkbox
-- Načtení pohledu → nastaví všechny params (filtry, sort, view mode, columns)
-- CRUD operace přes API na `saved_views` tabulku
+- Dropdown with saved views
+- "Save current view" → dialog with name + shared checkbox
+- Loading a view → sets all params (filters, sort, view mode, columns)
+- CRUD operations via API on the `saved_views` table
 
 ---
 
-## FÁZE 0H: FORMSECTION FRAMEWORK
+## PHASE 0H: FORMSECTION FRAMEWORK
 
 ### 0H.1 FormSection types
 
@@ -898,14 +898,14 @@ export interface FormFieldDef {
   visible?: boolean | ((values: any) => boolean)    // Conditional visibility
   validation?: ZodSchema
   options?: { value: string; label: string }[]
-  optionsFrom?: string                              // Dynamické z DB
-  relationConfig?: {                                 // Pro type='relation'
+  optionsFrom?: string                              // Dynamic from DB
+  relationConfig?: {                                 // For type='relation'
     entity: string
     displayField: string
     searchFields: string[]
   }
-  computeFn?: (values: any) => any                   // Pro type='computed'
-  gridSpan?: 1 | 2 | 3 | 4                          // Kolik sloupců zabírá
+  computeFn?: (values: any) => any                   // For type='computed'
+  gridSpan?: 1 | 2 | 3 | 4                          // How many columns it spans
   helpText?: string
   prefix?: string                                    // "Kč", "kg"
   suffix?: string
@@ -919,42 +919,42 @@ export interface FormSectionDef {
 }
 ```
 
-### 0H.2 FormSection komponenta
+### 0H.2 FormSection component
 
 **`src/components/forms/FormSection.tsx`**
 
-- Renderuje fields v responsive grid
-- Používá shadcn/ui form components
-- Zod validace (inline error messages)
-- Režimy: 'create' | 'edit' | 'readonly'
-- Conditional visibility — pole se zobrazí/skryje dle podmínky
-- `onChange` callback pro každé pole
-- `onSubmit` pro celou sekci
+- Renders fields in a responsive grid
+- Uses shadcn/ui form components
+- Zod validation (inline error messages)
+- Modes: 'create' | 'edit' | 'readonly'
+- Conditional visibility — fields show/hide based on a condition
+- `onChange` callback for each field
+- `onSubmit` for the entire section
 
 ### 0H.3 DetailView wrapper
 
 **`src/components/detail-view/DetailView.tsx`**
 
 - Header: Back button, title, action buttons (save, delete, duplicate, etc.)
-- Tabs: Konfigurovatelné taby s FormSection nebo vnořeným DataBrowserem
-- Footer: Storno + Uložit buttons
+- Tabs: Configurable tabs with FormSection or nested DataBrowser
+- Footer: Cancel + Save buttons
 - Loading state, error state
 
 ---
 
-## FÁZE 0I: DEMO AGENDA (PLACEHOLDER)
+## PHASE 0I: DEMO AGENDA (PLACEHOLDER)
 
-Pro ověření celého frameworku vytvořit jednu fungující placeholder agendu pomocí feature-module pattern.
+To verify the entire framework, create one functioning placeholder agenda using the feature-module pattern.
 
 ### Demo: Partners browser (mock data)
 
-**Modul: `src/modules/partners/`**
+**Module: `src/modules/partners/`**
 
-Struktura:
+Structure:
 ```
 src/modules/partners/
 ├── components/
-│   └── PartnerBrowser.tsx      # Importuje DataBrowser, používá config
+│   └── PartnerBrowser.tsx      # Imports DataBrowser, uses config
 ├── config.ts                   # DataBrowser config (columns, filters, card layout)
 ├── types.ts                    # Partner TypeScript interface
 └── index.ts                    # Re-export: export { PartnerBrowser } from './components/PartnerBrowser'
@@ -962,7 +962,7 @@ src/modules/partners/
 
 **Page: `src/app/[locale]/(dashboard)/brewery/partners/page.tsx`**
 
-Tenký page soubor:
+Thin page file:
 ```typescript
 import { PartnerBrowser } from '@/modules/partners'
 
@@ -971,7 +971,7 @@ export default function PartnersPage() {
 }
 ```
 
-**Překlady: `src/i18n/messages/cs/partners.json`**
+**Translations: `src/i18n/messages/cs/partners.json`**
 ```json
 {
   "title": "Obchodní partneři",
@@ -995,62 +995,62 @@ export default function PartnersPage() {
 ```
 
 **PartnerBrowser.tsx:**
-- Importuje `DataBrowser` z `@/components/data-browser`
-- Používá `partnerBrowserConfig` z `../config`
-- Mock data: hardcoded array 20-30 partnerů (české názvy, adresy)
+- Imports `DataBrowser` from `@/components/data-browser`
+- Uses `partnerBrowserConfig` from `../config`
+- Mock data: hardcoded array of 20-30 partners (Czech names, addresses)
 - List view + Card view
 - Quick filters: Vše, Zákazníci, Dodavatelé
 - Columns: Název, IČO, Ulice, Město, PSČ, Stát, Mobil, Email
-- Click na řádek → console.log (placeholder, detail page v Sprint 1)
+- Click on row → console.log (placeholder, detail page in Sprint 1)
 
-Tím ověříme:
-- ✅ Feature-module pattern funguje (page importuje z modules/)
-- ✅ Layout funguje (TopBar + Sidebar + content)
-- ✅ DataBrowser renderuje list i card view
-- ✅ Filtry, sorting, pagination fungují
-- ✅ i18n funguje (per-module translations)
-- ✅ Navigace mezi moduly/agendami funguje
-- ✅ Responsive design funguje
-
----
-
-## ACCEPTANCE CRITERIA (Definice hotovo)
-
-Sprint 0 je hotový když:
-
-1. ☐ `npm run dev` spustí aplikaci bez chyb
-2. ☐ Nepřihlášený user je redirectnán na login
-3. ☐ Registrace vytvoří tenant + user + subscription v DB
-4. ☐ Po přihlášení se zobrazí layout s TopBar + Sidebar
-5. ☐ Module tabs v TopBar fungují (přepínají sidebar agendy)
-6. ☐ Sidebar se collapsuje/expanduje, stav se pamatuje
-7. ☐ Navigace na /brewery/partners zobrazí DataBrowser s mock daty
-8. ☐ List view zobrazuje tabulku s řazením a paginací
-9. ☐ Card view zobrazuje dlaždice
-10. ☐ Quick filters přepínají data
-11. ☐ Parametrický filtr panel se otevírá a filtruje
-12. ☐ Search funguje (client-side na mock datech)
-13. ☐ i18n: přepnutí na /en/ zobrazí anglické texty
-14. ☐ Responsive: na mobile se sidebar skrývá, TopBar adaptuje
-15. ☐ TypeScript: žádné `any` typy, strict mode, zero errors
-16. ☐ Build: `npm run build` projde bez chyb
-17. ☐ Feature-module pattern: page.tsx jen importuje z modules/, veškerá logika v src/modules/partners/
-18. ☐ i18n split: překlady v cs/partners.json, ne v jednom monolitu
-19. ☐ Dokumentace aktualizována: CHANGELOG.md (odškrtnuté položky), PRODUCT-SPEC.md (statusy 📋→✅)
+This verifies:
+- Feature-module pattern works (page imports from modules/)
+- Layout works (TopBar + Sidebar + content)
+- DataBrowser renders list and card view
+- Filters, sorting, pagination work
+- i18n works (per-module translations)
+- Navigation between modules/agendas works
+- Responsive design works
 
 ---
 
-## POZNÁMKY PRO CLAUDE CODE
+## ACCEPTANCE CRITERIA (Definition of Done)
 
-- **Vždy používej shadcn/ui** komponenty kde existují, nevymýšlej vlastní
-- **Tailwind only** — žádné CSS moduly, žádné styled-components
-- **Server Components defaultně** — `'use client'` jen kde nutné (interaktivita)
-- **Všechny texty přes next-intl** — žádné hardcoded české stringy v komponentách
-- **Konzistentní naming**: PascalCase components, camelCase hooks/utils, snake_case DB
-- **Error handling**: každý async operation v try/catch, user-friendly toast messages
-- **TypeScript strict**: no `any`, no `as` casts bez dobrého důvodu
-- **Komentáře**: jen kde je to neočividné, preferuj self-documenting code
-- **Feature-module pattern**: business logika v `src/modules/{modul}/`, pages jsou tenké importy
-- **Cross-module imports**: jen přes `index.ts` (public API), nikdy přímý import interních souborů
-- **i18n per modul**: překlady v `src/i18n/messages/{locale}/{modul}.json`
-- **Dokumentace**: po dokončení každé fáze aktualizuj CHANGELOG.md a PRODUCT-SPEC.md (viz CLAUDE.md pravidla)
+Sprint 0 is complete when:
+
+1. [ ] `npm run dev` starts the application without errors
+2. [ ] Unauthenticated user is redirected to login
+3. [ ] Registration creates tenant + user + subscription in DB
+4. [ ] After login, layout with TopBar + Sidebar is displayed
+5. [ ] Module tabs in TopBar work (switch sidebar agendas)
+6. [ ] Sidebar collapses/expands, state is remembered
+7. [ ] Navigation to /brewery/partners shows DataBrowser with mock data
+8. [ ] List view displays a table with sorting and pagination
+9. [ ] Card view displays tiles
+10. [ ] Quick filters switch data
+11. [ ] Parametric filter panel opens and filters
+12. [ ] Search works (client-side on mock data)
+13. [ ] i18n: switching to /en/ displays English texts
+14. [ ] Responsive: on mobile the sidebar hides, TopBar adapts
+15. [ ] TypeScript: no `any` types, strict mode, zero errors
+16. [ ] Build: `npm run build` passes without errors
+17. [ ] Feature-module pattern: page.tsx only imports from modules/, all logic in src/modules/partners/
+18. [ ] i18n split: translations in cs/partners.json, not in a single monolith
+19. [ ] Documentation updated: CHANGELOG.md (checked-off items), PRODUCT-SPEC.md (statuses updated)
+
+---
+
+## NOTES FOR CLAUDE CODE
+
+- **Always use shadcn/ui** components where they exist, do not invent your own
+- **Tailwind only** — no CSS modules, no styled-components
+- **Server Components by default** — `'use client'` only where necessary (interactivity)
+- **All text via next-intl** — no hardcoded Czech strings in components
+- **Consistent naming**: PascalCase components, camelCase hooks/utils, snake_case DB
+- **Error handling**: every async operation in try/catch, user-friendly toast messages
+- **TypeScript strict**: no `any`, no `as` casts without good reason
+- **Comments**: only where non-obvious, prefer self-documenting code
+- **Feature-module pattern**: business logic in `src/modules/{module}/`, pages are thin imports
+- **Cross-module imports**: only via `index.ts` (public API), never direct import of internal files
+- **i18n per module**: translations in `src/i18n/messages/{locale}/{module}.json`
+- **Documentation**: after completing each phase, update CHANGELOG.md and PRODUCT-SPEC.md (see CLAUDE.md rules)
