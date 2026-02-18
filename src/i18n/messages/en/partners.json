@@ -1,0 +1,19 @@
+{
+  "title": "Business Partners",
+  "create": "+ Partner",
+  "quickFilters": {
+    "all": "All",
+    "customers": "Customers",
+    "suppliers": "Suppliers"
+  },
+  "columns": {
+    "name": "Name",
+    "ico": "Company ID",
+    "street": "Street",
+    "city": "City",
+    "zip": "ZIP",
+    "country": "Country",
+    "phone": "Phone",
+    "email": "Email"
+  }
+}

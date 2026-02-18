@@ -1,0 +1,11 @@
+{
+  "listView": "List",
+  "cardView": "Cards",
+  "filters": "Filters",
+  "savedViews": "Saved Views",
+  "saveView": "Save View",
+  "clearFilters": "Clear Filters",
+  "bulkActions": "Bulk Actions",
+  "export": "Export",
+  "noData": "No data to display"
+}

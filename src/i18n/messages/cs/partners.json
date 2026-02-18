@@ -1,0 +1,19 @@
+{
+  "title": "Obchodní partneři",
+  "create": "+ Partner",
+  "quickFilters": {
+    "all": "Vše",
+    "customers": "Zákazníci",
+    "suppliers": "Dodavatelé"
+  },
+  "columns": {
+    "name": "Název",
+    "ico": "IČO",
+    "street": "Ulice",
+    "city": "Město",
+    "zip": "PSČ",
+    "country": "Stát",
+    "phone": "Mobil",
+    "email": "Email"
+  }
+}

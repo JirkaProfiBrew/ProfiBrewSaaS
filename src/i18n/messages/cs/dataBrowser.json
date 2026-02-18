@@ -1,0 +1,11 @@
+{
+  "listView": "Seznam",
+  "cardView": "Dlaždice",
+  "filters": "Filtry",
+  "savedViews": "Uložené pohledy",
+  "saveView": "Uložit pohled",
+  "clearFilters": "Vymazat filtry",
+  "bulkActions": "Hromadné akce",
+  "export": "Exportovat",
+  "noData": "Žádná data k zobrazení"
+}

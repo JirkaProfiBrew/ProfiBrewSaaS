@@ -1,0 +1,28 @@
+{
+  "modules": {
+    "brewery": "Brewery",
+    "stock": "Stock",
+    "sales": "Sales",
+    "finance": "Finance",
+    "plan": "Plan"
+  },
+  "agendas": {
+    "overview": "Overview",
+    "partners": "Partners",
+    "contacts": "Contacts",
+    "materials": "Materials",
+    "recipes": "Recipes",
+    "batches": "Batches",
+    "equipment": "Equipment",
+    "items": "Items",
+    "movements": "Stock Movements",
+    "tracking": "Tracking",
+    "excise": "Excise Movements",
+    "monthlyReport": "Monthly Report",
+    "orders": "Orders",
+    "cashflow": "Cash Flow",
+    "cashdesk": "Cash Desk",
+    "settings": "Settings",
+    "productSetup": "Product Setup"
+  }
+}

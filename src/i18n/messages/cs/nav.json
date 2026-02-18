@@ -1,0 +1,28 @@
+{
+  "modules": {
+    "brewery": "Pivovar",
+    "stock": "Sklad",
+    "sales": "Obchod",
+    "finance": "Finance",
+    "plan": "Plán"
+  },
+  "agendas": {
+    "overview": "Přehled",
+    "partners": "Partneři",
+    "contacts": "Kontakty",
+    "materials": "Suroviny",
+    "recipes": "Receptury",
+    "batches": "Vary",
+    "equipment": "Zařízení",
+    "items": "Položky",
+    "movements": "Skladové pohyby",
+    "tracking": "Tracking",
+    "excise": "Daňové pohyby",
+    "monthlyReport": "Měsíční podání",
+    "orders": "Objednávky",
+    "cashflow": "Cash Flow",
+    "cashdesk": "Pokladna",
+    "settings": "Nastavení",
+    "productSetup": "Nastavení produktu"
+  }
+}
