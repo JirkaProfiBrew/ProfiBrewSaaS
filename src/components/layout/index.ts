@@ -1,4 +1,3 @@
-/**
- * Layout components — TopBar, Sidebar, Breadcrumb.
- * Implementation in Sprint 0 Phase 0F.
- */
+export { TopBar } from "./TopBar";
+export { Sidebar } from "./Sidebar";
+export { ModuleGuard } from "./ModuleGuard";

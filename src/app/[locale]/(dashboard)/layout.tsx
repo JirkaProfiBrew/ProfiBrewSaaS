@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { loadTenantForUser } from "@/lib/db/tenant-loader";
 import { TenantProvider } from "@/components/providers/TenantProvider";
+import { TopBar } from "@/components/layout/TopBar";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -20,9 +22,14 @@ export default async function DashboardLayout({
 
   return (
     <TenantProvider value={tenantData}>
-      <div className="min-h-screen">
-        {/* TODO: Phase 0F — TopBar + Sidebar */}
-        {children}
+      <div className="flex h-screen flex-col">
+        <TopBar />
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto p-6">
+            {children}
+          </main>
+        </div>
       </div>
     </TenantProvider>
   );
