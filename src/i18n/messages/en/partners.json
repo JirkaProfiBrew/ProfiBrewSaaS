@@ -1,6 +1,6 @@
 {
   "title": "Business Partners",
-  "create": "+ Partner",
+  "create": "Partner",
   "quickFilters": {
     "all": "All",
     "customers": "Customers",

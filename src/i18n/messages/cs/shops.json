@@ -1,6 +1,6 @@
 {
   "title": "Provozovny",
-  "create": "+ Provozovna",
+  "create": "Provozovna",
   "quickFilters": {
     "all": "Vše",
     "brewery": "Pivovar",

@@ -1,6 +1,6 @@
 {
   "title": "Shops",
-  "create": "+ Shop",
+  "create": "Shop",
   "quickFilters": {
     "all": "All",
     "brewery": "Brewery",

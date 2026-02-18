@@ -1,8 +1,8 @@
 {
   "title": "Materials",
   "catalogTitle": "Item Catalog",
-  "create": "+ Material",
-  "catalogCreate": "+ Item",
+  "create": "Material",
+  "catalogCreate": "Item",
   "quickFilters": {
     "all": "All",
     "malt": "Malts & Adjuncts",

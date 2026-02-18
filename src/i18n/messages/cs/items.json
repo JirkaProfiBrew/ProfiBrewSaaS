@@ -1,8 +1,8 @@
 {
   "title": "Suroviny",
   "catalogTitle": "Katalog položek",
-  "create": "+ Surovina",
-  "catalogCreate": "+ Položka",
+  "create": "Surovina",
+  "catalogCreate": "Položka",
   "quickFilters": {
     "all": "Vše",
     "malt": "Slady a přísady",

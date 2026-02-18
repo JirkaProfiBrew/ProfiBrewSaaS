@@ -1,6 +1,6 @@
 {
   "title": "Equipment",
-  "create": "+ Equipment",
+  "create": "Equipment",
   "quickFilters": {
     "all": "All",
     "brewhouse": "Brewhouses",
