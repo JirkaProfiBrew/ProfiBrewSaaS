@@ -1,0 +1,14 @@
+{
+  "title": "Kontakty",
+  "quickFilters": {
+    "all": "Vše"
+  },
+  "columns": {
+    "name": "Jméno",
+    "partnerName": "Partner",
+    "position": "Pozice",
+    "email": "Email",
+    "phone": "Telefon",
+    "isPrimary": "Primární"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Contacts",
+  "quickFilters": {
+    "all": "All"
+  },
+  "columns": {
+    "name": "Name",
+    "partnerName": "Partner",
+    "position": "Position",
+    "email": "Email",
+    "phone": "Phone",
+    "isPrimary": "Primary"
+  }
+}

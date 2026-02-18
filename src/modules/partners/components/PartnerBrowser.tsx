@@ -7,7 +7,8 @@ import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
 import { partnerBrowserConfig } from "../config";
-import { mockPartners } from "../mock-data";
+import { usePartners } from "../hooks";
+import { getPartnerType } from "../types";
 import type { Partner } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -18,14 +19,16 @@ function partnerToRecord(partner: Partner): Record<string, unknown> {
     id: partner.id,
     tenantId: partner.tenantId,
     name: partner.name,
-    partnerType: partner.partnerType,
+    partnerType: getPartnerType(partner),
+    isCustomer: partner.isCustomer,
+    isSupplier: partner.isSupplier,
     ico: partner.ico,
     dic: partner.dic,
-    street: partner.street,
-    city: partner.city,
-    zip: partner.zip,
-    country: partner.country,
-    phone: partner.phone,
+    addressStreet: partner.addressStreet,
+    addressCity: partner.addressCity,
+    addressZip: partner.addressZip,
+    countryId: partner.countryId,
+    phone: partner.phone ?? partner.mobile,
     email: partner.email,
     isActive: partner.isActive,
     createdAt: partner.createdAt,
@@ -40,12 +43,12 @@ function matchesSearch(partner: Partner, search: string): boolean {
   return (
     partner.name.toLowerCase().includes(term) ||
     (partner.ico?.toLowerCase().includes(term) ?? false) ||
-    (partner.city?.toLowerCase().includes(term) ?? false) ||
+    (partner.addressCity?.toLowerCase().includes(term) ?? false) ||
     (partner.email?.toLowerCase().includes(term) ?? false)
   );
 }
 
-/** Apply quick filter based on partnerType. */
+/** Apply quick filter based on isCustomer/isSupplier flags. */
 function matchesQuickFilter(
   partner: Partner,
   quickFilterKey: string
@@ -57,13 +60,13 @@ function matchesQuickFilter(
   );
   if (!quickFilter) return true;
 
-  const filterValue = quickFilter.filter["partnerType"];
-  if (!filterValue) return true;
+  const filterIsCustomer = quickFilter.filter["isCustomer"];
+  const filterIsSupplier = quickFilter.filter["isSupplier"];
 
-  // "both" partners should appear in both customer and supplier filters
-  if (partner.partnerType === "both") return true;
+  if (filterIsCustomer === true && !partner.isCustomer) return false;
+  if (filterIsSupplier === true && !partner.isSupplier) return false;
 
-  return partner.partnerType === filterValue;
+  return true;
 }
 
 /** Apply parametric filters from the filter panel. */
@@ -81,6 +84,8 @@ function matchesParametricFilters(
       if (!fieldValue.toLowerCase().includes(value.toLowerCase())) {
         return false;
       }
+    } else if (typeof value === "boolean") {
+      if (fieldValue !== value) return false;
     } else if (fieldValue !== value) {
       return false;
     }
@@ -90,11 +95,11 @@ function matchesParametricFilters(
 
 /** Sort partners by a given key and direction. */
 function sortPartners(
-  partners: Partner[],
+  partnersList: Partner[],
   sortKey: string,
   direction: "asc" | "desc"
 ): Partner[] {
-  return [...partners].sort((a, b) => {
+  return [...partnersList].sort((a, b) => {
     const recordA = partnerToRecord(a);
     const recordB = partnerToRecord(b);
 
@@ -124,31 +129,35 @@ function sortPartners(
 export function PartnerBrowser(): React.ReactNode {
   const t = useTranslations("partners");
   const { params } = useDataBrowserParams(partnerBrowserConfig);
+  const { data: allPartners, isLoading } = usePartners();
 
   // Build localized config with translated labels
-  const localizedConfig = useMemo(() => ({
-    ...partnerBrowserConfig,
-    title: t("title"),
-    columns: partnerBrowserConfig.columns.map((col) => ({
-      ...col,
-      label: t(`columns.${col.key}`),
-    })),
-    quickFilters: partnerBrowserConfig.quickFilters?.map((qf) => ({
-      ...qf,
-      label: t(`quickFilters.${qf.key}`),
-    })),
-    actions: {
-      ...partnerBrowserConfig.actions,
-      create: partnerBrowserConfig.actions.create
-        ? { ...partnerBrowserConfig.actions.create, label: t("create") }
-        : undefined,
-    },
-  }), [t]);
+  const localizedConfig = useMemo(
+    () => ({
+      ...partnerBrowserConfig,
+      title: t("title"),
+      columns: partnerBrowserConfig.columns.map((col) => ({
+        ...col,
+        label: t(`columns.${col.key}`),
+      })),
+      quickFilters: partnerBrowserConfig.quickFilters?.map((qf) => ({
+        ...qf,
+        label: t(`quickFilters.${qf.key}`),
+      })),
+      actions: {
+        ...partnerBrowserConfig.actions,
+        create: partnerBrowserConfig.actions.create
+          ? { ...partnerBrowserConfig.actions.create, label: t("create") }
+          : undefined,
+      },
+    }),
+    [t]
+  );
 
-  // Derive filtered, sorted, and paginated data from params + mock data
+  // Derive filtered, sorted, and paginated data from params + real data
   const { pageData, totalCount } = useMemo(() => {
     // 1. Filter
-    let filtered = mockPartners.filter((partner) => {
+    let filtered = allPartners.filter((partner) => {
       if (!matchesSearch(partner, params.search)) return false;
       if (!matchesQuickFilter(partner, params.quickFilter)) return false;
       if (!matchesParametricFilters(partner, params.filters)) return false;
@@ -168,7 +177,7 @@ export function PartnerBrowser(): React.ReactNode {
       pageData: page.map(partnerToRecord),
       totalCount: total,
     };
-  }, [params]);
+  }, [allPartners, params]);
 
   // onParamsChange is called by DataBrowser on search change;
   // URL state is managed by useDataBrowserParams internally,
@@ -184,15 +193,13 @@ export function PartnerBrowser(): React.ReactNode {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("title")}
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
       </div>
       <DataBrowser
         config={localizedConfig}
         data={pageData}
         totalCount={totalCount}
-        isLoading={false}
+        isLoading={isLoading}
         onParamsChange={handleParamsChange}
       />
     </div>

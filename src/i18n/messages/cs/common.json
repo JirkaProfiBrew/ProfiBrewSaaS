@@ -20,5 +20,8 @@
   "total": "celkem",
   "all": "Vše",
   "selected": "Vybráno",
-  "comingSoon": "Již brzy"
+  "comingSoon": "Již brzy",
+  "validation": {
+    "required": "Toto pole je povinné"
+  }
 }

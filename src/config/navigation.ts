@@ -20,6 +20,9 @@ import {
   Landmark,
   Settings,
   ShoppingBag,
+  Building2,
+  Hash,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -109,3 +112,13 @@ export const settingsAgenda: AgendaConfig = {
   labelKey: "settings",
   path: "settings",
 };
+
+/**
+ * Settings sub-agendas — shown when Settings is selected.
+ */
+export const settingsSubAgendas: AgendaConfig[] = [
+  { slug: "settingsGeneral", icon: Settings, labelKey: "settingsGeneral", path: "settings" },
+  { slug: "shops", icon: Building2, labelKey: "shops", path: "settings/shops" },
+  { slug: "users", icon: UserCog, labelKey: "users", path: "settings/users" },
+  { slug: "counters", icon: Hash, labelKey: "counters", path: "settings/counters" },
+];

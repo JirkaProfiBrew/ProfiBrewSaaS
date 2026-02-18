@@ -150,6 +150,8 @@ export interface DataBrowserProps {
   totalCount: number;
   isLoading: boolean;
   onParamsChange: (params: DataBrowserParams) => void;
+  /** Override default row click behavior (which navigates to pathname/id). */
+  onRowClick?: (row: Record<string, unknown>) => void;
 }
 
 export interface ListViewProps {

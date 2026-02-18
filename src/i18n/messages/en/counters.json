@@ -1,0 +1,28 @@
+{
+  "title": "Numbering Sequences",
+  "description": "Configure automatic numbering for documents and items.",
+  "columns": {
+    "entity": "Entity",
+    "prefix": "Prefix",
+    "includeYear": "Include Year",
+    "currentNumber": "Current Number",
+    "padding": "Digit Count",
+    "separator": "Separator",
+    "resetYearly": "Reset Yearly",
+    "preview": "Preview"
+  },
+  "entities": {
+    "item": "Item",
+    "batch": "Batch",
+    "order": "Order",
+    "stock_issue_receipt": "Receipt",
+    "stock_issue_dispatch": "Dispatch"
+  },
+  "editTitle": "Edit sequence: {entity}",
+  "edit": "Edit",
+  "save": "Save",
+  "cancel": "Cancel",
+  "yes": "Yes",
+  "no": "No",
+  "noCounters": "No numbering sequences. They will be created during brewery registration."
+}

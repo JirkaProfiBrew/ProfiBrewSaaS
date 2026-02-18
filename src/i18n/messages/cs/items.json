@@ -1,0 +1,99 @@
+{
+  "title": "Suroviny",
+  "catalogTitle": "Katalog položek",
+  "create": "+ Surovina",
+  "catalogCreate": "+ Položka",
+  "quickFilters": {
+    "all": "Vše",
+    "malt": "Slady a přísady",
+    "hop": "Chmel",
+    "yeast": "Kvasnice",
+    "materials": "Suroviny",
+    "products": "Produkty",
+    "packaging": "Obaly"
+  },
+  "columns": {
+    "code": "Kód",
+    "name": "Název",
+    "materialType": "Typ",
+    "brand": "Výrobce",
+    "costPrice": "Cena",
+    "alpha": "Alpha",
+    "ebc": "EBC",
+    "isActive": "Aktivní",
+    "isBrewMaterial": "Surovina",
+    "isSaleItem": "Prodejní",
+    "stockCategory": "Kat. skladu",
+    "salePrice": "Prodejní cena"
+  },
+  "materialType": {
+    "malt": "Slad",
+    "hop": "Chmel",
+    "yeast": "Kvasnice",
+    "adjunct": "Přísada",
+    "other": "Ostatní"
+  },
+  "stockCategory": {
+    "raw_material": "Surovina",
+    "finished_product": "Hotový výrobek",
+    "packaging": "Obal",
+    "other": "Ostatní"
+  },
+  "issueMode": {
+    "fifo": "FIFO",
+    "lifo": "LIFO",
+    "average": "Průměrná cena"
+  },
+  "detail": {
+    "title": "Detail položky",
+    "newTitle": "Nová položka",
+    "sections": {
+      "basic": "Základní informace",
+      "flags": "Typ položky",
+      "stock": "Skladové nastavení",
+      "material": "Parametry suroviny",
+      "product": "Parametry produktu",
+      "pricing": "Cenotvorba",
+      "pos": "POS / Web",
+      "meta": "Poznámky"
+    },
+    "fields": {
+      "code": "Kód",
+      "name": "Název",
+      "brand": "Výrobce / Značka",
+      "isBrewMaterial": "Surovina na výrobu piva",
+      "isProductionItem": "Položka pro evidenci výroby",
+      "isSaleItem": "Prodávat položku",
+      "isExciseRelevant": "Podléhá spotřební dani",
+      "stockCategory": "Kategorie skladu",
+      "issueMode": "Mód výdeje",
+      "unit": "Měrná jednotka",
+      "baseUnitAmount": "Přepočet na základní jednotku",
+      "materialType": "Typ suroviny",
+      "alpha": "Alpha kyseliny (%)",
+      "ebc": "Barva EBC",
+      "extractPercent": "Výtěžnost (%)",
+      "packagingType": "Typ balení",
+      "volumeL": "Objem (l)",
+      "abv": "Alkohol (%)",
+      "plato": "Stupňovitost (°P)",
+      "ean": "EAN kód",
+      "costPrice": "Kalkulační cena",
+      "avgPrice": "Průměrná skladová cena",
+      "salePrice": "Prodejní cena",
+      "overheadManual": "Režie manuálně",
+      "overheadPrice": "Režijní cena",
+      "posAvailable": "Zpřístupnit na pokladně",
+      "webAvailable": "Nabízet na webu",
+      "color": "Barva položky",
+      "notes": "Poznámky",
+      "imageUrl": "URL obrázku"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "duplicate": "Duplikovat",
+      "cancel": "Zrušit"
+    }
+  }
+}

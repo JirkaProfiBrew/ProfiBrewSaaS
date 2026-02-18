@@ -1,0 +1,99 @@
+{
+  "title": "Materials",
+  "catalogTitle": "Item Catalog",
+  "create": "+ Material",
+  "catalogCreate": "+ Item",
+  "quickFilters": {
+    "all": "All",
+    "malt": "Malts & Adjuncts",
+    "hop": "Hops",
+    "yeast": "Yeast",
+    "materials": "Materials",
+    "products": "Products",
+    "packaging": "Packaging"
+  },
+  "columns": {
+    "code": "Code",
+    "name": "Name",
+    "materialType": "Type",
+    "brand": "Brand",
+    "costPrice": "Cost Price",
+    "alpha": "Alpha",
+    "ebc": "EBC",
+    "isActive": "Active",
+    "isBrewMaterial": "Material",
+    "isSaleItem": "For Sale",
+    "stockCategory": "Stock Category",
+    "salePrice": "Sale Price"
+  },
+  "materialType": {
+    "malt": "Malt",
+    "hop": "Hop",
+    "yeast": "Yeast",
+    "adjunct": "Adjunct",
+    "other": "Other"
+  },
+  "stockCategory": {
+    "raw_material": "Raw Material",
+    "finished_product": "Finished Product",
+    "packaging": "Packaging",
+    "other": "Other"
+  },
+  "issueMode": {
+    "fifo": "FIFO",
+    "lifo": "LIFO",
+    "average": "Average Cost"
+  },
+  "detail": {
+    "title": "Item Detail",
+    "newTitle": "New Item",
+    "sections": {
+      "basic": "Basic Information",
+      "flags": "Item Type",
+      "stock": "Stock Settings",
+      "material": "Material Parameters",
+      "product": "Product Parameters",
+      "pricing": "Pricing",
+      "pos": "POS / Web",
+      "meta": "Notes"
+    },
+    "fields": {
+      "code": "Code",
+      "name": "Name",
+      "brand": "Brand / Manufacturer",
+      "isBrewMaterial": "Brewing material",
+      "isProductionItem": "Production tracking item",
+      "isSaleItem": "Item for sale",
+      "isExciseRelevant": "Subject to excise duty",
+      "stockCategory": "Stock category",
+      "issueMode": "Issue mode",
+      "unit": "Unit of measure",
+      "baseUnitAmount": "Base unit conversion",
+      "materialType": "Material type",
+      "alpha": "Alpha acids (%)",
+      "ebc": "Color EBC",
+      "extractPercent": "Extract yield (%)",
+      "packagingType": "Packaging type",
+      "volumeL": "Volume (l)",
+      "abv": "Alcohol (%)",
+      "plato": "Gravity (°P)",
+      "ean": "EAN code",
+      "costPrice": "Cost price",
+      "avgPrice": "Average stock price",
+      "salePrice": "Sale price",
+      "overheadManual": "Manual overhead",
+      "overheadPrice": "Overhead price",
+      "posAvailable": "Available at POS",
+      "webAvailable": "Available on web",
+      "color": "Item color",
+      "notes": "Notes",
+      "imageUrl": "Image URL"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "duplicate": "Duplicate",
+      "cancel": "Cancel"
+    }
+  }
+}

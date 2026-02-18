@@ -20,5 +20,8 @@
   "total": "total",
   "all": "All",
   "selected": "Selected",
-  "comingSoon": "Coming Soon"
+  "comingSoon": "Coming Soon",
+  "validation": {
+    "required": "This field is required"
+  }
 }

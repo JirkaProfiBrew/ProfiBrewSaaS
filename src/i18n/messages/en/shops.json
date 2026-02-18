@@ -1,0 +1,42 @@
+{
+  "title": "Shops",
+  "create": "+ Shop",
+  "quickFilters": {
+    "all": "All",
+    "brewery": "Brewery",
+    "taproom": "Taproom",
+    "warehouse": "Warehouse"
+  },
+  "columns": {
+    "name": "Name",
+    "shopType": "Type",
+    "addressDisplay": "Address",
+    "isDefault": "Default",
+    "isActive": "Active"
+  },
+  "shopType": {
+    "brewery": "Brewery",
+    "taproom": "Taproom",
+    "warehouse": "Warehouse",
+    "office": "Office"
+  },
+  "detail": {
+    "title": "Shop Detail",
+    "newTitle": "New Shop",
+    "fields": {
+      "name": "Name",
+      "shopType": "Shop Type",
+      "street": "Street",
+      "city": "City",
+      "zip": "ZIP Code",
+      "country": "Country",
+      "isDefault": "Default Shop",
+      "isActive": "Active"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    }
+  }
+}

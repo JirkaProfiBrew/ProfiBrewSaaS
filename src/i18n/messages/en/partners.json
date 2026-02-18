@@ -8,10 +8,11 @@
   },
   "columns": {
     "name": "Name",
+    "partnerType": "Type",
     "ico": "Company ID",
-    "street": "Street",
-    "city": "City",
-    "zip": "ZIP",
+    "addressStreet": "Street",
+    "addressCity": "City",
+    "addressZip": "ZIP",
     "country": "Country",
     "phone": "Phone",
     "email": "Email"
@@ -20,5 +21,107 @@
     "customer": "Customer",
     "supplier": "Supplier",
     "both": "Both"
+  },
+  "detail": {
+    "title": "Partner Detail",
+    "newTitle": "New Partner",
+    "tabs": {
+      "basic": "Basic Information",
+      "contacts": "Contacts",
+      "addresses": "Addresses",
+      "bankAccounts": "Bank Accounts",
+      "notes": "Notes"
+    },
+    "fields": {
+      "name": "Name",
+      "legalForm": "Legal Form",
+      "ico": "Company ID",
+      "dic": "Tax ID",
+      "isCustomer": "Customer",
+      "isSupplier": "Supplier",
+      "email": "Email",
+      "phone": "Phone",
+      "mobile": "Mobile",
+      "web": "Website",
+      "addressStreet": "Street",
+      "addressCity": "City",
+      "addressZip": "ZIP",
+      "countryId": "Country",
+      "paymentTerms": "Payment Terms",
+      "creditLimit": "Credit Limit",
+      "notes": "Notes"
+    },
+    "legalForm": {
+      "individual": "Individual",
+      "legal_entity": "Legal Entity"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "aresLookup": "Update from ARES"
+    }
+  },
+  "contacts": {
+    "title": "Contacts",
+    "add": "+ Contact",
+    "columns": {
+      "name": "Name",
+      "position": "Position",
+      "email": "Email",
+      "phone": "Phone",
+      "isPrimary": "Primary"
+    },
+    "fields": {
+      "name": "Name",
+      "position": "Position",
+      "email": "Email",
+      "phone": "Phone",
+      "mobile": "Mobile",
+      "isPrimary": "Primary Contact",
+      "notes": "Notes"
+    }
+  },
+  "addresses": {
+    "title": "Addresses",
+    "add": "+ Address",
+    "columns": {
+      "addressType": "Type",
+      "label": "Label",
+      "street": "Street",
+      "city": "City",
+      "zip": "ZIP"
+    },
+    "fields": {
+      "addressType": "Address Type",
+      "label": "Label",
+      "street": "Street",
+      "city": "City",
+      "zip": "ZIP",
+      "countryId": "Country",
+      "isDefault": "Default"
+    },
+    "addressType": {
+      "billing": "Billing",
+      "delivery": "Delivery",
+      "other": "Other"
+    }
+  },
+  "bankAccounts": {
+    "title": "Bank Accounts",
+    "add": "+ Account",
+    "columns": {
+      "bankName": "Bank",
+      "accountNumber": "Account Number",
+      "iban": "IBAN",
+      "isDefault": "Default"
+    },
+    "fields": {
+      "bankName": "Bank Name",
+      "accountNumber": "Account Number",
+      "iban": "IBAN",
+      "swift": "SWIFT",
+      "isDefault": "Default Account"
+    }
   }
 }

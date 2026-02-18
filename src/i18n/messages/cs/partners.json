@@ -8,10 +8,11 @@
   },
   "columns": {
     "name": "Název",
+    "partnerType": "Typ",
     "ico": "IČO",
-    "street": "Ulice",
-    "city": "Město",
-    "zip": "PSČ",
+    "addressStreet": "Ulice",
+    "addressCity": "Město",
+    "addressZip": "PSČ",
     "country": "Stát",
     "phone": "Mobil",
     "email": "Email"
@@ -20,5 +21,107 @@
     "customer": "Zákazník",
     "supplier": "Dodavatel",
     "both": "Obojí"
+  },
+  "detail": {
+    "title": "Detail partnera",
+    "newTitle": "Nový partner",
+    "tabs": {
+      "basic": "Základní informace",
+      "contacts": "Kontakty",
+      "addresses": "Adresy",
+      "bankAccounts": "Bankovní účty",
+      "notes": "Poznámky"
+    },
+    "fields": {
+      "name": "Název",
+      "legalForm": "Právní forma",
+      "ico": "IČO",
+      "dic": "DIČ",
+      "isCustomer": "Zákazník",
+      "isSupplier": "Dodavatel",
+      "email": "Email",
+      "phone": "Telefon",
+      "mobile": "Mobil",
+      "web": "Web",
+      "addressStreet": "Ulice",
+      "addressCity": "Město",
+      "addressZip": "PSČ",
+      "countryId": "Země",
+      "paymentTerms": "Splatnost",
+      "creditLimit": "Kreditní limit",
+      "notes": "Poznámky"
+    },
+    "legalForm": {
+      "individual": "Fyzická osoba",
+      "legal_entity": "Právnická osoba"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "cancel": "Zrušit",
+      "aresLookup": "Aktualizovat z ARES"
+    }
+  },
+  "contacts": {
+    "title": "Kontakty",
+    "add": "+ Kontakt",
+    "columns": {
+      "name": "Jméno",
+      "position": "Pozice",
+      "email": "Email",
+      "phone": "Telefon",
+      "isPrimary": "Primární"
+    },
+    "fields": {
+      "name": "Jméno",
+      "position": "Pozice",
+      "email": "Email",
+      "phone": "Telefon",
+      "mobile": "Mobil",
+      "isPrimary": "Primární kontakt",
+      "notes": "Poznámky"
+    }
+  },
+  "addresses": {
+    "title": "Adresy",
+    "add": "+ Adresa",
+    "columns": {
+      "addressType": "Typ",
+      "label": "Označení",
+      "street": "Ulice",
+      "city": "Město",
+      "zip": "PSČ"
+    },
+    "fields": {
+      "addressType": "Typ adresy",
+      "label": "Označení",
+      "street": "Ulice",
+      "city": "Město",
+      "zip": "PSČ",
+      "countryId": "Země",
+      "isDefault": "Výchozí"
+    },
+    "addressType": {
+      "billing": "Fakturační",
+      "delivery": "Dodací",
+      "other": "Jiná"
+    }
+  },
+  "bankAccounts": {
+    "title": "Bankovní účty",
+    "add": "+ Účet",
+    "columns": {
+      "bankName": "Banka",
+      "accountNumber": "Číslo účtu",
+      "iban": "IBAN",
+      "isDefault": "Výchozí"
+    },
+    "fields": {
+      "bankName": "Název banky",
+      "accountNumber": "Číslo účtu",
+      "iban": "IBAN",
+      "swift": "SWIFT",
+      "isDefault": "Výchozí účet"
+    }
   }
 }

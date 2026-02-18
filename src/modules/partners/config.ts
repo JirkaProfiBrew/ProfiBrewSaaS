@@ -14,25 +14,34 @@ export const partnerBrowserConfig: DataBrowserConfig = {
     card: {
       enabled: true,
       titleField: "name",
-      subtitleField: "city",
+      subtitleField: "addressCity",
     },
   },
 
   columns: [
     { key: "name", label: "Název", type: "link", sortable: true },
+    { key: "partnerType", label: "Typ", type: "badge" },
     { key: "ico", label: "IČO", type: "text" },
-    { key: "street", label: "Ulice", type: "text" },
-    { key: "city", label: "Město", type: "text", sortable: true },
-    { key: "zip", label: "PSČ", type: "text" },
-    { key: "country", label: "Stát", type: "text" },
+    { key: "addressStreet", label: "Ulice", type: "text" },
+    { key: "addressCity", label: "Město", type: "text", sortable: true },
+    { key: "addressZip", label: "PSČ", type: "text" },
     { key: "phone", label: "Mobil", type: "text" },
     { key: "email", label: "Email", type: "text" },
   ],
 
   quickFilters: [
     { key: "all", label: "Vše", filter: {} },
-    { key: "customers", label: "Zákazníci", filter: { partnerType: "customer" } },
-    { key: "suppliers", label: "Dodavatelé", filter: { partnerType: "supplier" } },
+    { key: "customers", label: "Zákazníci", filter: { isCustomer: true } },
+    { key: "suppliers", label: "Dodavatelé", filter: { isSupplier: true } },
+  ],
+
+  filters: [
+    { key: "addressCity", label: "Město", type: "text" },
+    {
+      key: "isActive",
+      label: "Aktivní",
+      type: "boolean",
+    },
   ],
 
   defaultSort: { key: "name", direction: "asc" },
@@ -42,7 +51,7 @@ export const partnerBrowserConfig: DataBrowserConfig = {
   actions: {
     create: { label: "+ Partner", enabled: true },
     bulkDelete: true,
-    rowClick: "none",
+    rowClick: "detail",
   },
 
   permissions: {

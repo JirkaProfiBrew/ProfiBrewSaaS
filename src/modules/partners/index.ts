@@ -3,4 +3,5 @@
  * Re-exports types, config, and components for use by other modules.
  */
 export { PartnerBrowser } from "./components/PartnerBrowser";
-export type { Partner, PartnerType } from "./types";
+export { PartnerDetail } from "./components/PartnerDetail";
+export type { Partner, PartnerType, Contact, Address, BankAccount } from "./types";

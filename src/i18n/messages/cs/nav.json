@@ -23,6 +23,10 @@
     "cashflow": "Cash Flow",
     "cashdesk": "Pokladna",
     "settings": "Nastavení",
+    "settingsGeneral": "Obecné",
+    "shops": "Provozovny",
+    "users": "Uživatelé",
+    "counters": "Číslovací řady",
     "productSetup": "Nastavení produktu"
   }
 }

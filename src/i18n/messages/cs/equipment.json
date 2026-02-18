@@ -1,0 +1,58 @@
+{
+  "title": "Zařízení",
+  "create": "+ Zařízení",
+  "quickFilters": {
+    "all": "Vše",
+    "brewhouse": "Varny",
+    "fermenter": "Fermentory",
+    "brite_tank": "Ležácké",
+    "conditioning": "CKT",
+    "bottling_line": "Stáčecí"
+  },
+  "columns": {
+    "name": "Název",
+    "equipmentType": "Typ",
+    "volumeL": "Kapacita (l)",
+    "status": "Stav",
+    "shopName": "Provozovna",
+    "isActive": "Aktivní"
+  },
+  "filters": {
+    "equipmentType": "Typ",
+    "status": "Stav",
+    "isActive": "Aktivní"
+  },
+  "equipmentType": {
+    "brewhouse": "Varna",
+    "fermenter": "Fermentor",
+    "brite_tank": "Ležácký tank",
+    "conditioning": "CKT",
+    "bottling_line": "Stáčecí linka",
+    "keg_washer": "Myčka sudů"
+  },
+  "status": {
+    "available": "Dostupný",
+    "in_use": "V použití",
+    "maintenance": "Údržba",
+    "retired": "Vyřazený"
+  },
+  "detail": {
+    "title": "Detail zařízení",
+    "newTitle": "Nové zařízení",
+    "fields": {
+      "name": "Název",
+      "equipmentType": "Typ zařízení",
+      "volumeL": "Kapacita (litry)",
+      "shopId": "Provozovna",
+      "shopIdHelp": "ID provozovny (bude připojeno k číselníku provozoven)",
+      "status": "Stav",
+      "notes": "Poznámky",
+      "isActive": "Aktivní"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "cancel": "Zrušit"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Provozovny",
+  "create": "+ Provozovna",
+  "quickFilters": {
+    "all": "Vše",
+    "brewery": "Pivovar",
+    "taproom": "Výčep",
+    "warehouse": "Sklad"
+  },
+  "columns": {
+    "name": "Název",
+    "shopType": "Typ",
+    "addressDisplay": "Adresa",
+    "isDefault": "Výchozí",
+    "isActive": "Aktivní"
+  },
+  "shopType": {
+    "brewery": "Pivovar",
+    "taproom": "Výčep",
+    "warehouse": "Sklad",
+    "office": "Kancelář"
+  },
+  "detail": {
+    "title": "Detail provozovny",
+    "newTitle": "Nová provozovna",
+    "fields": {
+      "name": "Název",
+      "shopType": "Typ provozovny",
+      "street": "Ulice",
+      "city": "Město",
+      "zip": "PSČ",
+      "country": "Země",
+      "isDefault": "Výchozí provozovna",
+      "isActive": "Aktivní"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "cancel": "Zrušit"
+    }
+  }
+}

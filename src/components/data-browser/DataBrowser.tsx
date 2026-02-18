@@ -24,6 +24,7 @@ function DataBrowserInner({
   totalCount,
   isLoading,
   onParamsChange,
+  onRowClick: externalRowClick,
 }: DataBrowserProps): React.ReactNode {
   const router = useRouter();
   const pathname = usePathname();
@@ -159,8 +160,11 @@ function DataBrowserInner({
   // ── Determine row click handler ───────────────────────────
 
   const rowClickAction = config.actions.rowClick;
-  const rowClickHandler =
-    rowClickAction && rowClickAction !== "none" ? handleRowClick : undefined;
+  const rowClickHandler = externalRowClick
+    ? externalRowClick
+    : rowClickAction && rowClickAction !== "none"
+      ? handleRowClick
+      : undefined;
 
   // ── Render ────────────────────────────────────────────────
 

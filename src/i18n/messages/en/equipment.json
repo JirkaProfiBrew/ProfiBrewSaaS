@@ -1,0 +1,58 @@
+{
+  "title": "Equipment",
+  "create": "+ Equipment",
+  "quickFilters": {
+    "all": "All",
+    "brewhouse": "Brewhouses",
+    "fermenter": "Fermenters",
+    "brite_tank": "Brite Tanks",
+    "conditioning": "Conditioning",
+    "bottling_line": "Bottling Lines"
+  },
+  "columns": {
+    "name": "Name",
+    "equipmentType": "Type",
+    "volumeL": "Capacity (l)",
+    "status": "Status",
+    "shopName": "Location",
+    "isActive": "Active"
+  },
+  "filters": {
+    "equipmentType": "Type",
+    "status": "Status",
+    "isActive": "Active"
+  },
+  "equipmentType": {
+    "brewhouse": "Brewhouse",
+    "fermenter": "Fermenter",
+    "brite_tank": "Brite Tank",
+    "conditioning": "Conditioning Tank",
+    "bottling_line": "Bottling Line",
+    "keg_washer": "Keg Washer"
+  },
+  "status": {
+    "available": "Available",
+    "in_use": "In Use",
+    "maintenance": "Maintenance",
+    "retired": "Retired"
+  },
+  "detail": {
+    "title": "Equipment Detail",
+    "newTitle": "New Equipment",
+    "fields": {
+      "name": "Name",
+      "equipmentType": "Equipment Type",
+      "volumeL": "Capacity (liters)",
+      "shopId": "Location",
+      "shopIdHelp": "Location ID (will be connected to shops directory)",
+      "status": "Status",
+      "notes": "Notes",
+      "isActive": "Active"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    }
+  }
+}

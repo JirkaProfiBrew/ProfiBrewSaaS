@@ -1,0 +1,28 @@
+{
+  "title": "Číslovací řady",
+  "description": "Konfigurace automatického číslování dokladů a položek.",
+  "columns": {
+    "entity": "Entita",
+    "prefix": "Prefix",
+    "includeYear": "Rok v čísle",
+    "currentNumber": "Aktuální číslo",
+    "padding": "Počet číslic",
+    "separator": "Oddělovač",
+    "resetYearly": "Reset ročně",
+    "preview": "Ukázka"
+  },
+  "entities": {
+    "item": "Položka",
+    "batch": "Várka",
+    "order": "Objednávka",
+    "stock_issue_receipt": "Příjemka",
+    "stock_issue_dispatch": "Výdejka"
+  },
+  "editTitle": "Úprava řady: {entity}",
+  "edit": "Upravit",
+  "save": "Uložit",
+  "cancel": "Zrušit",
+  "yes": "Ano",
+  "no": "Ne",
+  "noCounters": "Žádné číslovací řady. Budou vytvořeny při registraci pivovaru."
+}
