@@ -2,6 +2,19 @@ import { db } from "@/lib/db";
 import { counters } from "@/../drizzle/schema/system";
 import { eq, and, sql } from "drizzle-orm";
 
+/** Default counter configurations per entity. */
+const COUNTER_DEFAULTS: Record<string, { prefix: string; includeYear: boolean; padding: number; separator: string; resetYearly: boolean }> = {
+  item:                 { prefix: "it",  includeYear: false, padding: 5, separator: "",  resetYearly: false },
+  batch:                { prefix: "V",   includeYear: true,  padding: 3, separator: "-", resetYearly: true },
+  order:                { prefix: "OBJ", includeYear: true,  padding: 4, separator: "-", resetYearly: true },
+  stock_issue_receipt:  { prefix: "PR",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
+  stock_issue_dispatch: { prefix: "VD",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
+};
+
+function getDefaultCounterConfig(entity: string): { prefix: string; includeYear: boolean; padding: number; separator: string; resetYearly: boolean } {
+  return COUNTER_DEFAULTS[entity] ?? { prefix: entity.substring(0, 3).toUpperCase(), includeYear: true, padding: 3, separator: "-", resetYearly: true };
+}
+
 /**
  * Get the next formatted number from a counter sequence.
  * Uses SELECT ... FOR UPDATE to prevent race conditions.
@@ -22,9 +35,23 @@ export async function getNextNumber(
       .where(and(eq(counters.tenantId, tenantId), eq(counters.entity, entity)))
       .for("update");
 
-    const counter = rows[0];
+    let counter = rows[0];
     if (!counter) {
-      throw new Error(`Counter not found for entity "${entity}" in tenant "${tenantId}"`);
+      // Auto-create a default counter for this entity
+      const defaultConfig = getDefaultCounterConfig(entity);
+      const inserted = await tx
+        .insert(counters)
+        .values({
+          tenantId,
+          entity,
+          ...defaultConfig,
+        })
+        .returning();
+
+      counter = inserted[0];
+      if (!counter) {
+        throw new Error(`Failed to create counter for entity "${entity}"`);
+      }
     }
 
     // Check if we need to reset the counter (yearly reset)
@@ -66,56 +93,20 @@ export async function getNextNumber(
 
 /**
  * Seed default counters for a new tenant.
- * Called during tenant registration.
+ * Called during tenant registration. Uses ON CONFLICT DO NOTHING
+ * so it's safe to call multiple times.
  */
 export async function seedDefaultCounters(tenantId: string): Promise<void> {
-  const defaults = [
-    {
-      entity: "item",
-      prefix: "it",
-      includeYear: false,
-      padding: 5,
-      separator: "",
-      resetYearly: false,
-    },
-    {
-      entity: "batch",
-      prefix: "V",
-      includeYear: true,
-      padding: 3,
-      separator: "-",
-      resetYearly: true,
-    },
-    {
-      entity: "order",
-      prefix: "OBJ",
-      includeYear: true,
-      padding: 4,
-      separator: "-",
-      resetYearly: true,
-    },
-    {
-      entity: "stock_issue_receipt",
-      prefix: "PR",
-      includeYear: true,
-      padding: 3,
-      separator: "-",
-      resetYearly: true,
-    },
-    {
-      entity: "stock_issue_dispatch",
-      prefix: "VD",
-      includeYear: true,
-      padding: 3,
-      separator: "-",
-      resetYearly: true,
-    },
-  ];
+  const entities = Object.keys(COUNTER_DEFAULTS);
 
-  await db.insert(counters).values(
-    defaults.map((d) => ({
-      tenantId,
-      ...d,
-    }))
-  );
+  await db
+    .insert(counters)
+    .values(
+      entities.map((entity) => ({
+        tenantId,
+        entity,
+        ...COUNTER_DEFAULTS[entity]!,
+      }))
+    )
+    .onConflictDoNothing();
 }
