@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Lock, LogOut, Settings, User } from "lucide-react";
@@ -21,12 +21,12 @@ import { signOut } from "@/lib/auth/actions";
 export function TopBar(): React.ReactNode {
   const t = useTranslations("nav");
   const tAuth = useTranslations("auth");
+  const locale = useLocale();
   const pathname = usePathname();
   const { tenantName, hasModule } = useTenantContext();
 
-  // Determine active module from URL
+  // pathname: /cs/brewery/partners → segments: ['', 'cs', 'brewery', 'partners']
   const pathSegments = pathname.split("/");
-  // pathname is like /cs/brewery/partners → segments: ['', 'cs', 'brewery', 'partners']
   const activeModuleSlug = pathSegments[2] ?? "";
 
   return (
@@ -41,11 +41,15 @@ export function TopBar(): React.ReactNode {
         {modules.map((mod) => {
           const isActive = activeModuleSlug === mod.basePath;
           const hasAccess = hasModule(mod.slug);
+          const defaultAgenda = mod.agendas[0]?.path ?? "";
+          const moduleHref = hasAccess
+            ? `/${locale}/${mod.basePath}/${defaultAgenda}`
+            : `/${locale}/upgrade?module=${mod.slug}`;
 
           return (
             <Link
               key={mod.slug}
-              href={hasAccess ? `/${mod.basePath}` : `/upgrade?module=${mod.slug}`}
+              href={moduleHref}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 isActive
@@ -77,7 +81,7 @@ export function TopBar(): React.ReactNode {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem asChild>
-              <Link href="/settings" className="flex items-center gap-2">
+              <Link href={`/${locale}/settings`} className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 {t("agendas.settings")}
               </Link>

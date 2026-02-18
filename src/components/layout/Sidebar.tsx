@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -18,21 +18,23 @@ import { modules, settingsAgenda, type AgendaConfig } from "@/config/navigation"
 
 export function Sidebar(): React.ReactNode {
   const t = useTranslations("nav");
+  const locale = useLocale();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Determine active module from URL
+  // pathname: /cs/brewery/partners → segments: ['', 'cs', 'brewery', 'partners']
   const pathSegments = pathname.split("/");
   const activeModuleSlug = pathSegments[2] ?? "";
 
-  const activeModule = modules.find((m) => m.basePath === activeModuleSlug);
+  // Fallback to brewery when on /dashboard or other non-module routes
+  const activeModule =
+    modules.find((m) => m.basePath === activeModuleSlug) ?? modules[0];
   const agendas: AgendaConfig[] = activeModule?.agendas ?? [];
 
   function isAgendaActive(agenda: AgendaConfig): boolean {
     if (!activeModule) return false;
-    const agendaPath = `/${activeModule.basePath}/${agenda.path}`;
-    // pathname is /cs/brewery/partners → check if it contains the agenda path
-    return pathname.includes(agendaPath);
+    const agendaPath = `/${locale}/${activeModule.basePath}/${agenda.path}`;
+    return pathname.startsWith(agendaPath);
   }
 
   return (
@@ -48,7 +50,7 @@ export function Sidebar(): React.ReactNode {
           <nav className="flex flex-col gap-0.5 px-2">
             {agendas.map((agenda) => {
               const active = isAgendaActive(agenda);
-              const href = `/${activeModule?.basePath}/${agenda.path}`;
+              const href = `/${locale}/${activeModule?.basePath}/${agenda.path}`;
 
               if (collapsed) {
                 return (
@@ -100,7 +102,7 @@ export function Sidebar(): React.ReactNode {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href="/settings"
+                  href={`/${locale}/settings`}
                   className="flex h-10 w-10 mx-auto items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   <settingsAgenda.icon className="h-5 w-5" />
@@ -112,7 +114,7 @@ export function Sidebar(): React.ReactNode {
             </Tooltip>
           ) : (
             <Link
-              href="/settings"
+              href={`/${locale}/settings`}
               className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
               <settingsAgenda.icon className="h-4 w-4 shrink-0" />
@@ -129,12 +131,7 @@ export function Sidebar(): React.ReactNode {
             {collapsed ? (
               <ChevronRight className="h-4 w-4" />
             ) : (
-              <>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                <span className="text-xs text-muted-foreground">
-                  {/* Collapse label not needed — icon is self-explanatory */}
-                </span>
-              </>
+              <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
         </div>
