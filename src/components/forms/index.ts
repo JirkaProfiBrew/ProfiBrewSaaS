@@ -1,4 +1,13 @@
 /**
  * FormSection framework — form sections generated from field definitions.
- * Implementation in Sprint 0 Phase 0H.
  */
+export { FormSection } from "./FormSection";
+export type {
+  FormMode,
+  FormFieldType,
+  FormFieldOption,
+  RelationConfig,
+  FormFieldDef,
+  FormSectionDef,
+  FormSectionProps,
+} from "./types";

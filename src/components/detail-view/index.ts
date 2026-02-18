@@ -1,4 +1,6 @@
-/**
- * DetailView framework — record detail with tabs and FormSections.
- * Implementation in Sprint 1+.
- */
+export { DetailView } from "./DetailView";
+export type {
+  DetailViewProps,
+  DetailViewTab,
+  DetailViewAction,
+} from "./types";

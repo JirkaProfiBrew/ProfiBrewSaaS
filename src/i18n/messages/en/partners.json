@@ -15,5 +15,10 @@
     "country": "Country",
     "phone": "Phone",
     "email": "Email"
+  },
+  "partnerType": {
+    "customer": "Customer",
+    "supplier": "Supplier",
+    "both": "Both"
   }
 }

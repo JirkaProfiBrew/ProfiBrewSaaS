@@ -15,5 +15,10 @@
     "country": "Stát",
     "phone": "Mobil",
     "email": "Email"
+  },
+  "partnerType": {
+    "customer": "Zákazník",
+    "supplier": "Dodavatel",
+    "both": "Obojí"
   }
 }

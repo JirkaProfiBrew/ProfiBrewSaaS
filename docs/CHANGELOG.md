@@ -19,9 +19,9 @@
 - [x] i18n setup (next-intl, cs + en)
 - [x] Layout: TopBar s module tabs, collapsible Sidebar
 - [x] DataBrowser framework: ListView, CardView, FilterBar, QuickFilters, ParametricFilterPanel, Pagination, BulkActions
-- [ ] FormSection framework
-- [ ] DetailView wrapper
-- [ ] Demo agenda: Partners (mock data) pro ověření frameworku
+- [x] FormSection framework (types, form field rendering by type, responsive grid, conditional visibility)
+- [x] DetailView wrapper (header, tabs, footer, loading state)
+- [x] Demo agenda: Partners (mock data) pro ověření frameworku — 25 mock partnerů, client-side filtrování/řazení/stránkování
 
 ### Architektonická rozhodnutí
 - Drizzle ORM (ne Prisma) — lightweight, SQL-blízký
