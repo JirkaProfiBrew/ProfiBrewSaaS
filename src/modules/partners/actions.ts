@@ -8,6 +8,7 @@ import {
   addresses,
   partnerBankAccounts,
 } from "@/../drizzle/schema/partners";
+import { countries } from "@/../drizzle/schema/system";
 import { eq, and, or, ilike, sql } from "drizzle-orm";
 import type {
   Partner,
@@ -38,6 +39,30 @@ interface AresResponse {
   pravniForma?: string;
   financniUrad?: string;
   dic?: string;
+}
+
+// ── Country code → UUID resolver ────────────────────────────────
+
+/**
+ * Resolves a country code (e.g. "CZ") or UUID to a valid country UUID.
+ * Returns null if the value is empty or not found.
+ */
+async function resolveCountryId(value: string | null | undefined): Promise<string | null> {
+  if (!value) return null;
+
+  // Already a UUID — return as-is
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(value)) return value;
+
+  // Treat as country code — look up UUID
+  const rows = await db
+    .select({ id: countries.id })
+    .from(countries)
+    .where(eq(countries.code, value.toUpperCase()))
+    .limit(1);
+
+  const row = rows[0];
+  return row ? row.id : null;
 }
 
 // ── Partner CRUD ────────────────────────────────────────────────
@@ -97,6 +122,8 @@ export async function getPartnerById(id: string): Promise<Partner | null> {
 
 export async function createPartner(data: PartnerCreate): Promise<Partner> {
   return withTenant(async (tenantId) => {
+    const resolvedCountryId = await resolveCountryId(data.countryId);
+
     const rows = await db
       .insert(partners)
       .values({
@@ -115,7 +142,7 @@ export async function createPartner(data: PartnerCreate): Promise<Partner> {
         addressStreet: data.addressStreet,
         addressCity: data.addressCity,
         addressZip: data.addressZip,
-        countryId: data.countryId,
+        countryId: resolvedCountryId,
         paymentTerms: data.paymentTerms,
         creditLimit: data.creditLimit,
         logoUrl: data.logoUrl,
@@ -135,12 +162,18 @@ export async function updatePartner(
   data: Partial<PartnerCreate>
 ): Promise<Partner> {
   return withTenant(async (tenantId) => {
+    const resolvedCountryId = data.countryId !== undefined
+      ? await resolveCountryId(data.countryId)
+      : undefined;
+
+    const { countryId: _rawCountryId, ...rest } = data;
+    const setData = resolvedCountryId !== undefined
+      ? { ...rest, countryId: resolvedCountryId, updatedAt: new Date() }
+      : { ...rest, updatedAt: new Date() };
+
     const rows = await db
       .update(partners)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
+      .set(setData)
       .where(and(eq(partners.id, id), eq(partners.tenantId, tenantId)))
       .returning();
 
@@ -291,6 +324,8 @@ export async function getAddressesByPartner(
 
 export async function createAddress(data: AddressCreate): Promise<Address> {
   return withTenant(async (tenantId) => {
+    const resolvedCountryId = await resolveCountryId(data.countryId);
+
     const rows = await db
       .insert(addresses)
       .values({
@@ -301,7 +336,7 @@ export async function createAddress(data: AddressCreate): Promise<Address> {
         street: data.street,
         city: data.city,
         zip: data.zip,
-        countryId: data.countryId,
+        countryId: resolvedCountryId,
         isDefault: data.isDefault,
       })
       .returning();
@@ -317,9 +352,18 @@ export async function updateAddress(
   data: Partial<AddressCreate>
 ): Promise<Address> {
   return withTenant(async (tenantId) => {
+    const resolvedCountryId = data.countryId !== undefined
+      ? await resolveCountryId(data.countryId)
+      : undefined;
+
+    const { countryId: _rawCountryId, ...rest } = data;
+    const setData = resolvedCountryId !== undefined
+      ? { ...rest, countryId: resolvedCountryId }
+      : { ...rest };
+
     const rows = await db
       .update(addresses)
-      .set(data)
+      .set(setData)
       .where(and(eq(addresses.id, id), eq(addresses.tenantId, tenantId)))
       .returning();
 
