@@ -2051,7 +2051,93 @@ profibrew/
 
 ---
 
-## 10. OPEN QUESTIONS
+## 10. ENVIRONMENTS & DEPLOYMENT
+
+Three environments with fully separate databases. Never share a database between environments.
+
+### 10.1 Environment Overview
+
+| Environment | Purpose | Database | Hosting | Branch | URL |
+|---|---|---|---|---|---|
+| Local | Development | Supabase CLI (local Docker) | localhost:3000 | any | http://localhost:3000 |
+| Preview/Staging | Review, QA, testing | Supabase staging project | Vercel Preview (auto per branch) | feature/*, develop | auto-generated per branch |
+| Production | Live customers | Supabase production project | Vercel Production | main | profibrew.com |
+
+### 10.2 Supabase Projects
+
+Three separate Supabase projects — each with its own PostgreSQL instance, RLS policies, auth configuration, and storage:
+
+1. **Local** — Supabase CLI (`supabase start`) runs local PostgreSQL in Docker. Free, no cloud dependency. Used by Claude Code for development and migration testing.
+2. **Staging** — Supabase cloud project (free tier). Shared test environment for PR reviews and manual QA. Seed data: test brewery with realistic sample data.
+3. **Production** — Supabase cloud project (free tier initially, Pro when needed). Real customer data. No test/seed data ever. Migrations only via CI/CD.
+
+### 10.3 Environment Variables
+
+Each environment has its own set of credentials. Never mix them.
+
+**Local development** (`.env.local` — never committed):
+
+```
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<local-service-key>
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+**Staging** credentials — set in Vercel Preview environment variables.
+**Production** credentials — set in Vercel Production environment variables.
+
+### 10.4 Migration Flow
+
+1. Developer creates migration locally: `npx drizzle-kit generate`
+2. Test locally: `supabase db reset` (applies all migrations + seed), then `npm run dev` (verify app works)
+3. Push to branch — Vercel Preview deploys automatically, staging DB migration applied manually or via CI script
+4. QA on Preview URL (manual testing)
+5. Merge to main — Vercel Production deploys, production DB migration applied via CI/CD pipeline
+
+### 10.5 Seed Data Strategy
+
+| Environment | Seed Data | Purpose |
+|---|---|---|
+| Local | Full seed (`supabase/seed.sql`) | 1 test tenant, 30 partners, 10 items, 5 recipes, 3 batches, sample orders, equipment. Realistic Czech data. |
+| Staging | Same seed as local | QA testing with known data set |
+| Production | Minimal seed only | Default plans (Free/Starter/Pro/Business), BJCP beer styles, default categories. NO test tenants or users. |
+
+**Seed files:**
+- `supabase/seed.sql` — full development seed (local + staging)
+- `supabase/seed-production.sql` — production-only seed (plans, reference data)
+
+### 10.6 Branch Strategy
+
+```
+main              — production (protected, merge via PR only)
+develop           — integration branch (optional, for multi-sprint coordination)
+feature/sprint-X  — sprint work branch
+feature/*         — individual feature branches
+hotfix/*          — production hotfixes
+```
+
+### 10.7 CI/CD Pipeline
+
+For MVP, deployments are manual (push to branch, merge to main). Full CI/CD pipeline planned for Sprint 6:
+
+- GitHub Actions on PR: lint, type-check, build, run tests
+- GitHub Actions on merge to main: deploy to production, apply migrations
+- Database backup before production migration (Supabase automatic daily + pre-migration snapshot)
+
+### 10.8 Key Rules
+
+1. **NEVER** run `seed.sql` on production — only `seed-production.sql`
+2. **NEVER** use production credentials in local or staging
+3. **ALWAYS** test migrations locally before pushing
+4. **ALWAYS** verify Preview deployment works before merging to main
+5. Production migrations are irreversible — plan carefully, test on staging first
+6. Supabase RLS policies must be included in migrations, not applied manually
+
+---
+
+## 11. OPEN QUESTIONS
 
 | # | Question | Status |
 |---|----------|--------|

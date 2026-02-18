@@ -22,6 +22,7 @@
 - [x] FormSection framework (types, form field rendering by type, responsive grid, conditional visibility)
 - [x] DetailView wrapper (header, tabs, footer, loading state)
 - [x] Demo agenda: Partners (mock data) pro ověření frameworku — 25 mock partnerů, client-side filtrování/řazení/stránkování
+- [x] Environment & deployment strategy documented in SYSTEM-DESIGN.md
 
 ### Architektonická rozhodnutí
 - Drizzle ORM (ne Prisma) — lightweight, SQL-blízký

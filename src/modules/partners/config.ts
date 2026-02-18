@@ -42,7 +42,7 @@ export const partnerBrowserConfig: DataBrowserConfig = {
   actions: {
     create: { label: "+ Partner", enabled: true },
     bulkDelete: true,
-    rowClick: "detail",
+    rowClick: "none",
   },
 
   permissions: {
