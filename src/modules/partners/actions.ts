@@ -28,6 +28,7 @@ interface AresAddress {
   nazevUlice?: string;
   cisloDomovni?: number;
   cisloOrientacni?: number;
+  cisloOrientacniPismeno?: string;
   nazevObce?: string;
   psc?: number;
 }
@@ -470,6 +471,7 @@ export async function deleteBankAccount(id: string): Promise<void> {
 
 export interface AresResult {
   name: string;
+  dic: string;
   street: string;
   city: string;
   zip: string;
@@ -482,6 +484,7 @@ export async function lookupAres(ico: string): Promise<AresResult | null> {
       `https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${ico}`,
       {
         headers: { Accept: "application/json" },
+        cache: "no-store",
         signal: AbortSignal.timeout(10000),
       }
     );
@@ -495,23 +498,24 @@ export async function lookupAres(ico: string): Promise<AresResult | null> {
     if (address) {
       const streetName = address.nazevUlice ?? "";
       const houseNum = address.cisloDomovni ? String(address.cisloDomovni) : "";
-      const orientNum = address.cisloOrientacni
-        ? `/${address.cisloOrientacni}`
+      const orientPart = address.cisloOrientacni
+        ? `/${address.cisloOrientacni}${address.cisloOrientacniPismeno ?? ""}`
         : "";
       street = streetName
-        ? `${streetName} ${houseNum}${orientNum}`.trim()
+        ? `${streetName} ${houseNum}${orientPart}`.trim()
         : address.textovaAdresa ?? "";
     }
 
     return {
       name: data.obchodniJmeno ?? "",
+      dic: data.dic ?? "",
       street,
       city: address?.nazevObce ?? "",
       zip: address?.psc ? String(address.psc) : "",
       legalForm: data.pravniForma ?? "",
     };
-  } catch {
-    console.error("ARES lookup failed for ICO:", ico);
+  } catch (err) {
+    console.error("ARES lookup failed for ICO:", ico, err);
     return null;
   }
 }

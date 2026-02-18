@@ -79,12 +79,14 @@ function renderCellValue(
         </span>
       );
 
-    case "badge":
+    case "badge": {
+      const badgeLabel = column.valueLabels?.[String(value)] ?? String(value);
       return (
         <Badge variant="secondary">
-          {String(value)}
+          {badgeLabel}
         </Badge>
       );
+    }
 
     case "currency": {
       if (column.format) {

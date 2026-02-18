@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
@@ -185,11 +186,13 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         });
       }
 
+      toast.success(tCommon("saved"));
       router.push("/brewery/equipment");
     } catch (error: unknown) {
       console.error("Failed to save equipment:", error);
+      toast.error(tCommon("saveFailed"));
     }
-  }, [isNew, id, values, validate, router]);
+  }, [isNew, id, values, validate, router, tCommon]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {

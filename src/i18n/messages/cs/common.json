@@ -21,6 +21,8 @@
   "all": "Vše",
   "selected": "Vybráno",
   "comingSoon": "Již brzy",
+  "saved": "Uloženo",
+  "saveFailed": "Chyba při ukládání",
   "validation": {
     "required": "Toto pole je povinné"
   }

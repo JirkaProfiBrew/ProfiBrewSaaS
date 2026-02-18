@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { modules, settingsAgenda, type AgendaConfig } from "@/config/navigation";
+import { modules, settingsAgenda, settingsSubAgendas, type AgendaConfig } from "@/config/navigation";
 
 export function Sidebar(): React.ReactNode {
   const t = useTranslations("nav");
@@ -26,15 +26,21 @@ export function Sidebar(): React.ReactNode {
   const pathSegments = pathname.split("/");
   const activeModuleSlug = pathSegments[2] ?? "";
 
+  // Detect if we're on settings pages
+  const isSettingsActive = activeModuleSlug === "settings";
+
   // Fallback to brewery when on /dashboard or other non-module routes
   const activeModule =
     modules.find((m) => m.basePath === activeModuleSlug) ?? modules[0];
-  const agendas: AgendaConfig[] = activeModule?.agendas ?? [];
+
+  // Show settings sub-agendas when on /settings, otherwise module agendas
+  const agendas: AgendaConfig[] = isSettingsActive
+    ? settingsSubAgendas
+    : (activeModule?.agendas ?? []);
 
   function isAgendaActive(agenda: AgendaConfig): boolean {
-    if (!activeModule) return false;
-    const agendaPath = `/${locale}/${activeModule.basePath}/${agenda.path}`;
-    return pathname.startsWith(agendaPath);
+    const agendaPath = `/${locale}/${agenda.path}`;
+    return pathname === agendaPath || pathname.startsWith(agendaPath + "/");
   }
 
   return (
@@ -50,7 +56,9 @@ export function Sidebar(): React.ReactNode {
           <nav className="flex flex-col gap-0.5 px-2">
             {agendas.map((agenda) => {
               const active = isAgendaActive(agenda);
-              const href = `/${locale}/${activeModule?.basePath}/${agenda.path}`;
+              const href = isSettingsActive
+                ? `/${locale}/${agenda.path}`
+                : `/${locale}/${activeModule?.basePath}/${agenda.path}`;
 
               if (collapsed) {
                 return (
@@ -103,7 +111,12 @@ export function Sidebar(): React.ReactNode {
               <TooltipTrigger asChild>
                 <Link
                   href={`/${locale}/settings`}
-                  className="flex h-10 w-10 mx-auto items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  className={cn(
+                    "flex h-10 w-10 mx-auto items-center justify-center rounded-md transition-colors",
+                    isSettingsActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
                 >
                   <settingsAgenda.icon className="h-5 w-5" />
                 </Link>
@@ -115,7 +128,12 @@ export function Sidebar(): React.ReactNode {
           ) : (
             <Link
               href={`/${locale}/settings`}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isSettingsActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
             >
               <settingsAgenda.icon className="h-4 w-4 shrink-0" />
               <span>{t(`agendas.${settingsAgenda.labelKey}`)}</span>

@@ -24,6 +24,8 @@ export interface ColumnDef {
   sortable?: boolean;
   width?: number;
   format?: string;
+  /** Map raw values to localized display labels (used by badge columns). */
+  valueLabels?: Record<string, string>;
   render?: (value: unknown, row: Record<string, unknown>) => React.ReactNode;
 }
 

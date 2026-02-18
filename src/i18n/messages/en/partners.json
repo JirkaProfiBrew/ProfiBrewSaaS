@@ -59,7 +59,10 @@
       "save": "Save",
       "delete": "Delete",
       "cancel": "Cancel",
-      "aresLookup": "Update from ARES"
+      "aresLookup": "Update from ARES",
+      "aresSuccess": "Data loaded from ARES successfully",
+      "aresNotFound": "Subject not found in ARES",
+      "aresError": "Error loading data from ARES"
     }
   },
   "contacts": {

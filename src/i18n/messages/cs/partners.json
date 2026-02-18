@@ -59,7 +59,10 @@
       "save": "Uložit",
       "delete": "Smazat",
       "cancel": "Zrušit",
-      "aresLookup": "Aktualizovat z ARES"
+      "aresLookup": "Aktualizovat z ARES",
+      "aresSuccess": "Data z ARES byla úspěšně načtena",
+      "aresNotFound": "Subjekt nebyl v ARES nalezen",
+      "aresError": "Chyba při načítání dat z ARES"
     }
   },
   "contacts": {

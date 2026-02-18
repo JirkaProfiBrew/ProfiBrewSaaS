@@ -1,9 +1,9 @@
 "use client";
 
 import { useTranslations, useLocale } from "next-intl";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, LogOut, Settings, User } from "lucide-react";
+import { Globe, Lock, LogOut, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTenantContext } from "@/components/providers/TenantProvider";
 import { modules } from "@/config/navigation";
+import { routing } from "@/i18n/routing";
 import { signOut } from "@/lib/auth/actions";
 
 export function TopBar(): React.ReactNode {
@@ -23,7 +24,16 @@ export function TopBar(): React.ReactNode {
   const tAuth = useTranslations("auth");
   const locale = useLocale();
   const pathname = usePathname();
+  const router = useRouter();
   const { tenantName, hasModule } = useTenantContext();
+
+  // Language switcher: cycle to the next locale
+  const otherLocale = routing.locales.find((l) => l !== locale) ?? routing.locales[0];
+  const handleSwitchLocale = (): void => {
+    // Replace /cs/ with /en/ (or vice versa) in current pathname
+    const newPath = pathname.replace(`/${locale}`, `/${otherLocale}`);
+    router.push(newPath);
+  };
 
   // pathname: /cs/brewery/partners → segments: ['', 'cs', 'brewery', 'partners']
   const pathSegments = pathname.split("/");
@@ -67,8 +77,17 @@ export function TopBar(): React.ReactNode {
         })}
       </nav>
 
-      {/* Right: User menu */}
+      {/* Right: Language + User menu */}
       <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSwitchLocale}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground"
+        >
+          <Globe className="h-4 w-4" />
+          <span className="uppercase">{otherLocale}</span>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">

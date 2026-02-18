@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import type { CardViewConfig, CardViewProps } from "./types";
+import type { CardViewConfig, CardViewProps, ColumnDef } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -103,6 +103,7 @@ function EmptyState({ message }: { message: string }): React.ReactNode {
 interface DataCardProps {
   row: Record<string, unknown>;
   cardConfig: CardViewConfig;
+  columns: ColumnDef[];
   isSelected: boolean;
   onSelect: (id: string) => void;
   onClick?: (row: Record<string, unknown>) => void;
@@ -111,6 +112,7 @@ interface DataCardProps {
 function DataCard({
   row,
   cardConfig,
+  columns,
   isSelected,
   onSelect,
   onClick,
@@ -191,11 +193,13 @@ function DataCard({
         {cardConfig.badgeFields && cardConfig.badgeFields.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {cardConfig.badgeFields.map((fieldKey) => {
-              const badgeValue = getStringValue(row, fieldKey);
-              if (!badgeValue) return null;
+              const rawValue = getStringValue(row, fieldKey);
+              if (!rawValue) return null;
+              const col = columns.find((c) => c.key === fieldKey);
+              const displayValue = col?.valueLabels?.[rawValue] ?? rawValue;
               return (
                 <Badge key={fieldKey} variant="secondary">
-                  {badgeValue}
+                  {displayValue}
                 </Badge>
               );
             })}
@@ -262,6 +266,7 @@ export function CardView({
             key={rowId}
             row={row}
             cardConfig={cardConfig}
+            columns={config.columns}
             isSelected={selectedRows.has(rowId)}
             onSelect={onSelectRow}
             onClick={onRowClick}

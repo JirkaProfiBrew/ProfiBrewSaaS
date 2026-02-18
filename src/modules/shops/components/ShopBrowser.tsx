@@ -130,6 +130,14 @@ export function ShopBrowser(): React.ReactNode {
     columns: shopBrowserConfig.columns.map((col) => ({
       ...col,
       label: t(`columns.${col.key}`),
+      ...(col.key === "shopType" ? {
+        valueLabels: {
+          brewery: t("shopType.brewery"),
+          taproom: t("shopType.taproom"),
+          warehouse: t("shopType.warehouse"),
+          office: t("shopType.office"),
+        },
+      } : {}),
     })),
     quickFilters: shopBrowserConfig.quickFilters?.map((qf) => ({
       ...qf,

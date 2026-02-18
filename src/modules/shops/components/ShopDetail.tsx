@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
@@ -81,6 +82,7 @@ function getDefaultValues(): Record<string, unknown> {
 
 export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
   const t = useTranslations("shops");
+  const tCommon = useTranslations("common");
   const router = useRouter();
 
   const isNew = id === "new";
@@ -197,16 +199,17 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
       };
 
       if (isNew) {
-        const created = await createShop(shopData);
-        router.push(`/settings/shops/${created.id}`);
+        await createShop(shopData);
       } else {
         await updateShop(id, shopData);
-        router.push("/settings/shops");
       }
+      toast.success(tCommon("saved"));
+      router.push("/settings/shops");
     } catch (error) {
       console.error("Failed to save shop:", error);
+      toast.error(tCommon("saveFailed"));
     }
-  }, [values, isNew, id, router, t]);
+  }, [values, isNew, id, router, t, tCommon]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {

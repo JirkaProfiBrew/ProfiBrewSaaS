@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Copy, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
@@ -34,7 +35,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
   const router = useRouter();
   const isNewItem = id === "new";
 
-  const { item, isLoading, mutate } = useItem(isNewItem ? "" : id);
+  const { item, isLoading } = useItem(isNewItem ? "" : id);
 
   const mode: FormMode = isNewItem ? "create" : "edit";
 
@@ -132,7 +133,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     setIsSaving(true);
     try {
       if (isNewItem) {
-        const created = await createItem({
+        await createItem({
           name: values.name as string,
           brand: (values.brand as string | null) ?? null,
           isBrewMaterial: (values.isBrewMaterial as boolean) ?? false,
@@ -164,7 +165,6 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           isActive: true,
           isFromLibrary: false,
         });
-        router.push(`${backHref}/${created.id}`);
       } else {
         await updateItem(id, {
           name: values.name as string,
@@ -196,14 +196,16 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           imageUrl: (values.imageUrl as string | null) ?? null,
           notes: (values.notes as string | null) ?? null,
         });
-        mutate();
       }
+      toast.success(tCommon("saved"));
+      router.push(backHref);
     } catch (error) {
       console.error("Failed to save item:", error);
+      toast.error(tCommon("saveFailed"));
     } finally {
       setIsSaving(false);
     }
-  }, [id, isNewItem, values, backHref, router, mutate, t]);
+  }, [id, isNewItem, values, backHref, router, tCommon]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     if (isNewItem) return;

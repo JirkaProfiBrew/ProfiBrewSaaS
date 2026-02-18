@@ -129,15 +129,34 @@ export function EquipmentBrowser(): React.ReactNode {
   const { params } = useDataBrowserParams(equipmentBrowserConfig);
   const { data: equipmentData, isLoading } = useEquipmentList();
 
+  // Badge value label maps
+  const equipmentTypeLabels: Record<string, string> = {
+    brewhouse: t("equipmentType.brewhouse"),
+    fermenter: t("equipmentType.fermenter"),
+    brite_tank: t("equipmentType.brite_tank"),
+    conditioning: t("equipmentType.conditioning"),
+    bottling_line: t("equipmentType.bottling_line"),
+    keg_washer: t("equipmentType.keg_washer"),
+  };
+  const statusLabels: Record<string, string> = {
+    available: t("status.available"),
+    in_use: t("status.in_use"),
+    maintenance: t("status.maintenance"),
+    retired: t("status.retired"),
+  };
+
   // Build localized config with translated labels
   const localizedConfig = useMemo(
     () => ({
       ...equipmentBrowserConfig,
       title: t("title"),
-      columns: equipmentBrowserConfig.columns.map((col) => ({
-        ...col,
-        label: t(`columns.${col.key}`),
-      })),
+      columns: equipmentBrowserConfig.columns.map((col) => {
+        const valueLabels =
+          col.key === "equipmentType" ? equipmentTypeLabels
+          : col.key === "status" ? statusLabels
+          : undefined;
+        return { ...col, label: t(`columns.${col.key}`), valueLabels };
+      }),
       quickFilters: equipmentBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,
         label: t(`quickFilters.${qf.key}`),

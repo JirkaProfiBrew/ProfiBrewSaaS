@@ -72,7 +72,7 @@ export function PartnerDetail({
   const router = useRouter();
 
   const isNew = id === "new";
-  const { data: partner, isLoading, mutate: mutatePartner } = usePartner(id);
+  const { data: partner, isLoading } = usePartner(id);
 
   // ── Partner form state ──────────────────────────────────────
 
@@ -172,21 +172,19 @@ export function PartnerDetail({
       };
 
       if (isNew) {
-        const created = await createPartner(payload);
-        toast.success(t("detail.actions.save"));
-        router.push(`/brewery/partners/${created.id}`);
+        await createPartner(payload);
       } else {
         await updatePartner(id, payload);
-        toast.success(t("detail.actions.save"));
-        mutatePartner();
       }
+      toast.success(tCommon("saved"));
+      router.push(backHref);
     } catch (err: unknown) {
       console.error("Failed to save partner:", err);
-      toast.error(tCommon("save") + " failed");
+      toast.error(tCommon("saveFailed"));
     } finally {
       setSaving(false);
     }
-  }, [values, isNew, id, mutatePartner, router, t, tCommon]);
+  }, [values, isNew, id, router, backHref, t, tCommon]);
 
   // ── Delete handler ──────────────────────────────────────────
 
@@ -215,21 +213,23 @@ export function PartnerDetail({
         setValues((prev) => ({
           ...prev,
           name: result.name || prev["name"],
+          dic: result.dic || prev["dic"],
           addressStreet: result.street || prev["addressStreet"],
           addressCity: result.city || prev["addressCity"],
           addressZip: result.zip || prev["addressZip"],
+          countryId: "CZ",
           legalForm: result.legalForm === "101" ? "individual" : "legal_entity",
         }));
-        toast.success("ARES: OK");
+        toast.success(t("detail.actions.aresSuccess"));
       } else {
-        toast.error("ARES: not found");
+        toast.error(t("detail.actions.aresNotFound"));
       }
     } catch {
-      toast.error("ARES: error");
+      toast.error(t("detail.actions.aresError"));
     } finally {
       setAresLoading(false);
     }
-  }, [values]);
+  }, [values, t]);
 
   // ── Cancel handler ──────────────────────────────────────────
 
@@ -369,8 +369,9 @@ export function PartnerDetail({
             />
             {showAresButton && (
               <Button
+                type="button"
                 variant="outline"
-                onClick={handleAresLookup}
+                onClick={() => { void handleAresLookup(); }}
                 disabled={aresLoading}
               >
                 {aresLoading ? tCommon("loading") : t("detail.actions.aresLookup")}

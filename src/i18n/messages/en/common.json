@@ -21,6 +21,8 @@
   "all": "All",
   "selected": "Selected",
   "comingSoon": "Coming Soon",
+  "saved": "Saved",
+  "saveFailed": "Save failed",
   "validation": {
     "required": "This field is required"
   }

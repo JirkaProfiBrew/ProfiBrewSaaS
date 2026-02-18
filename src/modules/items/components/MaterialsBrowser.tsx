@@ -114,7 +114,7 @@ function sortItems(
 export function MaterialsBrowser(): React.ReactNode {
   const t = useTranslations("items");
   const { params } = useDataBrowserParams(materialsBrowserConfig);
-  const { items: data, isLoading } = useItems({ isBrewMaterial: true });
+  const { items: data, isLoading } = useItems({ isBrewMaterial: true, isActive: true });
 
   // Build localized config
   const localizedConfig = useMemo(
@@ -124,6 +124,15 @@ export function MaterialsBrowser(): React.ReactNode {
       columns: materialsBrowserConfig.columns.map((col) => ({
         ...col,
         label: t(`columns.${col.key}`),
+        ...(col.key === "materialType" ? {
+          valueLabels: {
+            malt: t("materialType.malt"),
+            hop: t("materialType.hop"),
+            yeast: t("materialType.yeast"),
+            adjunct: t("materialType.adjunct"),
+            other: t("materialType.other"),
+          },
+        } : {}),
       })),
       quickFilters: materialsBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,

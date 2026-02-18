@@ -139,6 +139,13 @@ export function PartnerBrowser(): React.ReactNode {
       columns: partnerBrowserConfig.columns.map((col) => ({
         ...col,
         label: t(`columns.${col.key}`),
+        ...(col.key === "partnerType" ? {
+          valueLabels: {
+            customer: t("partnerType.customer"),
+            supplier: t("partnerType.supplier"),
+            both: t("partnerType.both"),
+          },
+        } : {}),
       })),
       quickFilters: partnerBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,
