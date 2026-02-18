@@ -1,0 +1,14 @@
+import { useTranslations } from "next-intl";
+
+export default function AdminPage(): React.ReactNode {
+  const t = useTranslations("common");
+
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <p className="mt-2 text-muted-foreground">{t("comingSoon")}</p>
+      </div>
+    </div>
+  );
+}
