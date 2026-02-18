@@ -10,15 +10,15 @@
 **Status:** 🚧 In Progress
 
 ### Přidáno
-- [ ] Project scaffold (Next.js 14, TypeScript strict, Tailwind, shadcn/ui)
-- [ ] Supabase setup + Drizzle ORM konfigurace
-- [ ] DB schema: tenants, user_profiles, tenant_users, plans, subscriptions, saved_views
-- [ ] RLS policies pro tenant izolaci
-- [ ] Auth: login, registrace, middleware (session refresh, route protection)
-- [ ] Multi-tenant context (TenantProvider, withTenant helper)
-- [ ] i18n setup (next-intl, cs + en)
-- [ ] Layout: TopBar s module tabs, collapsible Sidebar
-- [ ] DataBrowser framework: ListView, CardView, FilterBar, QuickFilters, ParametricFilterPanel, Pagination, SavedViews, BulkActions
+- [x] Project scaffold (Next.js 14, TypeScript strict, Tailwind, shadcn/ui)
+- [x] Supabase setup + Drizzle ORM konfigurace
+- [x] DB schema: tenants, user_profiles, tenant_users, plans, subscriptions, saved_views
+- [x] RLS policies pro tenant izolaci
+- [x] Auth: login, registrace, middleware (session refresh, route protection)
+- [x] Multi-tenant context (TenantProvider, withTenant helper)
+- [x] i18n setup (next-intl, cs + en)
+- [x] Layout: TopBar s module tabs, collapsible Sidebar
+- [x] DataBrowser framework: ListView, CardView, FilterBar, QuickFilters, ParametricFilterPanel, Pagination, BulkActions
 - [ ] FormSection framework
 - [ ] DetailView wrapper
 - [ ] Demo agenda: Partners (mock data) pro ověření frameworku
