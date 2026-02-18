@@ -35,22 +35,33 @@
 
 ---
 
-<!--
 ## [0.1.0] — Sprint 1: Základy
-**Období:** T3-T4
-**Status:** ⏳ Planned
+**Období:** T3-T4 (18.02.2026)
+**Status:** ✅ Done
 
 ### Přidáno
-- [ ] Items (hybrid model) — CRUD, list + card view, materiálové pohledy
-- [ ] Partners — CRUD, kontakty, adresy, bankovní účty
-- [ ] Equipment — CRUD, typy, kapacity, stavy
-- [ ] Shops — CRUD, typy provozoven
-- [ ] Číslovací řady (counters) — konfigurace + auto-generování
-- [ ] RBAC middleware — permission check na API routes
-- [ ] ARES integrace (IČO lookup)
+- [x] DB schema: items, partners, contacts, addresses, bank_accounts, attachments, equipment, shops, counters, countries, units + RLS policies
+- [x] Items (hybrid model) — MaterialsBrowser (brewery), CatalogBrowser (stock), ItemDetail, server actions
+- [x] Partners — upgraded from demo: real DB data, PartnerDetail with 5 tabs (info, contacts, addresses, bank accounts, attachments), ARES IČO lookup
+- [x] Contacts — standalone agenda with partner join, click navigates to partner detail
+- [x] Equipment — EquipmentBrowser, EquipmentDetail, JSONB properties
+- [x] Shops — ShopBrowser, ShopDetail, JSONB address decomposition
+- [x] Číslovací řady (counters) — settings page with live preview, getNextNumber with row locking
+- [x] RBAC middleware — permission matrix (13 entities × 4 actions), withPermission(), usePermission() hooks
+- [x] Navigation updates — settings sub-agendas (General, Shops, Users, Counters)
+- [x] DataBrowser enhancement — onRowClick prop for custom row navigation
+- [x] i18n for all new modules (cs + en): items, partners, contacts, equipment, shops, counters
+- [x] Seed helpers: seedDefaultCounters(), seedSystemData() (countries + units)
+
+### Architektonická rozhodnutí
+- Server Actions pattern: "use server" + withTenant() for all DB access
+- Non-async utility functions must be in separate files (not in "use server" modules)
+- Zod v4: z.record() requires key schema z.record(z.string(), z.unknown())
+- RBAC permission matrix defined in code, not DB (simpler for MVP)
 
 ---
 
+<!--
 ## [0.2.0] — Sprint 2: Výroba
 **Období:** T5-T7
 **Status:** ⏳ Planned

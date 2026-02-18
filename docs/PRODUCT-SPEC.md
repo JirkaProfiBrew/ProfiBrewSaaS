@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 0
+### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 1
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -151,7 +151,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 
 ## 4. MODUL PIVOVAR
 
-### 4.1 Partneři 📋
+### 4.1 Partneři ✅
 
 **Co to je:** Evidence obchodních partnerů — zákazníků i dodavatelů v jedné agendě.
 
@@ -175,7 +175,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - ARES integrace: po zadání IČO nabídne "Aktualizovat z ARES" → stáhne název, adresu, právní formu
 - DIČ validace formátu (CZxxxxxxxx)
 
-### 4.2 Kontakty 📋
+### 4.2 Kontakty ✅
 
 **Co to je:** Přehled všech kontaktních osob napříč partnery.
 
@@ -184,7 +184,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Klik na kontakt → otevře detail partnera na tabu Kontakty
 - Quick filters: Vše (případně dle partnera)
 
-### 4.3 Suroviny (pohled na Items) 📋
+### 4.3 Suroviny (pohled na Items) ✅
 
 **Co to je:** Filtrovaný pohled na položky kde `is_brew_material = true`.
 
@@ -260,7 +260,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Při spotřebě surovin se vytvoří skladový výdej
 - Excise: objem se eviduje v hl, systém sleduje status nahlášení
 
-### 4.6 Zařízení 📋
+### 4.6 Zařízení ✅
 
 **Co to je:** Evidence výrobního zařízení pivovaru.
 
@@ -291,7 +291,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 
 ## 5. MODUL SKLAD
 
-### 5.1 Katalog položek (pohled na Items) 📋
+### 5.1 Katalog položek (pohled na Items) ✅
 
 **Co to je:** Kompletní katalog všech položek v systému — suroviny, produkty, obaly, služby.
 
@@ -469,7 +469,7 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Časové pásmo
 - Roční výstav (odhad — pro excise kategorii)
 
-### 8.2 Provozovny 📋
+### 8.2 Provozovny ✅
 - CRUD provozoven (pivovar, taproom, sklad, kancelář)
 - Adresa, výchozí provozovna
 - Zařízení a sklady patří pod provozovnu
@@ -480,7 +480,7 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Změna role, deaktivace uživatele
 - Granulární práva per modul a agenda
 
-### 8.4 Číslovací řady 📋
+### 8.4 Číslovací řady ✅
 - Konfigurace per entita: prefix, separátor, počet cifer, include year, reset yearly
 - Preview formátu (V-2026-001)
 - Defaulty nastaveny při registraci
@@ -621,13 +621,13 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 
 | Entita | Modul | Agenda | Status |
 |--------|-------|--------|--------|
-| partners | Pivovar | Partneři | 📋 |
-| contacts | Pivovar | Kontakty | 📋 |
-| items (brew materials) | Pivovar | Suroviny | 📋 |
-| items (all) | Sklad | Položky | 📋 |
+| partners | Pivovar | Partneři | ✅ |
+| contacts | Pivovar | Kontakty | ✅ |
+| items (brew materials) | Pivovar | Suroviny | ✅ |
+| items (all) | Sklad | Položky | ✅ |
 | recipes | Pivovar | Receptury | 📋 |
 | batches | Pivovar | Vary | 📋 |
-| equipment | Pivovar | Zařízení | 📋 |
+| equipment | Pivovar | Zařízení | ✅ |
 | warehouses | Sklad | (Nastavení) | 📋 |
 | stock_issues | Sklad | Skladové pohyby | 📋 |
 | stock_movements | Sklad | (interní) | 📋 |
@@ -638,10 +638,10 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | cashflows | Finance | Cash Flow | 📋 |
 | cashflow_templates | Finance | (šablony) | 📋 |
 | cash_desks | Finance | Pokladna | 📋 |
-| shops | Nastavení | Provozovny | 📋 |
+| shops | Nastavení | Provozovny | ✅ |
 | tenants | Nastavení | Obecné | 📋 |
 | tenant_users | Nastavení | Uživatelé | 📋 |
-| counters | Nastavení | Číslovací řady | 📋 |
+| counters | Nastavení | Číslovací řady | ✅ |
 | subscriptions | Nastavení | Billing | 📋 |
 | — | Module Access | Upgrade page | 📋 |
 | tenants (cross) | Admin | Tenants | 💡 |
