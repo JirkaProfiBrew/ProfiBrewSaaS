@@ -7,7 +7,7 @@
 
 ## [Unreleased] — Sprint 0: Infrastruktura
 **Období:** T1-T2 (zahájení 17.02.2026)
-**Status:** 🚧 In Progress
+**Status:** ✅ Done
 
 ### Přidáno
 - [x] Project scaffold (Next.js 14, TypeScript strict, Tailwind, shadcn/ui)

@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 17.02.2026 | Poslední sprint: —
+### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 0
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -59,7 +59,7 @@ Granulární práva: owner/admin mohou per uživatel nastavit přístup k modul�
 
 ## 2. NAVIGACE A LAYOUT
 
-### 2.1 Hlavní layout 📋
+### 2.1 Hlavní layout ✅
 
 ```
 TopBar:  [Název pivovaru]  Pivovar | Sklad | Obchod | Finance | Plán    [🔔] [👤]
@@ -78,7 +78,7 @@ Content: DataBrowser / DetailView / Dashboard
 - Aktivní agenda zvýrazněna
 - Logo ProfiBrew dole
 
-### 2.2 Moduly a agendy 📋
+### 2.2 Moduly a agendy ✅
 
 **Pivovar:**
 Přehled, Partneři, Kontakty, Suroviny, Receptury, Vary, Zařízení
@@ -101,7 +101,7 @@ Obecné, Provozovny, Uživatelé, Číslovací řady, Billing
 
 ## 3. DATABROWSER — UNIVERZÁLNÍ PROHLÍŽEČ DAT
 
-### 3.1 Obecné chování 📋
+### 3.1 Obecné chování ✅
 
 DataBrowser je hlavní komponenta pro zobrazení seznamu záznamů. Používá se na každé agendě. Konfigurace per agenda definuje sloupce, filtry, akce.
 
@@ -136,7 +136,7 @@ DataBrowser je hlavní komponenta pro zobrazení seznamu záznamů. Používá s
 - Osobní pohledy jen pro daného uživatele
 - Default pohled = výchozí při otevření agendy
 
-### 3.3 Konfigurace per agenda 📋
+### 3.3 Konfigurace per agenda ✅
 
 Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Sloupce (list view)
