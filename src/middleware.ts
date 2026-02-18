@@ -48,22 +48,14 @@ function getLocaleFromPath(pathname: string): string {
 export default async function middleware(
   request: NextRequest
 ): Promise<NextResponse> {
-  // 1. Run next-intl middleware (handles locale detection + redirect)
-  const intlResponse = intlMiddleware(request);
-
-  // If intl middleware redirected (e.g. added locale prefix), return that
-  if (intlResponse.status === 307 || intlResponse.status === 308) {
-    return intlResponse;
-  }
-
-  // 2. Refresh Supabase session
+  // 1. Refresh Supabase session (must run first to update cookies)
   const { supabaseResponse, user } = await updateSession(request);
 
   const { pathname } = request.nextUrl;
   const locale = getLocaleFromPath(pathname);
   const routeGroup = getRouteGroup(pathname);
 
-  // 3. Route group protection
+  // 2. Route group protection (before intl processing)
   if (routeGroup === "auth" && user) {
     return NextResponse.redirect(
       new URL(`/${locale}/dashboard`, request.url)
@@ -78,14 +70,17 @@ export default async function middleware(
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
 
-  // Note: superadmin check for admin routes is done in (admin)/layout.tsx
-  // because middleware can't efficiently query the DB for is_superadmin.
+  // 3. Run next-intl middleware (handles locale negotiation + rewrites)
+  const intlResponse = intlMiddleware(request);
 
-  // Note: Module access check (subscription gating) is handled by ModuleGuard
-  // in (dashboard)/layout.tsx. Will be added here when subscription data
-  // is available in the JWT/session.
+  // Copy Supabase auth cookies onto the intl response
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    intlResponse.cookies.set(cookie.name, cookie.value, {
+      ...cookie,
+    });
+  });
 
-  return supabaseResponse;
+  return intlResponse;
 }
 
 export const config = {

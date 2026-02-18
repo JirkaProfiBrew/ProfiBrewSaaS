@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { tenants } from "@/../drizzle/schema/tenants";
@@ -8,6 +9,12 @@ import { userProfiles } from "@/../drizzle/schema/auth";
 import { tenantUsers } from "@/../drizzle/schema/auth";
 import { subscriptions, plans } from "@/../drizzle/schema/subscriptions";
 import { eq } from "drizzle-orm";
+import { routing } from "@/i18n/routing";
+
+async function getLocale(): Promise<string> {
+  const cookieStore = await cookies();
+  return cookieStore.get("NEXT_LOCALE")?.value ?? routing.defaultLocale;
+}
 
 function slugify(text: string): string {
   return text
@@ -41,7 +48,8 @@ export async function signIn(
     return { error: "Unexpected error occurred" };
   }
 
-  redirect("/dashboard");
+  const locale = await getLocale();
+  redirect(`/${locale}/dashboard`);
 }
 
 export async function signUp(
@@ -122,11 +130,13 @@ export async function signUp(
     return { error: "Unexpected error occurred" };
   }
 
-  redirect("/dashboard");
+  const locale = await getLocale();
+  redirect(`/${locale}/dashboard`);
 }
 
 export async function signOut(): Promise<void> {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
-  redirect("/login");
+  const locale = await getLocale();
+  redirect(`/${locale}/login`);
 }
