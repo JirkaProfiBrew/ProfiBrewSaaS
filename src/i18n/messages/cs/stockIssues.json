@@ -1,0 +1,155 @@
+{
+  "title": "Skladové pohyby",
+  "createReceipt": "Příjemka",
+  "createIssue": "Výdejka",
+  "columns": {
+    "code": "Kód",
+    "movementType": "Typ",
+    "movementPurpose": "Účel",
+    "date": "Datum",
+    "warehouseName": "Sklad",
+    "partnerName": "Partner",
+    "totalCost": "Celkem",
+    "status": "Stav"
+  },
+  "quickFilters": {
+    "all": "Vše",
+    "receipts": "Příjemky",
+    "issues": "Výdejky",
+    "draft": "Rozpracované",
+    "confirmed": "Potvrzené"
+  },
+  "filters": {
+    "warehouseId": "Sklad",
+    "partnerId": "Partner",
+    "movementPurpose": "Účel",
+    "status": "Stav"
+  },
+  "movementType": {
+    "receipt": "Příjemka",
+    "issue": "Výdejka"
+  },
+  "movementPurpose": {
+    "purchase": "Nákup",
+    "production_in": "Výroba (příjem)",
+    "production_out": "Výroba (spotřeba)",
+    "sale": "Prodej",
+    "transfer": "Převod",
+    "inventory": "Inventura",
+    "waste": "Odpis",
+    "other": "Ostatní"
+  },
+  "status": {
+    "draft": "Rozpracováno",
+    "confirmed": "Potvrzeno",
+    "cancelled": "Stornováno"
+  },
+  "detail": {
+    "title": "Skladový pohyb",
+    "newReceiptTitle": "Nová příjemka",
+    "newIssueTitle": "Nová výdejka",
+    "saved": "Pohyb uložen",
+    "saveError": "Chyba při ukládání pohybu",
+    "deleted": "Pohyb smazán",
+    "deleteError": "Chyba při mazání pohybu",
+    "confirmed": "Doklad potvrzen",
+    "confirmError": "Chyba při potvrzení dokladu",
+    "cancelled": "Doklad stornován",
+    "cancelError": "Chyba při stornování dokladu",
+    "actions": {
+      "save": "Uložit",
+      "cancel": "Storno",
+      "delete": "Smazat",
+      "confirm": "Potvrdit",
+      "cancelDocument": "Stornovat doklad"
+    }
+  },
+  "tabs": {
+    "header": "Hlavička",
+    "lines": "Řádky",
+    "movements": "Pohyby",
+    "allocations": "Alokace"
+  },
+  "form": {
+    "code": "Kód",
+    "movementType": "Typ pohybu",
+    "movementPurpose": "Účel",
+    "date": "Datum",
+    "warehouseId": "Sklad",
+    "partnerId": "Partner",
+    "batchId": "Šarže",
+    "season": "Sezóna",
+    "additionalCost": "Vedlejší náklady",
+    "notes": "Poznámky",
+    "selectWarehouse": "Vyberte sklad",
+    "selectPartner": "Vyberte partnera",
+    "selectBatch": "Vyberte šarži",
+    "selectPurpose": "Vyberte účel",
+    "noPartner": "— bez partnera —",
+    "noBatch": "— bez šarže —"
+  },
+  "lines": {
+    "addLine": "Přidat řádek",
+    "lineNo": "#",
+    "item": "Položka",
+    "requestedQty": "Požadované mn.",
+    "issuedQty": "Skutečné mn.",
+    "missingQty": "Chybějící",
+    "unitPrice": "Jedn. cena",
+    "totalCost": "Celkem",
+    "notes": "Poznámka",
+    "subtotal": "Mezisoučet",
+    "additionalCost": "Vedlejší náklady",
+    "grandTotal": "CELKEM",
+    "noLines": "Zatím žádné řádky",
+    "lineAdded": "Řádek přidán",
+    "lineAddError": "Chyba při přidávání řádku",
+    "lineUpdated": "Řádek aktualizován",
+    "lineUpdateError": "Chyba při aktualizaci řádku",
+    "lineRemoved": "Řádek smazán",
+    "lineRemoveError": "Chyba při mazání řádku",
+    "selectItem": "Vyberte položku",
+    "searchItem": "Hledat položku..."
+  },
+  "confirmDialog": {
+    "title": "Potvrdit doklad {code}?",
+    "description": "Potvrzením dokladu dojde k:",
+    "bullet1": "Vytvoření skladových pohybů",
+    "bullet2": "Aktualizaci stavu skladu",
+    "warning": "Tuto akci nelze vrátit zpět (pouze stornovat celý doklad).",
+    "stockCheck": "Kontrola dostupnosti:",
+    "sufficient": "dostupných",
+    "insufficient": "nedostatečné množství",
+    "insufficientWarning": "Nedostatečné množství u {count} položek",
+    "confirm": "Potvrdit",
+    "cancel": "Zrušit"
+  },
+  "cancelDialog": {
+    "title": "Stornovat doklad {code}?",
+    "description": "Stornováním dokladu dojde k:",
+    "bullet1": "Vytvoření protiúčtujících pohybů",
+    "bullet2": "Vrácení stavu skladu do původního stavu",
+    "bullet3": "Obnovení alokovaných příjemek (u výdejek)",
+    "warning": "Tuto akci nelze vrátit zpět.",
+    "confirm": "Stornovat",
+    "cancel": "Zrušit"
+  },
+  "movementsTab": {
+    "date": "Datum",
+    "item": "Položka",
+    "direction": "Směr",
+    "quantity": "Množství",
+    "unitPrice": "Cena",
+    "in": "PŘÍJEM",
+    "out": "VÝDEJ",
+    "noMovements": "Doklad nemá žádné pohyby"
+  },
+  "allocationsTab": {
+    "line": "Řádek",
+    "sourceCode": "Zdrojová příjemka",
+    "sourceDate": "Datum příjmu",
+    "quantity": "Množství",
+    "unitPrice": "Cena příjmu",
+    "noAllocations": "Doklad nemá žádné alokace"
+  }
+}

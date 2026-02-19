@@ -1,0 +1,155 @@
+{
+  "title": "Stock Movements",
+  "createReceipt": "Receipt",
+  "createIssue": "Issue",
+  "columns": {
+    "code": "Code",
+    "movementType": "Type",
+    "movementPurpose": "Purpose",
+    "date": "Date",
+    "warehouseName": "Warehouse",
+    "partnerName": "Partner",
+    "totalCost": "Total",
+    "status": "Status"
+  },
+  "quickFilters": {
+    "all": "All",
+    "receipts": "Receipts",
+    "issues": "Issues",
+    "draft": "Draft",
+    "confirmed": "Confirmed"
+  },
+  "filters": {
+    "warehouseId": "Warehouse",
+    "partnerId": "Partner",
+    "movementPurpose": "Purpose",
+    "status": "Status"
+  },
+  "movementType": {
+    "receipt": "Receipt",
+    "issue": "Issue"
+  },
+  "movementPurpose": {
+    "purchase": "Purchase",
+    "production_in": "Production (in)",
+    "production_out": "Production (out)",
+    "sale": "Sale",
+    "transfer": "Transfer",
+    "inventory": "Inventory",
+    "waste": "Waste",
+    "other": "Other"
+  },
+  "status": {
+    "draft": "Draft",
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled"
+  },
+  "detail": {
+    "title": "Stock Movement",
+    "newReceiptTitle": "New Receipt",
+    "newIssueTitle": "New Issue",
+    "saved": "Movement saved",
+    "saveError": "Failed to save movement",
+    "deleted": "Movement deleted",
+    "deleteError": "Failed to delete movement",
+    "confirmed": "Document confirmed",
+    "confirmError": "Failed to confirm document",
+    "cancelled": "Document cancelled",
+    "cancelError": "Failed to cancel document",
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "confirm": "Confirm",
+      "cancelDocument": "Cancel Document"
+    }
+  },
+  "tabs": {
+    "header": "Header",
+    "lines": "Lines",
+    "movements": "Movements",
+    "allocations": "Allocations"
+  },
+  "form": {
+    "code": "Code",
+    "movementType": "Movement Type",
+    "movementPurpose": "Purpose",
+    "date": "Date",
+    "warehouseId": "Warehouse",
+    "partnerId": "Partner",
+    "batchId": "Batch",
+    "season": "Season",
+    "additionalCost": "Additional Cost",
+    "notes": "Notes",
+    "selectWarehouse": "Select warehouse",
+    "selectPartner": "Select partner",
+    "selectBatch": "Select batch",
+    "selectPurpose": "Select purpose",
+    "noPartner": "— no partner —",
+    "noBatch": "— no batch —"
+  },
+  "lines": {
+    "addLine": "Add Line",
+    "lineNo": "#",
+    "item": "Item",
+    "requestedQty": "Requested Qty",
+    "issuedQty": "Issued Qty",
+    "missingQty": "Missing",
+    "unitPrice": "Unit Price",
+    "totalCost": "Total",
+    "notes": "Notes",
+    "subtotal": "Subtotal",
+    "additionalCost": "Additional Cost",
+    "grandTotal": "TOTAL",
+    "noLines": "No lines yet",
+    "lineAdded": "Line added",
+    "lineAddError": "Failed to add line",
+    "lineUpdated": "Line updated",
+    "lineUpdateError": "Failed to update line",
+    "lineRemoved": "Line removed",
+    "lineRemoveError": "Failed to remove line",
+    "selectItem": "Select item",
+    "searchItem": "Search item..."
+  },
+  "confirmDialog": {
+    "title": "Confirm document {code}?",
+    "description": "Confirming this document will:",
+    "bullet1": "Create stock movements",
+    "bullet2": "Update stock levels",
+    "warning": "This action cannot be undone (only the entire document can be cancelled).",
+    "stockCheck": "Availability check:",
+    "sufficient": "available",
+    "insufficient": "insufficient quantity",
+    "insufficientWarning": "Insufficient quantity for {count} items",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+  },
+  "cancelDialog": {
+    "title": "Cancel document {code}?",
+    "description": "Cancelling this document will:",
+    "bullet1": "Create counter-movements",
+    "bullet2": "Restore stock levels to original state",
+    "bullet3": "Re-open allocated receipts (for issues)",
+    "warning": "This action cannot be undone.",
+    "confirm": "Cancel Document",
+    "cancel": "Go Back"
+  },
+  "movementsTab": {
+    "date": "Date",
+    "item": "Item",
+    "direction": "Direction",
+    "quantity": "Quantity",
+    "unitPrice": "Price",
+    "in": "IN",
+    "out": "OUT",
+    "noMovements": "No movements for this document"
+  },
+  "allocationsTab": {
+    "line": "Line",
+    "sourceCode": "Source Receipt",
+    "sourceDate": "Receipt Date",
+    "quantity": "Quantity",
+    "unitPrice": "Receipt Price",
+    "noAllocations": "No allocations for this document"
+  }
+}

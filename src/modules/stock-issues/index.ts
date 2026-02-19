@@ -1,6 +1,6 @@
 /**
  * Stock Issues module — public API.
- * Re-exports types and actions for use by other modules.
+ * Re-exports types, components, and hooks for use by other modules.
  */
 export type {
   StockIssue,
@@ -18,3 +18,6 @@ export type {
   AllocationResult,
   StockStatusRow,
 } from "./types";
+
+export { StockIssueBrowser } from "./components/StockIssueBrowser";
+export { StockIssueDetail } from "./components/StockIssueDetail";

@@ -46,6 +46,9 @@ export interface StockIssue {
   createdBy: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  // Joined fields (from browser queries)
+  warehouseName: string | null;
+  partnerName: string | null;
 }
 
 // ── Stock Issue Line ──────────────────────────────────────────

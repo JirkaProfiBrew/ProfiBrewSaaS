@@ -12,6 +12,8 @@ import {
   stockIssueAllocations,
 } from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
+import { warehouses } from "@/../drizzle/schema/warehouses";
+import { partners } from "@/../drizzle/schema/partners";
 import { allocateIssue } from "./lib/allocation-engine";
 import { updateStockStatusRow } from "./lib/stock-status-sync";
 import type {
@@ -27,7 +29,10 @@ import type {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function mapIssueRow(row: typeof stockIssues.$inferSelect): StockIssue {
+function mapIssueRow(
+  row: typeof stockIssues.$inferSelect,
+  joined?: { warehouseName?: string | null; partnerName?: string | null }
+): StockIssue {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -50,6 +55,8 @@ function mapIssueRow(row: typeof stockIssues.$inferSelect): StockIssue {
     createdBy: row.createdBy,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    warehouseName: joined?.warehouseName ?? null,
+    partnerName: joined?.partnerName ?? null,
   };
 }
 
@@ -109,12 +116,23 @@ export async function getStockIssues(
     }
 
     const rows = await db
-      .select()
+      .select({
+        issue: stockIssues,
+        warehouseName: warehouses.name,
+        partnerName: partners.name,
+      })
       .from(stockIssues)
+      .leftJoin(warehouses, eq(stockIssues.warehouseId, warehouses.id))
+      .leftJoin(partners, eq(stockIssues.partnerId, partners.id))
       .where(and(...conditions))
       .orderBy(desc(stockIssues.date), desc(stockIssues.createdAt));
 
-    return rows.map(mapIssueRow);
+    return rows.map((r) =>
+      mapIssueRow(r.issue, {
+        warehouseName: r.warehouseName,
+        partnerName: r.partnerName,
+      })
+    );
   });
 }
 
@@ -772,5 +790,82 @@ export async function getStockIssueAllocations(
     }
 
     return allAllocations;
+  });
+}
+
+// ── HELPERS: Select Options ──────────────────────────────────
+
+/** Get warehouse options for select fields. */
+export async function getWarehouseOptions(): Promise<
+  Array<{ value: string; label: string }>
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ id: warehouses.id, name: warehouses.name, code: warehouses.code })
+      .from(warehouses)
+      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.isActive, true)))
+      .orderBy(warehouses.name);
+
+    return rows.map((r) => ({ value: r.id, label: `${r.code} — ${r.name}` }));
+  });
+}
+
+/** Get partner options for select fields. */
+export async function getPartnerOptions(): Promise<
+  Array<{ value: string; label: string }>
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ id: partners.id, name: partners.name })
+      .from(partners)
+      .where(and(eq(partners.tenantId, tenantId), eq(partners.isActive, true)))
+      .orderBy(partners.name);
+
+    return rows.map((r) => ({ value: r.id, label: r.name }));
+  });
+}
+
+/** Get item options for line item selection. */
+export async function getItemOptions(): Promise<
+  Array<{ value: string; label: string; code: string }>
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ id: items.id, name: items.name, code: items.code })
+      .from(items)
+      .where(and(eq(items.tenantId, tenantId), eq(items.isActive, true)))
+      .orderBy(items.name);
+
+    return rows.map((r) => ({ value: r.id, label: `${r.code} — ${r.name}`, code: r.code }));
+  });
+}
+
+/** Get stock status for availability check (used by confirm dialog). */
+export async function getStockStatusForItems(
+  warehouseId: string,
+  itemIds: string[]
+): Promise<Record<string, number>> {
+  return withTenant(async (tenantId) => {
+    const { stockStatus } = await import("@/../drizzle/schema/stock");
+
+    const result: Record<string, number> = {};
+
+    for (const itemId of itemIds) {
+      const rows = await db
+        .select({ quantity: stockStatus.quantity })
+        .from(stockStatus)
+        .where(
+          and(
+            eq(stockStatus.tenantId, tenantId),
+            eq(stockStatus.itemId, itemId),
+            eq(stockStatus.warehouseId, warehouseId)
+          )
+        )
+        .limit(1);
+
+      result[itemId] = Number(rows[0]?.quantity ?? "0");
+    }
+
+    return result;
   });
 }

@@ -1,0 +1,744 @@
+"use client";
+
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Trash2, CheckCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
+
+import { DetailView } from "@/components/detail-view";
+import { FormSection } from "@/components/forms";
+import type { FormSectionDef, FormMode } from "@/components/forms";
+import type { DetailViewAction } from "@/components/detail-view";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { useStockIssueDetail } from "../hooks";
+import {
+  createStockIssue,
+  updateStockIssue,
+  deleteStockIssue,
+  getWarehouseOptions,
+  getPartnerOptions,
+  getItemOptions,
+  getStockIssueMovements,
+  getStockIssueAllocations,
+} from "../actions";
+import type { MovementType, MovementPurpose } from "../types";
+import { StockIssueLineTable } from "./StockIssueLineTable";
+import { StockIssueConfirmDialog } from "./StockIssueConfirmDialog";
+import { StockIssueCancelDialog } from "./StockIssueCancelDialog";
+
+// ── Status Badge ────────────────────────────────────────────────
+
+function StatusBadge({
+  status,
+  t,
+}: {
+  status: string;
+  t: ReturnType<typeof useTranslations>;
+}): React.ReactNode {
+  const variants: Record<string, string> = {
+    draft: "bg-gray-100 text-gray-700",
+    confirmed: "bg-green-100 text-green-700",
+    cancelled: "bg-red-100 text-red-700",
+  };
+  const className = variants[status] ?? "bg-gray-100 text-gray-700";
+  return (
+    <Badge variant="outline" className={className}>
+      {t(`status.${status}` as Parameters<typeof t>[0])}
+    </Badge>
+  );
+}
+
+function MovementTypeBadge({
+  type,
+  t,
+}: {
+  type: string;
+  t: ReturnType<typeof useTranslations>;
+}): React.ReactNode {
+  const className =
+    type === "receipt"
+      ? "bg-blue-100 text-blue-700"
+      : "bg-orange-100 text-orange-700";
+  return (
+    <Badge variant="outline" className={className}>
+      {t(`movementType.${type}` as Parameters<typeof t>[0])}
+    </Badge>
+  );
+}
+
+// ── Movement type → valid purposes ──────────────────────────────
+
+const RECEIPT_PURPOSES: MovementPurpose[] = [
+  "purchase",
+  "production_in",
+  "transfer",
+  "inventory",
+  "other",
+];
+
+const ISSUE_PURPOSES: MovementPurpose[] = [
+  "production_out",
+  "sale",
+  "transfer",
+  "inventory",
+  "waste",
+  "other",
+];
+
+// ── Props ───────────────────────────────────────────────────────
+
+interface StockIssueDetailProps {
+  id: string;
+}
+
+// ── Component ───────────────────────────────────────────────────
+
+export function StockIssueDetail({
+  id,
+}: StockIssueDetailProps): React.ReactNode {
+  const t = useTranslations("stockIssues");
+  const tCommon = useTranslations("common");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const isNew = id === "new";
+  const newType = (searchParams.get("type") ?? "receipt") as MovementType;
+
+  const { data: issueDetail, isLoading, mutate } = useStockIssueDetail(
+    isNew ? "" : id
+  );
+
+  // Select options
+  const [warehouseOptions, setWarehouseOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  const [partnerOptions, setPartnerOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+  const [itemOptions, setItemOptions] = useState<
+    Array<{ value: string; label: string; code: string }>
+  >([]);
+
+  // Movements & allocations (loaded on demand)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
+  const [movements, setMovements] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
+  const [allocations, setAllocations] = useState<any[]>([]);
+
+  // Dialog states
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState("header");
+
+  // Form values
+  const [values, setValues] = useState<Record<string, unknown>>({
+    movementPurpose: newType === "receipt" ? "purchase" : "sale",
+    date: new Date().toISOString().split("T")[0],
+    warehouseId: "",
+    partnerId: "__none__",
+    batchId: "",
+    season: "",
+    additionalCost: "0",
+    notes: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Load select options
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getWarehouseOptions(), getPartnerOptions(), getItemOptions()])
+      .then(([whOpts, pOpts, iOpts]) => {
+        if (!cancelled) {
+          setWarehouseOptions(whOpts);
+          setPartnerOptions(pOpts);
+          setItemOptions(iOpts);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load options:", error);
+      });
+    return (): void => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Populate form when data loads
+  useEffect(() => {
+    if (issueDetail) {
+      setValues({
+        movementPurpose: issueDetail.movementPurpose,
+        date: issueDetail.date,
+        warehouseId: issueDetail.warehouseId,
+        partnerId: issueDetail.partnerId ?? "__none__",
+        batchId: issueDetail.batchId ?? "",
+        season: issueDetail.season ?? "",
+        additionalCost: issueDetail.additionalCost ?? "0",
+        notes: issueDetail.notes ?? "",
+      });
+    }
+  }, [issueDetail]);
+
+  // Load movements and allocations when tab switches
+  useEffect(() => {
+    if (!issueDetail || issueDetail.status === "draft") return;
+
+    if (activeTab === "movements" && movements.length === 0) {
+      getStockIssueMovements(id)
+        .then(setMovements)
+        .catch((error: unknown) => {
+          console.error("Failed to load movements:", error);
+        });
+    }
+    if (
+      activeTab === "allocations" &&
+      allocations.length === 0 &&
+      issueDetail.movementType === "issue"
+    ) {
+      getStockIssueAllocations(id)
+        .then(setAllocations)
+        .catch((error: unknown) => {
+          console.error("Failed to load allocations:", error);
+        });
+    }
+  }, [activeTab, issueDetail, id, movements.length, allocations.length]);
+
+  const isDraft = isNew || issueDetail?.status === "draft";
+  const isConfirmed = issueDetail?.status === "confirmed";
+  const movementType = isNew ? newType : issueDetail?.movementType ?? "receipt";
+  const mode: FormMode = isDraft ? (isNew ? "create" : "edit") : "readonly";
+
+  // Purpose options based on movement type
+  const purposeOptions = useMemo(() => {
+    const purposes =
+      movementType === "receipt" ? RECEIPT_PURPOSES : ISSUE_PURPOSES;
+    return purposes.map((p) => ({
+      value: p,
+      label: t(`movementPurpose.${p}` as Parameters<typeof t>[0]),
+    }));
+  }, [movementType, t]);
+
+  // Partner options with "none" sentinel
+  const partnerSelectOptions = useMemo(
+    () => [
+      { value: "__none__", label: t("form.noPartner") },
+      ...partnerOptions,
+    ],
+    [partnerOptions, t]
+  );
+
+  // ── Form Section ────────────────────────────────────────────
+
+  const headerSection: FormSectionDef = useMemo(
+    () => ({
+      columns: 2,
+      fields: [
+        ...(isNew
+          ? []
+          : [
+              {
+                key: "code",
+                label: t("form.code"),
+                type: "text" as const,
+                disabled: true,
+              },
+            ]),
+        {
+          key: "movementPurpose",
+          label: t("form.movementPurpose"),
+          type: "select" as const,
+          options: purposeOptions,
+          required: true,
+          disabled: !isDraft,
+        },
+        {
+          key: "date",
+          label: t("form.date"),
+          type: "date" as const,
+          required: true,
+          disabled: !isDraft,
+        },
+        {
+          key: "warehouseId",
+          label: t("form.warehouseId"),
+          type: "select" as const,
+          options: warehouseOptions,
+          required: true,
+          disabled: !isDraft,
+          placeholder: t("form.selectWarehouse"),
+        },
+        {
+          key: "partnerId",
+          label: t("form.partnerId"),
+          type: "select" as const,
+          options: partnerSelectOptions,
+          disabled: !isDraft,
+        },
+        {
+          key: "season",
+          label: t("form.season"),
+          type: "text" as const,
+          disabled: !isDraft,
+        },
+        {
+          key: "additionalCost",
+          label: t("form.additionalCost"),
+          type: "decimal" as const,
+          disabled: !isDraft,
+        },
+        {
+          key: "notes",
+          label: t("form.notes"),
+          type: "textarea" as const,
+          gridSpan: 2,
+          disabled: !isDraft,
+        },
+      ],
+    }),
+    [t, isNew, isDraft, purposeOptions, warehouseOptions, partnerSelectOptions]
+  );
+
+  // ── Handlers ────────────────────────────────────────────────
+
+  const handleChange = useCallback(
+    (key: string, value: unknown): void => {
+      setValues((prev) => ({ ...prev, [key]: value }));
+      if (errors[key]) {
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }
+    },
+    [errors]
+  );
+
+  const handleSave = useCallback(async (): Promise<void> => {
+    // Validate required fields
+    const newErrors: Record<string, string> = {};
+    if (!values.warehouseId) {
+      newErrors.warehouseId = tCommon("validation.required");
+    }
+    if (!values.date) {
+      newErrors.date = tCommon("validation.required");
+    }
+    if (!values.movementPurpose) {
+      newErrors.movementPurpose = tCommon("validation.required");
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    try {
+      const partnerId =
+        String(values.partnerId) !== "__none__"
+          ? String(values.partnerId)
+          : null;
+
+      if (isNew) {
+        const result = await createStockIssue({
+          movementType: newType,
+          movementPurpose: String(values.movementPurpose) as MovementPurpose,
+          date: String(values.date),
+          warehouseId: String(values.warehouseId),
+          partnerId,
+          season: values.season ? String(values.season) : null,
+          additionalCost: values.additionalCost
+            ? String(values.additionalCost)
+            : "0",
+          notes: values.notes ? String(values.notes) : null,
+        });
+        toast.success(t("detail.saved"));
+        router.push(`/stock/movements/${result.id}`);
+      } else {
+        await updateStockIssue(id, {
+          movementPurpose: String(values.movementPurpose) as MovementPurpose,
+          date: String(values.date),
+          warehouseId: String(values.warehouseId),
+          partnerId,
+          season: values.season ? String(values.season) : null,
+          additionalCost: values.additionalCost
+            ? String(values.additionalCost)
+            : "0",
+          notes: values.notes ? String(values.notes) : null,
+        });
+        toast.success(t("detail.saved"));
+        mutate();
+      }
+    } catch (error) {
+      console.error("Failed to save stock issue:", error);
+      toast.error(t("detail.saveError"));
+    }
+  }, [isNew, id, values, newType, router, t, tCommon, mutate]);
+
+  const handleDelete = useCallback(async (): Promise<void> => {
+    try {
+      await deleteStockIssue(id);
+      toast.success(t("detail.deleted"));
+      router.push("/stock/movements");
+    } catch (error) {
+      console.error("Failed to delete stock issue:", error);
+      toast.error(t("detail.deleteError"));
+    }
+  }, [id, router, t]);
+
+  const handleCancel = useCallback((): void => {
+    router.push("/stock/movements");
+  }, [router]);
+
+  const handleConfirmed = useCallback((): void => {
+    mutate();
+    // Reset movements/allocations to force reload
+    setMovements([]);
+    setAllocations([]);
+  }, [mutate]);
+
+  const handleCancelled = useCallback((): void => {
+    mutate();
+  }, [mutate]);
+
+  // ── Actions ─────────────────────────────────────────────────
+
+  const actions: DetailViewAction[] = useMemo(() => {
+    if (isNew) return [];
+
+    const result: DetailViewAction[] = [];
+
+    if (isDraft) {
+      result.push({
+        key: "confirm",
+        label: t("detail.actions.confirm"),
+        icon: CheckCircle,
+        variant: "default",
+        onClick: () => {
+          setConfirmOpen(true);
+        },
+      });
+      result.push({
+        key: "delete",
+        label: t("detail.actions.delete"),
+        icon: Trash2,
+        variant: "destructive",
+        onClick: () => {
+          void handleDelete();
+        },
+      });
+    }
+
+    if (isConfirmed) {
+      result.push({
+        key: "cancelDocument",
+        label: t("detail.actions.cancelDocument"),
+        icon: XCircle,
+        variant: "destructive",
+        onClick: () => {
+          setCancelOpen(true);
+        },
+      });
+    }
+
+    return result;
+  }, [isNew, isDraft, isConfirmed, t, handleDelete]);
+
+  // ── NEW mode ──────────────────────────────────────────────
+
+  if (isNew) {
+    const newTitle =
+      newType === "receipt"
+        ? t("detail.newReceiptTitle")
+        : t("detail.newIssueTitle");
+
+    return (
+      <div className="flex flex-col gap-6 p-6">
+        <DetailView
+          title={newTitle}
+          backHref="/stock/movements"
+          isLoading={false}
+          onSave={() => {
+            void handleSave();
+          }}
+          onCancel={handleCancel}
+          saveLabel={t("detail.actions.save")}
+          cancelLabel={t("detail.actions.cancel")}
+        >
+          <div className="mb-4">
+            <MovementTypeBadge type={newType} t={t} />
+          </div>
+          <FormSection
+            section={headerSection}
+            values={values}
+            errors={errors}
+            mode="create"
+            onChange={handleChange}
+          />
+        </DetailView>
+      </div>
+    );
+  }
+
+  // ── EDIT / VIEW mode ──────────────────────────────────────
+
+  const title = issueDetail
+    ? `${issueDetail.code}`
+    : t("detail.title");
+
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      <DetailView
+        title={title}
+        backHref="/stock/movements"
+        actions={actions}
+        isLoading={isLoading}
+        onSave={
+          isDraft
+            ? () => {
+                void handleSave();
+              }
+            : undefined
+        }
+        onCancel={handleCancel}
+        saveLabel={t("detail.actions.save")}
+        cancelLabel={t("detail.actions.cancel")}
+      >
+        {/* Status + type badges */}
+        {issueDetail && (
+          <div className="flex items-center gap-3 mb-4">
+            <MovementTypeBadge type={issueDetail.movementType} t={t} />
+            <StatusBadge status={issueDetail.status} t={t} />
+          </div>
+        )}
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="header">{t("tabs.header")}</TabsTrigger>
+            <TabsTrigger value="lines">{t("tabs.lines")}</TabsTrigger>
+            {!isDraft && (
+              <TabsTrigger value="movements">{t("tabs.movements")}</TabsTrigger>
+            )}
+            {!isDraft && movementType === "issue" && (
+              <TabsTrigger value="allocations">
+                {t("tabs.allocations")}
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="header" className="mt-4">
+            <FormSection
+              section={headerSection}
+              values={{
+                ...values,
+                code: issueDetail?.code ?? "",
+              }}
+              errors={errors}
+              mode={mode}
+              onChange={handleChange}
+            />
+          </TabsContent>
+
+          <TabsContent value="lines" className="mt-4">
+            <StockIssueLineTable
+              issueId={id}
+              lines={issueDetail?.lines ?? []}
+              movementType={movementType}
+              isDraft={isDraft}
+              onMutate={mutate}
+              itemOptions={itemOptions}
+              additionalCost={String(values.additionalCost ?? "0")}
+            />
+          </TabsContent>
+
+          {!isDraft && (
+            <TabsContent value="movements" className="mt-4">
+              <MovementsTable movements={movements} t={t} />
+            </TabsContent>
+          )}
+
+          {!isDraft && movementType === "issue" && (
+            <TabsContent value="allocations" className="mt-4">
+              <AllocationsTable allocations={allocations} t={t} />
+            </TabsContent>
+          )}
+        </Tabs>
+      </DetailView>
+
+      {/* Dialogs */}
+      <StockIssueConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        issueId={id}
+        code={issueDetail?.code ?? ""}
+        onConfirmed={handleConfirmed}
+      />
+      <StockIssueCancelDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        issueId={id}
+        code={issueDetail?.code ?? ""}
+        isIssueType={movementType === "issue"}
+        onCancelled={handleCancelled}
+      />
+    </div>
+  );
+}
+
+// ── Movements Tab (readonly) ──────────────────────────────────
+
+function MovementsTable({
+  movements,
+  t,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types
+  movements: any[];
+  t: ReturnType<typeof useTranslations>;
+}): React.ReactNode {
+  if (movements.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-4">
+        {t("movementsTab.noMovements")}
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("movementsTab.date")}</TableHead>
+          <TableHead>{t("movementsTab.item")}</TableHead>
+          <TableHead>{t("movementsTab.direction")}</TableHead>
+          <TableHead className="text-right">
+            {t("movementsTab.quantity")}
+          </TableHead>
+          <TableHead className="text-right">
+            {t("movementsTab.unitPrice")}
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {movements.map(
+          (
+            m: {
+              id: string;
+              date: string;
+              itemId: string;
+              movementType: string;
+              quantity: string;
+              unitPrice: string | null;
+            },
+            idx: number
+          ) => {
+            const qty = Number(m.quantity);
+            const isIn = m.movementType === "in";
+            return (
+              <TableRow key={m.id ?? idx}>
+                <TableCell>{m.date}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {m.itemId}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={
+                      isIn
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }
+                  >
+                    {isIn ? t("movementsTab.in") : t("movementsTab.out")}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {Math.abs(qty).toLocaleString("cs-CZ")}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {m.unitPrice
+                    ? Number(m.unitPrice).toLocaleString("cs-CZ")
+                    : "—"}
+                </TableCell>
+              </TableRow>
+            );
+          }
+        )}
+      </TableBody>
+    </Table>
+  );
+}
+
+// ── Allocations Tab (readonly) ────────────────────────────────
+
+function AllocationsTable({
+  allocations,
+  t,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types
+  allocations: any[];
+  t: ReturnType<typeof useTranslations>;
+}): React.ReactNode {
+  if (allocations.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-4">
+        {t("allocationsTab.noAllocations")}
+      </p>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("allocationsTab.line")}</TableHead>
+          <TableHead>{t("allocationsTab.sourceCode")}</TableHead>
+          <TableHead className="text-right">
+            {t("allocationsTab.quantity")}
+          </TableHead>
+          <TableHead className="text-right">
+            {t("allocationsTab.unitPrice")}
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {allocations.map(
+          (
+            a: {
+              id: string;
+              stockIssueLineId: string;
+              sourceMovementId: string;
+              quantity: string;
+              unitPrice: string;
+            },
+            idx: number
+          ) => (
+            <TableRow key={a.id ?? idx}>
+              <TableCell className="font-mono text-xs">
+                {a.stockIssueLineId}
+              </TableCell>
+              <TableCell className="font-mono text-xs">
+                {a.sourceMovementId}
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {Number(a.quantity).toLocaleString("cs-CZ")}
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {Number(a.unitPrice).toLocaleString("cs-CZ")}
+              </TableCell>
+            </TableRow>
+          )
+        )}
+      </TableBody>
+    </Table>
+  );
+}
