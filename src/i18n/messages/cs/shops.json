@@ -38,5 +38,40 @@
       "delete": "Smazat",
       "cancel": "Zrušit"
     }
+  },
+  "tabs": {
+    "basic": "Základní údaje",
+    "parameters": "Parametry"
+  },
+  "settings": {
+    "stockMode": {
+      "title": "Ukončení varu a naskladnění piva",
+      "label": "Režim naskladnění",
+      "none": "Pouze ukončit var, nenaskladňovat",
+      "bulk": "Naskladnit vcelku (v litrech)",
+      "packaged": "Naskladnit formou stočených obalů"
+    },
+    "defaultWarehouseRaw": "Sklad pro vyskladnění surovin",
+    "defaultWarehouseBeer": "Sklad pro naskladnění piva",
+    "ingredientPricing": {
+      "title": "Cena surovin pro kalkulaci",
+      "label": "Zdroj ceny surovin",
+      "calcPrice": "Kalkulační cena ze skladové karty",
+      "avgStock": "Průměrná skladová cena (FIFO)",
+      "lastPurchase": "Poslední nákupní cena"
+    },
+    "beerPricing": {
+      "title": "Cena piva pro příjem na sklad",
+      "label": "Zdroj ceny piva",
+      "fixed": "Pevná cena ze skladové karty",
+      "recipeCalc": "Cena dle kalkulace receptu",
+      "actualCosts": "Skutečné náklady dle záznamů varu"
+    },
+    "calcInputs": {
+      "title": "Vstupy pro kalkulaci ceny vyráběného piva",
+      "overheadPct": "Režie suroviny (%)",
+      "overheadCzk": "Režie (CZK)",
+      "brewCostCzk": "Náklady var (CZK)"
+    }
   }
 }

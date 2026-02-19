@@ -19,6 +19,8 @@ export interface Item {
   unitId: string | null;
   recipeUnitId: string | null;
   baseUnitAmount: string | null;
+  baseItemId: string | null;
+  baseItemQuantity: string | null;
   materialType: string | null;
   alpha: string | null;
   ebc: string | null;

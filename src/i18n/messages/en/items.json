@@ -57,6 +57,7 @@
       "stock": "Stock Settings",
       "material": "Material Parameters",
       "product": "Product Parameters",
+      "baseItem": "Base Item Relationship",
       "pricing": "Pricing",
       "pos": "POS / Web",
       "meta": "Notes"
@@ -92,7 +93,11 @@
       "color": "Item color",
       "notes": "Notes",
       "imageUrl": "Image URL",
-      "recipeUnit": "Recipe unit"
+      "recipeUnit": "Recipe unit",
+      "baseItemId": "Base Production Item",
+      "baseItemHelp": "Link to the base production item (e.g. Pale Lager 12\u00b0)",
+      "baseItemQuantity": "Content (base item qty)",
+      "baseItemQuantityHelp": "How many units of the base production item this sale item contains. When sold, the corresponding amount will be automatically deducted from stock."
     },
     "actions": {
       "save": "Save",

@@ -10,10 +10,12 @@ import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
 import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewAction } from "@/components/detail-view";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useShop } from "../hooks";
 import { createShop, updateShop, deleteShop } from "../actions";
-import type { ShopAddress } from "../types";
+import type { ShopAddress, ShopSettings } from "../types";
+import { getWarehouses } from "@/modules/warehouses/actions";
 
 // ── Props ─────────────────────────────────────────────────────
 
@@ -23,7 +25,6 @@ interface ShopDetailProps {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-/** Decompose Shop data into flat form values. */
 function shopToFormValues(
   shop: {
     name: string;
@@ -45,14 +46,12 @@ function shopToFormValues(
   };
 }
 
-/** Compose flat form values back into an address JSONB object. */
 function formValuesToAddress(values: Record<string, unknown>): ShopAddress | null {
   const street = typeof values.street === "string" ? values.street : "";
   const city = typeof values.city === "string" ? values.city : "";
   const zip = typeof values.zip === "string" ? values.zip : "";
   const country = typeof values.country === "string" ? values.country : "";
 
-  // Return null if all address fields are empty
   if (!street && !city && !zip && !country) return null;
 
   return {
@@ -62,8 +61,6 @@ function formValuesToAddress(values: Record<string, unknown>): ShopAddress | nul
     country: country || undefined,
   };
 }
-
-// ── Default form values ────────────────────────────────────────
 
 function getDefaultValues(): Record<string, unknown> {
   return {
@@ -75,6 +72,19 @@ function getDefaultValues(): Record<string, unknown> {
     country: "",
     isDefault: false,
     isActive: true,
+  };
+}
+
+function getDefaultSettingsValues(): Record<string, unknown> {
+  return {
+    stock_mode: "none",
+    default_warehouse_raw_id: "__none__",
+    default_warehouse_beer_id: "__none__",
+    ingredient_pricing_mode: "calc_price",
+    beer_pricing_mode: "fixed",
+    overhead_pct: "20",
+    overhead_czk: "0",
+    brew_cost_czk: "0",
   };
 }
 
@@ -91,18 +101,42 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
   const { data: shop, isLoading } = useShop(isNew ? "" : id);
 
   const [values, setValues] = useState<Record<string, unknown>>(getDefaultValues());
+  const [settingsValues, setSettingsValues] = useState<Record<string, unknown>>(getDefaultSettingsValues());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
+
+  // Load warehouse options for settings selects
+  useEffect(() => {
+    void getWarehouses({ isActive: true }).then((whs) =>
+      setWarehouseOptions([
+        { value: "__none__", label: "\u2014" },
+        ...whs.map((w) => ({ value: w.id, label: `${w.code} \u2014 ${w.name}` })),
+      ])
+    );
+  }, []);
 
   // Populate form when shop data loads
   useEffect(() => {
     if (shop) {
       setValues(shopToFormValues(shop));
+      // Load settings from JSONB
+      const s = shop.settings as ShopSettings;
+      setSettingsValues({
+        stock_mode: s.stock_mode ?? "none",
+        default_warehouse_raw_id: s.default_warehouse_raw_id ?? "__none__",
+        default_warehouse_beer_id: s.default_warehouse_beer_id ?? "__none__",
+        ingredient_pricing_mode: s.ingredient_pricing_mode ?? "calc_price",
+        beer_pricing_mode: s.beer_pricing_mode ?? "fixed",
+        overhead_pct: String(s.overhead_pct ?? 20),
+        overhead_czk: String(s.overhead_czk ?? 0),
+        brew_cost_czk: String(s.brew_cost_czk ?? 0),
+      });
     }
   }, [shop]);
 
-  // ── Form section definition ──────────────────────────────────
+  // ── Form section definitions ──────────────────────────────────
 
-  const sectionDef: FormSectionDef = useMemo(() => ({
+  const basicSection: FormSectionDef = useMemo(() => ({
     columns: 2,
     fields: [
       {
@@ -157,11 +191,98 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
     ],
   }), [t]);
 
+  const stockModeSection: FormSectionDef = useMemo(() => ({
+    title: t("settings.stockMode.title"),
+    columns: 2,
+    fields: [
+      {
+        key: "stock_mode",
+        label: t("settings.stockMode.label"),
+        type: "select",
+        options: [
+          { value: "none", label: t("settings.stockMode.none") },
+          { value: "bulk", label: t("settings.stockMode.bulk") },
+          { value: "packaged", label: t("settings.stockMode.packaged") },
+        ],
+      },
+      {
+        key: "default_warehouse_raw_id",
+        label: t("settings.defaultWarehouseRaw"),
+        type: "select",
+        options: warehouseOptions,
+      },
+      {
+        key: "default_warehouse_beer_id",
+        label: t("settings.defaultWarehouseBeer"),
+        type: "select",
+        options: warehouseOptions,
+      },
+    ],
+  }), [t, warehouseOptions]);
+
+  const ingredientPricingSection: FormSectionDef = useMemo(() => ({
+    title: t("settings.ingredientPricing.title"),
+    columns: 1,
+    fields: [
+      {
+        key: "ingredient_pricing_mode",
+        label: t("settings.ingredientPricing.label"),
+        type: "select",
+        options: [
+          { value: "calc_price", label: t("settings.ingredientPricing.calcPrice") },
+          { value: "avg_stock", label: t("settings.ingredientPricing.avgStock") },
+          { value: "last_purchase", label: t("settings.ingredientPricing.lastPurchase") },
+        ],
+      },
+    ],
+  }), [t]);
+
+  const beerPricingSection: FormSectionDef = useMemo(() => ({
+    title: t("settings.beerPricing.title"),
+    columns: 1,
+    fields: [
+      {
+        key: "beer_pricing_mode",
+        label: t("settings.beerPricing.label"),
+        type: "select",
+        options: [
+          { value: "fixed", label: t("settings.beerPricing.fixed") },
+          { value: "recipe_calc", label: t("settings.beerPricing.recipeCalc") },
+          { value: "actual_costs", label: t("settings.beerPricing.actualCosts") },
+        ],
+      },
+    ],
+  }), [t]);
+
+  const calcInputsSection: FormSectionDef = useMemo(() => ({
+    title: t("settings.calcInputs.title"),
+    columns: 3,
+    fields: [
+      {
+        key: "overhead_pct",
+        label: t("settings.calcInputs.overheadPct"),
+        type: "number",
+        suffix: "%",
+      },
+      {
+        key: "overhead_czk",
+        label: t("settings.calcInputs.overheadCzk"),
+        type: "currency",
+        suffix: "CZK",
+      },
+      {
+        key: "brew_cost_czk",
+        label: t("settings.calcInputs.brewCostCzk"),
+        type: "currency",
+        suffix: "CZK",
+      },
+    ],
+  }), [t]);
+
   // ── Handlers ─────────────────────────────────────────────────
 
   const handleChange = useCallback((key: string, value: unknown): void => {
     setValues((prev) => ({ ...prev, [key]: value }));
-    // Clear error for the changed field
     setErrors((prev) => {
       if (prev[key]) {
         const next = { ...prev };
@@ -172,14 +293,17 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
     });
   }, []);
 
+  const handleSettingsChange = useCallback((key: string, value: unknown): void => {
+    setSettingsValues((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
   const handleSave = useCallback(async (): Promise<void> => {
-    // Basic validation
     const newErrors: Record<string, string> = {};
     if (!values.name || (typeof values.name === "string" && values.name.trim() === "")) {
-      newErrors.name = t("detail.fields.name") + " is required";
+      newErrors.name = tCommon("validation.required");
     }
     if (!values.shopType) {
-      newErrors.shopType = t("detail.fields.shopType") + " is required";
+      newErrors.shopType = tCommon("validation.required");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -189,13 +313,34 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
 
     try {
       const address = formValuesToAddress(values);
+
+      // Build settings JSONB
+      const settings: ShopSettings = {
+        stock_mode: (settingsValues.stock_mode as ShopSettings["stock_mode"]) ?? "none",
+        default_warehouse_raw_id:
+          String(settingsValues.default_warehouse_raw_id) !== "__none__"
+            ? String(settingsValues.default_warehouse_raw_id)
+            : undefined,
+        default_warehouse_beer_id:
+          String(settingsValues.default_warehouse_beer_id) !== "__none__"
+            ? String(settingsValues.default_warehouse_beer_id)
+            : undefined,
+        ingredient_pricing_mode:
+          (settingsValues.ingredient_pricing_mode as ShopSettings["ingredient_pricing_mode"]) ?? "calc_price",
+        beer_pricing_mode:
+          (settingsValues.beer_pricing_mode as ShopSettings["beer_pricing_mode"]) ?? "fixed",
+        overhead_pct: parseFloat(String(settingsValues.overhead_pct)) || 20,
+        overhead_czk: parseFloat(String(settingsValues.overhead_czk)) || 0,
+        brew_cost_czk: parseFloat(String(settingsValues.brew_cost_czk)) || 0,
+      };
+
       const shopData = {
         name: String(values.name),
         shopType: String(values.shopType),
         address,
         isDefault: values.isDefault === true,
         isActive: values.isActive === true,
-        settings: {},
+        settings,
       };
 
       if (isNew) {
@@ -209,16 +354,18 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
       console.error("Failed to save shop:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [values, isNew, id, router, t, tCommon]);
+  }, [values, settingsValues, isNew, id, router, tCommon]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
       await deleteShop(id);
+      toast.success(tCommon("deleted"));
       router.push("/settings/shops");
     } catch (error) {
       console.error("Failed to delete shop:", error);
+      toast.error(tCommon("deleteFailed"));
     }
-  }, [id, router]);
+  }, [id, router, tCommon]);
 
   const handleCancel = useCallback((): void => {
     router.push("/settings/shops");
@@ -228,7 +375,6 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
 
   const actions: DetailViewAction[] = useMemo(() => {
     if (isNew) return [];
-
     return [
       {
         key: "delete",
@@ -260,13 +406,65 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
         saveLabel={t("detail.actions.save")}
         cancelLabel={t("detail.actions.cancel")}
       >
-        <FormSection
-          section={sectionDef}
-          values={values}
-          errors={errors}
-          mode={mode}
-          onChange={handleChange}
-        />
+        {isNew ? (
+          <FormSection
+            section={basicSection}
+            values={values}
+            errors={errors}
+            mode={mode}
+            onChange={handleChange}
+          />
+        ) : (
+          <Tabs defaultValue="basic" className="w-full">
+            <TabsList>
+              <TabsTrigger value="basic">{t("tabs.basic")}</TabsTrigger>
+              <TabsTrigger value="parameters">{t("tabs.parameters")}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="mt-4">
+              <FormSection
+                section={basicSection}
+                values={values}
+                errors={errors}
+                mode={mode}
+                onChange={handleChange}
+              />
+            </TabsContent>
+
+            <TabsContent value="parameters" className="mt-4">
+              <div className="flex flex-col gap-8">
+                <FormSection
+                  section={stockModeSection}
+                  values={settingsValues}
+                  errors={{}}
+                  mode={mode}
+                  onChange={handleSettingsChange}
+                />
+                <FormSection
+                  section={ingredientPricingSection}
+                  values={settingsValues}
+                  errors={{}}
+                  mode={mode}
+                  onChange={handleSettingsChange}
+                />
+                <FormSection
+                  section={beerPricingSection}
+                  values={settingsValues}
+                  errors={{}}
+                  mode={mode}
+                  onChange={handleSettingsChange}
+                />
+                <FormSection
+                  section={calcInputsSection}
+                  values={settingsValues}
+                  errors={{}}
+                  mode={mode}
+                  onChange={handleSettingsChange}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        )}
       </DetailView>
     </div>
   );

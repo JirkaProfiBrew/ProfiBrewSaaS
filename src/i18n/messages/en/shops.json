@@ -38,5 +38,40 @@
       "delete": "Delete",
       "cancel": "Cancel"
     }
+  },
+  "tabs": {
+    "basic": "Basic Info",
+    "parameters": "Parameters"
+  },
+  "settings": {
+    "stockMode": {
+      "title": "Brew Completion & Stock Mode",
+      "label": "Stock Mode",
+      "none": "End brew only, no stock receipt",
+      "bulk": "Stock bulk (in liters)",
+      "packaged": "Stock as packaged items"
+    },
+    "defaultWarehouseRaw": "Warehouse for raw material dispatch",
+    "defaultWarehouseBeer": "Warehouse for beer receipt",
+    "ingredientPricing": {
+      "title": "Ingredient Pricing Source",
+      "label": "Ingredient pricing mode",
+      "calcPrice": "Calculated price from item card",
+      "avgStock": "Average stock price (FIFO)",
+      "lastPurchase": "Last purchase price"
+    },
+    "beerPricing": {
+      "title": "Beer Pricing Source",
+      "label": "Beer pricing mode",
+      "fixed": "Fixed price from item card",
+      "recipeCalc": "Recipe calculation price",
+      "actualCosts": "Actual brew costs"
+    },
+    "calcInputs": {
+      "title": "Beer Pricing Calculation Inputs",
+      "overheadPct": "Ingredient overhead (%)",
+      "overheadCzk": "Overhead (CZK)",
+      "brewCostCzk": "Brew cost (CZK)"
+    }
   }
 }

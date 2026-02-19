@@ -57,6 +57,7 @@
       "stock": "Skladové nastavení",
       "material": "Parametry suroviny",
       "product": "Parametry produktu",
+      "baseItem": "Obsahov\u00fd pom\u011br",
       "pricing": "Cenotvorba",
       "pos": "POS / Web",
       "meta": "Poznámky"
@@ -92,7 +93,11 @@
       "color": "Barva položky",
       "notes": "Poznámky",
       "imageUrl": "URL obrázku",
-      "recipeUnit": "MJ receptury"
+      "recipeUnit": "MJ receptury",
+      "baseItemId": "Z\u00e1kladn\u00ed polo\u017eka",
+      "baseItemHelp": "Odkaz na z\u00e1kladn\u00ed v\u00fdrobn\u00ed polo\u017eku (nap\u0159. Sv\u011btl\u00fd le\u017e\u00e1k 12\u00b0)",
+      "baseItemQuantity": "Obsah (mn. z\u00e1kl. polo\u017eky)",
+      "baseItemQuantityHelp": "Kolik jednotek z\u00e1kladn\u00ed v\u00fdrobn\u00ed polo\u017eky tato prodejn\u00ed polo\u017eka obsahuje. P\u0159i prodeji se automaticky odep\u00ed\u0161e odpov\u00eddaj\u00edc\u00ed mno\u017estv\u00ed."
     },
     "actions": {
       "save": "Uložit",

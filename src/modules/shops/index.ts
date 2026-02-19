@@ -4,4 +4,4 @@
  */
 export { ShopBrowser } from "./components/ShopBrowser";
 export { ShopDetail } from "./components/ShopDetail";
-export type { Shop, ShopType, ShopAddress } from "./types";
+export type { Shop, ShopType, ShopAddress, ShopSettings } from "./types";

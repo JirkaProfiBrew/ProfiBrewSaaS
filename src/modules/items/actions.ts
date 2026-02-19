@@ -27,6 +27,8 @@ function mapRow(row: typeof items.$inferSelect): Item {
     unitId: row.unitId,
     recipeUnitId: row.recipeUnitId,
     baseUnitAmount: row.baseUnitAmount,
+    baseItemId: row.baseItemId,
+    baseItemQuantity: row.baseItemQuantity,
     materialType: row.materialType,
     alpha: row.alpha,
     ebc: row.ebc,
@@ -147,6 +149,8 @@ export async function createItem(
         unitId: data.unitId,
         recipeUnitId: data.recipeUnitId,
         baseUnitAmount: data.baseUnitAmount,
+        baseItemId: data.baseItemId,
+        baseItemQuantity: data.baseItemQuantity,
         materialType: data.materialType,
         alpha: data.alpha,
         ebc: data.ebc,
@@ -253,6 +257,8 @@ export async function duplicateItem(id: string): Promise<Item> {
         unitId: original.unitId,
         recipeUnitId: original.recipeUnitId,
         baseUnitAmount: original.baseUnitAmount,
+        baseItemId: original.baseItemId,
+        baseItemQuantity: original.baseItemQuantity,
         materialType: original.materialType,
         alpha: original.alpha,
         ebc: original.ebc,
@@ -440,5 +446,26 @@ export async function getItemRecentMovements(
       warehouseName: r.warehouseName ?? "",
       stockIssueCode: r.stockIssueCode,
     }));
+  });
+}
+
+/** Get production items for base-item select (isProductionItem = true). */
+export async function getProductionItemOptions(): Promise<
+  { value: string; label: string }[]
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ id: items.id, name: items.name, code: items.code })
+      .from(items)
+      .where(
+        and(
+          eq(items.tenantId, tenantId),
+          eq(items.isProductionItem, true),
+          eq(items.isActive, true)
+        )
+      )
+      .orderBy(items.name);
+
+    return rows.map((r) => ({ value: r.id, label: `${r.code} — ${r.name}` }));
   });
 }

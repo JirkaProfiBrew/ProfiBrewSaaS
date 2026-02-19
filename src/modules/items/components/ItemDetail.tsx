@@ -17,6 +17,7 @@ import {
   updateItem,
   deleteItem,
   duplicateItem,
+  getProductionItemOptions,
 } from "../actions";
 import type { Item } from "../types";
 import { useUnits } from "@/modules/units/hooks";
@@ -58,6 +59,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     unitId: null,
     recipeUnitId: null,
     baseUnitAmount: null,
+    baseItemId: null,
+    baseItemQuantity: null,
     materialType: null,
     alpha: null,
     ebc: null,
@@ -81,6 +84,14 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [productionItemOptions, setProductionItemOptions] = useState<{ value: string; label: string }[]>([]);
+
+  // Load production items for base-item select
+  useEffect(() => {
+    void getProductionItemOptions().then((opts) =>
+      setProductionItemOptions([{ value: "__none__", label: "\u2014" }, ...opts])
+    );
+  }, []);
 
   // Load item data into form when fetched
   useEffect(() => {
@@ -98,6 +109,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         unitId: item.unitId,
         recipeUnitId: item.recipeUnitId,
         baseUnitAmount: item.baseUnitAmount,
+        baseItemId: item.baseItemId ?? "__none__",
+        baseItemQuantity: item.baseItemQuantity,
         materialType: item.materialType,
         alpha: item.alpha,
         ebc: item.ebc,
@@ -181,6 +194,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           unitId: (values.unitId as string | null) ?? null,
           recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
+          baseItemId: String(values.baseItemId) !== "__none__" ? (values.baseItemId as string) : null,
+          baseItemQuantity: (values.baseItemQuantity as string | null) ?? null,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
@@ -215,6 +230,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           unitId: (values.unitId as string | null) ?? null,
           recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
+          baseItemId: String(values.baseItemId) !== "__none__" ? (values.baseItemId as string) : null,
+          baseItemQuantity: (values.baseItemQuantity as string | null) ?? null,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
@@ -483,7 +500,30 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           },
         ],
       },
-      // Section 6: Pricing
+      // Section 6: Base Item (visible only if isSaleItem)
+      {
+        title: t("detail.sections.baseItem"),
+        columns: 2,
+        fields: [
+          {
+            key: "baseItemId",
+            label: t("detail.fields.baseItemId"),
+            type: "select",
+            options: productionItemOptions,
+            visible: (v: Record<string, unknown>) => v.isSaleItem === true,
+            helpText: t("detail.fields.baseItemHelp"),
+          },
+          {
+            key: "baseItemQuantity",
+            label: t("detail.fields.baseItemQuantity"),
+            type: "decimal",
+            visible: (v: Record<string, unknown>) =>
+              v.isSaleItem === true && v.baseItemId !== null && v.baseItemId !== "__none__",
+            helpText: t("detail.fields.baseItemQuantityHelp"),
+          },
+        ],
+      },
+      // Section 7: Pricing
       {
         title: t("detail.sections.pricing"),
         columns: 2,
@@ -521,7 +561,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           },
         ],
       },
-      // Section 7: POS / Web
+      // Section 8: POS / Web
       {
         title: t("detail.sections.pos"),
         columns: 2,
@@ -543,7 +583,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           },
         ],
       },
-      // Section 8: Meta
+      // Section 9: Meta
       {
         title: t("detail.sections.meta"),
         columns: 1,
@@ -562,7 +602,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         ],
       },
     ],
-    [t, unitOptions, values.materialType]
+    [t, unitOptions, values.materialType, productionItemOptions]
   );
 
   // ── Actions ────────────────────────────────────────────────
