@@ -123,21 +123,40 @@
 
 ---
 
-<!--
-
 ## [0.3.0] — Sprint 3: Sklad
-**Období:** T8-T9
-**Status:** ⏳ Planned
+**Období:** T8-T9 (19.02.2026)
+**Status:** ✅ Done
 
 ### Přidáno
-- [ ] Warehouses — CRUD, daňový/nedaňový
-- [ ] Stock issues — příjemky, výdejky, řádky, potvrzení
-- [ ] Stock movements — atomické pohyby, FIFO alokace
-- [ ] Stock status — materializovaný stav skladu
-- [ ] Material lots — lot tracking surovin
-- [ ] Batch ↔ lot vazba
+- [x] DB schema: warehouses, stock_issues, stock_issue_lines, stock_movements, stock_issue_allocations, stock_status, material_lots + RLS policies
+- [x] DB schema: batch_material_lots (lot ↔ batch traceability)
+- [x] Warehouses — WarehouseBrowser, WarehouseDetail, CRUD with soft delete, auto per-warehouse counters (receipt/dispatch)
+- [x] Stock Issues — StockIssueBrowser with dropdown create (receipt/issue), StockIssueDetail with 4 tabs (header, lines, movements, allocations)
+- [x] Stock Issue Lines — inline editable table, add line dialog with item search, quantity/price management
+- [x] Stock Issue Confirm/Cancel — AlertDialog workflows with atomic DB transactions
+- [x] FIFO/LIFO allocation engine — allocates issue quantities against open receipts
+- [x] Stock status materialization — UPSERT per item+warehouse on confirm/cancel
+- [x] Stock Status on Items — CatalogBrowser extended with totalQty/reservedQty/availableQty columns, zeroStock filter
+- [x] ItemDetail — "Stock Status" tab with per-warehouse breakdown and recent movements
+- [x] Material Lots — LotBrowser with computed status badges (active/exhausted/expiring/expired), LotDetail with 3 tabs (basic info, key-value properties editor, traceability)
+- [x] Lot Traceability — LotTraceabilityView showing batch usage with navigation to batch detail
+- [x] Shop Parameters — "Parameters" tab on ShopDetail with stock mode, ingredient/beer pricing modes, calculation inputs (overhead %, CZK, brew cost)
+- [x] Items base_item — baseItemId + baseItemQuantity fields for sale item → production item relationship, "Base Item" section on ItemDetail
+- [x] Placeholder pages: /stock/excise, /stock/monthly-report (Sprint 5)
+- [x] Navigation: stock module sidebar (items, movements, tracking), nav translations (cs+en)
+- [x] i18n for all new modules: warehouses, stockIssues, materialLots (cs + en)
+
+### Architektonická rozhodnutí
+- Per-warehouse counters auto-created when warehouse is created (PRI{code}, VYD{code})
+- FIFO allocation: open receipt movements sorted by date ASC, allocated sequentially
+- Stock status is materialized (not computed on-the-fly) via UPSERT in confirm/cancel transactions
+- Lot status is computed in app layer (not stored) — based on quantity_remaining and expiry_date
+- Shop settings stored as JSONB — only configured in Sprint 3, actual logic (auto-receipts, pricing) in Sprint 4/5
+- base_item_id on items: enables future sale→production item quantity mapping for automated stock deduction
 
 ---
+
+<!--
 
 ## [0.4.0] — Sprint 4: Prodej + Finance
 **Období:** T10-T11

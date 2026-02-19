@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 2
+### Aktualizováno: 19.02.2026 | Poslední sprint: Sprint 3
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -307,7 +307,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Suroviny = filtr `is_brew_material=true`, zaměřeno na sládka
 - Katalog = vše, zaměřeno na skladníka/obchodníka, víc sloupců (EAN, balení...)
 
-### 5.2 Skladové doklady 📋
+### 5.2 Skladové doklady ✅
 
 **Co to je:** Příjemky a výdejky — dokumenty evidující pohyb zboží.
 
@@ -341,7 +341,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Příjemka musí mít alespoň 1 řádek
 - Výdejka nemůže vydat víc než je na skladě (kontrola stock_status)
 
-### 5.3 Stav skladu 📋
+### 5.3 Stav skladu ✅
 
 **Co to je:** Materializovaný pohled na aktuální stav — kolik čeho je na kterém skladě.
 
@@ -351,7 +351,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - available_qty = quantity - reserved_qty (computed)
 - Aktualizuje se automaticky při potvrzení dokladu
 
-### 5.4 Lot tracking 📋
+### 5.4 Lot tracking ✅
 
 **Co to je:** Sledování šarží surovin od dodavatele.
 
@@ -475,6 +475,14 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - CRUD provozoven (pivovar, taproom, sklad, kancelář)
 - Adresa, výchozí provozovna
 - Zařízení a sklady patří pod provozovnu
+- **Tab "Parametry" (Sprint 3):** konfigurace režimu naskladnění (none/bulk/packaged), defaultní sklady (suroviny/pivo), cenotvorba surovin (calc_price/avg_stock/last_purchase), cenotvorba piva (fixed/recipe_calc/actual_costs), kalkulační vstupy (režie %, režie CZK, náklady var CZK). Logika se aplikuje až v Sprint 4/5.
+
+### 8.6 Sklady ✅
+- CRUD skladů s vazbou na provozovnu
+- Kategorie (suroviny, pivo, obaly, služby, ostatní)
+- Daňová relevance (is_excise_relevant)
+- Výchozí sklad (is_default)
+- Auto-vytvoření číslovacích řad (PRI{kód}, VYD{kód}) při vytvoření skladu
 
 ### 8.3 Uživatelé 📋
 - Seznam uživatelů tenantu
