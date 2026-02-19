@@ -21,6 +21,8 @@ export interface DetailViewProps {
   backHref: string;
   backLabel?: string;
   tabs?: DetailViewTab[];
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
   actions?: DetailViewAction[];
   isLoading?: boolean;
   children?: React.ReactNode;

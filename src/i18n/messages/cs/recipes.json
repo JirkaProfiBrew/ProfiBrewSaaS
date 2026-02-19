@@ -1,0 +1,149 @@
+{
+  "title": "Receptury",
+  "create": "Receptura",
+  "quickFilters": {
+    "all": "Vše",
+    "active": "Aktivní",
+    "draft": "Koncepty",
+    "archived": "Archivované"
+  },
+  "columns": {
+    "code": "Kód",
+    "name": "Název",
+    "beerStyleName": "Styl",
+    "status": "Status",
+    "og": "OG (°P)",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "batchSizeL": "Objem (L)",
+    "costPrice": "Cena várky"
+  },
+  "status": {
+    "draft": "Koncept",
+    "active": "Aktivní",
+    "archived": "Archivovaná"
+  },
+  "tabs": {
+    "basic": "Základní údaje",
+    "ingredients": "Suroviny",
+    "steps": "Postup",
+    "calculation": "Kalkulace",
+    "notes": "Poznámky"
+  },
+  "form": {
+    "name": "Název receptury",
+    "code": "Kód",
+    "beerStyle": "Pivní styl",
+    "status": "Status",
+    "batchSize": "Cílový objem (L)",
+    "batchSizeBruto": "Brutto objem (L)",
+    "beerVolume": "Hotové pivo (L)",
+    "boilTime": "Doba varu (min)",
+    "fermentationDays": "Kvašení (dní)",
+    "conditioningDays": "Dokvašování (dní)",
+    "notes": "Poznámky"
+  },
+  "ingredients": {
+    "add": "Surovina",
+    "empty": "Žádné suroviny",
+    "item": "Položka",
+    "category": "Kategorie",
+    "amount": "Množství",
+    "amountG": "Množství (g)",
+    "stage": "Fáze",
+    "time": "Čas (min)",
+    "notes": "Poznámka",
+    "unit": "MJ",
+    "totalMalt": "Celkem slady",
+    "totalHops": "Celkem chmele",
+    "categories": {
+      "malt": "Slad",
+      "hop": "Chmel",
+      "yeast": "Kvasnice",
+      "adjunct": "Přísada",
+      "other": "Ostatní"
+    },
+    "stages": {
+      "mash": "Rmut",
+      "boil": "Var",
+      "whirlpool": "Whirlpool",
+      "fermentation": "Kvašení",
+      "dry_hop": "Dry hop"
+    },
+    "dialog": {
+      "title": "Přidat surovinu",
+      "editTitle": "Upravit surovinu",
+      "selectItem": "Vyberte položku",
+      "selectCategory": "Kategorie",
+      "selectStage": "Fáze použití"
+    }
+  },
+  "steps": {
+    "add": "Krok",
+    "empty": "Žádné kroky",
+    "loadProfile": "Načíst rmutovací profil",
+    "loadProfileWarning": "Existující kroky budou nahrazeny kroky z profilu.",
+    "applyProfile": "Načíst profil",
+    "name": "Název",
+    "temperature": "Teplota (°C)",
+    "time": "Čas (min)",
+    "rampTime": "Náběh (min)",
+    "notes": "Poznámka",
+    "stepTypes": {
+      "mash_in": "Zapáření",
+      "rest": "Rast",
+      "decoction": "Dekokce",
+      "mash_out": "Odrmutování",
+      "boil": "Var",
+      "whirlpool": "Whirlpool",
+      "cooling": "Chlazení"
+    },
+    "phases": {
+      "mashing": "Rmutování",
+      "boiling": "Vaření",
+      "fermentation": "Kvašení",
+      "conditioning": "Dokvašování"
+    },
+    "dialog": {
+      "title": "Přidat krok",
+      "selectType": "Typ kroku",
+      "selectProfile": "Vyberte profil"
+    }
+  },
+  "calculation": {
+    "recalculate": "Přepočítat",
+    "recalculated": "Kalkulace přepočítána",
+    "noRecipe": "Receptura musí být uložena",
+    "parameters": "Vypočtené parametry",
+    "styleComparison": "Porovnání se stylem",
+    "costBreakdown": "Nákladová kalkulace",
+    "totalCost": "Celková cena várky",
+    "costPerLiter": "Cena za litr",
+    "inRange": "V rozsahu stylu",
+    "outOfRange": "Mimo rozsah stylu",
+    "noStyle": "Není vybraný pivní styl",
+    "itemName": "Surovina",
+    "itemAmount": "Množství",
+    "itemUnitCost": "Jedn. cena",
+    "itemTotalCost": "Celkem"
+  },
+  "detail": {
+    "title": "Detail receptury",
+    "newTitle": "Nová receptura",
+    "actions": {
+      "save": "Uložit",
+      "cancel": "Zrušit",
+      "duplicate": "Duplikovat",
+      "archive": "Archivovat",
+      "activate": "Aktivovat",
+      "delete": "Smazat",
+      "duplicateSuccess": "Receptura byla zduplikována",
+      "deleteSuccess": "Receptura byla smazána",
+      "deleteHasBatches": "Recepturu nelze smazat — existují na ní založené várky"
+    }
+  },
+  "filters": {
+    "name": "Název",
+    "status": "Status"
+  }
+}

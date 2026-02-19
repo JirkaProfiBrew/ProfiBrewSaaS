@@ -87,7 +87,8 @@
       "webAvailable": "Available on web",
       "color": "Item color",
       "notes": "Notes",
-      "imageUrl": "Image URL"
+      "imageUrl": "Image URL",
+      "recipeUnit": "Recipe unit"
     },
     "actions": {
       "save": "Save",
@@ -95,5 +96,12 @@
       "duplicate": "Duplicate",
       "cancel": "Cancel"
     }
+  },
+  "units": {
+    "title": "Units of Measurement",
+    "stockUnit": "Stock unit",
+    "recipeUnit": "Recipe unit",
+    "unitReadonly": "Unit is preset",
+    "selectUnit": "Select unit"
   }
 }

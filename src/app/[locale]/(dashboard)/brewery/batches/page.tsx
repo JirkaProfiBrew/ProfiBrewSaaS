@@ -1,8 +1,5 @@
+import { BatchBrowser } from "@/modules/batches";
+
 export default function BatchesPage(): React.ReactNode {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Batches</h1>
-      <p className="mt-2 text-muted-foreground">Coming Soon</p>
-    </div>
-  );
+  return <BatchBrowser />;
 }

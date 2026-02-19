@@ -87,7 +87,8 @@
       "webAvailable": "Nabízet na webu",
       "color": "Barva položky",
       "notes": "Poznámky",
-      "imageUrl": "URL obrázku"
+      "imageUrl": "URL obrázku",
+      "recipeUnit": "MJ receptury"
     },
     "actions": {
       "save": "Uložit",
@@ -95,5 +96,12 @@
       "duplicate": "Duplikovat",
       "cancel": "Zrušit"
     }
+  },
+  "units": {
+    "title": "Měrné jednotky",
+    "stockUnit": "MJ sklad",
+    "recipeUnit": "MJ receptury",
+    "unitReadonly": "Měrná jednotka je přednastavena",
+    "selectUnit": "Vyberte jednotku"
   }
 }

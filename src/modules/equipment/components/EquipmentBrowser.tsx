@@ -3,12 +3,14 @@
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "next/navigation";
+import { toast } from "sonner";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
 import { equipmentBrowserConfig } from "../config";
 import { useEquipmentList } from "../hooks";
+import { deleteEquipment } from "../actions";
 import type { Equipment } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -124,10 +126,11 @@ function sortEquipment(
 
 export function EquipmentBrowser(): React.ReactNode {
   const t = useTranslations("equipment");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const pathname = usePathname();
   const { params } = useDataBrowserParams(equipmentBrowserConfig);
-  const { data: equipmentData, isLoading } = useEquipmentList();
+  const { data: equipmentData, isLoading, mutate } = useEquipmentList();
 
   // Badge value label maps
   const equipmentTypeLabels: Record<string, string> = {
@@ -229,6 +232,21 @@ export function EquipmentBrowser(): React.ReactNode {
     []
   );
 
+  const handleBulkDelete = useCallback(
+    async (ids: string[]): Promise<void> => {
+      try {
+        await Promise.all(ids.map((id) => deleteEquipment(id)));
+        toast.success(tCommon("bulkDeleteSuccess", { count: ids.length }));
+        mutate();
+      } catch (error: unknown) {
+        console.error("Bulk delete failed:", error);
+        toast.error(tCommon("bulkDeleteFailed"));
+        mutate();
+      }
+    },
+    [tCommon, mutate]
+  );
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -240,6 +258,7 @@ export function EquipmentBrowser(): React.ReactNode {
         totalCount={totalCount}
         isLoading={isLoading}
         onParamsChange={handleParamsChange}
+        onBulkDelete={handleBulkDelete}
       />
     </div>
   );

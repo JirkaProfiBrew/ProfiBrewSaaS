@@ -903,7 +903,8 @@ CREATE TABLE items (
   -- === STOCK ===
   stock_category    TEXT,                       -- 'raw_material' | 'finished_product' | 'packaging' | 'other'
   issue_mode        TEXT DEFAULT 'fifo',        -- 'fifo' | 'lifo' | 'average'
-  unit_id           UUID REFERENCES units(id),  -- Unit of measure
+  unit_id           UUID REFERENCES units(id),  -- Stock unit of measure
+  recipe_unit_id    UUID REFERENCES units(id),  -- Recipe unit (hops: g vs stock kg)
   base_unit_amount  DECIMAL,                   -- Conversion to base unit
 
   -- === MATERIAL-SPECIFIC ===
@@ -968,14 +969,20 @@ CREATE TABLE item_categories (
 );
 
 -- ============================================================
--- UNITS (units of measure)
+-- UNITS (units of measure — upgraded Sprint 2 Patch)
 -- ============================================================
 CREATE TABLE units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID REFERENCES tenants(id),  -- NULL = system
-  name            TEXT NOT NULL,                 -- "kg", "l", "pcs"
-  base_unit       TEXT,                         -- For conversions: 'g', 'ml' (base units)
-  conversion_factor DECIMAL,                    -- 1 kg = 1000 g → factor = 1000
+  code            TEXT UNIQUE NOT NULL,          -- 'kg', 'g', 'l', 'ml', 'hl', 'ks', 'bal'
+  name_cs         TEXT NOT NULL,                 -- Czech name: 'kilogram'
+  name_en         TEXT NOT NULL,                 -- English name: 'kilogram'
+  symbol          TEXT NOT NULL,                 -- Display symbol: 'kg'
+  category        TEXT NOT NULL,                 -- 'weight' | 'volume' | 'count'
+  base_unit_code  TEXT,                          -- NULL = is base unit; 'kg' for g
+  to_base_factor  DECIMAL,                       -- g→kg = 0.001, ml→l = 0.001
+  is_system       BOOLEAN DEFAULT true,
+  tenant_id       UUID REFERENCES tenants(id),   -- NULL = system unit
+  sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
@@ -1146,7 +1153,8 @@ CREATE TABLE recipe_items (
   recipe_id       UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   item_id         UUID NOT NULL REFERENCES items(id),
   category        TEXT NOT NULL,               -- 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
-  amount_g        DECIMAL NOT NULL,            -- Amount in grams (base unit)
+  amount_g        DECIMAL NOT NULL,            -- Amount in recipe unit (column name legacy)
+  unit_id         UUID REFERENCES units(id),   -- Recipe unit of measure
   use_stage       TEXT,                        -- 'mash' | 'boil' | 'whirlpool' | 'fermentation' | 'dry_hop'
   use_time_min    INTEGER,                     -- Addition time (min)
   hop_phase       TEXT,                        -- Hop addition phase (for hops)

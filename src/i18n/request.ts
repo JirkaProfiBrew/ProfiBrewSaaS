@@ -19,9 +19,11 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const shops = (await import(`./messages/${locale}/shops.json`)).default as Record<string, unknown>;
   const contacts = (await import(`./messages/${locale}/contacts.json`)).default as Record<string, unknown>;
   const counters = (await import(`./messages/${locale}/counters.json`)).default as Record<string, unknown>;
+  const recipes = (await import(`./messages/${locale}/recipes.json`)).default as Record<string, unknown>;
+  const batches = (await import(`./messages/${locale}/batches.json`)).default as Record<string, unknown>;
 
   return {
     locale,
-    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters },
+    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches },
   };
 });

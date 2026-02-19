@@ -23,6 +23,9 @@
   "comingSoon": "Coming Soon",
   "saved": "Saved",
   "saveFailed": "Save failed",
+  "bulkDeleteSuccess": "Deleted ({count})",
+  "bulkDeleteFailed": "Some items could not be deleted",
+  "saveFirst": "Save the record first",
   "validation": {
     "required": "This field is required"
   }

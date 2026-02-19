@@ -1,13 +1,16 @@
 import { db } from "@/lib/db";
 import { countries, units } from "@/../drizzle/schema/system";
+import { seedBeerStyles, seedMashingProfiles } from "./seed-beer-styles";
 
 /**
- * Seed system codebooks — countries and units.
+ * Seed system codebooks — countries, units, beer styles, mashing profiles.
  * These are global (no tenant_id) and should be run once.
  */
 export async function seedSystemData(): Promise<void> {
   await seedCountries();
   await seedUnits();
+  await seedBeerStyles();
+  await seedMashingProfiles();
 }
 
 async function seedCountries(): Promise<void> {
@@ -40,24 +43,21 @@ async function seedCountries(): Promise<void> {
 
 async function seedUnits(): Promise<void> {
   const unitData = [
-    { name: "kg", baseUnit: "g", conversionFactor: "1000" },
-    { name: "g", baseUnit: "g", conversionFactor: "1" },
-    { name: "l", baseUnit: "ml", conversionFactor: "1000" },
-    { name: "ml", baseUnit: "ml", conversionFactor: "1" },
-    { name: "ks", baseUnit: null, conversionFactor: null },
-    { name: "balení", baseUnit: null, conversionFactor: null },
+    // Weight units
+    { code: "kg", nameCs: "kilogram", nameEn: "kilogram", symbol: "kg", category: "weight", baseUnitCode: null, toBaseFactor: null, sortOrder: 1 },
+    { code: "g", nameCs: "gram", nameEn: "gram", symbol: "g", category: "weight", baseUnitCode: "kg", toBaseFactor: "0.001", sortOrder: 2 },
+    // Volume units
+    { code: "l", nameCs: "litr", nameEn: "liter", symbol: "l", category: "volume", baseUnitCode: null, toBaseFactor: null, sortOrder: 3 },
+    { code: "ml", nameCs: "mililitr", nameEn: "milliliter", symbol: "ml", category: "volume", baseUnitCode: "l", toBaseFactor: "0.001", sortOrder: 4 },
+    { code: "hl", nameCs: "hektolitr", nameEn: "hectoliter", symbol: "hl", category: "volume", baseUnitCode: "l", toBaseFactor: "100", sortOrder: 5 },
+    // Count units
+    { code: "ks", nameCs: "kus", nameEn: "piece", symbol: "ks", category: "count", baseUnitCode: null, toBaseFactor: null, sortOrder: 6 },
+    { code: "bal", nameCs: "balení", nameEn: "package", symbol: "bal", category: "count", baseUnitCode: null, toBaseFactor: null, sortOrder: 7 },
   ];
 
-  // System units have no tenant_id
-  for (const unit of unitData) {
-    await db
-      .insert(units)
-      .values({
-        tenantId: null,
-        name: unit.name,
-        baseUnit: unit.baseUnit,
-        conversionFactor: unit.conversionFactor,
-      })
-      .onConflictDoNothing();
-  }
+  // System units have no tenant_id, isSystem defaults to true
+  await db
+    .insert(units)
+    .values(unitData)
+    .onConflictDoNothing({ target: units.code });
 }

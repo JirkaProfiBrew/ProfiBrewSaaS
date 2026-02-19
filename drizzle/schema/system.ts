@@ -68,9 +68,15 @@ export const countries = pgTable("countries", {
 // ============================================================
 export const units = pgTable("units", {
   id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").unique().notNull(),
+  nameCs: text("name_cs").notNull(),
+  nameEn: text("name_en").notNull(),
+  symbol: text("symbol").notNull(),
+  category: text("category").notNull(), // 'weight' | 'volume' | 'count'
+  baseUnitCode: text("base_unit_code"), // NULL = is base unit; 'kg' for g
+  toBaseFactor: decimal("to_base_factor"), // g→kg = 0.001, ml→l = 0.001
+  isSystem: boolean("is_system").default(true),
   tenantId: uuid("tenant_id").references(() => tenants.id),
-  name: text("name").notNull(),
-  baseUnit: text("base_unit"),
-  conversionFactor: decimal("conversion_factor"),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

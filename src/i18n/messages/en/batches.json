@@ -1,0 +1,257 @@
+{
+  "title": "Batches",
+  "create": "Batch",
+  "quickFilters": {
+    "all": "All",
+    "inProgress": "In Progress",
+    "planned": "Planned",
+    "completed": "Completed",
+    "dumped": "Dumped"
+  },
+  "columns": {
+    "batchNumber": "Number",
+    "itemName": "Beer",
+    "recipeName": "Recipe",
+    "status": "Status",
+    "brewDate": "Brew Date",
+    "equipmentName": "Tank",
+    "ogActual": "OG (°P)",
+    "actualVolumeL": "Volume (L)"
+  },
+  "status": {
+    "planned": "Planned",
+    "brewing": "Brewing",
+    "fermenting": "Fermenting",
+    "conditioning": "Conditioning",
+    "carbonating": "Carbonating",
+    "packaging": "Packaging",
+    "completed": "Completed",
+    "dumped": "Dumped"
+  },
+  "tabs": {
+    "overview": "Overview",
+    "steps": "Brew Steps",
+    "measurements": "Measurements",
+    "ingredients": "Ingredients",
+    "bottling": "Bottling",
+    "notes": "Notes"
+  },
+  "form": {
+    "batchNumber": "Batch Number",
+    "recipe": "Recipe",
+    "item": "Beer (Production Item)",
+    "plannedDate": "Planned Date",
+    "brewDate": "Brew Date",
+    "endBrewDate": "End Date",
+    "equipment": "Tank / Equipment",
+    "brewer": "Brewer",
+    "actualVolume": "Actual Volume (L)",
+    "ogActual": "Actual OG (°P)",
+    "fgActual": "FG (°P)",
+    "abvActual": "ABV (%)",
+    "notes": "Notes",
+    "recipePlaceholder": "Select recipe",
+    "equipmentPlaceholder": "Select tank"
+  },
+  "statusTransition": {
+    "dump": "Dump",
+    "success": "Status changed",
+    "error": "Failed to change status",
+    "dumped": "Batch dumped",
+    "dumpTitle": "Dump Batch",
+    "dumpDescription": "This action is irreversible. The batch will be marked as dumped.",
+    "dumpReasonLabel": "Dump Reason",
+    "dumpReasonPlaceholder": "Describe the reason...",
+    "confirmDump": "Dump"
+  },
+  "steps": {
+    "start": "Start",
+    "complete": "Complete",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "planned": "Planned",
+    "phase": "Phase",
+    "name": "Name",
+    "temperature": "Temperature (°C)",
+    "timePlan": "Time Plan (min)",
+    "startPlan": "Start Plan",
+    "startReal": "Start Actual",
+    "endReal": "End Actual",
+    "empty": "No brew steps",
+    "started": "Step started",
+    "startError": "Failed to start step",
+    "completeError": "Failed to complete step",
+    "startAction": "Start step",
+    "completeAction": "Complete step",
+    "columns": {
+      "phase": "Phase",
+      "name": "Name",
+      "temperature": "Temperature (°C)",
+      "time": "Time Plan (min)",
+      "startPlan": "Start Plan",
+      "startReal": "Start Actual",
+      "endReal": "End Actual",
+      "actions": "Actions"
+    },
+    "phase": {
+      "mashing": "Mashing",
+      "boiling": "Boiling",
+      "post_boil": "Post Boil",
+      "fermentation": "Fermentation",
+      "conditioning": "Conditioning",
+      "other": "Other"
+    }
+  },
+  "measurements": {
+    "add": "+ Measurement",
+    "addTitle": "Add Measurement",
+    "empty": "No measurements yet",
+    "added": "Measurement added",
+    "addError": "Failed to add measurement",
+    "deleted": "Measurement deleted",
+    "deleteError": "Failed to delete measurement",
+    "cancel": "Cancel",
+    "save": "Save",
+    "value": "Value",
+    "plato": "°Plato",
+    "sg": "SG",
+    "temperature": "Temperature (°C)",
+    "date": "Date",
+    "notes": "Note",
+    "isStart": "Initial",
+    "isEnd": "Final",
+    "columns": {
+      "type": "Type",
+      "value": "Value",
+      "plato": "°Plato",
+      "sg": "SG",
+      "temperature": "Temperature (°C)",
+      "date": "Date",
+      "notes": "Note"
+    },
+    "type": {
+      "gravity": "Gravity",
+      "temperature": "Temperature",
+      "ph": "pH",
+      "volume": "Volume",
+      "pressure": "Pressure"
+    },
+    "types": {
+      "gravity": "Gravity",
+      "temperature": "Temperature",
+      "ph": "pH",
+      "volume": "Volume",
+      "pressure": "Pressure"
+    },
+    "chart": {
+      "title": "Progress Chart",
+      "plato": "Gravity (°P)"
+    },
+    "dialog": {
+      "title": "Add Measurement",
+      "selectType": "Measurement Type"
+    }
+  },
+  "ingredients": {
+    "title": "Recipe Ingredients",
+    "noRecipe": "No recipe assigned to this batch",
+    "loading": "Loading ingredients...",
+    "empty": "Recipe has no ingredients",
+    "description": "Overview of recipe ingredients. Read-only.",
+    "item": "Item",
+    "category": "Category",
+    "amount": "Planned Amount",
+    "stage": "Stage",
+    "columns": {
+      "name": "Ingredient",
+      "category": "Category",
+      "amount": "Amount",
+      "unit": "Unit",
+      "stage": "Stage",
+      "time": "Time"
+    },
+    "category": {
+      "malt": "Malt",
+      "hop": "Hop",
+      "yeast": "Yeast",
+      "adjunct": "Adjunct",
+      "other": "Other"
+    },
+    "stage": {
+      "mash": "Mash",
+      "boil": "Boil",
+      "whirlpool": "Whirlpool",
+      "fermentation": "Fermentation",
+      "dry_hop": "Dry Hop"
+    }
+  },
+  "bottling": {
+    "add": "+ Bottling",
+    "addTitle": "Add Bottling",
+    "empty": "No bottling records",
+    "added": "Bottling added",
+    "addError": "Failed to add bottling",
+    "deleted": "Bottling deleted",
+    "deleteError": "Failed to delete bottling",
+    "cancel": "Cancel",
+    "save": "Save",
+    "selectProduct": "Select Product",
+    "product": "Product",
+    "quantity": "Quantity (pcs)",
+    "volume": "Total Volume (L)",
+    "date": "Bottling Date",
+    "notes": "Note",
+    "totalVolume": "Total Volume",
+    "totalBottled": "Total Bottled",
+    "remaining": "Remaining in Tank",
+    "columns": {
+      "product": "Product",
+      "quantity": "Quantity (pcs)",
+      "volume": "Volume (L)",
+      "date": "Bottling Date",
+      "notes": "Note"
+    },
+    "dialog": {
+      "title": "Add Bottling",
+      "selectProduct": "Select Product"
+    }
+  },
+  "notes": {
+    "add": "Add Note",
+    "placeholder": "Write a note...",
+    "empty": "No notes yet"
+  },
+  "actions": {
+    "transition": "Transition Status",
+    "pause": "Pause",
+    "resume": "Resume",
+    "dump": "Dump",
+    "dumpReason": "Dump Reason",
+    "dumpReasonRequired": "Dump reason is required",
+    "confirmDump": "Really dump this batch?",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "detail": {
+    "title": "Batch Detail",
+    "newTitle": "New Batch",
+    "deleted": "Batch deleted",
+    "deleteError": "Failed to delete batch",
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    }
+  },
+  "createDialog": {
+    "title": "New Batch",
+    "selectRecipe": "Select Recipe",
+    "selectDate": "Planned Brew Date",
+    "selectEquipment": "Tank (optional)"
+  },
+  "filters": {
+    "batchNumber": "Batch Number",
+    "status": "Status"
+  }
+}

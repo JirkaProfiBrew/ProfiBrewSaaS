@@ -154,6 +154,8 @@ export interface DataBrowserProps {
   onParamsChange: (params: DataBrowserParams) => void;
   /** Override default row click behavior (which navigates to pathname/id). */
   onRowClick?: (row: Record<string, unknown>) => void;
+  /** Callback for bulk delete action. Receives array of selected row IDs. */
+  onBulkDelete?: (ids: string[]) => void | Promise<void>;
 }
 
 export interface ListViewProps {

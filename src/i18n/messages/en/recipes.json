@@ -1,0 +1,149 @@
+{
+  "title": "Recipes",
+  "create": "Recipe",
+  "quickFilters": {
+    "all": "All",
+    "active": "Active",
+    "draft": "Drafts",
+    "archived": "Archived"
+  },
+  "columns": {
+    "code": "Code",
+    "name": "Name",
+    "beerStyleName": "Style",
+    "status": "Status",
+    "og": "OG (°P)",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "batchSizeL": "Volume (L)",
+    "costPrice": "Batch Cost"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "archived": "Archived"
+  },
+  "tabs": {
+    "basic": "Basic Info",
+    "ingredients": "Ingredients",
+    "steps": "Process",
+    "calculation": "Calculation",
+    "notes": "Notes"
+  },
+  "form": {
+    "name": "Recipe Name",
+    "code": "Code",
+    "beerStyle": "Beer Style",
+    "status": "Status",
+    "batchSize": "Target Volume (L)",
+    "batchSizeBruto": "Gross Volume (L)",
+    "beerVolume": "Finished Beer (L)",
+    "boilTime": "Boil Time (min)",
+    "fermentationDays": "Fermentation (days)",
+    "conditioningDays": "Conditioning (days)",
+    "notes": "Notes"
+  },
+  "ingredients": {
+    "add": "Ingredient",
+    "empty": "No ingredients",
+    "item": "Item",
+    "category": "Category",
+    "amount": "Amount",
+    "amountG": "Amount (g)",
+    "stage": "Stage",
+    "time": "Time (min)",
+    "notes": "Note",
+    "unit": "Unit",
+    "totalMalt": "Total Malts",
+    "totalHops": "Total Hops",
+    "categories": {
+      "malt": "Malt",
+      "hop": "Hop",
+      "yeast": "Yeast",
+      "adjunct": "Adjunct",
+      "other": "Other"
+    },
+    "stages": {
+      "mash": "Mash",
+      "boil": "Boil",
+      "whirlpool": "Whirlpool",
+      "fermentation": "Fermentation",
+      "dry_hop": "Dry Hop"
+    },
+    "dialog": {
+      "title": "Add Ingredient",
+      "editTitle": "Edit Ingredient",
+      "selectItem": "Select Item",
+      "selectCategory": "Category",
+      "selectStage": "Use Stage"
+    }
+  },
+  "steps": {
+    "add": "Step",
+    "empty": "No steps",
+    "loadProfile": "Load Mash Profile",
+    "loadProfileWarning": "Existing steps will be replaced by profile steps.",
+    "applyProfile": "Apply Profile",
+    "name": "Name",
+    "temperature": "Temperature (°C)",
+    "time": "Time (min)",
+    "rampTime": "Ramp (min)",
+    "notes": "Note",
+    "stepTypes": {
+      "mash_in": "Mash In",
+      "rest": "Rest",
+      "decoction": "Decoction",
+      "mash_out": "Mash Out",
+      "boil": "Boil",
+      "whirlpool": "Whirlpool",
+      "cooling": "Cooling"
+    },
+    "phases": {
+      "mashing": "Mashing",
+      "boiling": "Boiling",
+      "fermentation": "Fermentation",
+      "conditioning": "Conditioning"
+    },
+    "dialog": {
+      "title": "Add Step",
+      "selectType": "Step Type",
+      "selectProfile": "Select Profile"
+    }
+  },
+  "calculation": {
+    "recalculate": "Recalculate",
+    "recalculated": "Calculation updated",
+    "noRecipe": "Recipe must be saved first",
+    "parameters": "Calculated Parameters",
+    "styleComparison": "Style Comparison",
+    "costBreakdown": "Cost Breakdown",
+    "totalCost": "Total Batch Cost",
+    "costPerLiter": "Cost per Liter",
+    "inRange": "Within Style Range",
+    "outOfRange": "Out of Style Range",
+    "noStyle": "No beer style selected",
+    "itemName": "Ingredient",
+    "itemAmount": "Amount",
+    "itemUnitCost": "Unit Cost",
+    "itemTotalCost": "Total"
+  },
+  "detail": {
+    "title": "Recipe Detail",
+    "newTitle": "New Recipe",
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "duplicate": "Duplicate",
+      "archive": "Archive",
+      "activate": "Activate",
+      "delete": "Delete",
+      "duplicateSuccess": "Recipe duplicated",
+      "deleteSuccess": "Recipe deleted",
+      "deleteHasBatches": "Cannot delete recipe — it has associated batches"
+    }
+  },
+  "filters": {
+    "name": "Name",
+    "status": "Status"
+  }
+}

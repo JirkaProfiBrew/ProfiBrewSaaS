@@ -19,6 +19,8 @@ import {
   duplicateItem,
 } from "../actions";
 import type { Item } from "../types";
+import { useUnits } from "@/modules/units/hooks";
+import { ALLOWED_UNITS, HAS_RECIPE_UNIT } from "@/modules/units/types";
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
   const isNewItem = id === "new";
 
   const { item, isLoading } = useItem(isNewItem ? "" : id);
+  const { units: allUnits } = useUnits();
 
   const mode: FormMode = isNewItem ? "create" : "edit";
 
@@ -50,6 +53,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     stockCategory: null,
     issueMode: "fifo",
     unitId: null,
+    recipeUnitId: null,
     baseUnitAmount: null,
     materialType: null,
     alpha: null,
@@ -89,6 +93,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         stockCategory: item.stockCategory,
         issueMode: item.issueMode,
         unitId: item.unitId,
+        recipeUnitId: item.recipeUnitId,
         baseUnitAmount: item.baseUnitAmount,
         materialType: item.materialType,
         alpha: item.alpha,
@@ -115,13 +120,41 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
 
   // ── Handlers ───────────────────────────────────────────────
   const handleChange = useCallback((key: string, value: unknown): void => {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+
+      // Auto-set unit defaults when materialType changes
+      if (key === "materialType" && allUnits.length > 0) {
+        const mt = value as string;
+        const kgUnit = allUnits.find((u) => u.code === "kg");
+        const gUnit = allUnits.find((u) => u.code === "g");
+
+        if (mt === "malt" || mt === "grain") {
+          next.unitId = kgUnit?.id ?? null;
+          next.recipeUnitId = null;
+        } else if (mt === "hop") {
+          next.unitId = kgUnit?.id ?? null;
+          next.recipeUnitId = gUnit?.id ?? null;
+        } else if (mt === "yeast") {
+          next.unitId = gUnit?.id ?? null;
+          next.recipeUnitId = null;
+        } else if (mt === "adjunct") {
+          next.unitId = kgUnit?.id ?? null;
+          next.recipeUnitId = null;
+        } else {
+          next.unitId = kgUnit?.id ?? null;
+          next.recipeUnitId = null;
+        }
+      }
+
+      return next;
+    });
     setErrors((prev) => {
       const next = { ...prev };
       delete next[key];
       return next;
     });
-  }, []);
+  }, [allUnits]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     // Basic validation
@@ -143,6 +176,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           stockCategory: (values.stockCategory as string | null) ?? null,
           issueMode: (values.issueMode as string) ?? "fifo",
           unitId: (values.unitId as string | null) ?? null,
+          recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
@@ -176,6 +210,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           stockCategory: (values.stockCategory as string | null) ?? null,
           issueMode: (values.issueMode as string) ?? "fifo",
           unitId: (values.unitId as string | null) ?? null,
+          recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
@@ -230,6 +265,22 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
   const handleCancel = useCallback((): void => {
     router.push(backHref);
   }, [backHref, router]);
+
+  // ── Computed Options ───────────────────────────────────────
+
+  const unitOptions = useMemo(() => {
+    const materialType = values.materialType as string | null;
+    const allowedCodes = materialType && ALLOWED_UNITS[materialType]
+      ? ALLOWED_UNITS[materialType]
+      : ALLOWED_UNITS["other"] ?? [];
+
+    return allUnits
+      .filter((u) => allowedCodes.includes(u.code))
+      .map((u) => ({
+        value: u.id,
+        label: `${u.symbol} — ${u.nameCs}`,
+      }));
+  }, [allUnits, values.materialType]);
 
   // ── Form Sections ──────────────────────────────────────────
 
@@ -315,8 +366,21 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           {
             key: "unitId",
             label: t("detail.fields.unit"),
-            type: "text",
-            helpText: "UUID",
+            type: "select",
+            options: unitOptions,
+            placeholder: t("units.selectUnit"),
+            disabled: values.materialType === "malt" || values.materialType === "grain",
+          },
+          {
+            key: "recipeUnitId",
+            label: t("detail.fields.recipeUnit"),
+            type: "select",
+            options: unitOptions,
+            placeholder: t("units.selectUnit"),
+            visible: (v: Record<string, unknown>) => {
+              const mt = v.materialType as string | null;
+              return mt !== null && HAS_RECIPE_UNIT.includes(mt);
+            },
           },
           {
             key: "baseUnitAmount",
@@ -495,7 +559,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         ],
       },
     ],
-    [t]
+    [t, unitOptions, values.materialType]
   );
 
   // ── Actions ────────────────────────────────────────────────

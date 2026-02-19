@@ -2,12 +2,14 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
 import { catalogBrowserConfig } from "../config";
 import { useItems } from "../hooks";
+import { deleteItem } from "../actions";
 import type { Item } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -112,8 +114,9 @@ function sortItems(
 
 export function CatalogBrowser(): React.ReactNode {
   const t = useTranslations("items");
+  const tCommon = useTranslations("common");
   const { params } = useDataBrowserParams(catalogBrowserConfig);
-  const { items: data, isLoading } = useItems({ isActive: true });
+  const { items: data, isLoading, mutate } = useItems({ isActive: true });
 
   // Build localized config
   const localizedConfig = useMemo(
@@ -180,6 +183,21 @@ export function CatalogBrowser(): React.ReactNode {
     []
   );
 
+  const handleBulkDelete = useCallback(
+    async (ids: string[]): Promise<void> => {
+      try {
+        await Promise.all(ids.map((id) => deleteItem(id)));
+        toast.success(tCommon("bulkDeleteSuccess", { count: ids.length }));
+        mutate();
+      } catch (error: unknown) {
+        console.error("Bulk delete failed:", error);
+        toast.error(tCommon("bulkDeleteFailed"));
+        mutate();
+      }
+    },
+    [tCommon, mutate]
+  );
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -193,6 +211,7 @@ export function CatalogBrowser(): React.ReactNode {
         totalCount={totalCount}
         isLoading={isLoading}
         onParamsChange={handleParamsChange}
+        onBulkDelete={handleBulkDelete}
       />
     </div>
   );

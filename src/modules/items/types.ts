@@ -17,6 +17,7 @@ export interface Item {
   stockCategory: string | null;
   issueMode: string;
   unitId: string | null;
+  recipeUnitId: string | null;
   baseUnitAmount: string | null;
   materialType: string | null;
   alpha: string | null;

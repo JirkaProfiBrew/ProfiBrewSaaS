@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 1
+### Aktualizováno: 18.02.2026 | Poslední sprint: Sprint 2
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -199,7 +199,9 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Flagy: Surovina na výrobu piva ✓, Položka pro evidenci výroby ☐, Prodávat položku ✓
 - Kategorie skladu, spotřební daň (toggle), mód výdeje (FIFO/LIFO)
 - Material-specific: typ suroviny (dropdown), alpha (chmel), EBC (slad)
-- Měrná jednotka
+- Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/ks, přísady=kg/g/l/ml)
+- Měrná jednotka receptury (MJ receptury): viditelné pouze pro chmel — odlišná MJ pro skladovou evidenci (kg) vs recepturu (g)
+- Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, adjunct→kg)
 - Cenotvorba: kalkulační cena, průměrná skladová, prodejní cena, režie
 - POS: zpřístupnit na pokladně, nabízet na webu
 - Barva položky, kategorie, poznámka
@@ -210,7 +212,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Průměrná skladová cena se přepočítává automaticky ze skladových pohybů
 - Import z knihovny: zkopíruje údaje do vlastní položky, označí `is_from_library=true`
 
-### 4.4 Receptury 📋
+### 4.4 Receptury ✅
 
 **Co to je:** Definice složení a výrobního postupu piva.
 
@@ -230,7 +232,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Při vytvoření várky se suroviny a kroky zkopírují do šarže (snapshot — změna receptury neovlivní existující várky)
 - Kalkulace se ukládá jako snapshot (recipe_calculations) — historie kalkulací
 
-### 4.5 Vary / Šarže 📋
+### 4.5 Vary / Šarže ✅
 
 **Co to je:** Evidence výrobních šarží piva od vaření po stáčení.
 
@@ -594,10 +596,14 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 
 ## 12. TECHNICKÉ CHOVÁNÍ
 
-### 12.1 Měrné jednotky
-- DB vždy v base units: litry (objem), gramy (hmotnost), °C (teplota), minuty (čas)
-- UI zobrazuje v uživatelsky přívětivých: hl, kg, hodiny
-- Konverze výhradně v presentation layer
+### 12.1 Měrné jednotky ✅
+- Systémový číselník `units` (kg, g, l, ml, hl, ks, bal) — globální, tenant_id=NULL
+- Položky (items): `unit_id` FK → skladová MJ, `recipe_unit_id` FK → recepturová MJ (jen pro chmel)
+- Recepturové řádky (recipe_items): `unit_id` FK → MJ konkrétního řádku
+- Povolené MJ dle typu suroviny: slad=kg (readonly), chmel=kg/g, kvasnice=g/ks, přísady=kg/g/l/ml
+- Konverze v kalkulacích přes `toBaseFactor` (g→kg = 0.001, ml→l = 0.001)
+- DB ukládá hodnoty v uživatelsky zvolené MJ (ne vždy v base units)
+- Kalkulace vždy přepočítají na base unit (kg) před výpočtem
 
 ### 12.2 Soft delete
 - Záznamy se nemažou fyzicky (kromě skutečně dočasných dat)
@@ -625,8 +631,8 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | contacts | Pivovar | Kontakty | ✅ |
 | items (brew materials) | Pivovar | Suroviny | ✅ |
 | items (all) | Sklad | Položky | ✅ |
-| recipes | Pivovar | Receptury | 📋 |
-| batches | Pivovar | Vary | 📋 |
+| recipes | Pivovar | Receptury | ✅ |
+| batches | Pivovar | Vary | ✅ |
 | equipment | Pivovar | Zařízení | ✅ |
 | warehouses | Sklad | (Nastavení) | 📋 |
 | stock_issues | Sklad | Skladové pohyby | 📋 |

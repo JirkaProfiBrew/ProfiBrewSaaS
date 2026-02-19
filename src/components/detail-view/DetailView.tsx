@@ -41,6 +41,8 @@ export function DetailView({
   backHref,
   backLabel,
   tabs,
+  activeTab,
+  onTabChange,
   actions,
   isLoading = false,
   children,
@@ -58,6 +60,12 @@ export function DetailView({
   const resolvedTabs = tabs ?? [];
   const hasTabs = resolvedTabs.length > 0;
   const defaultTabKey = resolvedTabs[0]?.key ?? "";
+
+  // Use controlled mode when activeTab + onTabChange are provided
+  const isControlled = activeTab !== undefined && onTabChange !== undefined;
+  const tabsProps = isControlled
+    ? { value: activeTab, onValueChange: onTabChange }
+    : { defaultValue: defaultTabKey };
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,7 +114,7 @@ export function DetailView({
 
       {/* Tabs or children content */}
       {hasTabs ? (
-        <Tabs defaultValue={defaultTabKey} className="flex flex-col gap-4">
+        <Tabs {...tabsProps} className="flex flex-col gap-4">
           <TabsList>
             {resolvedTabs.map((tab) => {
               const Icon = tab.icon;

@@ -74,7 +74,10 @@ export async function getPartners(filter?: {
   isSupplier?: boolean;
 }): Promise<Partner[]> {
   return withTenant(async (tenantId) => {
-    const conditions = [eq(partners.tenantId, tenantId)];
+    const conditions = [
+      eq(partners.tenantId, tenantId),
+      eq(partners.isActive, true),
+    ];
 
     if (filter?.search) {
       const term = `%${filter.search}%`;

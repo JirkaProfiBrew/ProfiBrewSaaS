@@ -61,19 +61,69 @@
 
 ---
 
-<!--
 ## [0.2.0] — Sprint 2: Výroba
-**Období:** T5-T7
-**Status:** ⏳ Planned
+**Období:** T5-T7 (18.02.2026)
+**Status:** ✅ Done
 
 ### Přidáno
-- [ ] Recipes — CRUD, suroviny, kroky, rmutovací profily, kalkulace
-- [ ] Batches — CRUD, status workflow, kroky vaření, měření
-- [ ] Bottling — stáčení šarží do prodejních položek
-- [ ] Batch notes
-- [ ] Beer styles (BJCP seed data)
+- [x] DB schema: beer_style_groups, beer_styles, mashing_profiles, recipes, recipe_items, recipe_steps, recipe_calculations, batches, batch_steps, batch_measurements, batch_notes, bottling_items, batch_material_lots
+- [x] Beer styles — BJCP 2021 seed data (8 groups, 40+ styles), system mashing profiles (4 profiles)
+- [x] Recipes — RecipeBrowser (list + card view), RecipeDetail with 5 tabs (basic info, ingredients, steps, calculation, notes)
+- [x] Recipe ingredients — add/remove/reorder, item lookup, category grouping, summary
+- [x] Recipe steps — add/remove/reorder, mash profile loading
+- [x] Recipe calculation — OG (Plato), IBU (Tinseth), EBC (Morey), ABV (Balling), cost breakdown
+- [x] Recipe actions — duplicate (atomic copy with items+steps), archive (soft delete)
+- [x] Batches — BatchBrowser (list + card view), BatchDetail with 6 tabs (overview, steps, measurements, ingredients, bottling, notes)
+- [x] Batch status workflow — planned → brewing → fermenting → conditioning → carbonating → packaging → completed | dumped
+- [x] Batch status transitions — equipment sync (in_use ↔ available), brew_date/end_brew_date auto-set
+- [x] Batch creation from recipe — auto batch number (V-2026-001), recipe steps → batch steps copy
+- [x] Batch measurements — add/delete, gravity chart (recharts LineChart)
+- [x] Bottling — add/update/delete bottling items, volume summary
+- [x] Batch notes — timeline with add/delete
+- [x] RBAC update — brewer role: recipes upgraded to create/read/update
+- [x] i18n for recipes + batches (cs + en)
+- [x] recharts dependency added for measurement charts
+
+### Architektonická rozhodnutí
+- Brewing calculations as pure client-side functions (utils.ts, no "use server")
+- Batch status transitions with equipment sync in single transaction
+- Batch number generation via existing counter system (getNextNumber)
+- Up/down arrows for reordering instead of drag-and-drop (simpler, accessible)
+- Recipe duplicate uses db.transaction() for atomic copy
+- batch_material_lots table created but no UI (Sprint 3)
 
 ---
+
+## [0.2.1] — Sprint 2 Patch: Měrné jednotky
+**Období:** T8 (19.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] Units module (`src/modules/units/`) — types, conversion utilities, server actions, SWR hook
+- [x] DB: units table upgraded (code, nameCs, nameEn, symbol, category, baseUnitCode, toBaseFactor, isSystem, sortOrder)
+- [x] DB: items table — přidán `recipe_unit_id` FK pro oddělenou recepturovou MJ (chmel: sklad kg, receptura g)
+- [x] DB: recipe_items table — přidán `unit_id` FK pro MJ na řádku receptury
+- [x] Seed: 7 systémových jednotek (kg, g, l, ml, hl, ks, bal) — idempotentní
+- [x] ItemDetail — unitId text field nahrazen selectem filtrovaným dle materialType (ALLOWED_UNITS)
+- [x] ItemDetail — auto-fill MJ při změně materialType (malt→kg, hop→kg+g, yeast→g)
+- [x] ItemDetail — recipeUnitId select viditelný pouze pro chmel (HAS_RECIPE_UNIT)
+- [x] RecipeIngredientsTab — nový sloupec MJ v tabulce surovin (zobrazuje unitSymbol)
+- [x] RecipeIngredientsTab — auto-fill unitId při výběru suroviny (item.recipeUnitId → item.unitId)
+- [x] BatchIngredientsTab — nový sloupec MJ (read-only, JOIN units)
+- [x] Recipe calculations (utils.ts) — unit-aware: toKg() konverze přes unitToBaseFactor
+- [x] calculateAndSaveRecipe — JOIN units, předávání unitToBaseFactor do kalkulací
+- [x] Migration script `scripts/migrate-patch-units.mjs` — idempotentní, backfill + validace
+- [x] i18n: unit-related keys pro items (cs+en), recipes (cs+en), batches (cs+en)
+
+### Architektonická rozhodnutí
+- Units jako systémový číselník (tenant_id=NULL), budoucí rozšíření o tenant custom units
+- ALLOWED_UNITS mapa definuje povolené MJ per material_type (grain=kg only, hop=kg/g, etc.)
+- HAS_RECIPE_UNIT = ['hop'] — pouze chmel má oddělenou skladovou a recepturovou MJ
+- Kalkulace zpětně kompatibilní — pokud unitToBaseFactor chybí, fallback na starý gram→kg přepočet
+
+---
+
+<!--
 
 ## [0.3.0] — Sprint 3: Sklad
 **Období:** T8-T9

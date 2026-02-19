@@ -25,6 +25,7 @@ function DataBrowserInner({
   isLoading,
   onParamsChange,
   onRowClick: externalRowClick,
+  onBulkDelete,
 }: DataBrowserProps): React.ReactNode {
   const router = useRouter();
   const pathname = usePathname();
@@ -73,6 +74,13 @@ function DataBrowserInner({
   const handleClearSelection = useCallback((): void => {
     setSelectedRows(new Set());
   }, []);
+
+  const handleBulkDelete = useCallback(async (): Promise<void> => {
+    if (!onBulkDelete || selectedRows.size === 0) return;
+    const ids = Array.from(selectedRows);
+    await onBulkDelete(ids);
+    setSelectedRows(new Set());
+  }, [onBulkDelete, selectedRows]);
 
   // ── Navigation handlers ───────────────────────────────────
 
@@ -248,7 +256,7 @@ function DataBrowserInner({
       {/* Bulk Actions */}
       <BulkActionsBar
         selectedCount={selectedRows.size}
-        onDelete={config.actions.bulkDelete ? handleClearSelection : undefined}
+        onDelete={config.actions.bulkDelete && onBulkDelete ? () => { void handleBulkDelete(); } : undefined}
         onExport={config.actions.bulkExport ? handleClearSelection : undefined}
         onClearSelection={handleClearSelection}
       />

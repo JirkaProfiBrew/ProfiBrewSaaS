@@ -24,7 +24,7 @@ export const defaultPermissions: Record<Role, AgendaPermissions[]> = {
   ],
   brewer: [
     { agenda: "batches", permissions: ["create", "read", "update"] },
-    { agenda: "recipes", permissions: ["read"] },
+    { agenda: "recipes", permissions: ["create", "read", "update"] },
     { agenda: "equipment", permissions: ["read", "update"] },
     { agenda: "materials", permissions: ["read"] },
   ],

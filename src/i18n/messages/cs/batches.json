@@ -1,0 +1,257 @@
+{
+  "title": "Vary / Šarže",
+  "create": "Várka",
+  "quickFilters": {
+    "all": "Vše",
+    "inProgress": "Probíhající",
+    "planned": "Naplánované",
+    "completed": "Dokončené",
+    "dumped": "Zlikvidované"
+  },
+  "columns": {
+    "batchNumber": "Číslo",
+    "itemName": "Pivo",
+    "recipeName": "Recept",
+    "status": "Status",
+    "brewDate": "Datum vaření",
+    "equipmentName": "Tank",
+    "ogActual": "OG (°P)",
+    "actualVolumeL": "Objem (L)"
+  },
+  "status": {
+    "planned": "Naplánováno",
+    "brewing": "Vaří se",
+    "fermenting": "Kvasí",
+    "conditioning": "Dokvašuje",
+    "carbonating": "Sycení",
+    "packaging": "Stáčení",
+    "completed": "Dokončeno",
+    "dumped": "Zlikvidováno"
+  },
+  "tabs": {
+    "overview": "Přehled",
+    "steps": "Kroky vaření",
+    "measurements": "Měření",
+    "ingredients": "Suroviny",
+    "bottling": "Stáčení",
+    "notes": "Poznámky"
+  },
+  "form": {
+    "batchNumber": "Číslo várky",
+    "recipe": "Receptura",
+    "item": "Pivo (výrobní položka)",
+    "plannedDate": "Plánované datum",
+    "brewDate": "Datum vaření",
+    "endBrewDate": "Datum dokončení",
+    "equipment": "Tank / zařízení",
+    "brewer": "Sládek",
+    "actualVolume": "Skutečný objem (L)",
+    "ogActual": "Skutečné OG (°P)",
+    "fgActual": "FG (°P)",
+    "abvActual": "ABV (%)",
+    "notes": "Poznámky",
+    "recipePlaceholder": "Vyberte recepturu",
+    "equipmentPlaceholder": "Vyberte tank"
+  },
+  "statusTransition": {
+    "dump": "Zlikvidovat",
+    "success": "Stav byl změněn",
+    "error": "Chyba při změně stavu",
+    "dumped": "Várka byla zlikvidována",
+    "dumpTitle": "Likvidace várky",
+    "dumpDescription": "Tato akce je nevratná. Várka bude označena jako zlikvidovaná.",
+    "dumpReasonLabel": "Důvod likvidace",
+    "dumpReasonPlaceholder": "Popište důvod likvidace...",
+    "confirmDump": "Zlikvidovat"
+  },
+  "steps": {
+    "start": "Zahájit",
+    "complete": "Dokončit",
+    "completed": "Dokončeno",
+    "inProgress": "Probíhá",
+    "planned": "Naplánováno",
+    "phase": "Fáze",
+    "name": "Název",
+    "temperature": "Teplota (°C)",
+    "timePlan": "Čas plán (min)",
+    "startPlan": "Start plán",
+    "startReal": "Start skutečný",
+    "endReal": "Konec skutečný",
+    "empty": "Žádné kroky vaření",
+    "started": "Krok zahájen",
+    "startError": "Chyba při zahájení kroku",
+    "completeError": "Chyba při dokončení kroku",
+    "startAction": "Zahájit krok",
+    "completeAction": "Dokončit krok",
+    "columns": {
+      "phase": "Fáze",
+      "name": "Název",
+      "temperature": "Teplota (°C)",
+      "time": "Čas plán (min)",
+      "startPlan": "Start plán",
+      "startReal": "Start skutečný",
+      "endReal": "Konec skutečný",
+      "actions": "Akce"
+    },
+    "phase": {
+      "mashing": "Vystírání",
+      "boiling": "Chmelovar",
+      "post_boil": "Po varu",
+      "fermentation": "Kvašení",
+      "conditioning": "Dokvašování",
+      "other": "Ostatní"
+    }
+  },
+  "measurements": {
+    "add": "+ Měření",
+    "addTitle": "Přidat měření",
+    "empty": "Zatím žádná měření",
+    "added": "Měření přidáno",
+    "addError": "Chyba při přidávání měření",
+    "deleted": "Měření smazáno",
+    "deleteError": "Chyba při mazání měření",
+    "cancel": "Zrušit",
+    "save": "Uložit",
+    "value": "Hodnota",
+    "plato": "°Plato",
+    "sg": "SG",
+    "temperature": "Teplota (°C)",
+    "date": "Datum",
+    "notes": "Poznámka",
+    "isStart": "Počáteční",
+    "isEnd": "Koncové",
+    "columns": {
+      "type": "Typ",
+      "value": "Hodnota",
+      "plato": "°Plato",
+      "sg": "SG",
+      "temperature": "Teplota (°C)",
+      "date": "Datum",
+      "notes": "Poznámka"
+    },
+    "type": {
+      "gravity": "Hustota",
+      "temperature": "Teplota",
+      "ph": "pH",
+      "volume": "Objem",
+      "pressure": "Tlak"
+    },
+    "types": {
+      "gravity": "Hustota",
+      "temperature": "Teplota",
+      "ph": "pH",
+      "volume": "Objem",
+      "pressure": "Tlak"
+    },
+    "chart": {
+      "title": "Graf vývoje",
+      "plato": "Hustota (°P)"
+    },
+    "dialog": {
+      "title": "Přidat měření",
+      "selectType": "Typ měření"
+    }
+  },
+  "ingredients": {
+    "title": "Suroviny z receptury",
+    "noRecipe": "Várka nemá přiřazenou recepturu",
+    "loading": "Načítání surovin...",
+    "empty": "Receptura nemá žádné suroviny",
+    "description": "Přehled surovin z receptury. Pouze ke čtení.",
+    "item": "Položka",
+    "category": "Kategorie",
+    "amount": "Plánované množství",
+    "stage": "Fáze",
+    "columns": {
+      "name": "Surovina",
+      "category": "Kategorie",
+      "amount": "Množství",
+      "unit": "MJ",
+      "stage": "Fáze",
+      "time": "Čas"
+    },
+    "category": {
+      "malt": "Slad",
+      "hop": "Chmel",
+      "yeast": "Kvasnice",
+      "adjunct": "Přísada",
+      "other": "Ostatní"
+    },
+    "stage": {
+      "mash": "Vystírání",
+      "boil": "Chmelovar",
+      "whirlpool": "Whirlpool",
+      "fermentation": "Kvašení",
+      "dry_hop": "Dry hop"
+    }
+  },
+  "bottling": {
+    "add": "+ Stáčení",
+    "addTitle": "Přidat stáčení",
+    "empty": "Žádné záznamy o stáčení",
+    "added": "Stáčení přidáno",
+    "addError": "Chyba při přidávání stáčení",
+    "deleted": "Stáčení smazáno",
+    "deleteError": "Chyba při mazání stáčení",
+    "cancel": "Zrušit",
+    "save": "Uložit",
+    "selectProduct": "Vyberte produkt",
+    "product": "Produkt",
+    "quantity": "Množství (ks)",
+    "volume": "Objem celkem (L)",
+    "date": "Datum stáčení",
+    "notes": "Poznámka",
+    "totalVolume": "Celkový objem",
+    "totalBottled": "Celkem nastáčeno",
+    "remaining": "Zbývá v tanku",
+    "columns": {
+      "product": "Produkt",
+      "quantity": "Množství (ks)",
+      "volume": "Objem (L)",
+      "date": "Datum stáčení",
+      "notes": "Poznámka"
+    },
+    "dialog": {
+      "title": "Přidat stáčení",
+      "selectProduct": "Vyberte produkt"
+    }
+  },
+  "notes": {
+    "add": "Přidat poznámku",
+    "placeholder": "Napište poznámku...",
+    "empty": "Zatím žádné poznámky"
+  },
+  "actions": {
+    "transition": "Posunout stav",
+    "pause": "Pozastavit",
+    "resume": "Obnovit",
+    "dump": "Zlikvidovat",
+    "dumpReason": "Důvod likvidace",
+    "dumpReasonRequired": "Důvod likvidace je povinný",
+    "confirmDump": "Opravdu zlikvidovat?",
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "delete": "Smazat"
+  },
+  "detail": {
+    "title": "Detail várky",
+    "newTitle": "Nová várka",
+    "deleted": "Várka byla smazána",
+    "deleteError": "Chyba při mazání várky",
+    "actions": {
+      "save": "Uložit",
+      "cancel": "Zrušit",
+      "delete": "Smazat"
+    }
+  },
+  "createDialog": {
+    "title": "Nová várka",
+    "selectRecipe": "Vyberte recepturu",
+    "selectDate": "Plánované datum vaření",
+    "selectEquipment": "Tank (volitelné)"
+  },
+  "filters": {
+    "batchNumber": "Číslo várky",
+    "status": "Status"
+  }
+}

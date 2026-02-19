@@ -2,12 +2,14 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
 import { partnerBrowserConfig } from "../config";
 import { usePartners } from "../hooks";
+import { deletePartner } from "../actions";
 import { getPartnerType } from "../types";
 import type { Partner } from "../types";
 
@@ -128,8 +130,9 @@ function sortPartners(
 
 export function PartnerBrowser(): React.ReactNode {
   const t = useTranslations("partners");
+  const tCommon = useTranslations("common");
   const { params } = useDataBrowserParams(partnerBrowserConfig);
-  const { data: allPartners, isLoading } = usePartners();
+  const { data: allPartners, isLoading, mutate } = usePartners();
 
   // Build localized config with translated labels
   const localizedConfig = useMemo(
@@ -197,6 +200,21 @@ export function PartnerBrowser(): React.ReactNode {
     []
   );
 
+  const handleBulkDelete = useCallback(
+    async (ids: string[]): Promise<void> => {
+      try {
+        await Promise.all(ids.map((id) => deletePartner(id)));
+        toast.success(tCommon("bulkDeleteSuccess", { count: ids.length }));
+        mutate();
+      } catch (error: unknown) {
+        console.error("Bulk delete failed:", error);
+        toast.error(tCommon("bulkDeleteFailed"));
+        mutate();
+      }
+    },
+    [tCommon, mutate]
+  );
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -208,6 +226,7 @@ export function PartnerBrowser(): React.ReactNode {
         totalCount={totalCount}
         isLoading={isLoading}
         onParamsChange={handleParamsChange}
+        onBulkDelete={handleBulkDelete}
       />
     </div>
   );
