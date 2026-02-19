@@ -108,28 +108,32 @@ export async function createWarehouse(
         );
     }
 
-    let rows;
-    try {
-      rows = await db
-        .insert(warehouses)
-        .values({
-          tenantId,
-          code: data.code,
-          name: data.name,
-          shopId: data.shopId ?? null,
-          isExciseRelevant: data.isExciseRelevant ?? false,
-          categories: data.categories ?? null,
-          isDefault: data.isDefault ?? false,
-          isActive: data.isActive ?? true,
-        })
-        .returning();
-    } catch (error: unknown) {
-      const pgError = error as { code?: string; constraint?: string };
-      if (pgError.code === "23505" && pgError.constraint === "warehouses_tenant_code") {
-        throw new Error("DUPLICATE_CODE");
-      }
-      throw error;
+    // Pre-check for duplicate code (unique constraint as safety net)
+    const existing = await db
+      .select({ id: warehouses.id })
+      .from(warehouses)
+      .where(
+        and(eq(warehouses.tenantId, tenantId), eq(warehouses.code, data.code))
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new Error("DUPLICATE_CODE");
     }
+
+    const rows = await db
+      .insert(warehouses)
+      .values({
+        tenantId,
+        code: data.code,
+        name: data.name,
+        shopId: data.shopId ?? null,
+        isExciseRelevant: data.isExciseRelevant ?? false,
+        categories: data.categories ?? null,
+        isDefault: data.isDefault ?? false,
+        isActive: data.isActive ?? true,
+      })
+      .returning();
 
     const row = rows[0];
     if (!row) throw new Error("Failed to create warehouse");
