@@ -21,6 +21,9 @@ import {
 import type { Item } from "../types";
 import { useUnits } from "@/modules/units/hooks";
 import { ALLOWED_UNITS, HAS_RECIPE_UNIT } from "@/modules/units/types";
+import { ItemStockTab } from "./ItemStockTab";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -615,29 +618,68 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         }
         cancelLabel={t("detail.actions.cancel")}
       >
-        <div className="flex flex-col gap-8">
-          {sections.map((section, index) => {
-            // Check if any field in the section is visible
-            const hasVisibleFields = section.fields.some((field) => {
-              if (field.visible === undefined) return true;
-              if (typeof field.visible === "function") return field.visible(values);
-              return field.visible;
-            });
+        {isNewItem ? (
+          <div className="flex flex-col gap-8">
+            {sections.map((section, index) => {
+              const hasVisibleFields = section.fields.some((field) => {
+                if (field.visible === undefined) return true;
+                if (typeof field.visible === "function") return field.visible(values);
+                return field.visible;
+              });
 
-            if (!hasVisibleFields) return null;
+              if (!hasVisibleFields) return null;
 
-            return (
-              <FormSection
-                key={section.title ?? index}
-                section={section}
-                values={values}
-                errors={errors}
-                mode={mode}
-                onChange={handleChange}
-              />
-            );
-          })}
-        </div>
+              return (
+                <FormSection
+                  key={section.title ?? index}
+                  section={section}
+                  values={values}
+                  errors={errors}
+                  mode={mode}
+                  onChange={handleChange}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <Tabs defaultValue="detail" className="w-full">
+            <TabsList>
+              <TabsTrigger value="detail">
+                {t("detail.sections.basic")}
+              </TabsTrigger>
+              <TabsTrigger value="stock">
+                {t("stockTab.title")}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="detail" className="mt-4">
+              <div className="flex flex-col gap-8">
+                {sections.map((section, index) => {
+                  const hasVisibleFields = section.fields.some((field) => {
+                    if (field.visible === undefined) return true;
+                    if (typeof field.visible === "function") return field.visible(values);
+                    return field.visible;
+                  });
+
+                  if (!hasVisibleFields) return null;
+
+                  return (
+                    <FormSection
+                      key={section.title ?? index}
+                      section={section}
+                      values={values}
+                      errors={errors}
+                      mode={mode}
+                      onChange={handleChange}
+                    />
+                  );
+                })}
+              </div>
+            </TabsContent>
+            <TabsContent value="stock" className="mt-4">
+              <ItemStockTab itemId={id} />
+            </TabsContent>
+          </Tabs>
+        )}
       </DetailView>
     </div>
   );

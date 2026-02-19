@@ -2,9 +2,11 @@
 
 import useSWR from "swr";
 
-import { getItems, getItemById } from "./actions";
+import { getItems, getItemById, getItemsWithStock } from "./actions";
 import type { ItemFilter } from "./actions";
 import type { Item } from "./types";
+
+type ItemWithStock = Item & { totalQty: number; reservedQty: number; availableQty: number };
 
 /**
  * Fetch a list of items with optional server-side filters.
@@ -51,6 +53,33 @@ export function useItem(id: string): {
 
   return {
     item: data ?? null,
+    isLoading,
+    error,
+    mutate: () => {
+      void mutate();
+    },
+  };
+}
+
+/**
+ * Fetch items with aggregated stock status.
+ */
+export function useItemsWithStock(filter?: ItemFilter): {
+  items: ItemWithStock[];
+  isLoading: boolean;
+  error: Error | undefined;
+  mutate: () => void;
+} {
+  const key = ["itemsWithStock", JSON.stringify(filter ?? {})];
+
+  const { data, error, isLoading, mutate } = useSWR<ItemWithStock[]>(
+    key,
+    () => getItemsWithStock(filter),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    items: data ?? [],
     isLoading,
     error,
     mutate: () => {

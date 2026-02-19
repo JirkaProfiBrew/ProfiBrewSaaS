@@ -10,7 +10,8 @@
     "yeast": "Kvasnice",
     "materials": "Suroviny",
     "products": "Produkty",
-    "packaging": "Obaly"
+    "packaging": "Obaly",
+    "zeroStock": "Nulový stav"
   },
   "columns": {
     "code": "Kód",
@@ -24,7 +25,10 @@
     "isBrewMaterial": "Surovina",
     "isSaleItem": "Prodejní",
     "stockCategory": "Kat. skladu",
-    "salePrice": "Prodejní cena"
+    "salePrice": "Prodejní cena",
+    "totalQty": "Sklad",
+    "reservedQty": "Rezervováno",
+    "availableQty": "Dostupné"
   },
   "materialType": {
     "malt": "Slad",
@@ -103,5 +107,21 @@
     "recipeUnit": "MJ receptury",
     "unitReadonly": "Měrná jednotka je přednastavena",
     "selectUnit": "Vyberte jednotku"
+  },
+  "stockTab": {
+    "title": "Stav skladu",
+    "warehouse": "Sklad",
+    "quantity": "Množství",
+    "reserved": "Rezervováno",
+    "available": "Dostupné",
+    "noStock": "Žádné skladové zásoby",
+    "recentMovements": "Poslední pohyby",
+    "date": "Datum",
+    "document": "Doklad",
+    "direction": "Směr",
+    "price": "Cena",
+    "in": "PŘÍJEM",
+    "out": "VÝDEJ",
+    "noMovements": "Žádné pohyby"
   }
 }

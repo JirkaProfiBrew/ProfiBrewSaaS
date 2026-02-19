@@ -113,8 +113,10 @@ export const catalogBrowserConfig: DataBrowserConfig = {
     { key: "isSaleItem", label: "Prodejní", type: "boolean" },
     { key: "materialType", label: "Typ", type: "badge" },
     { key: "stockCategory", label: "Kat. skladu", type: "text" },
+    { key: "totalQty", label: "Sklad", type: "number", sortable: true },
+    { key: "reservedQty", label: "Rezervováno", type: "number", sortable: true },
+    { key: "availableQty", label: "Dostupné", type: "number", sortable: true },
     { key: "costPrice", label: "Cena", type: "currency", sortable: true },
-    { key: "salePrice", label: "Prodejní cena", type: "currency", sortable: true },
     { key: "isActive", label: "Aktivní", type: "boolean" },
   ],
 
@@ -123,6 +125,7 @@ export const catalogBrowserConfig: DataBrowserConfig = {
     { key: "materials", label: "Suroviny", filter: { isBrewMaterial: true } },
     { key: "products", label: "Produkty", filter: { isSaleItem: true } },
     { key: "packaging", label: "Obaly", filter: { stockCategory: "packaging" } },
+    { key: "zeroStock", label: "Nulový stav", filter: { _zeroStock: true } },
   ],
 
   filters: [

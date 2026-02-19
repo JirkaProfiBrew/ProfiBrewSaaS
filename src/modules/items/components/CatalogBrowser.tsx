@@ -8,14 +8,22 @@ import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
 import { catalogBrowserConfig } from "../config";
-import { useItems } from "../hooks";
+import { useItemsWithStock } from "../hooks";
 import { deleteItem } from "../actions";
 import type { Item } from "../types";
 
+// ── Extended item type with stock data ────────────────────────
+
+type ItemWithStock = Item & {
+  totalQty: number;
+  reservedQty: number;
+  availableQty: number;
+};
+
 // ── Helpers ────────────────────────────────────────────────────
 
-/** Convert an Item to Record<string, unknown> for DataBrowser. */
-function itemToRecord(item: Item): Record<string, unknown> {
+/** Convert an Item+Stock to Record<string, unknown> for DataBrowser. */
+function itemToRecord(item: ItemWithStock): Record<string, unknown> {
   return {
     id: item.id,
     tenantId: item.tenantId,
@@ -25,14 +33,16 @@ function itemToRecord(item: Item): Record<string, unknown> {
     isSaleItem: item.isSaleItem,
     materialType: item.materialType,
     stockCategory: item.stockCategory,
+    totalQty: item.totalQty,
+    reservedQty: item.reservedQty,
+    availableQty: item.availableQty,
     costPrice: item.costPrice,
-    salePrice: item.salePrice,
     isActive: item.isActive,
   };
 }
 
 /** Case-insensitive search across relevant item fields. */
-function matchesSearch(item: Item, search: string): boolean {
+function matchesSearch(item: ItemWithStock, search: string): boolean {
   if (!search) return true;
   const term = search.toLowerCase();
   return (
@@ -43,8 +53,13 @@ function matchesSearch(item: Item, search: string): boolean {
 }
 
 /** Apply quick filter. */
-function matchesQuickFilter(item: Item, quickFilterKey: string): boolean {
+function matchesQuickFilter(item: ItemWithStock, quickFilterKey: string): boolean {
   if (!quickFilterKey || quickFilterKey === "all") return true;
+
+  // Special "zeroStock" filter
+  if (quickFilterKey === "zeroStock") {
+    return item.totalQty === 0;
+  }
 
   const quickFilter = catalogBrowserConfig.quickFilters?.find(
     (f) => f.key === quickFilterKey
@@ -52,6 +67,7 @@ function matchesQuickFilter(item: Item, quickFilterKey: string): boolean {
   if (!quickFilter) return true;
 
   for (const [key, value] of Object.entries(quickFilter.filter)) {
+    if (key.startsWith("_")) continue; // skip meta keys
     const record = itemToRecord(item);
     if (record[key] !== value) return false;
   }
@@ -60,7 +76,7 @@ function matchesQuickFilter(item: Item, quickFilterKey: string): boolean {
 
 /** Apply parametric filters. */
 function matchesParametricFilters(
-  item: Item,
+  item: ItemWithStock,
   filters: Record<string, unknown>
 ): boolean {
   for (const [key, value] of Object.entries(filters)) {
@@ -82,10 +98,10 @@ function matchesParametricFilters(
 
 /** Sort items by a given key and direction. */
 function sortItems(
-  list: Item[],
+  list: ItemWithStock[],
   sortKey: string,
   direction: "asc" | "desc"
-): Item[] {
+): ItemWithStock[] {
   return [...list].sort((a, b) => {
     const recordA = itemToRecord(a);
     const recordB = itemToRecord(b);
@@ -116,7 +132,7 @@ export function CatalogBrowser(): React.ReactNode {
   const t = useTranslations("items");
   const tCommon = useTranslations("common");
   const { params } = useDataBrowserParams(catalogBrowserConfig);
-  const { items: data, isLoading, mutate } = useItems({ isActive: true });
+  const { items: data, isLoading, mutate } = useItemsWithStock({ isActive: true });
 
   // Build localized config
   const localizedConfig = useMemo(

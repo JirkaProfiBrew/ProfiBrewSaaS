@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql } from "drizzle-orm";
+import { eq, and, ilike, or, sql, desc } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -280,5 +280,165 @@ export async function duplicateItem(id: string): Promise<Item> {
     const row = rows[0];
     if (!row) throw new Error("Failed to duplicate item");
     return mapRow(row);
+  });
+}
+
+/** Get items with aggregated stock status. */
+export async function getItemsWithStock(
+  filter?: ItemFilter
+): Promise<Array<Item & { totalQty: number; reservedQty: number; availableQty: number }>> {
+  return withTenant(async (tenantId) => {
+    const { stockStatus } = await import("@/../drizzle/schema/stock");
+
+    const conditions = [eq(items.tenantId, tenantId)];
+
+    if (filter?.isBrewMaterial !== undefined) {
+      conditions.push(eq(items.isBrewMaterial, filter.isBrewMaterial));
+    }
+    if (filter?.isSaleItem !== undefined) {
+      conditions.push(eq(items.isSaleItem, filter.isSaleItem));
+    }
+    if (filter?.materialType !== undefined) {
+      conditions.push(eq(items.materialType, filter.materialType));
+    }
+    if (filter?.stockCategory !== undefined) {
+      conditions.push(eq(items.stockCategory, filter.stockCategory));
+    }
+    if (filter?.isActive !== undefined) {
+      conditions.push(eq(items.isActive, filter.isActive));
+    }
+    if (filter?.search) {
+      conditions.push(
+        or(
+          ilike(items.name, `%${filter.search}%`),
+          ilike(items.code, `%${filter.search}%`),
+          ilike(items.brand, `%${filter.search}%`)
+        )!
+      );
+    }
+
+    const rows = await db
+      .select({
+        item: items,
+        totalQty: sql<string>`COALESCE(SUM(${stockStatus.quantity}::decimal), 0)`,
+        reservedQty: sql<string>`COALESCE(SUM(${stockStatus.reservedQty}::decimal), 0)`,
+      })
+      .from(items)
+      .leftJoin(
+        stockStatus,
+        and(
+          eq(items.id, stockStatus.itemId),
+          eq(stockStatus.tenantId, tenantId)
+        )
+      )
+      .where(and(...conditions))
+      .groupBy(items.id)
+      .orderBy(items.name);
+
+    return rows.map((r) => {
+      const totalQty = Number(r.totalQty);
+      const reservedQty = Number(r.reservedQty);
+      return {
+        ...mapRow(r.item),
+        totalQty,
+        reservedQty,
+        availableQty: totalQty - reservedQty,
+      };
+    });
+  });
+}
+
+/** Get per-warehouse stock status for an item. */
+export async function getItemStockByWarehouse(
+  itemId: string
+): Promise<Array<{ warehouseId: string; warehouseName: string; quantity: number; reservedQty: number; availableQty: number }>> {
+  return withTenant(async (tenantId) => {
+    const { stockStatus } = await import("@/../drizzle/schema/stock");
+    const { warehouses } = await import("@/../drizzle/schema/warehouses");
+
+    const rows = await db
+      .select({
+        warehouseId: stockStatus.warehouseId,
+        warehouseName: warehouses.name,
+        quantity: stockStatus.quantity,
+        reservedQty: stockStatus.reservedQty,
+      })
+      .from(stockStatus)
+      .innerJoin(warehouses, eq(stockStatus.warehouseId, warehouses.id))
+      .where(
+        and(
+          eq(stockStatus.tenantId, tenantId),
+          eq(stockStatus.itemId, itemId)
+        )
+      )
+      .orderBy(warehouses.name);
+
+    return rows.map((r) => {
+      const qty = Number(r.quantity ?? "0");
+      const reserved = Number(r.reservedQty ?? "0");
+      return {
+        warehouseId: r.warehouseId,
+        warehouseName: r.warehouseName,
+        quantity: qty,
+        reservedQty: reserved,
+        availableQty: qty - reserved,
+      };
+    });
+  });
+}
+
+/** Get recent stock movements for an item (last 20). */
+export async function getItemRecentMovements(
+  itemId: string
+): Promise<Array<{
+  id: string;
+  date: string;
+  stockIssueId: string | null;
+  movementType: string;
+  quantity: string;
+  unitPrice: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  stockIssueCode: string | null;
+}>> {
+  return withTenant(async (tenantId) => {
+    const { stockMovements, stockIssues } = await import("@/../drizzle/schema/stock");
+    const { warehouses } = await import("@/../drizzle/schema/warehouses");
+
+    const rows = await db
+      .select({
+        id: stockMovements.id,
+        date: stockMovements.date,
+        stockIssueId: stockMovements.stockIssueId,
+        movementType: stockMovements.movementType,
+        quantity: stockMovements.quantity,
+        unitPrice: stockMovements.unitPrice,
+        warehouseId: stockMovements.warehouseId,
+        warehouseName: warehouses.name,
+        stockIssueCode: stockIssues.code,
+      })
+      .from(stockMovements)
+      .leftJoin(warehouses, eq(stockMovements.warehouseId, warehouses.id))
+      .leftJoin(stockIssues, eq(stockMovements.stockIssueId, stockIssues.id))
+      .where(
+        and(
+          eq(stockMovements.tenantId, tenantId),
+          eq(stockMovements.itemId, itemId)
+        )
+      )
+      .orderBy(desc(stockMovements.createdAt))
+      .limit(20);
+
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.date ?? "",
+      stockIssueId: r.stockIssueId,
+      movementType: r.movementType,
+      quantity: r.quantity,
+      unitPrice: r.unitPrice,
+      warehouseId: r.warehouseId,
+      warehouseName: r.warehouseName ?? "",
+      stockIssueCode: r.stockIssueCode,
+    }));
   });
 }
