@@ -57,7 +57,7 @@ function getDefaultValues(): Record<string, unknown> {
   return {
     code: "",
     name: "",
-    shopId: "",
+    shopId: "__none__",
     isExciseRelevant: false,
     isDefault: false,
     isActive: true,
@@ -90,7 +90,7 @@ export function WarehouseDetail({
       setValues({
         code: warehouse.code,
         name: warehouse.name,
-        shopId: warehouse.shopId ?? "",
+        shopId: warehouse.shopId ?? "__none__",
         isExciseRelevant: warehouse.isExciseRelevant,
         isDefault: warehouse.isDefault,
         isActive: warehouse.isActive,
@@ -102,7 +102,7 @@ export function WarehouseDetail({
   // Shop options for select field
   const shopOptions = useMemo(
     () => [
-      { value: "", label: t("detail.fields.noShop") },
+      { value: "__none__", label: t("detail.fields.noShop") },
       ...shopList.map((shop) => ({
         value: shop.id,
         label: shop.name,
@@ -216,7 +216,7 @@ export function WarehouseDetail({
       const warehouseData = {
         code: String(values.code),
         name: String(values.name),
-        shopId: values.shopId && String(values.shopId) !== "" ? String(values.shopId) : null,
+        shopId: values.shopId && String(values.shopId) !== "__none__" ? String(values.shopId) : null,
         isExciseRelevant: values.isExciseRelevant === true,
         categories,
         isDefault: values.isDefault === true,
