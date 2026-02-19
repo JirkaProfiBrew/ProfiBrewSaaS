@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { counters } from "@/../drizzle/schema/system";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 
 /** Default counter configurations per entity. */
 const COUNTER_DEFAULTS: Record<string, { prefix: string; includeYear: boolean; padding: number; separator: string; resetYearly: boolean }> = {
@@ -20,22 +20,52 @@ function getDefaultCounterConfig(entity: string): { prefix: string; includeYear:
  * Uses SELECT ... FOR UPDATE to prevent race conditions.
  *
  * @example
- * await getNextNumber(tenantId, "item")    // → "it00001"
- * await getNextNumber(tenantId, "batch")   // → "V-2026-001"
+ * await getNextNumber(tenantId, "item")                    // → "it00001"
+ * await getNextNumber(tenantId, "batch")                   // → "V-2026-001"
+ * await getNextNumber(tenantId, "stock_issue_receipt", wh) // → per-warehouse counter
  */
 export async function getNextNumber(
   tenantId: string,
-  entity: string
+  entity: string,
+  warehouseId?: string
 ): Promise<string> {
   const result = await db.transaction(async (tx) => {
+    // Build conditions for counter lookup
+    const conditions = [
+      eq(counters.tenantId, tenantId),
+      eq(counters.entity, entity),
+    ];
+    if (warehouseId) {
+      conditions.push(eq(counters.warehouseId, warehouseId));
+    } else {
+      conditions.push(isNull(counters.warehouseId));
+    }
+
     // Lock the counter row for update
     const rows = await tx
       .select()
       .from(counters)
-      .where(and(eq(counters.tenantId, tenantId), eq(counters.entity, entity)))
+      .where(and(...conditions))
       .for("update");
 
     let counter = rows[0];
+
+    // If warehouse-specific counter not found, fall back to global
+    if (!counter && warehouseId) {
+      const fallbackRows = await tx
+        .select()
+        .from(counters)
+        .where(
+          and(
+            eq(counters.tenantId, tenantId),
+            eq(counters.entity, entity),
+            isNull(counters.warehouseId)
+          )
+        )
+        .for("update");
+      counter = fallbackRows[0];
+    }
+
     if (!counter) {
       // Auto-create a default counter for this entity
       const defaultConfig = getDefaultCounterConfig(entity);
@@ -44,6 +74,7 @@ export async function getNextNumber(
         .values({
           tenantId,
           entity,
+          warehouseId: warehouseId ?? null,
           ...defaultConfig,
         })
         .returning();
