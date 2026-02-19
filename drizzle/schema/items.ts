@@ -40,6 +40,10 @@ export const items = pgTable(
     recipeUnitId: uuid("recipe_unit_id").references(() => units.id),
     baseUnitAmount: decimal("base_unit_amount"),
 
+    // === BASE ITEM (self-reference for variants/packaged items) ===
+    baseItemId: uuid("base_item_id"), // Self-reference to items(id) — FK added in SQL migration
+    baseItemQuantity: decimal("base_item_quantity"),
+
     // === MATERIAL-SPECIFIC ===
     materialType: text("material_type"), // 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
     alpha: decimal("alpha"),

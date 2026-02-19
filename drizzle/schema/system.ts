@@ -38,6 +38,7 @@ export const counters = pgTable(
       .notNull()
       .references(() => tenants.id),
     entity: text("entity").notNull(),
+    warehouseId: uuid("warehouse_id"), // nullable — no FK to avoid circular import
     prefix: text("prefix").notNull(),
     includeYear: boolean("include_year").default(true),
     currentNumber: integer("current_number").default(0),
@@ -48,7 +49,7 @@ export const counters = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
-    unique("counters_tenant_entity").on(table.tenantId, table.entity),
+    unique("counters_tenant_entity_warehouse").on(table.tenantId, table.entity, table.warehouseId),
   ]
 );
 
