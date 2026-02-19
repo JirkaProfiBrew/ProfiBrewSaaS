@@ -16,55 +16,28 @@ function getDefaultCounterConfig(entity: string): { prefix: string; includeYear:
 }
 
 /**
- * Build WHERE conditions for a counter lookup.
- */
-function buildCounterConditions(
-  tenantId: string,
-  entity: string,
-  warehouseId: string | null
-): ReturnType<typeof eq>[] {
-  const conditions = [
-    eq(counters.tenantId, tenantId),
-    eq(counters.entity, entity),
-  ];
-  if (warehouseId) {
-    conditions.push(eq(counters.warehouseId, warehouseId));
-  } else {
-    conditions.push(isNull(counters.warehouseId));
-  }
-  return conditions;
-}
-
-/**
- * Ensure a counter row exists for the given entity (and optional warehouse).
+ * Ensure a counter row exists for the given entity.
+ * Uses global counters only (tenant_id + entity, no warehouse_id).
  * Runs OUTSIDE the main transaction so a failed INSERT doesn't abort anything.
  */
 async function ensureCounterExists(
   tenantId: string,
-  entity: string,
-  warehouseId?: string
+  entity: string
 ): Promise<void> {
-  const wid = warehouseId ?? null;
-
-  // Check if counter already exists
+  // Check if global counter already exists
   const existing = await db
     .select({ id: counters.id })
     .from(counters)
-    .where(and(...buildCounterConditions(tenantId, entity, wid)))
+    .where(
+      and(
+        eq(counters.tenantId, tenantId),
+        eq(counters.entity, entity),
+        isNull(counters.warehouseId)
+      )
+    )
     .limit(1);
 
   if (existing.length > 0) return;
-
-  // Also check global fallback (for warehouse-specific requests)
-  if (wid) {
-    const globalExists = await db
-      .select({ id: counters.id })
-      .from(counters)
-      .where(and(...buildCounterConditions(tenantId, entity, null)))
-      .limit(1);
-
-    if (globalExists.length > 0) return;
-  }
 
   // No counter found — create one
   const defaultConfig = getDefaultCounterConfig(entity);
@@ -74,49 +47,67 @@ async function ensureCounterExists(
       .values({
         tenantId,
         entity,
-        warehouseId: wid,
+        warehouseId: null,
         ...defaultConfig,
       });
-  } catch {
-    // Unique constraint violation — counter was created concurrently, OK
+  } catch (error: unknown) {
+    // Log the actual error for debugging
+    console.error("[counters] Failed to auto-create counter:", entity, error);
   }
 }
 
 /**
  * Get the next formatted number from a counter sequence.
+ * Looks up a global counter by (tenant_id, entity).
+ * Per-warehouse counters are used if they exist (created by warehouse setup).
+ *
+ * @param warehouseId — optional, used to find per-warehouse counter first
  *
  * @example
  * await getNextNumber(tenantId, "item")                    // → "it00001"
  * await getNextNumber(tenantId, "batch")                   // → "V-2026-001"
- * await getNextNumber(tenantId, "stock_issue_receipt", wh) // → per-warehouse counter
+ * await getNextNumber(tenantId, "stock_issue_receipt", wh) // → per-warehouse or global
  */
 export async function getNextNumber(
   tenantId: string,
   entity: string,
   warehouseId?: string
 ): Promise<string> {
-  // Step 1: Ensure counter exists (outside transaction — safe from aborted tx)
-  await ensureCounterExists(tenantId, entity, warehouseId);
+  // Step 1: Ensure a global counter exists (outside transaction)
+  await ensureCounterExists(tenantId, entity);
 
   // Step 2: Increment and format (inside transaction for atomicity)
   const result = await db.transaction(async (tx) => {
-    const wid = warehouseId ?? null;
+    let counter;
 
-    // Find per-warehouse counter
-    const rows = await tx
-      .select()
-      .from(counters)
-      .where(and(...buildCounterConditions(tenantId, entity, wid)));
-
-    let counter = rows[0];
-
-    // Fall back to global counter
-    if (!counter && wid) {
-      const fallbackRows = await tx
+    // Try per-warehouse counter first (if warehouseId provided)
+    if (warehouseId) {
+      const whRows = await tx
         .select()
         .from(counters)
-        .where(and(...buildCounterConditions(tenantId, entity, null)));
-      counter = fallbackRows[0];
+        .where(
+          and(
+            eq(counters.tenantId, tenantId),
+            eq(counters.entity, entity),
+            eq(counters.warehouseId, warehouseId)
+          )
+        );
+      counter = whRows[0];
+    }
+
+    // Fall back to global counter
+    if (!counter) {
+      const globalRows = await tx
+        .select()
+        .from(counters)
+        .where(
+          and(
+            eq(counters.tenantId, tenantId),
+            eq(counters.entity, entity),
+            isNull(counters.warehouseId)
+          )
+        );
+      counter = globalRows[0];
     }
 
     if (!counter) {
