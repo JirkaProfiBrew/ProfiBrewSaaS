@@ -16,6 +16,73 @@ function getDefaultCounterConfig(entity: string): { prefix: string; includeYear:
 }
 
 /**
+ * Build WHERE conditions for a counter lookup.
+ */
+function buildCounterConditions(
+  tenantId: string,
+  entity: string,
+  warehouseId: string | null
+): ReturnType<typeof eq>[] {
+  const conditions = [
+    eq(counters.tenantId, tenantId),
+    eq(counters.entity, entity),
+  ];
+  if (warehouseId) {
+    conditions.push(eq(counters.warehouseId, warehouseId));
+  } else {
+    conditions.push(isNull(counters.warehouseId));
+  }
+  return conditions;
+}
+
+/**
+ * Ensure a counter row exists for the given entity (and optional warehouse).
+ * Runs OUTSIDE the main transaction so a failed INSERT doesn't abort anything.
+ */
+async function ensureCounterExists(
+  tenantId: string,
+  entity: string,
+  warehouseId?: string
+): Promise<void> {
+  const wid = warehouseId ?? null;
+
+  // Check if counter already exists
+  const existing = await db
+    .select({ id: counters.id })
+    .from(counters)
+    .where(and(...buildCounterConditions(tenantId, entity, wid)))
+    .limit(1);
+
+  if (existing.length > 0) return;
+
+  // Also check global fallback (for warehouse-specific requests)
+  if (wid) {
+    const globalExists = await db
+      .select({ id: counters.id })
+      .from(counters)
+      .where(and(...buildCounterConditions(tenantId, entity, null)))
+      .limit(1);
+
+    if (globalExists.length > 0) return;
+  }
+
+  // No counter found — create one
+  const defaultConfig = getDefaultCounterConfig(entity);
+  try {
+    await db
+      .insert(counters)
+      .values({
+        tenantId,
+        entity,
+        warehouseId: wid,
+        ...defaultConfig,
+      });
+  } catch {
+    // Unique constraint violation — counter was created concurrently, OK
+  }
+}
+
+/**
  * Get the next formatted number from a counter sequence.
  *
  * @example
@@ -28,77 +95,32 @@ export async function getNextNumber(
   entity: string,
   warehouseId?: string
 ): Promise<string> {
-  const result = await db.transaction(async (tx) => {
-    // Build conditions for counter lookup
-    const conditions = [
-      eq(counters.tenantId, tenantId),
-      eq(counters.entity, entity),
-    ];
-    if (warehouseId) {
-      conditions.push(eq(counters.warehouseId, warehouseId));
-    } else {
-      conditions.push(isNull(counters.warehouseId));
-    }
+  // Step 1: Ensure counter exists (outside transaction — safe from aborted tx)
+  await ensureCounterExists(tenantId, entity, warehouseId);
 
-    // Find the counter row
+  // Step 2: Increment and format (inside transaction for atomicity)
+  const result = await db.transaction(async (tx) => {
+    const wid = warehouseId ?? null;
+
+    // Find per-warehouse counter
     const rows = await tx
       .select()
       .from(counters)
-      .where(and(...conditions));
+      .where(and(...buildCounterConditions(tenantId, entity, wid)));
 
     let counter = rows[0];
 
-    // If warehouse-specific counter not found, fall back to global
-    if (!counter && warehouseId) {
+    // Fall back to global counter
+    if (!counter && wid) {
       const fallbackRows = await tx
         .select()
         .from(counters)
-        .where(
-          and(
-            eq(counters.tenantId, tenantId),
-            eq(counters.entity, entity),
-            isNull(counters.warehouseId)
-          )
-        );
+        .where(and(...buildCounterConditions(tenantId, entity, null)));
       counter = fallbackRows[0];
     }
 
     if (!counter) {
-      // Auto-create a default counter for this entity.
-      // Use plain INSERT + try/catch to handle potential conflicts.
-      const defaultConfig = getDefaultCounterConfig(entity);
-      try {
-        const inserted = await tx
-          .insert(counters)
-          .values({
-            tenantId,
-            entity,
-            warehouseId: warehouseId ?? null,
-            ...defaultConfig,
-          })
-          .returning();
-        counter = inserted[0];
-      } catch {
-        // INSERT failed (likely unique constraint) — re-fetch
-        const retryConditions = [
-          eq(counters.tenantId, tenantId),
-          eq(counters.entity, entity),
-        ];
-        if (warehouseId) {
-          retryConditions.push(eq(counters.warehouseId, warehouseId));
-        } else {
-          retryConditions.push(isNull(counters.warehouseId));
-        }
-        const retryRows = await tx
-          .select()
-          .from(counters)
-          .where(and(...retryConditions));
-        counter = retryRows[0];
-      }
-
-      if (!counter) {
-        throw new Error(`Counter not found for entity "${entity}"`);
-      }
+      throw new Error(`Counter not found for entity "${entity}"`);
     }
 
     // Check if we need to reset the counter (yearly reset)
