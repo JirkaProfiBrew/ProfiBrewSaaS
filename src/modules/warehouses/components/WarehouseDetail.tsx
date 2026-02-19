@@ -239,9 +239,15 @@ export function WarehouseDetail({
       router.push("/settings/warehouses");
     } catch (error) {
       console.error("Failed to save warehouse:", error);
-      toast.error(tCommon("saveFailed"));
+      const message = error instanceof Error ? error.message : "";
+      if (message === "DUPLICATE_CODE") {
+        setErrors({ code: t("detail.fields.codeDuplicate") });
+        toast.error(t("detail.fields.codeDuplicate"));
+      } else {
+        toast.error(tCommon("saveFailed"));
+      }
     }
-  }, [values, isNew, id, router, tCommon]);
+  }, [values, isNew, id, router, t, tCommon]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {

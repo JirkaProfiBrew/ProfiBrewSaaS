@@ -37,7 +37,8 @@
       "isExciseRelevant": "Daňový sklad",
       "isDefault": "Výchozí sklad",
       "isActive": "Aktivní",
-      "codeReadonly": "Kód nelze změnit po vytvoření"
+      "codeReadonly": "Kód nelze změnit po vytvoření",
+      "codeDuplicate": "Sklad s tímto kódem již existuje"
     },
     "actions": {
       "save": "Uložit",

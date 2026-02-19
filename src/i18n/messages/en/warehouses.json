@@ -37,7 +37,8 @@
       "isExciseRelevant": "Excise Warehouse",
       "isDefault": "Default Warehouse",
       "isActive": "Active",
-      "codeReadonly": "Code cannot be changed after creation"
+      "codeReadonly": "Code cannot be changed after creation",
+      "codeDuplicate": "Warehouse with this code already exists"
     },
     "actions": {
       "save": "Save",
