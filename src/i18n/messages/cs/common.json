@@ -23,6 +23,8 @@
   "comingSoon": "Již brzy",
   "saved": "Uloženo",
   "saveFailed": "Chyba při ukládání",
+  "deleted": "Smazáno",
+  "deleteFailed": "Chyba při mazání",
   "bulkDeleteSuccess": "Smazáno ({count})",
   "bulkDeleteFailed": "Některé položky se nepodařilo smazat",
   "saveFirst": "Nejprve uložte záznam",

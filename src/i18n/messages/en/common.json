@@ -23,6 +23,8 @@
   "comingSoon": "Coming Soon",
   "saved": "Saved",
   "saveFailed": "Save failed",
+  "deleted": "Deleted",
+  "deleteFailed": "Delete failed",
   "bulkDeleteSuccess": "Deleted ({count})",
   "bulkDeleteFailed": "Some items could not be deleted",
   "saveFirst": "Save the record first",

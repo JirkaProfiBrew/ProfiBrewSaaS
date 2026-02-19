@@ -246,11 +246,13 @@ export function WarehouseDetail({
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
       await deleteWarehouse(id);
+      toast.success(tCommon("deleted"));
       router.push("/settings/warehouses");
     } catch (error) {
       console.error("Failed to delete warehouse:", error);
+      toast.error(tCommon("deleteFailed"));
     }
-  }, [id, router]);
+  }, [id, router, tCommon]);
 
   const handleCancel = useCallback((): void => {
     router.push("/settings/warehouses");
