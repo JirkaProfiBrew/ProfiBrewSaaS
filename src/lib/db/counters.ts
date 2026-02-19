@@ -95,7 +95,7 @@ export async function getNextNumber(
       counter = whRows[0];
     }
 
-    // Fall back to global counter
+    // Fall back to global counter (warehouse_id IS NULL)
     if (!counter) {
       const globalRows = await tx
         .select()
@@ -108,6 +108,23 @@ export async function getNextNumber(
           )
         );
       counter = globalRows[0];
+    }
+
+    // Final fallback: find ANY counter for this entity regardless of warehouse_id.
+    // Needed when the old unique constraint (tenant_id, entity) prevents multiple
+    // rows and the existing row has a different warehouse_id.
+    if (!counter) {
+      const anyRows = await tx
+        .select()
+        .from(counters)
+        .where(
+          and(
+            eq(counters.tenantId, tenantId),
+            eq(counters.entity, entity)
+          )
+        )
+        .limit(1);
+      counter = anyRows[0];
     }
 
     if (!counter) {
