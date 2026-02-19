@@ -224,7 +224,12 @@ export function WarehouseDetail({
       };
 
       if (isNew) {
-        await createWarehouse(warehouseData);
+        const result = await createWarehouse(warehouseData);
+        if ("error" in result && result.error === "DUPLICATE_CODE") {
+          setErrors({ code: t("detail.fields.codeDuplicate") });
+          toast.error(t("detail.fields.codeDuplicate"));
+          return;
+        }
       } else {
         await updateWarehouse(id, {
           name: warehouseData.name,
@@ -239,13 +244,7 @@ export function WarehouseDetail({
       router.push("/settings/warehouses");
     } catch (error) {
       console.error("Failed to save warehouse:", error);
-      const message = error instanceof Error ? error.message : "";
-      if (message === "DUPLICATE_CODE") {
-        setErrors({ code: t("detail.fields.codeDuplicate") });
-        toast.error(t("detail.fields.codeDuplicate"));
-      } else {
-        toast.error(tCommon("saveFailed"));
-      }
+      toast.error(tCommon("saveFailed"));
     }
   }, [values, isNew, id, router, t, tCommon]);
 

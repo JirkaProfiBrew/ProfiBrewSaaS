@@ -96,7 +96,7 @@ export async function createWarehouse(
     typeof warehouses.$inferInsert,
     "id" | "tenantId" | "createdAt" | "updatedAt"
   >
-): Promise<Warehouse> {
+): Promise<Warehouse | { error: "DUPLICATE_CODE" }> {
   return withTenant(async (tenantId) => {
     // If setting as default, unset any existing default first
     if (data.isDefault) {
@@ -118,7 +118,7 @@ export async function createWarehouse(
       .limit(1);
 
     if (existing.length > 0) {
-      throw new Error("DUPLICATE_CODE");
+      return { error: "DUPLICATE_CODE" as const };
     }
 
     const rows = await db
