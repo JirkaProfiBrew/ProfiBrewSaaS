@@ -110,10 +110,13 @@ SaaS ERP system for Czech craft breweries. Multi-tenant application with modular
 - Technical errors: `console.error` with structured logging
 - NEVER show stack traces to the user
 
-### Git
-- Commit messages in English
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
+### Git Workflow (MANDATORY)
+- **After every completed logical change: `git add . && git commit && git push`**
+- Never accumulate uncommitted work — commit frequently
+- Push to origin after every commit (never leave commits local-only)
+- Commit messages in English, conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`
 - One commit = one logical change
+- At the END of every task/phase: verify all changes are committed and pushed
 
 ## Subagents
 

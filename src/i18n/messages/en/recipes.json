@@ -106,6 +106,7 @@
     },
     "dialog": {
       "title": "Add Step",
+      "editTitle": "Edit Step",
       "selectType": "Step Type",
       "selectProfile": "Select Profile"
     }

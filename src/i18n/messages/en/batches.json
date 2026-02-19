@@ -103,7 +103,7 @@
     }
   },
   "measurements": {
-    "add": "+ Measurement",
+    "add": "Measurement",
     "addTitle": "Add Measurement",
     "empty": "No measurements yet",
     "added": "Measurement added",
@@ -147,8 +147,11 @@
       "title": "Progress Chart",
       "plato": "Gravity (°P)"
     },
+    "edited": "Measurement updated",
+    "editError": "Failed to update measurement",
     "dialog": {
       "title": "Add Measurement",
+      "editTitle": "Edit Measurement",
       "selectType": "Measurement Type"
     }
   },
@@ -186,7 +189,7 @@
     }
   },
   "bottling": {
-    "add": "+ Bottling",
+    "add": "Bottling",
     "addTitle": "Add Bottling",
     "empty": "No bottling records",
     "added": "Bottling added",
@@ -211,8 +214,11 @@
       "date": "Bottling Date",
       "notes": "Note"
     },
+    "edited": "Bottling updated",
+    "editError": "Failed to update bottling",
     "dialog": {
       "title": "Add Bottling",
+      "editTitle": "Edit Bottling",
       "selectProduct": "Select Product"
     }
   },

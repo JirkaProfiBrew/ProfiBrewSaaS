@@ -737,6 +737,41 @@ export async function addBatchMeasurement(
   });
 }
 
+/** Update an existing measurement. */
+export async function updateBatchMeasurement(
+  measurementId: string,
+  data: Partial<BatchMeasurementInput>
+): Promise<BatchMeasurement> {
+  return withTenant(async (tenantId) => {
+    const values: Record<string, unknown> = {};
+    if (data.measurementType !== undefined) values.measurementType = data.measurementType;
+    if (data.value !== undefined) values.value = data.value;
+    if (data.valuePlato !== undefined) values.valuePlato = data.valuePlato;
+    if (data.valueSg !== undefined) values.valueSg = data.valueSg;
+    if (data.temperatureC !== undefined) values.temperatureC = data.temperatureC;
+    if (data.isStart !== undefined) values.isStart = data.isStart;
+    if (data.isEnd !== undefined) values.isEnd = data.isEnd;
+    if (data.notes !== undefined) values.notes = data.notes;
+    if (data.measuredAt !== undefined) values.measuredAt = data.measuredAt ? new Date(data.measuredAt) : null;
+    values.updatedAt = sql`now()`;
+
+    const rows = await db
+      .update(batchMeasurements)
+      .set(values)
+      .where(
+        and(
+          eq(batchMeasurements.tenantId, tenantId),
+          eq(batchMeasurements.id, measurementId)
+        )
+      )
+      .returning();
+
+    const row = rows[0];
+    if (!row) throw new Error("Measurement not found");
+    return mapMeasurementRow(row);
+  });
+}
+
 /** Delete a measurement (physical DELETE). */
 export async function deleteBatchMeasurement(
   measurementId: string

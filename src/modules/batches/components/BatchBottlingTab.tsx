@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { addBottlingItem, deleteBottlingItem, getProductionItemOptions } from "../actions";
+import {
+  addBottlingItem,
+  updateBottlingItem,
+  deleteBottlingItem,
+  getProductionItemOptions,
+} from "../actions";
 import type { BottlingItem } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -44,6 +49,15 @@ function formatDate(date: Date | null): string {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+/** Format a Date to date input value (YYYY-MM-DD). */
+function toDateInput(date: Date): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -64,6 +78,8 @@ export function BatchBottlingTab({
   const t = useTranslations("batches");
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productOptions, setProductOptions] = useState<
     Array<{ value: string; label: string }>
@@ -93,13 +109,40 @@ export function BatchBottlingTab({
   }, []);
 
   const resetForm = useCallback((): void => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     setFormData({
       itemId: "",
       quantity: "",
-      bottledAt: "",
+      bottledAt: `${year}-${month}-${day}`,
       notes: "",
     });
   }, []);
+
+  // ── Open dialog handlers ──────────────────────────────────
+
+  const openAddDialog = useCallback((): void => {
+    setDialogMode("add");
+    setEditingId(null);
+    resetForm();
+    setDialogOpen(true);
+  }, [resetForm]);
+
+  const openEditDialog = useCallback((item: BottlingItem): void => {
+    setDialogMode("edit");
+    setEditingId(item.id);
+    setFormData({
+      itemId: item.itemId,
+      quantity: String(item.quantity),
+      bottledAt: item.bottledAt ? toDateInput(item.bottledAt) : "",
+      notes: item.notes ?? "",
+    });
+    setDialogOpen(true);
+  }, []);
+
+  // ── Save handlers ─────────────────────────────────────────
 
   const handleAdd = useCallback(async (): Promise<void> => {
     if (!formData.itemId || !formData.quantity) return;
@@ -126,6 +169,40 @@ export function BatchBottlingTab({
       setIsSubmitting(false);
     }
   }, [batchId, formData, onMutate, resetForm, t]);
+
+  const handleEdit = useCallback(async (): Promise<void> => {
+    if (!editingId || !formData.itemId || !formData.quantity) return;
+
+    const qty = parseInt(formData.quantity, 10);
+    if (isNaN(qty) || qty <= 0) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateBottlingItem(editingId, {
+        itemId: formData.itemId,
+        quantity: qty,
+        bottledAt: formData.bottledAt || undefined,
+        notes: formData.notes || null,
+      });
+      toast.success(t("bottling.edited"));
+      setDialogOpen(false);
+      onMutate();
+    } catch (error: unknown) {
+      console.error("Failed to update bottling item:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`${t("bottling.editError")}: ${msg}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [editingId, formData, onMutate, t]);
+
+  const handleDialogSave = useCallback((): void => {
+    if (dialogMode === "edit") {
+      void handleEdit();
+    } else {
+      void handleAdd();
+    }
+  }, [dialogMode, handleAdd, handleEdit]);
 
   const handleDelete = useCallback(
     async (bottlingId: string): Promise<void> => {
@@ -187,7 +264,7 @@ export function BatchBottlingTab({
 
       {/* Add button */}
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" onClick={openAddDialog}>
           <Plus className="mr-1 size-4" />
           {t("bottling.add")}
         </Button>
@@ -207,7 +284,7 @@ export function BatchBottlingTab({
               <TableHead>{t("bottling.columns.volume")}</TableHead>
               <TableHead>{t("bottling.columns.date")}</TableHead>
               <TableHead>{t("bottling.columns.notes")}</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[80px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -230,15 +307,24 @@ export function BatchBottlingTab({
                   {item.notes ?? "-"}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    onClick={() => {
-                      void handleDelete(item.id);
-                    }}
-                  >
-                    <Trash2 className="size-3 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => openEditDialog(item)}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => {
+                        void handleDelete(item.id);
+                      }}
+                    >
+                      <Trash2 className="size-3 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -246,11 +332,15 @@ export function BatchBottlingTab({
         </Table>
       )}
 
-      {/* Add dialog */}
+      {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("bottling.addTitle")}</DialogTitle>
+            <DialogTitle>
+              {dialogMode === "edit"
+                ? t("bottling.dialog.editTitle")
+                : t("bottling.addTitle")}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
@@ -327,9 +417,7 @@ export function BatchBottlingTab({
             </Button>
             <Button
               disabled={!formData.itemId || !formData.quantity || isSubmitting}
-              onClick={() => {
-                void handleAdd();
-              }}
+              onClick={handleDialogSave}
             >
               {t("bottling.save")}
             </Button>

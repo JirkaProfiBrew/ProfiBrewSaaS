@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   LineChart,
@@ -42,7 +42,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { addBatchMeasurement, deleteBatchMeasurement } from "../actions";
+import {
+  addBatchMeasurement,
+  updateBatchMeasurement,
+  deleteBatchMeasurement,
+} from "../actions";
 import type { BatchMeasurement } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -57,6 +61,17 @@ function formatDate(date: Date | null): string {
   });
 }
 
+/** Format a Date to datetime-local input value (YYYY-MM-DDTHH:mm). */
+function toDatetimeLocal(date: Date): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 const MEASUREMENT_TYPES = [
   "gravity",
   "temperature",
@@ -64,6 +79,32 @@ const MEASUREMENT_TYPES = [
   "volume",
   "pressure",
 ];
+
+/** Parse a decimal string, accepting both "." and "," as separator. */
+function parseDecimalInput(input: string): number {
+  return parseFloat(input.replace(",", "."));
+}
+
+/** Normalize decimal input for DB storage: replace "," with ".". */
+function normalizeDecimal(input: string): string {
+  return input.replace(",", ".");
+}
+
+/**
+ * Convert Plato to Specific Gravity.
+ * Formula: SG = 1 + (plato / (258.6 - 0.8796 * plato))
+ */
+function platoToSg(plato: number): number {
+  return 1 + plato / (258.6 - 0.8796 * plato);
+}
+
+/**
+ * Convert Specific Gravity to Plato.
+ * Polynomial approximation: plato = -668.962 + 1262.45·SG - 776.43·SG² + 182.94·SG³
+ */
+function sgToPlato(sg: number): number {
+  return -668.962 + 1262.45 * sg - 776.43 * sg * sg + 182.94 * sg * sg * sg;
+}
 
 // ── Component ──────────────────────────────────────────────────
 
@@ -81,7 +122,15 @@ export function BatchMeasurementsTab({
   const t = useTranslations("batches");
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /** Get current datetime in datetime-local format (YYYY-MM-DDTHH:mm). */
+  const getCurrentDateTime = useCallback((): string => {
+    return toDatetimeLocal(new Date());
+  }, []);
+
   const [formData, setFormData] = useState({
     measurementType: "gravity",
     value: "",
@@ -92,6 +141,8 @@ export function BatchMeasurementsTab({
     measuredAt: "",
   });
 
+  const isGravity = formData.measurementType === "gravity";
+
   const resetForm = useCallback((): void => {
     setFormData({
       measurementType: "gravity",
@@ -100,35 +151,150 @@ export function BatchMeasurementsTab({
       valueSg: "",
       temperatureC: "",
       notes: "",
-      measuredAt: "",
+      measuredAt: getCurrentDateTime(),
+    });
+  }, [getCurrentDateTime]);
+
+  // ── Open dialog handlers ──────────────────────────────────
+
+  const openAddDialog = useCallback((): void => {
+    setDialogMode("add");
+    setEditingId(null);
+    resetForm();
+    setDialogOpen(true);
+  }, [resetForm]);
+
+  const openEditDialog = useCallback((m: BatchMeasurement): void => {
+    setDialogMode("edit");
+    setEditingId(m.id);
+    setFormData({
+      measurementType: m.measurementType,
+      value: m.value ?? "",
+      valuePlato: m.valuePlato ?? "",
+      valueSg: m.valueSg ?? "",
+      temperatureC: m.temperatureC ?? "",
+      notes: m.notes ?? "",
+      measuredAt: m.measuredAt ? toDatetimeLocal(m.measuredAt) : "",
+    });
+    setDialogOpen(true);
+  }, []);
+
+  // ── Plato ↔ SG linked handlers ────────────────────────────
+
+  const handlePlatoChange = useCallback((rawValue: string): void => {
+    setFormData((prev) => {
+      const next = { ...prev, valuePlato: rawValue };
+      const plato = parseDecimalInput(rawValue);
+      if (!isNaN(plato) && plato >= 0 && plato <= 40) {
+        next.valueSg = platoToSg(plato).toFixed(4);
+      } else if (rawValue.trim() === "") {
+        next.valueSg = "";
+      }
+      return next;
     });
   }, []);
 
+  const handleSgChange = useCallback((rawValue: string): void => {
+    setFormData((prev) => {
+      const next = { ...prev, valueSg: rawValue };
+      const sg = parseDecimalInput(rawValue);
+      if (!isNaN(sg) && sg >= 0.99 && sg <= 1.2) {
+        next.valuePlato = sgToPlato(sg).toFixed(1);
+      } else if (rawValue.trim() === "") {
+        next.valuePlato = "";
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Save handlers ─────────────────────────────────────────
+
+  const buildPayload = useCallback((): {
+    measurementType: string;
+    value: string | null;
+    valuePlato: string | null;
+    valueSg: string | null;
+    temperatureC: string | null;
+    isStart: boolean;
+    isEnd: boolean;
+    notes: string | null;
+    measuredAt: string | undefined;
+  } | null => {
+    const g = formData.measurementType === "gravity";
+    let hasValue: boolean;
+    if (g) {
+      hasValue = !!(formData.valuePlato.trim() || formData.valueSg.trim());
+    } else {
+      hasValue = !!formData.value.trim();
+    }
+    if (!hasValue) return null;
+
+    return {
+      measurementType: formData.measurementType,
+      value: g ? null : normalizeDecimal(formData.value.trim()) || null,
+      valuePlato: normalizeDecimal(formData.valuePlato.trim()) || null,
+      valueSg: normalizeDecimal(formData.valueSg.trim()) || null,
+      temperatureC: normalizeDecimal(formData.temperatureC.trim()) || null,
+      isStart: false,
+      isEnd: false,
+      notes: formData.notes.trim() || null,
+      measuredAt: formData.measuredAt || undefined,
+    };
+  }, [formData]);
+
   const handleAdd = useCallback(async (): Promise<void> => {
+    const payload = buildPayload();
+    if (!payload) {
+      toast.error(t("measurements.addError"));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await addBatchMeasurement(batchId, {
-        measurementType: formData.measurementType,
-        value: formData.value || null,
-        valuePlato: formData.valuePlato || null,
-        valueSg: formData.valueSg || null,
-        temperatureC: formData.temperatureC || null,
-        isStart: false,
-        isEnd: false,
-        notes: formData.notes || null,
-        measuredAt: formData.measuredAt || undefined,
-      });
+      await addBatchMeasurement(batchId, payload);
       toast.success(t("measurements.added"));
       setDialogOpen(false);
       resetForm();
       onMutate();
     } catch (error: unknown) {
       console.error("Failed to add measurement:", error);
-      toast.error(t("measurements.addError"));
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`${t("measurements.addError")}: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [batchId, formData, onMutate, resetForm, t]);
+  }, [batchId, buildPayload, onMutate, resetForm, t]);
+
+  const handleEdit = useCallback(async (): Promise<void> => {
+    if (!editingId) return;
+    const payload = buildPayload();
+    if (!payload) {
+      toast.error(t("measurements.editError"));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateBatchMeasurement(editingId, payload);
+      toast.success(t("measurements.edited"));
+      setDialogOpen(false);
+      onMutate();
+    } catch (error: unknown) {
+      console.error("Failed to update measurement:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`${t("measurements.editError")}: ${msg}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [editingId, buildPayload, onMutate, t]);
+
+  const handleDialogSave = useCallback((): void => {
+    if (dialogMode === "edit") {
+      void handleEdit();
+    } else {
+      void handleAdd();
+    }
+  }, [dialogMode, handleAdd, handleEdit]);
 
   const handleDelete = useCallback(
     async (measurementId: string): Promise<void> => {
@@ -188,10 +354,7 @@ export function BatchMeasurementsTab({
 
       {/* Add button */}
       <div className="flex justify-end">
-        <Button
-          size="sm"
-          onClick={() => setDialogOpen(true)}
-        >
+        <Button size="sm" onClick={openAddDialog}>
           <Plus className="mr-1 size-4" />
           {t("measurements.add")}
         </Button>
@@ -213,7 +376,7 @@ export function BatchMeasurementsTab({
               <TableHead>{t("measurements.columns.temperature")}</TableHead>
               <TableHead>{t("measurements.columns.date")}</TableHead>
               <TableHead>{t("measurements.columns.notes")}</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[80px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -237,15 +400,24 @@ export function BatchMeasurementsTab({
                   {m.notes ?? "-"}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    onClick={() => {
-                      void handleDelete(m.id);
-                    }}
-                  >
-                    <Trash2 className="size-3 text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => openEditDialog(m)}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() => {
+                        void handleDelete(m.id);
+                      }}
+                    >
+                      <Trash2 className="size-3 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -253,20 +425,31 @@ export function BatchMeasurementsTab({
         </Table>
       )}
 
-      {/* Add measurement dialog */}
+      {/* Add / Edit measurement dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("measurements.addTitle")}</DialogTitle>
+            <DialogTitle>
+              {dialogMode === "edit"
+                ? t("measurements.dialog.editTitle")
+                : t("measurements.addTitle")}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
+            {/* Measurement type */}
             <div className="flex flex-col gap-2">
               <Label>{t("measurements.columns.type")}</Label>
               <Select
                 value={formData.measurementType}
                 onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, measurementType: val }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    measurementType: val,
+                    value: "",
+                    valuePlato: "",
+                    valueSg: "",
+                  }))
                 }
               >
                 <SelectTrigger className="w-full">
@@ -282,10 +465,34 @@ export function BatchMeasurementsTab({
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Gravity-specific: Plato + SG (linked) */}
+            {isGravity ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>{t("measurements.columns.plato")}</Label>
+                  <Input
+                    inputMode="decimal"
+                    value={formData.valuePlato}
+                    onChange={(e) => handlePlatoChange(e.target.value)}
+                    placeholder="12,5"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>{t("measurements.columns.sg")}</Label>
+                  <Input
+                    inputMode="decimal"
+                    value={formData.valueSg}
+                    onChange={(e) => handleSgChange(e.target.value)}
+                    placeholder="1,050"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Non-gravity: generic Value field */
               <div className="flex flex-col gap-2">
                 <Label>{t("measurements.columns.value")}</Label>
                 <Input
+                  inputMode="decimal"
                   value={formData.value}
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, value: e.target.value }))
@@ -293,50 +500,25 @@ export function BatchMeasurementsTab({
                   placeholder="0"
                 />
               </div>
+            )}
 
-              <div className="flex flex-col gap-2">
-                <Label>{t("measurements.columns.plato")}</Label>
-                <Input
-                  value={formData.valuePlato}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      valuePlato: e.target.value,
-                    }))
-                  }
-                  placeholder="°P"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>{t("measurements.columns.sg")}</Label>
-                <Input
-                  value={formData.valueSg}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      valueSg: e.target.value,
-                    }))
-                  }
-                  placeholder="SG"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>{t("measurements.columns.temperature")}</Label>
-                <Input
-                  value={formData.temperatureC}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      temperatureC: e.target.value,
-                    }))
-                  }
-                  placeholder="°C"
-                />
-              </div>
+            {/* Temperature — always visible */}
+            <div className="flex flex-col gap-2">
+              <Label>{t("measurements.columns.temperature")}</Label>
+              <Input
+                inputMode="decimal"
+                value={formData.temperatureC}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    temperatureC: e.target.value,
+                  }))
+                }
+                placeholder="°C"
+              />
             </div>
 
+            {/* Date */}
             <div className="flex flex-col gap-2">
               <Label>{t("measurements.columns.date")}</Label>
               <Input
@@ -351,6 +533,7 @@ export function BatchMeasurementsTab({
               />
             </div>
 
+            {/* Notes */}
             <div className="flex flex-col gap-2">
               <Label>{t("measurements.columns.notes")}</Label>
               <Textarea
@@ -369,9 +552,7 @@ export function BatchMeasurementsTab({
             </Button>
             <Button
               disabled={isSubmitting}
-              onClick={() => {
-                void handleAdd();
-              }}
+              onClick={handleDialogSave}
             >
               {t("measurements.save")}
             </Button>

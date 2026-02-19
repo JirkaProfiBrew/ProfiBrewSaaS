@@ -103,7 +103,7 @@
     }
   },
   "measurements": {
-    "add": "+ Měření",
+    "add": "Měření",
     "addTitle": "Přidat měření",
     "empty": "Zatím žádná měření",
     "added": "Měření přidáno",
@@ -147,8 +147,11 @@
       "title": "Graf vývoje",
       "plato": "Hustota (°P)"
     },
+    "edited": "Měření aktualizováno",
+    "editError": "Chyba při aktualizaci měření",
     "dialog": {
       "title": "Přidat měření",
+      "editTitle": "Upravit měření",
       "selectType": "Typ měření"
     }
   },
@@ -186,7 +189,7 @@
     }
   },
   "bottling": {
-    "add": "+ Stáčení",
+    "add": "Stáčení",
     "addTitle": "Přidat stáčení",
     "empty": "Žádné záznamy o stáčení",
     "added": "Stáčení přidáno",
@@ -211,8 +214,11 @@
       "date": "Datum stáčení",
       "notes": "Poznámka"
     },
+    "edited": "Stáčení aktualizováno",
+    "editError": "Chyba při aktualizaci stáčení",
     "dialog": {
       "title": "Přidat stáčení",
+      "editTitle": "Upravit stáčení",
       "selectProduct": "Vyberte produkt"
     }
   },

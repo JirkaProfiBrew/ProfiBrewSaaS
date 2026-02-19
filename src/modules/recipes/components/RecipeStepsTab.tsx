@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2, ChevronUp, ChevronDown, Plus, Download } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown, Plus, Download, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import type { RecipeStep } from "../types";
 import { useMashingProfiles } from "../hooks";
 import {
   addRecipeStep,
+  updateRecipeStep,
   removeRecipeStep,
   reorderRecipeSteps,
   applyMashProfile,
@@ -72,11 +73,13 @@ export function RecipeStepsTab({
 
   const { data: mashProfiles } = useMashingProfiles();
 
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [stepDialogOpen, setStepDialogOpen] = useState(false);
+  const [stepDialogMode, setStepDialogMode] = useState<"add" | "edit">("add");
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New step form state
+  // Step form state (shared for add/edit)
   const [newStepType, setNewStepType] = useState<string>("rest");
   const [newName, setNewName] = useState("");
   const [newTemperatureC, setNewTemperatureC] = useState("");
@@ -94,7 +97,32 @@ export function RecipeStepsTab({
     setNewTimeMin("");
     setNewRampTimeMin("");
     setNewStepNotes("");
+    setEditingStepId(null);
+    setStepDialogMode("add");
   }, []);
+
+  // Open add dialog
+  const openAddDialog = useCallback((): void => {
+    resetForm();
+    setStepDialogMode("add");
+    setStepDialogOpen(true);
+  }, [resetForm]);
+
+  // Open edit dialog with pre-populated values
+  const openEditDialog = useCallback(
+    (step: RecipeStep): void => {
+      setStepDialogMode("edit");
+      setEditingStepId(step.id);
+      setNewStepType(step.stepType);
+      setNewName(step.name);
+      setNewTemperatureC(step.temperatureC ?? "");
+      setNewTimeMin(step.timeMin != null ? String(step.timeMin) : "");
+      setNewRampTimeMin(step.rampTimeMin != null ? String(step.rampTimeMin) : "");
+      setNewStepNotes(step.notes ?? "");
+      setStepDialogOpen(true);
+    },
+    []
+  );
 
   const handleAddStep = useCallback(async (): Promise<void> => {
     if (!newName.trim()) {
@@ -114,7 +142,7 @@ export function RecipeStepsTab({
       });
       toast.success(tCommon("saved"));
       resetForm();
-      setAddDialogOpen(false);
+      setStepDialogOpen(false);
       onMutate();
     } catch (error: unknown) {
       console.error("Failed to add recipe step:", error);
@@ -134,6 +162,53 @@ export function RecipeStepsTab({
     resetForm,
     onMutate,
   ]);
+
+  const handleEditSave = useCallback(async (): Promise<void> => {
+    if (!editingStepId || !newName.trim()) {
+      toast.error(tCommon("validation.required"));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateRecipeStep(editingStepId, {
+        stepType: newStepType,
+        name: newName,
+        temperatureC: newTemperatureC || null,
+        timeMin: newTimeMin ? Number(newTimeMin) : null,
+        rampTimeMin: newRampTimeMin ? Number(newRampTimeMin) : null,
+        notes: newStepNotes || null,
+      });
+      toast.success(tCommon("saved"));
+      resetForm();
+      setStepDialogOpen(false);
+      onMutate();
+    } catch (error: unknown) {
+      console.error("Failed to update recipe step:", error);
+      toast.error(tCommon("saveFailed"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    editingStepId,
+    newStepType,
+    newName,
+    newTemperatureC,
+    newTimeMin,
+    newRampTimeMin,
+    newStepNotes,
+    tCommon,
+    resetForm,
+    onMutate,
+  ]);
+
+  const handleDialogSave = useCallback((): void => {
+    if (stepDialogMode === "edit") {
+      void handleEditSave();
+    } else {
+      void handleAddStep();
+    }
+  }, [stepDialogMode, handleEditSave, handleAddStep]);
 
   const handleRemoveStep = useCallback(
     async (stepId: string): Promise<void> => {
@@ -232,7 +307,7 @@ export function RecipeStepsTab({
             <Download className="mr-1 size-4" />
             {t("steps.loadProfile")}
           </Button>
-          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+          <Button size="sm" onClick={openAddDialog}>
             <Plus className="mr-1 size-4" />
             {t("steps.add")}
           </Button>
@@ -255,7 +330,7 @@ export function RecipeStepsTab({
               {t("steps.rampTime")}
             </TableHead>
             <TableHead>{t("steps.notes")}</TableHead>
-            <TableHead className="w-24" />
+            <TableHead className="w-28" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -294,6 +369,14 @@ export function RecipeStepsTab({
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => openEditDialog(step)}
+                      title={t("steps.dialog.editTitle")}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       disabled={idx === 0}
                       onClick={() => {
                         void handleMoveUp(idx);
@@ -328,11 +411,21 @@ export function RecipeStepsTab({
         </TableBody>
       </Table>
 
-      {/* Add Step Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+      {/* Add / Edit Step Dialog */}
+      <Dialog
+        open={stepDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetForm();
+          setStepDialogOpen(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("steps.dialog.title")}</DialogTitle>
+            <DialogTitle>
+              {stepDialogMode === "edit"
+                ? t("steps.dialog.editTitle")
+                : t("steps.dialog.title")}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
             {/* Step Type */}
@@ -422,12 +515,12 @@ export function RecipeStepsTab({
               variant="outline"
               onClick={() => {
                 resetForm();
-                setAddDialogOpen(false);
+                setStepDialogOpen(false);
               }}
             >
               {tCommon("cancel")}
             </Button>
-            <Button onClick={() => void handleAddStep()} disabled={isSubmitting}>
+            <Button onClick={handleDialogSave} disabled={isSubmitting}>
               {tCommon("save")}
             </Button>
           </DialogFooter>

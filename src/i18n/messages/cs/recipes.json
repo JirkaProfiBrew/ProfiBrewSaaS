@@ -106,6 +106,7 @@
     },
     "dialog": {
       "title": "Přidat krok",
+      "editTitle": "Upravit krok",
       "selectType": "Typ kroku",
       "selectProfile": "Vyberte profil"
     }
