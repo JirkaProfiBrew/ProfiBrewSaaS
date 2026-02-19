@@ -17,7 +17,6 @@ function getDefaultCounterConfig(entity: string): { prefix: string; includeYear:
 
 /**
  * Get the next formatted number from a counter sequence.
- * Uses SELECT ... FOR UPDATE to prevent race conditions.
  *
  * @example
  * await getNextNumber(tenantId, "item")                    // → "it00001"
@@ -41,12 +40,11 @@ export async function getNextNumber(
       conditions.push(isNull(counters.warehouseId));
     }
 
-    // Lock the counter row for update
+    // Find the counter row
     const rows = await tx
       .select()
       .from(counters)
-      .where(and(...conditions))
-      .for("update");
+      .where(and(...conditions));
 
     let counter = rows[0];
 
@@ -61,45 +59,46 @@ export async function getNextNumber(
             eq(counters.entity, entity),
             isNull(counters.warehouseId)
           )
-        )
-        .for("update");
+        );
       counter = fallbackRows[0];
     }
 
     if (!counter) {
-      // Auto-create a default counter via raw SQL UPSERT (always returns a row).
-      // Drizzle SELECT + onConflictDoNothing failed in some Supabase pooler configs,
-      // so we use a single atomic statement that always returns the counter.
+      // Auto-create a default counter for this entity.
+      // Use plain INSERT + try/catch to handle potential conflicts.
       const defaultConfig = getDefaultCounterConfig(entity);
-      const wid = warehouseId ?? null;
-
-      const upserted = await tx.execute(
-        sql`INSERT INTO counters (tenant_id, entity, warehouse_id, prefix, include_year, padding, separator, reset_yearly)
-            VALUES (${tenantId}, ${entity}, ${wid}, ${defaultConfig.prefix}, ${defaultConfig.includeYear}, ${defaultConfig.padding}, ${defaultConfig.separator}, ${defaultConfig.resetYearly})
-            ON CONFLICT ON CONSTRAINT counters_tenant_entity_warehouse
-            DO UPDATE SET updated_at = now()
-            RETURNING id, tenant_id, entity, warehouse_id, prefix, include_year, current_number, padding, separator, reset_yearly, created_at, updated_at`
-      );
-
-      const row = upserted[0] as Record<string, unknown> | undefined;
-      if (!row) {
-        throw new Error(`Counter not found for entity "${entity}"`);
+      try {
+        const inserted = await tx
+          .insert(counters)
+          .values({
+            tenantId,
+            entity,
+            warehouseId: warehouseId ?? null,
+            ...defaultConfig,
+          })
+          .returning();
+        counter = inserted[0];
+      } catch {
+        // INSERT failed (likely unique constraint) — re-fetch
+        const retryConditions = [
+          eq(counters.tenantId, tenantId),
+          eq(counters.entity, entity),
+        ];
+        if (warehouseId) {
+          retryConditions.push(eq(counters.warehouseId, warehouseId));
+        } else {
+          retryConditions.push(isNull(counters.warehouseId));
+        }
+        const retryRows = await tx
+          .select()
+          .from(counters)
+          .where(and(...retryConditions));
+        counter = retryRows[0];
       }
 
-      counter = {
-        id: row.id as string,
-        tenantId: row.tenant_id as string,
-        entity: row.entity as string,
-        warehouseId: (row.warehouse_id as string) ?? null,
-        prefix: row.prefix as string,
-        includeYear: row.include_year as boolean,
-        currentNumber: row.current_number as number,
-        padding: row.padding as number,
-        separator: row.separator as string,
-        resetYearly: row.reset_yearly as boolean,
-        createdAt: row.created_at as Date | null,
-        updatedAt: row.updated_at as Date | null,
-      };
+      if (!counter) {
+        throw new Error(`Counter not found for entity "${entity}"`);
+      }
     }
 
     // Check if we need to reset the counter (yearly reset)
