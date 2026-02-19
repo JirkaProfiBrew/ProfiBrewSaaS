@@ -67,39 +67,39 @@ export async function getNextNumber(
     }
 
     if (!counter) {
-      // Auto-create a default counter for this entity (idempotent)
+      // Auto-create a default counter via raw SQL UPSERT (always returns a row).
+      // Drizzle SELECT + onConflictDoNothing failed in some Supabase pooler configs,
+      // so we use a single atomic statement that always returns the counter.
       const defaultConfig = getDefaultCounterConfig(entity);
-      await tx
-        .insert(counters)
-        .values({
-          tenantId,
-          entity,
-          warehouseId: warehouseId ?? null,
-          ...defaultConfig,
-        })
-        .onConflictDoNothing();
-
-      // Re-fetch (may have been created concurrently or already existed)
       const wid = warehouseId ?? null;
-      const refetchConditions = [
-        eq(counters.tenantId, tenantId),
-        eq(counters.entity, entity),
-      ];
-      if (wid) {
-        refetchConditions.push(eq(counters.warehouseId, wid));
-      } else {
-        refetchConditions.push(isNull(counters.warehouseId));
-      }
-      const refetched = await tx
-        .select()
-        .from(counters)
-        .where(and(...refetchConditions))
-        .for("update");
 
-      counter = refetched[0];
-      if (!counter) {
+      const upserted = await tx.execute(
+        sql`INSERT INTO counters (tenant_id, entity, warehouse_id, prefix, include_year, padding, separator, reset_yearly)
+            VALUES (${tenantId}, ${entity}, ${wid}, ${defaultConfig.prefix}, ${defaultConfig.includeYear}, ${defaultConfig.padding}, ${defaultConfig.separator}, ${defaultConfig.resetYearly})
+            ON CONFLICT ON CONSTRAINT counters_tenant_entity_warehouse
+            DO UPDATE SET updated_at = now()
+            RETURNING id, tenant_id, entity, warehouse_id, prefix, include_year, current_number, padding, separator, reset_yearly, created_at, updated_at`
+      );
+
+      const row = upserted[0] as Record<string, unknown> | undefined;
+      if (!row) {
         throw new Error(`Counter not found for entity "${entity}"`);
       }
+
+      counter = {
+        id: row.id as string,
+        tenantId: row.tenant_id as string,
+        entity: row.entity as string,
+        warehouseId: (row.warehouse_id as string) ?? null,
+        prefix: row.prefix as string,
+        includeYear: row.include_year as boolean,
+        currentNumber: row.current_number as number,
+        padding: row.padding as number,
+        separator: row.separator as string,
+        resetYearly: row.reset_yearly as boolean,
+        createdAt: row.created_at as Date | null,
+        updatedAt: row.updated_at as Date | null,
+      };
     }
 
     // Check if we need to reset the counter (yearly reset)
