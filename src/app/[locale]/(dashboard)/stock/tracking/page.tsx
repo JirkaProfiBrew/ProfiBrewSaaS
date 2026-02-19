@@ -1,8 +1,5 @@
-export default function StockTrackingPage(): React.ReactNode {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Stock Tracking</h1>
-      <p className="mt-2 text-muted-foreground">Coming Soon</p>
-    </div>
-  );
+import { LotBrowser } from "@/modules/material-lots/components/LotBrowser";
+
+export default function LotTrackingPage(): React.ReactNode {
+  return <LotBrowser />;
 }

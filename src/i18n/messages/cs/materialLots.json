@@ -1,0 +1,71 @@
+{
+  "title": "Sledování šarží",
+  "browserTitle": "Šarže surovin",
+  "create": "+ Šarže",
+  "columns": {
+    "lotNumber": "Číslo šarže",
+    "itemName": "Položka",
+    "supplierName": "Dodavatel",
+    "receivedDate": "Datum příjmu",
+    "expiryDate": "Expirace",
+    "quantityInitial": "Počáteční mn.",
+    "quantityRemaining": "Zbývající mn.",
+    "status": "Stav"
+  },
+  "quickFilters": {
+    "all": "Vše",
+    "expiring": "Expirující (30 dní)",
+    "exhausted": "Vyčerpané"
+  },
+  "filters": {
+    "itemId": "Položka",
+    "supplierId": "Dodavatel"
+  },
+  "status": {
+    "active": "Aktivní",
+    "exhausted": "Vyčerpáno",
+    "expiring": "Expiruje",
+    "expired": "Po expiraci"
+  },
+  "detail": {
+    "title": "Detail šarže",
+    "newTitle": "Nová šarže",
+    "saved": "Šarže uložena",
+    "saveFailed": "Chyba při ukládání šarže",
+    "deleted": "Šarže smazána",
+    "deleteFailed": "Chyba při mazání šarže"
+  },
+  "tabs": {
+    "basic": "Základní údaje",
+    "properties": "Vlastnosti",
+    "traceability": "Traceabilita"
+  },
+  "form": {
+    "lotNumber": "Číslo šarže",
+    "item": "Položka",
+    "supplier": "Dodavatel",
+    "receivedDate": "Datum příjmu",
+    "expiryDate": "Expirace",
+    "quantityInitial": "Počáteční množství",
+    "quantityRemaining": "Zbývající množství",
+    "unitPrice": "Nákupní cena",
+    "notes": "Poznámky"
+  },
+  "properties": {
+    "title": "Vlastnosti šarže",
+    "addProperty": "Přidat vlastnost",
+    "key": "Klíč",
+    "value": "Hodnota",
+    "remove": "Odebrat",
+    "noProperties": "Žádné vlastnosti",
+    "examples": "Příklady: certifikát, analýza, LOA, obsah vlhkosti, barva"
+  },
+  "traceability": {
+    "title": "Použití ve várkách",
+    "noBatches": "Tato šarže nebyla zatím použita v žádné várce.",
+    "batch": "Várka",
+    "recipe": "Receptura",
+    "brewDate": "Datum vaření",
+    "quantityUsed": "Použité množství"
+  }
+}

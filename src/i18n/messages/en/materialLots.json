@@ -1,0 +1,71 @@
+{
+  "title": "Lot Tracking",
+  "browserTitle": "Material Lots",
+  "create": "+ Lot",
+  "columns": {
+    "lotNumber": "Lot Number",
+    "itemName": "Item",
+    "supplierName": "Supplier",
+    "receivedDate": "Received Date",
+    "expiryDate": "Expiry Date",
+    "quantityInitial": "Initial Qty",
+    "quantityRemaining": "Remaining Qty",
+    "status": "Status"
+  },
+  "quickFilters": {
+    "all": "All",
+    "expiring": "Expiring (30 days)",
+    "exhausted": "Exhausted"
+  },
+  "filters": {
+    "itemId": "Item",
+    "supplierId": "Supplier"
+  },
+  "status": {
+    "active": "Active",
+    "exhausted": "Exhausted",
+    "expiring": "Expiring",
+    "expired": "Expired"
+  },
+  "detail": {
+    "title": "Lot Detail",
+    "newTitle": "New Lot",
+    "saved": "Lot saved",
+    "saveFailed": "Failed to save lot",
+    "deleted": "Lot deleted",
+    "deleteFailed": "Failed to delete lot"
+  },
+  "tabs": {
+    "basic": "Basic Info",
+    "properties": "Properties",
+    "traceability": "Traceability"
+  },
+  "form": {
+    "lotNumber": "Lot Number",
+    "item": "Item",
+    "supplier": "Supplier",
+    "receivedDate": "Received Date",
+    "expiryDate": "Expiry Date",
+    "quantityInitial": "Initial Quantity",
+    "quantityRemaining": "Remaining Quantity",
+    "unitPrice": "Unit Price",
+    "notes": "Notes"
+  },
+  "properties": {
+    "title": "Lot Properties",
+    "addProperty": "Add Property",
+    "key": "Key",
+    "value": "Value",
+    "remove": "Remove",
+    "noProperties": "No properties",
+    "examples": "Examples: certificate, analysis, LOA, moisture content, color"
+  },
+  "traceability": {
+    "title": "Batch Usage",
+    "noBatches": "This lot has not been used in any batch yet.",
+    "batch": "Batch",
+    "recipe": "Recipe",
+    "brewDate": "Brew Date",
+    "quantityUsed": "Quantity Used"
+  }
+}
