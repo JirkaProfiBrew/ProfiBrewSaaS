@@ -1,0 +1,48 @@
+{
+  "title": "Warehouses",
+  "create": "Warehouse",
+  "quickFilters": {
+    "all": "All",
+    "active": "Active",
+    "excise": "Excise"
+  },
+  "columns": {
+    "code": "Code",
+    "name": "Name",
+    "shopName": "Shop",
+    "isExciseRelevant": "Excise",
+    "categoriesDisplay": "Categories",
+    "isDefault": "Default",
+    "isActive": "Active"
+  },
+  "filters": {
+    "isActive": "Active",
+    "isExciseRelevant": "Excise Warehouse"
+  },
+  "categories": {
+    "suroviny": "Materials",
+    "pivo": "Beer",
+    "obaly": "Packaging",
+    "sluzby": "Services",
+    "ostatni": "Other"
+  },
+  "detail": {
+    "title": "Warehouse Detail",
+    "newTitle": "New Warehouse",
+    "fields": {
+      "code": "Code",
+      "name": "Name",
+      "shopId": "Shop",
+      "noShop": "— no shop —",
+      "isExciseRelevant": "Excise Warehouse",
+      "isDefault": "Default Warehouse",
+      "isActive": "Active",
+      "codeReadonly": "Code cannot be changed after creation"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    }
+  }
+}

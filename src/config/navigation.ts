@@ -23,6 +23,7 @@ import {
   Building2,
   Hash,
   UserCog,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -119,6 +120,7 @@ export const settingsAgenda: AgendaConfig = {
 export const settingsSubAgendas: AgendaConfig[] = [
   { slug: "settingsGeneral", icon: Settings, labelKey: "settingsGeneral", path: "settings" },
   { slug: "shops", icon: Building2, labelKey: "shops", path: "settings/shops" },
+  { slug: "warehouses", icon: Warehouse, labelKey: "warehouses", path: "settings/warehouses" },
   { slug: "users", icon: UserCog, labelKey: "users", path: "settings/users" },
   { slug: "counters", icon: Hash, labelKey: "counters", path: "settings/counters" },
 ];

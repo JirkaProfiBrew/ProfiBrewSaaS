@@ -1,0 +1,48 @@
+{
+  "title": "Sklady",
+  "create": "Sklad",
+  "quickFilters": {
+    "all": "Vše",
+    "active": "Aktivní",
+    "excise": "Daňové"
+  },
+  "columns": {
+    "code": "Kód",
+    "name": "Název",
+    "shopName": "Provozovna",
+    "isExciseRelevant": "Daňový",
+    "categoriesDisplay": "Kategorie",
+    "isDefault": "Výchozí",
+    "isActive": "Aktivní"
+  },
+  "filters": {
+    "isActive": "Aktivní",
+    "isExciseRelevant": "Daňový sklad"
+  },
+  "categories": {
+    "suroviny": "Suroviny",
+    "pivo": "Pivo",
+    "obaly": "Obaly",
+    "sluzby": "Služby",
+    "ostatni": "Ostatní"
+  },
+  "detail": {
+    "title": "Detail skladu",
+    "newTitle": "Nový sklad",
+    "fields": {
+      "code": "Kód",
+      "name": "Název",
+      "shopId": "Provozovna",
+      "noShop": "— bez provozovny —",
+      "isExciseRelevant": "Daňový sklad",
+      "isDefault": "Výchozí sklad",
+      "isActive": "Aktivní",
+      "codeReadonly": "Kód nelze změnit po vytvoření"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "cancel": "Zrušit"
+    }
+  }
+}
