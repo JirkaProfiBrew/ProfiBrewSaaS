@@ -67,9 +67,9 @@ export async function getNextNumber(
     }
 
     if (!counter) {
-      // Auto-create a default counter for this entity
+      // Auto-create a default counter for this entity (idempotent)
       const defaultConfig = getDefaultCounterConfig(entity);
-      const inserted = await tx
+      await tx
         .insert(counters)
         .values({
           tenantId,
@@ -77,11 +77,28 @@ export async function getNextNumber(
           warehouseId: warehouseId ?? null,
           ...defaultConfig,
         })
-        .returning();
+        .onConflictDoNothing();
 
-      counter = inserted[0];
+      // Re-fetch (may have been created concurrently or already existed)
+      const wid = warehouseId ?? null;
+      const refetchConditions = [
+        eq(counters.tenantId, tenantId),
+        eq(counters.entity, entity),
+      ];
+      if (wid) {
+        refetchConditions.push(eq(counters.warehouseId, wid));
+      } else {
+        refetchConditions.push(isNull(counters.warehouseId));
+      }
+      const refetched = await tx
+        .select()
+        .from(counters)
+        .where(and(...refetchConditions))
+        .for("update");
+
+      counter = refetched[0];
       if (!counter) {
-        throw new Error(`Failed to create counter for entity "${entity}"`);
+        throw new Error(`Counter not found for entity "${entity}"`);
       }
     }
 
