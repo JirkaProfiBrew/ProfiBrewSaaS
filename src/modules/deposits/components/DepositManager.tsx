@@ -20,17 +20,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 import {
   getDeposits,
   createDeposit,
   updateDeposit,
+  deleteDeposit,
 } from "../actions";
 import type { Deposit, CreateDepositInput, UpdateDepositInput } from "../types";
 
@@ -54,6 +56,8 @@ export function DepositManager(): React.ReactNode {
   const [editingItem, setEditingItem] = useState<Deposit | null>(null);
   const [formValues, setFormValues] = useState<DialogFormValues>(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Deposit | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -153,6 +157,29 @@ export function DepositManager(): React.ReactNode {
     [load, t]
   );
 
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteDeposit(deleteTarget.id);
+      if ("error" in result) {
+        if (result.error === "HAS_RELATED_RECORDS") {
+          toast.error(t("messages.hasRelatedRecords"));
+        } else {
+          toast.error(t("messages.deleteFailed"));
+        }
+        return;
+      }
+      toast.success(t("messages.deleted"));
+      await load();
+    } catch {
+      toast.error(t("messages.deleteFailed"));
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, load, t]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -209,6 +236,15 @@ export function DepositManager(): React.ReactNode {
                   >
                     <Pencil className="mr-1 h-4 w-4" />
                     {t("actions.edit")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(deposit)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    {t("actions.delete")}
                   </Button>
                 </div>
               </TableCell>
@@ -292,6 +328,33 @@ export function DepositManager(): React.ReactNode {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {t("dialog.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("dialog.deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("dialog.deleteDescription", { name: deleteTarget?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {t("dialog.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {t("actions.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,6 +10,8 @@
   "dialog": {
     "createTitle": "Nová záloha",
     "editTitle": "Upravit zálohu",
+    "deleteTitle": "Smazat zálohu",
+    "deleteDescription": "Opravdu chcete smazat zálohu \"{name}\"? Tuto akci nelze vrátit.",
     "name": "Název",
     "namePlaceholder": "např. Keg 30L",
     "amount": "Výše zálohy (Kč)",
@@ -20,11 +22,15 @@
   },
   "actions": {
     "add": "Přidat zálohu",
-    "edit": "Upravit"
+    "edit": "Upravit",
+    "delete": "Smazat"
   },
   "messages": {
     "saved": "Záloha uložena",
     "saveFailed": "Nepodařilo se uložit zálohu",
+    "deleted": "Záloha smazána",
+    "deleteFailed": "Nepodařilo se smazat zálohu",
+    "hasRelatedRecords": "Zálohu nelze smazat — je použita v objednávkách",
     "nameRequired": "Název je povinný",
     "amountRequired": "Výše zálohy je povinná"
   },

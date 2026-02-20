@@ -3,7 +3,8 @@
 import { withTenant } from "@/lib/db/with-tenant";
 import { db } from "@/lib/db";
 import { deposits } from "@/../drizzle/schema/deposits";
-import { eq, and, sql } from "drizzle-orm";
+import { orderItems } from "@/../drizzle/schema/orders";
+import { eq, and, sql, count } from "drizzle-orm";
 import type { Deposit, CreateDepositInput, UpdateDepositInput } from "./types";
 
 /**
@@ -129,12 +130,25 @@ export async function updateDeposit(
 
 /**
  * Soft-delete a deposit (set isActive = false).
+ * Checks for related order_items first — if any exist, returns HAS_RELATED_RECORDS.
  */
 export async function deleteDeposit(
   id: string
 ): Promise<{ success: true } | { error: string }> {
   return withTenant(async (tenantId) => {
     try {
+      // Check for related order_items using this deposit
+      const related = await db
+        .select({ value: count() })
+        .from(orderItems)
+        .where(
+          and(eq(orderItems.depositId, id), eq(orderItems.tenantId, tenantId))
+        );
+
+      if ((related[0]?.value ?? 0) > 0) {
+        return { error: "HAS_RELATED_RECORDS" };
+      }
+
       const rows = await db
         .update(deposits)
         .set({

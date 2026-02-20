@@ -10,6 +10,8 @@
   "dialog": {
     "createTitle": "New Deposit",
     "editTitle": "Edit Deposit",
+    "deleteTitle": "Delete Deposit",
+    "deleteDescription": "Are you sure you want to delete deposit \"{name}\"? This action cannot be undone.",
     "name": "Name",
     "namePlaceholder": "e.g. Keg 30L",
     "amount": "Deposit Amount (CZK)",
@@ -20,11 +22,15 @@
   },
   "actions": {
     "add": "Add Deposit",
-    "edit": "Edit"
+    "edit": "Edit",
+    "delete": "Delete"
   },
   "messages": {
     "saved": "Deposit saved",
     "saveFailed": "Failed to save deposit",
+    "deleted": "Deposit deleted",
+    "deleteFailed": "Failed to delete deposit",
+    "hasRelatedRecords": "Cannot delete deposit — it is used in orders",
     "nameRequired": "Name is required",
     "amountRequired": "Deposit amount is required"
   },
