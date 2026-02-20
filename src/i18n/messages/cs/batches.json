@@ -70,7 +70,14 @@
     "completed": "Dokončeno",
     "inProgress": "Probíhá",
     "planned": "Naplánováno",
-    "phase": "Fáze",
+    "phase": {
+      "mashing": "Vystírání",
+      "boiling": "Chmelovar",
+      "post_boil": "Po varu",
+      "fermentation": "Kvašení",
+      "conditioning": "Dokvašování",
+      "other": "Ostatní"
+    },
     "name": "Název",
     "temperature": "Teplota (°C)",
     "timePlan": "Čas plán (min)",
@@ -92,14 +99,6 @@
       "startReal": "Start skutečný",
       "endReal": "Konec skutečný",
       "actions": "Akce"
-    },
-    "phase": {
-      "mashing": "Vystírání",
-      "boiling": "Chmelovar",
-      "post_boil": "Po varu",
-      "fermentation": "Kvašení",
-      "conditioning": "Dokvašování",
-      "other": "Ostatní"
     }
   },
   "measurements": {
@@ -165,17 +164,6 @@
     "snapshotBadgeNoSource": "Snapshot receptu",
     "viewOriginal": "Zobrazit originál",
     "item": "Položka",
-    "category": "Kategorie",
-    "amount": "Plánované množství",
-    "stage": "Fáze",
-    "columns": {
-      "name": "Surovina",
-      "category": "Kategorie",
-      "amount": "Množství",
-      "unit": "MJ",
-      "stage": "Fáze",
-      "time": "Čas"
-    },
     "category": {
       "malt": "Slad",
       "hop": "Chmel",
@@ -183,13 +171,32 @@
       "adjunct": "Přísada",
       "other": "Ostatní"
     },
+    "amount": "Plánované množství",
     "stage": {
       "mash": "Vystírání",
       "boil": "Chmelovar",
       "whirlpool": "Whirlpool",
       "fermentation": "Kvašení",
       "dry_hop": "Dry hop"
-    }
+    },
+    "columns": {
+      "name": "Surovina",
+      "category": "Kategorie",
+      "amount": "Množství",
+      "unit": "MJ",
+      "stage": "Fáze",
+      "time": "Čas",
+      "recipeQty": "Recept",
+      "issued": "Vydáno",
+      "missing": "Chybí"
+    },
+    "actions": {
+      "issueMaterials": "Vydat suroviny",
+      "issueSuccess": "Výrobní výdejka vytvořena",
+      "issueFailed": "Nepodařilo se vytvořit výdejku"
+    },
+    "linkedIssues": "Výdejky surovin",
+    "noLinkedIssues": "Zatím žádné výdejky surovin"
   },
   "bottling": {
     "add": "Stáčení",

@@ -70,7 +70,14 @@
     "completed": "Completed",
     "inProgress": "In Progress",
     "planned": "Planned",
-    "phase": "Phase",
+    "phase": {
+      "mashing": "Mashing",
+      "boiling": "Boiling",
+      "post_boil": "Post Boil",
+      "fermentation": "Fermentation",
+      "conditioning": "Conditioning",
+      "other": "Other"
+    },
     "name": "Name",
     "temperature": "Temperature (°C)",
     "timePlan": "Time Plan (min)",
@@ -92,14 +99,6 @@
       "startReal": "Start Actual",
       "endReal": "End Actual",
       "actions": "Actions"
-    },
-    "phase": {
-      "mashing": "Mashing",
-      "boiling": "Boiling",
-      "post_boil": "Post Boil",
-      "fermentation": "Fermentation",
-      "conditioning": "Conditioning",
-      "other": "Other"
     }
   },
   "measurements": {
@@ -165,17 +164,6 @@
     "snapshotBadgeNoSource": "Recipe snapshot",
     "viewOriginal": "View original",
     "item": "Item",
-    "category": "Category",
-    "amount": "Planned Amount",
-    "stage": "Stage",
-    "columns": {
-      "name": "Ingredient",
-      "category": "Category",
-      "amount": "Amount",
-      "unit": "Unit",
-      "stage": "Stage",
-      "time": "Time"
-    },
     "category": {
       "malt": "Malt",
       "hop": "Hop",
@@ -183,13 +171,32 @@
       "adjunct": "Adjunct",
       "other": "Other"
     },
+    "amount": "Planned Amount",
     "stage": {
       "mash": "Mash",
       "boil": "Boil",
       "whirlpool": "Whirlpool",
       "fermentation": "Fermentation",
       "dry_hop": "Dry Hop"
-    }
+    },
+    "columns": {
+      "name": "Ingredient",
+      "category": "Category",
+      "amount": "Amount",
+      "unit": "Unit",
+      "stage": "Stage",
+      "time": "Time",
+      "recipeQty": "Recipe",
+      "issued": "Issued",
+      "missing": "Missing"
+    },
+    "actions": {
+      "issueMaterials": "Issue Materials",
+      "issueSuccess": "Production issue created",
+      "issueFailed": "Failed to create production issue"
+    },
+    "linkedIssues": "Material Issues",
+    "noLinkedIssues": "No material issues yet"
   },
   "bottling": {
     "add": "Bottling",

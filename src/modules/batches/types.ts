@@ -147,3 +147,24 @@ export interface RecipeIngredient {
   useTimeMin: number | null;
   sortOrder: number;
 }
+
+export interface BatchIngredientRow {
+  recipeItemId: string;
+  itemId: string;
+  itemName: string;
+  itemCode: string | null;
+  category: string;
+  recipeQty: string; // scaled from recipe
+  unitSymbol: string | null;
+  useStage: string | null;
+  issuedQty: string; // from confirmed production issue lines
+  missingQty: string; // recipeQty - issuedQty
+}
+
+export interface ProductionIssueInfo {
+  id: string;
+  code: string;
+  status: string;
+  date: string;
+  movementPurpose: string;
+}
