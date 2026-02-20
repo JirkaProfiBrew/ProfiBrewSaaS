@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql, desc, asc } from "drizzle-orm";
+import { eq, and, ilike, or, sql, desc, asc, aliasedTable } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -55,6 +55,8 @@ function mapBatchRow(
   row: typeof batches.$inferSelect,
   joined?: {
     recipeName?: string | null;
+    sourceRecipeId?: string | null;
+    sourceRecipeName?: string | null;
     itemName?: string | null;
     itemCode?: string | null;
     equipmentName?: string | null;
@@ -85,6 +87,8 @@ function mapBatchRow(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     recipeName: joined?.recipeName ?? null,
+    sourceRecipeId: joined?.sourceRecipeId ?? null,
+    sourceRecipeName: joined?.sourceRecipeName ?? null,
     itemName: joined?.itemName ?? null,
     itemCode: joined?.itemCode ?? null,
     equipmentName: joined?.equipmentName ?? null,
@@ -230,17 +234,23 @@ export async function getBatchDetail(
   batchId: string
 ): Promise<BatchDetailType | null> {
   return withTenant(async (tenantId) => {
-    // Fetch batch with joins
+    // Alias for the source recipe (original recipe the snapshot was cloned from)
+    const sourceRecipe = aliasedTable(recipes, "source_recipe");
+
+    // Fetch batch with joins (including source recipe for snapshot info)
     const batchRows = await db
       .select({
         batch: batches,
         recipeName: recipes.name,
+        sourceRecipeId: recipes.sourceRecipeId,
+        sourceRecipeName: sourceRecipe.name,
         itemName: items.name,
         itemCode: items.code,
         equipmentName: equipment.name,
       })
       .from(batches)
       .leftJoin(recipes, eq(batches.recipeId, recipes.id))
+      .leftJoin(sourceRecipe, eq(recipes.sourceRecipeId, sourceRecipe.id))
       .leftJoin(items, eq(batches.itemId, items.id))
       .leftJoin(equipment, eq(batches.equipmentId, equipment.id))
       .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
@@ -304,6 +314,8 @@ export async function getBatchDetail(
     return {
       batch: mapBatchRow(batchRow.batch, {
         recipeName: batchRow.recipeName,
+        sourceRecipeId: batchRow.sourceRecipeId,
+        sourceRecipeName: batchRow.sourceRecipeName,
         itemName: batchRow.itemName,
         itemCode: batchRow.itemCode,
         equipmentName: batchRow.equipmentName,
@@ -321,25 +333,114 @@ export async function getBatchDetail(
   });
 }
 
-/** Create a new batch, optionally copying steps from a recipe. */
+/** Create a new batch, optionally snapshotting the recipe (copy recipe + items + steps). */
 export async function createBatch(data: BatchCreateInput): Promise<Batch> {
   return withTenant(async (tenantId) => {
     return db.transaction(async (tx) => {
       // 1. Generate batch number
       const batchNumber = await getNextNumber(tenantId, "batch");
 
-      // 2. If recipeId provided, verify it exists for tenant
+      // 2. If recipeId provided, snapshot the recipe
+      let snapshotRecipeId: string | null = null;
+
       if (data.recipeId) {
-        const recipeRows = await tx
-          .select({ id: recipes.id })
+        // Load original recipe
+        const origRows = await tx
+          .select()
           .from(recipes)
           .where(
             and(eq(recipes.tenantId, tenantId), eq(recipes.id, data.recipeId))
           )
           .limit(1);
 
-        if (!recipeRows[0]) {
-          throw new Error("Recipe not found");
+        const orig = origRows[0];
+        if (!orig) throw new Error("Recipe not found");
+
+        // Insert snapshot copy
+        const snapshotRows = await tx
+          .insert(recipes)
+          .values({
+            tenantId,
+            name: orig.name,
+            code: null,
+            beerStyleId: orig.beerStyleId,
+            status: "batch_snapshot",
+            sourceRecipeId: orig.id,
+            batchSizeL: orig.batchSizeL,
+            batchSizeBrutoL: orig.batchSizeBrutoL,
+            beerVolumeL: orig.beerVolumeL,
+            og: orig.og,
+            fg: orig.fg,
+            abv: orig.abv,
+            ibu: orig.ibu,
+            ebc: orig.ebc,
+            boilTimeMin: orig.boilTimeMin,
+            costPrice: orig.costPrice,
+            durationFermentationDays: orig.durationFermentationDays,
+            durationConditioningDays: orig.durationConditioningDays,
+            notes: orig.notes,
+          })
+          .returning();
+
+        const snapshot = snapshotRows[0];
+        if (!snapshot) throw new Error("Failed to snapshot recipe");
+        snapshotRecipeId = snapshot.id;
+
+        // Copy recipe items
+        const origItems = await tx
+          .select()
+          .from(recipeItems)
+          .where(
+            and(
+              eq(recipeItems.tenantId, tenantId),
+              eq(recipeItems.recipeId, data.recipeId)
+            )
+          );
+
+        if (origItems.length > 0) {
+          await tx.insert(recipeItems).values(
+            origItems.map((item) => ({
+              tenantId,
+              recipeId: snapshot.id,
+              itemId: item.itemId,
+              category: item.category,
+              amountG: item.amountG,
+              unitId: item.unitId,
+              useStage: item.useStage,
+              useTimeMin: item.useTimeMin,
+              hopPhase: item.hopPhase,
+              notes: item.notes,
+              sortOrder: item.sortOrder,
+            }))
+          );
+        }
+
+        // Copy recipe steps
+        const origSteps = await tx
+          .select()
+          .from(recipeSteps)
+          .where(
+            and(
+              eq(recipeSteps.tenantId, tenantId),
+              eq(recipeSteps.recipeId, data.recipeId)
+            )
+          );
+
+        if (origSteps.length > 0) {
+          await tx.insert(recipeSteps).values(
+            origSteps.map((step) => ({
+              tenantId,
+              recipeId: snapshot.id,
+              stepType: step.stepType,
+              name: step.name,
+              temperatureC: step.temperatureC,
+              timeMin: step.timeMin,
+              rampTimeMin: step.rampTimeMin,
+              tempGradient: step.tempGradient,
+              notes: step.notes,
+              sortOrder: step.sortOrder,
+            }))
+          );
         }
       }
 
@@ -361,13 +462,13 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
         }
       }
 
-      // 4. Insert batch
+      // 4. Insert batch — use snapshot recipe ID instead of original
       const insertedRows = await tx
         .insert(batches)
         .values({
           tenantId,
           batchNumber,
-          recipeId: data.recipeId ?? null,
+          recipeId: snapshotRecipeId ?? null,
           itemId: data.itemId ?? null,
           status: "planned",
           plannedDate: data.plannedDate ? new Date(data.plannedDate) : null,
@@ -380,15 +481,15 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
       const inserted = insertedRows[0];
       if (!inserted) throw new Error("Failed to create batch");
 
-      // 5. If recipeId provided, copy recipe_steps → batch_steps
-      if (data.recipeId) {
+      // 5. Copy snapshot recipe_steps → batch_steps
+      if (snapshotRecipeId) {
         const stepRows = await tx
           .select()
           .from(recipeSteps)
           .where(
             and(
               eq(recipeSteps.tenantId, tenantId),
-              eq(recipeSteps.recipeId, data.recipeId)
+              eq(recipeSteps.recipeId, snapshotRecipeId)
             )
           )
           .orderBy(asc(recipeSteps.sortOrder));

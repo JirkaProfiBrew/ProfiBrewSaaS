@@ -33,6 +33,7 @@ export interface Recipe {
   durationConditioningDays: number | null;
   notes: string | null;
   isFromLibrary: boolean;
+  sourceRecipeId: string | null;
   createdBy: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;

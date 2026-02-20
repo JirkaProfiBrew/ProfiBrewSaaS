@@ -63,6 +63,8 @@ export interface Batch {
   updatedAt: Date | null;
   // Joined fields:
   recipeName?: string | null;
+  sourceRecipeId?: string | null;
+  sourceRecipeName?: string | null;
   itemName?: string | null;
   itemCode?: string | null;
   equipmentName?: string | null;

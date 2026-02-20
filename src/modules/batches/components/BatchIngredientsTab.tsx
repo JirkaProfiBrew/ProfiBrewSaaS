@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 
+import Link from "next/link";
+import { Info } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -37,10 +41,14 @@ function formatAmount(amountG: string): string {
 
 interface BatchIngredientsTabProps {
   recipeId: string | null;
+  sourceRecipeId?: string | null;
+  sourceRecipeName?: string | null;
 }
 
 export function BatchIngredientsTab({
   recipeId,
+  sourceRecipeId,
+  sourceRecipeName,
 }: BatchIngredientsTabProps): React.ReactNode {
   const t = useTranslations("batches");
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
@@ -97,6 +105,25 @@ export function BatchIngredientsTab({
 
   return (
     <div className="flex flex-col gap-4">
+      {sourceRecipeId && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-2">
+            {sourceRecipeName
+              ? t("ingredients.snapshotBadge", { name: sourceRecipeName })
+              : t("ingredients.snapshotBadgeNoSource")}
+            {sourceRecipeId && (
+              <Link
+                href={`/brewery/recipes/${sourceRecipeId}`}
+                className="text-primary underline hover:no-underline ml-1"
+              >
+                {t("ingredients.viewOriginal")}
+              </Link>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <p className="text-sm text-muted-foreground">
         {t("ingredients.description")}
       </p>

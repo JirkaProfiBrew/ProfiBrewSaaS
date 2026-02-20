@@ -56,6 +56,7 @@ function mapRecipeRow(
     durationConditioningDays: row.durationConditioningDays,
     notes: row.notes,
     isFromLibrary: row.isFromLibrary ?? false,
+    sourceRecipeId: row.sourceRecipeId ?? null,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -148,6 +149,8 @@ export async function getRecipes(filter?: RecipeFilter): Promise<Recipe[]> {
       .where(
         and(
           eq(recipes.tenantId, tenantId),
+          // Always exclude batch snapshots from the recipe list
+          sql`${recipes.status} != 'batch_snapshot'`,
           // Filter by status if provided, otherwise exclude archived
           filter?.status
             ? eq(recipes.status, filter.status)

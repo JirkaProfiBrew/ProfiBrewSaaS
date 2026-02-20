@@ -411,6 +411,8 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           <TabsContent value="ingredients" className="mt-4">
             <BatchIngredientsTab
               recipeId={batch?.recipeId ?? null}
+              sourceRecipeId={batch?.sourceRecipeId ?? null}
+              sourceRecipeName={batch?.sourceRecipeName ?? null}
             />
           </TabsContent>
 

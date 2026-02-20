@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 19.02.2026 | Poslední sprint: Sprint 3 Patch (Lots)
+### Aktualizováno: 20.02.2026 | Poslední sprint: Sprint 3 Patch (Lots)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -229,7 +229,10 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 
 **Byznys pravidla:**
 - Receptura se dá duplikovat (nová kopie, status=draft)
-- Při vytvoření várky se suroviny a kroky zkopírují do šarže (snapshot — změna receptury neovlivní existující várky)
+- Při vytvoření várky se receptura zkopíruje jako snapshot (status=`batch_snapshot`, `source_recipe_id`=originál). Snapshot zahrnuje kompletní kopii receptury včetně všech surovin (recipe_items) a kroků (recipe_steps).
+- Snapshoty se nezobrazují v RecipeBrowseru (filtrováno dle status ≠ batch_snapshot)
+- Detail šarže na tabu Suroviny zobrazuje badge s odkazem na originální recepturu
+- Smazání originální receptury ponechá snapshot beze změny (ON DELETE SET NULL na source_recipe_id)
 - Kalkulace se ukládá jako snapshot (recipe_calculations) — historie kalkulací
 
 ### 4.5 Vary / Šarže ✅
@@ -238,7 +241,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 
 **Jak to funguje:**
 - DataBrowser: seznam várek (číslo, název piva, datum, stav, tank, OG, objem)
-- Vytvoření: vybrat recepturu → systém zkopíruje suroviny a kroky do nové šarže
+- Vytvoření: vybrat recepturu → systém vytvoří snapshot receptury (kopie recipe + recipe_items + recipe_steps, status=`batch_snapshot`) a naváže ho na šarži
 
 **Status workflow:**
 ```

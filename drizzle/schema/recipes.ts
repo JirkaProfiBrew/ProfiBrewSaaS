@@ -55,6 +55,7 @@ export const recipes = pgTable(
     notes: text("notes"),
     isFromLibrary: boolean("is_from_library").default(false),
     sourceLibraryId: uuid("source_library_id"),
+    sourceRecipeId: uuid("source_recipe_id"),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
