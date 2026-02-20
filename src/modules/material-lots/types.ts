@@ -1,75 +1,41 @@
-/**
- * Material Lots module — type definitions.
- * Matches the DB schema in drizzle/schema/stock.ts.
- */
+import type { TrackingLotStatus } from "@/modules/stock-issues/types";
 
-// ── Lot status (computed, not stored in DB) ───────────────────
-
-export type LotStatus = "active" | "exhausted" | "expiring" | "expired";
-
-// ── Material Lot ──────────────────────────────────────────────
-
-export interface MaterialLot {
-  id: string;
-  tenantId: string;
+export interface TrackingLot {
+  id: string; // stock_issue_line.id
+  receiptCode: string;
+  receiptDate: string;
   itemId: string;
-  lotNumber: string;
-  supplierId: string | null;
-  receivedDate: string | null;
-  expiryDate: string | null;
-  quantityInitial: string | null;
-  quantityRemaining: string | null;
-  unitPrice: string | null;
-  properties: Record<string, string> | null;
-  notes: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-  // Joined fields (from browser queries)
-  itemName: string | null;
+  itemName: string;
+  itemCode: string;
   supplierName: string | null;
-  // Computed field
-  status: LotStatus;
+  lotNumber: string | null;
+  expiryDate: string | null;
+  issuedQty: string;
+  remainingQty: string;
+  unitPrice: string | null;
+  unitSymbol: string | null;
+  lotAttributes: Record<string, unknown>;
+  status: TrackingLotStatus;
+  warehouseId: string;
+  warehouseName: string;
+  materialType: string | null;
 }
 
-// ── Input types ───────────────────────────────────────────────
-
-export interface CreateMaterialLotInput {
-  lotNumber: string;
-  itemId: string;
-  supplierId?: string | null;
-  receivedDate?: string | null;
-  expiryDate?: string | null;
-  quantityInitial?: string | null;
-  quantityRemaining?: string | null;
-  unitPrice?: string | null;
-  properties?: Record<string, string> | null;
-  notes?: string | null;
+export interface TrackingLotDetail extends TrackingLot {
+  allocations: TrackingAllocation[];
 }
 
-export interface UpdateMaterialLotInput {
-  lotNumber?: string;
-  supplierId?: string | null;
-  receivedDate?: string | null;
-  expiryDate?: string | null;
-  unitPrice?: string | null;
-  properties?: Record<string, string> | null;
-  notes?: string | null;
+export interface TrackingAllocation {
+  id: string;
+  issueCode: string;
+  issueDate: string;
+  quantity: string;
+  unitPrice: string;
 }
 
-// ── Filter ────────────────────────────────────────────────────
-
-export interface MaterialLotFilter {
+export interface TrackingFilter {
+  status?: TrackingLotStatus;
+  warehouseId?: string;
   itemId?: string;
-  supplierId?: string;
   search?: string;
-}
-
-// ── Traceability (batch usage) ────────────────────────────────
-
-export interface LotBatchUsage {
-  batchId: string;
-  batchNumber: string;
-  recipeName: string | null;
-  brewDate: string | null;
-  quantityUsed: string | null;
 }

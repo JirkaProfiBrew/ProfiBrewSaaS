@@ -451,12 +451,20 @@ export async function getItemRecentMovements(
 
 /** Get production items for base-item select (isProductionItem = true). */
 export async function getProductionItemOptions(): Promise<
-  { value: string; label: string }[]
+  { value: string; label: string; unitSymbol: string | null }[]
 > {
   return withTenant(async (tenantId) => {
+    const { units } = await import("@/../drizzle/schema/system");
+
     const rows = await db
-      .select({ id: items.id, name: items.name, code: items.code })
+      .select({
+        id: items.id,
+        name: items.name,
+        code: items.code,
+        unitSymbol: units.symbol,
+      })
       .from(items)
+      .leftJoin(units, eq(items.unitId, units.id))
       .where(
         and(
           eq(items.tenantId, tenantId),
@@ -466,6 +474,10 @@ export async function getProductionItemOptions(): Promise<
       )
       .orderBy(items.name);
 
-    return rows.map((r) => ({ value: r.id, label: `${r.code} — ${r.name}` }));
+    return rows.map((r) => ({
+      value: r.id,
+      label: `${r.code} — ${r.name}`,
+      unitSymbol: r.unitSymbol,
+    }));
   });
 }

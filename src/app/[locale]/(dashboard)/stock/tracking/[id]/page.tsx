@@ -1,4 +1,4 @@
-import { LotDetail } from "@/modules/material-lots/components/LotDetail";
+import { LotDetail } from "@/modules/material-lots";
 
 interface PageProps {
   params: Promise<{ id: string }>;

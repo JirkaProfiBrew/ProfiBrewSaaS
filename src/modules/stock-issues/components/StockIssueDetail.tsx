@@ -30,7 +30,6 @@ import {
   getPartnerOptions,
   getItemOptions,
   getStockIssueMovements,
-  getStockIssueAllocations,
 } from "../actions";
 import type { MovementType, MovementPurpose } from "../types";
 import { StockIssueLineTable } from "./StockIssueLineTable";
@@ -115,7 +114,7 @@ export function StockIssueDetail({
   const isNew = id === "new";
   const newType = (searchParams.get("type") ?? "receipt") as MovementType;
 
-  const { data: issueDetail, isLoading, mutate } = useStockIssueDetail(
+  const { data: issueDetail, isLoading, error: loadError, mutate } = useStockIssueDetail(
     isNew ? "" : id
   );
 
@@ -127,14 +126,19 @@ export function StockIssueDetail({
     Array<{ value: string; label: string }>
   >([]);
   const [itemOptions, setItemOptions] = useState<
-    Array<{ value: string; label: string; code: string }>
+    Array<{
+      value: string;
+      label: string;
+      code: string;
+      isBrewMaterial: boolean;
+      materialType: string | null;
+      issueMode: string;
+    }>
   >([]);
 
-  // Movements & allocations (loaded on demand)
+  // Movements (loaded on demand)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
   const [movements, setMovements] = useState<any[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
-  const [allocations, setAllocations] = useState<any[]>([]);
 
   // Dialog states
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -191,7 +195,7 @@ export function StockIssueDetail({
     }
   }, [issueDetail]);
 
-  // Load movements and allocations when tab switches
+  // Load movements when tab switches
   useEffect(() => {
     if (!issueDetail || issueDetail.status === "draft") return;
 
@@ -202,22 +206,14 @@ export function StockIssueDetail({
           console.error("Failed to load movements:", error);
         });
     }
-    if (
-      activeTab === "allocations" &&
-      allocations.length === 0 &&
-      issueDetail.movementType === "issue"
-    ) {
-      getStockIssueAllocations(id)
-        .then(setAllocations)
-        .catch((error: unknown) => {
-          console.error("Failed to load allocations:", error);
-        });
-    }
-  }, [activeTab, issueDetail, id, movements.length, allocations.length]);
+  }, [activeTab, issueDetail, id, movements.length]);
 
-  const isDraft = isNew || issueDetail?.status === "draft";
+  // When data hasn't loaded yet (not new, no issueDetail, no error) assume draft
+  // so the form renders in edit mode instead of incorrectly showing readonly.
+  const dataNotYetLoaded = !isNew && !issueDetail && !loadError;
+  const isDraft = isNew || dataNotYetLoaded || issueDetail?.status === "draft";
   const isConfirmed = issueDetail?.status === "confirmed";
-  const movementType = isNew ? newType : issueDetail?.movementType ?? "receipt";
+  const movementType = isNew ? newType : issueDetail?.movementType ?? newType;
   const mode: FormMode = isDraft ? (isNew ? "create" : "edit") : "readonly";
 
   // Purpose options based on movement type
@@ -402,9 +398,8 @@ export function StockIssueDetail({
 
   const handleConfirmed = useCallback((): void => {
     mutate();
-    // Reset movements/allocations to force reload
+    // Reset movements to force reload
     setMovements([]);
-    setAllocations([]);
   }, [mutate]);
 
   const handleCancelled = useCallback((): void => {
@@ -529,11 +524,6 @@ export function StockIssueDetail({
             {!isDraft && (
               <TabsTrigger value="movements">{t("tabs.movements")}</TabsTrigger>
             )}
-            {!isDraft && movementType === "issue" && (
-              <TabsTrigger value="allocations">
-                {t("tabs.allocations")}
-              </TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="header" className="mt-4">
@@ -554,22 +544,18 @@ export function StockIssueDetail({
               issueId={id}
               lines={issueDetail?.lines ?? []}
               movementType={movementType}
+              status={issueDetail?.status ?? "draft"}
               isDraft={isDraft}
               onMutate={mutate}
               itemOptions={itemOptions}
               additionalCost={String(values.additionalCost ?? "0")}
+              warehouseId={String(values.warehouseId ?? "")}
             />
           </TabsContent>
 
           {!isDraft && (
             <TabsContent value="movements" className="mt-4">
               <MovementsTable movements={movements} t={t} />
-            </TabsContent>
-          )}
-
-          {!isDraft && movementType === "issue" && (
-            <TabsContent value="allocations" className="mt-4">
-              <AllocationsTable allocations={allocations} t={t} />
             </TabsContent>
           )}
         </Tabs>
@@ -581,6 +567,7 @@ export function StockIssueDetail({
         onOpenChange={setConfirmOpen}
         issueId={id}
         code={issueDetail?.code ?? ""}
+        movementType={movementType}
         onConfirmed={handleConfirmed}
       />
       <StockIssueCancelDialog
@@ -643,6 +630,7 @@ function MovementsTable({
           ) => {
             const qty = Number(m.quantity);
             const isIn = m.movementType === "in";
+            const isStorno = qty < 0;
             return (
               <TableRow key={m.id ?? idx}>
                 <TableCell>{m.date}</TableCell>
@@ -661,8 +649,8 @@ function MovementsTable({
                     {isIn ? t("movementsTab.in") : t("movementsTab.out")}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {Math.abs(qty).toLocaleString("cs-CZ")}
+                <TableCell className={`text-right font-mono${isStorno ? " text-red-600" : ""}`}>
+                  {isStorno ? "- " : ""}{Math.abs(qty).toLocaleString("cs-CZ")}
                 </TableCell>
                 <TableCell className="text-right font-mono">
                   {m.unitPrice
@@ -678,67 +666,3 @@ function MovementsTable({
   );
 }
 
-// ── Allocations Tab (readonly) ────────────────────────────────
-
-function AllocationsTable({
-  allocations,
-  t,
-}: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types
-  allocations: any[];
-  t: ReturnType<typeof useTranslations>;
-}): React.ReactNode {
-  if (allocations.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground py-4">
-        {t("allocationsTab.noAllocations")}
-      </p>
-    );
-  }
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("allocationsTab.line")}</TableHead>
-          <TableHead>{t("allocationsTab.sourceCode")}</TableHead>
-          <TableHead className="text-right">
-            {t("allocationsTab.quantity")}
-          </TableHead>
-          <TableHead className="text-right">
-            {t("allocationsTab.unitPrice")}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {allocations.map(
-          (
-            a: {
-              id: string;
-              stockIssueLineId: string;
-              sourceMovementId: string;
-              quantity: string;
-              unitPrice: string;
-            },
-            idx: number
-          ) => (
-            <TableRow key={a.id ?? idx}>
-              <TableCell className="font-mono text-xs">
-                {a.stockIssueLineId}
-              </TableCell>
-              <TableCell className="font-mono text-xs">
-                {a.sourceMovementId}
-              </TableCell>
-              <TableCell className="text-right font-mono">
-                {Number(a.quantity).toLocaleString("cs-CZ")}
-              </TableCell>
-              <TableCell className="text-right font-mono">
-                {Number(a.unitPrice).toLocaleString("cs-CZ")}
-              </TableCell>
-            </TableRow>
-          )
-        )}
-      </TableBody>
-    </Table>
-  );
-}

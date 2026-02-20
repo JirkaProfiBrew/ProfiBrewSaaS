@@ -24,9 +24,10 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const warehousesMsg = (await import(`./messages/${locale}/warehouses.json`)).default as Record<string, unknown>;
   const stockIssuesMsg = (await import(`./messages/${locale}/stockIssues.json`)).default as Record<string, unknown>;
   const materialLotsMsg = (await import(`./messages/${locale}/materialLots.json`)).default as Record<string, unknown>;
+  const trackingMsg = (await import(`./messages/${locale}/tracking.json`)).default as Record<string, unknown>;
 
   return {
     locale,
-    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg },
+    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg },
   };
 });

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { counters } from "@/../drizzle/schema/system";
+import { warehouses } from "@/../drizzle/schema/warehouses";
 import { eq, and, sql, isNull } from "drizzle-orm";
 
 /** Default counter configurations per entity. */
@@ -9,6 +10,12 @@ const COUNTER_DEFAULTS: Record<string, { prefix: string; includeYear: boolean; p
   order:                { prefix: "OBJ", includeYear: true,  padding: 4, separator: "-", resetYearly: true },
   stock_issue_receipt:  { prefix: "PR",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
   stock_issue_dispatch: { prefix: "VD",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
+};
+
+/** Per-warehouse counter config: prefix includes warehouse code. */
+const WAREHOUSE_COUNTER_CONFIG: Record<string, (warehouseCode: string) => { prefix: string; includeYear: boolean; padding: number; separator: string; resetYearly: boolean }> = {
+  stock_issue_receipt:  (code) => ({ prefix: `PRI${code}`, includeYear: false, padding: 7, separator: "", resetYearly: false }),
+  stock_issue_dispatch: (code) => ({ prefix: `VYD${code}`, includeYear: false, padding: 7, separator: "", resetYearly: false }),
 };
 
 function getDefaultCounterConfig(entity: string): { prefix: string; includeYear: boolean; padding: number; separator: string; resetYearly: boolean } {
@@ -57,6 +64,59 @@ async function ensureCounterExists(
 }
 
 /**
+ * Ensure a per-warehouse counter exists for the given entity + warehouse.
+ * Looks up the warehouse code and creates a counter with PRI{code} / VYD{code} prefix.
+ * Runs OUTSIDE the main transaction so a failed INSERT doesn't abort anything.
+ */
+async function ensureWarehouseCounterExists(
+  tenantId: string,
+  entity: string,
+  warehouseId: string
+): Promise<void> {
+  const configFn = WAREHOUSE_COUNTER_CONFIG[entity];
+  if (!configFn) return; // entity doesn't use per-warehouse counters
+
+  // Check if per-warehouse counter already exists
+  const existing = await db
+    .select({ id: counters.id })
+    .from(counters)
+    .where(
+      and(
+        eq(counters.tenantId, tenantId),
+        eq(counters.entity, entity),
+        eq(counters.warehouseId, warehouseId)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) return;
+
+  // Look up warehouse code
+  const whRows = await db
+    .select({ code: warehouses.code })
+    .from(warehouses)
+    .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, warehouseId)))
+    .limit(1);
+
+  const warehouseCode = whRows[0]?.code;
+  if (!warehouseCode) return; // warehouse not found — skip silently
+
+  const config = configFn(warehouseCode);
+  try {
+    await db
+      .insert(counters)
+      .values({
+        tenantId,
+        entity,
+        warehouseId,
+        ...config,
+      });
+  } catch (error: unknown) {
+    console.error("[counters] Failed to auto-create warehouse counter:", entity, warehouseId, error);
+  }
+}
+
+/**
  * Get the next formatted number from a counter sequence.
  * Looks up a global counter by (tenant_id, entity).
  * Per-warehouse counters are used if they exist (created by warehouse setup).
@@ -73,8 +133,11 @@ export async function getNextNumber(
   entity: string,
   warehouseId?: string
 ): Promise<string> {
-  // Step 1: Ensure a global counter exists (outside transaction)
+  // Step 1: Ensure counters exist (outside transaction)
   await ensureCounterExists(tenantId, entity);
+  if (warehouseId) {
+    await ensureWarehouseCounterExists(tenantId, entity, warehouseId);
+  }
 
   // Step 2: Increment and format (inside transaction for atomicity)
   const result = await db.transaction(async (tx) => {
@@ -108,23 +171,6 @@ export async function getNextNumber(
           )
         );
       counter = globalRows[0];
-    }
-
-    // Final fallback: find ANY counter for this entity regardless of warehouse_id.
-    // Needed when the old unique constraint (tenant_id, entity) prevents multiple
-    // rows and the existing row has a different warehouse_id.
-    if (!counter) {
-      const anyRows = await tx
-        .select()
-        .from(counters)
-        .where(
-          and(
-            eq(counters.tenantId, tenantId),
-            eq(counters.entity, entity)
-          )
-        )
-        .limit(1);
-      counter = anyRows[0];
     }
 
     if (!counter) {

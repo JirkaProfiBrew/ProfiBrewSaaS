@@ -45,8 +45,10 @@
   },
   "issueMode": {
     "fifo": "FIFO",
-    "lifo": "LIFO",
-    "average": "Average Cost"
+    "manual_lot": "Manual Lot Selection"
+  },
+  "issueModeHelp": {
+    "description": "FIFO = automatic issue from oldest receipt. Manual Lot Selection = you choose the specific receipt lot when issuing."
   },
   "detail": {
     "title": "Item Detail",
@@ -94,9 +96,11 @@
       "notes": "Notes",
       "imageUrl": "Image URL",
       "recipeUnit": "Recipe unit",
+      "hasBaseItem": "Consists of manufactured item",
       "baseItemId": "Base Production Item",
-      "baseItemHelp": "Link to the base production item (e.g. Pale Lager 12\u00b0)",
-      "baseItemQuantity": "Content (base item qty)",
+      "baseItemHelp": "Link to the base production item (e.g. Pale Lager 12°)",
+      "baseItemQuantity": "Volume",
+      "baseItemQuantityWithUnit": "Volume [{unit}]",
       "baseItemQuantityHelp": "How many units of the base production item this sale item contains. When sold, the corresponding amount will be automatically deducted from stock."
     },
     "actions": {

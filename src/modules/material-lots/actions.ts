@@ -1,94 +1,60 @@
 "use server";
 
-import { eq, and, ilike, or, sql, desc } from "drizzle-orm";
-
+import { eq, and, ilike, or, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
-import { materialLots } from "@/../drizzle/schema/stock";
+import {
+  stockIssues,
+  stockIssueLines,
+  stockMovements,
+} from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
+import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
-import { batchMaterialLots } from "@/../drizzle/schema/batches";
-import { batches } from "@/../drizzle/schema/batches";
-import { recipes } from "@/../drizzle/schema/recipes";
+import { units } from "@/../drizzle/schema/system";
 import type {
-  MaterialLot,
-  MaterialLotFilter,
-  CreateMaterialLotInput,
-  UpdateMaterialLotInput,
-  LotBatchUsage,
-  LotStatus,
+  TrackingLot,
+  TrackingLotDetail,
+  TrackingAllocation,
+  TrackingFilter,
 } from "./types";
+import type { TrackingLotStatus } from "@/modules/stock-issues/types";
 
-// ── Helpers ────────────────────────────────────────────────────
-
-/** Compute lot status from quantity remaining and expiry date. */
 function computeStatus(
-  quantityRemaining: string | null,
+  remainingQty: string | null,
+  issuedQty: string | null,
   expiryDate: string | null
-): LotStatus {
-  const qty = parseFloat(quantityRemaining ?? "0");
-  if (qty <= 0) return "exhausted";
+): TrackingLotStatus {
+  const remaining = Number(remainingQty ?? "0");
+  const issued = Number(issuedQty ?? "0");
 
-  if (expiryDate) {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (expiry < today) return "expired";
-
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    if (expiry <= thirtyDaysFromNow) return "expiring";
-  }
-
-  return "active";
+  if (expiryDate && new Date(expiryDate) < new Date()) return "expired";
+  if (remaining <= 0) return "issued";
+  if (issued > 0 && remaining < issued) return "partial";
+  return "in_stock";
 }
 
-/** Map a Drizzle row to a MaterialLot type. */
-function mapRow(
-  row: typeof materialLots.$inferSelect,
-  joined?: { itemName?: string | null; supplierName?: string | null }
-): MaterialLot {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    itemId: row.itemId,
-    lotNumber: row.lotNumber,
-    supplierId: row.supplierId,
-    receivedDate: row.receivedDate,
-    expiryDate: row.expiryDate,
-    quantityInitial: row.quantityInitial,
-    quantityRemaining: row.quantityRemaining,
-    unitPrice: row.unitPrice,
-    properties: row.properties as Record<string, string> | null,
-    notes: row.notes,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    itemName: joined?.itemName ?? null,
-    supplierName: joined?.supplierName ?? null,
-    status: computeStatus(row.quantityRemaining, row.expiryDate),
-  };
-}
-
-// ── Actions ────────────────────────────────────────────────────
-
-/** List material lots with optional filters, joined with item & supplier names. */
-export async function getMaterialLots(
-  filter?: MaterialLotFilter
-): Promise<MaterialLot[]> {
+export async function getTrackingLots(
+  filter?: TrackingFilter
+): Promise<TrackingLot[]> {
   return withTenant(async (tenantId) => {
-    const conditions = [eq(materialLots.tenantId, tenantId)];
+    const conditions = [
+      eq(stockIssueLines.tenantId, tenantId),
+      eq(stockIssues.movementType, "receipt"),
+      eq(stockIssues.status, "confirmed"),
+    ];
 
-    if (filter?.itemId) {
-      conditions.push(eq(materialLots.itemId, filter.itemId));
+    if (filter?.warehouseId) {
+      conditions.push(eq(stockIssues.warehouseId, filter.warehouseId));
     }
-    if (filter?.supplierId) {
-      conditions.push(eq(materialLots.supplierId, filter.supplierId));
+    if (filter?.itemId) {
+      conditions.push(eq(stockIssueLines.itemId, filter.itemId));
     }
     if (filter?.search) {
       conditions.push(
         or(
-          ilike(materialLots.lotNumber, `%${filter.search}%`),
+          ilike(stockIssues.code, `%${filter.search}%`),
+          ilike(stockIssueLines.lotNumber, `%${filter.search}%`),
           ilike(items.name, `%${filter.search}%`)
         )!
       );
@@ -96,187 +62,182 @@ export async function getMaterialLots(
 
     const rows = await db
       .select({
-        lot: materialLots,
+        id: stockIssueLines.id,
+        receiptCode: stockIssues.code,
+        receiptDate: stockIssues.date,
+        itemId: stockIssueLines.itemId,
         itemName: items.name,
+        itemCode: items.code,
         supplierName: partners.name,
+        lotNumber: stockIssueLines.lotNumber,
+        expiryDate: stockIssueLines.expiryDate,
+        issuedQty: stockIssueLines.issuedQty,
+        remainingQty: stockIssueLines.remainingQty,
+        unitPrice: stockIssueLines.unitPrice,
+        unitSymbol: units.symbol,
+        lotAttributes: stockIssueLines.lotAttributes,
+        warehouseId: stockIssues.warehouseId,
+        warehouseName: warehouses.name,
+        materialType: items.materialType,
       })
-      .from(materialLots)
-      .leftJoin(items, eq(materialLots.itemId, items.id))
-      .leftJoin(partners, eq(materialLots.supplierId, partners.id))
+      .from(stockIssueLines)
+      .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+      .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+      .innerJoin(warehouses, eq(stockIssues.warehouseId, warehouses.id))
+      .leftJoin(partners, eq(stockIssues.partnerId, partners.id))
+      .leftJoin(units, eq(items.unitId, units.id))
       .where(and(...conditions))
-      .orderBy(desc(materialLots.receivedDate));
+      .orderBy(desc(stockIssues.date), desc(stockIssueLines.createdAt));
 
-    return rows.map((r) =>
-      mapRow(r.lot, {
-        itemName: r.itemName,
-        supplierName: r.supplierName,
-      })
-    );
+    const lots = rows.map((r) => ({
+      id: r.id,
+      receiptCode: r.receiptCode,
+      receiptDate: r.receiptDate,
+      itemId: r.itemId,
+      itemName: r.itemName,
+      itemCode: r.itemCode,
+      supplierName: r.supplierName ?? null,
+      lotNumber: r.lotNumber ?? null,
+      expiryDate: r.expiryDate ?? null,
+      issuedQty: r.issuedQty ?? "0",
+      remainingQty: r.remainingQty ?? "0",
+      unitPrice: r.unitPrice ?? null,
+      unitSymbol: r.unitSymbol ?? null,
+      lotAttributes: (r.lotAttributes as Record<string, unknown>) ?? {},
+      status: computeStatus(r.remainingQty, r.issuedQty, r.expiryDate),
+      warehouseId: r.warehouseId,
+      warehouseName: r.warehouseName,
+      materialType: r.materialType ?? null,
+    }));
+
+    // Apply status filter in app layer (computed field)
+    if (filter?.status) {
+      return lots.filter((l) => l.status === filter.status);
+    }
+
+    return lots;
   });
 }
 
-/** Get a single material lot by ID. */
-export async function getMaterialLot(
+export async function getTrackingLot(
   id: string
-): Promise<MaterialLot | null> {
+): Promise<TrackingLotDetail | null> {
   return withTenant(async (tenantId) => {
     const rows = await db
       .select({
-        lot: materialLots,
+        id: stockIssueLines.id,
+        receiptCode: stockIssues.code,
+        receiptDate: stockIssues.date,
+        itemId: stockIssueLines.itemId,
         itemName: items.name,
+        itemCode: items.code,
         supplierName: partners.name,
+        lotNumber: stockIssueLines.lotNumber,
+        expiryDate: stockIssueLines.expiryDate,
+        issuedQty: stockIssueLines.issuedQty,
+        remainingQty: stockIssueLines.remainingQty,
+        unitPrice: stockIssueLines.unitPrice,
+        unitSymbol: units.symbol,
+        lotAttributes: stockIssueLines.lotAttributes,
+        warehouseId: stockIssues.warehouseId,
+        warehouseName: warehouses.name,
+        materialType: items.materialType,
       })
-      .from(materialLots)
-      .leftJoin(items, eq(materialLots.itemId, items.id))
-      .leftJoin(partners, eq(materialLots.supplierId, partners.id))
+      .from(stockIssueLines)
+      .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+      .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+      .innerJoin(warehouses, eq(stockIssues.warehouseId, warehouses.id))
+      .leftJoin(partners, eq(stockIssues.partnerId, partners.id))
+      .leftJoin(units, eq(items.unitId, units.id))
       .where(
-        and(eq(materialLots.tenantId, tenantId), eq(materialLots.id, id))
+        and(
+          eq(stockIssueLines.tenantId, tenantId),
+          eq(stockIssueLines.id, id),
+          eq(stockIssues.movementType, "receipt"),
+          eq(stockIssues.status, "confirmed")
+        )
       )
       .limit(1);
 
-    const row = rows[0];
-    if (!row) return null;
-    return mapRow(row.lot, {
-      itemName: row.itemName,
-      supplierName: row.supplierName,
-    });
+    const r = rows[0];
+    if (!r) return null;
+
+    // Get allocations (issue lines that allocated from this receipt line)
+    const allocations = await getTrackingLotAllocations(tenantId, id);
+
+    return {
+      id: r.id,
+      receiptCode: r.receiptCode,
+      receiptDate: r.receiptDate,
+      itemId: r.itemId,
+      itemName: r.itemName,
+      itemCode: r.itemCode,
+      supplierName: r.supplierName ?? null,
+      lotNumber: r.lotNumber ?? null,
+      expiryDate: r.expiryDate ?? null,
+      issuedQty: r.issuedQty ?? "0",
+      remainingQty: r.remainingQty ?? "0",
+      unitPrice: r.unitPrice ?? null,
+      unitSymbol: r.unitSymbol ?? null,
+      lotAttributes: (r.lotAttributes as Record<string, unknown>) ?? {},
+      status: computeStatus(r.remainingQty, r.issuedQty, r.expiryDate),
+      warehouseId: r.warehouseId,
+      warehouseName: r.warehouseName,
+      materialType: r.materialType ?? null,
+      allocations,
+    };
   });
 }
 
-/** Create a new material lot. */
-export async function createMaterialLot(
-  data: CreateMaterialLotInput
-): Promise<MaterialLot> {
-  return withTenant(async (tenantId) => {
-    const rows = await db
-      .insert(materialLots)
-      .values({
-        tenantId,
-        lotNumber: data.lotNumber,
-        itemId: data.itemId,
-        supplierId: data.supplierId ?? null,
-        receivedDate: data.receivedDate ?? null,
-        expiryDate: data.expiryDate ?? null,
-        quantityInitial: data.quantityInitial ?? null,
-        quantityRemaining: data.quantityRemaining ?? data.quantityInitial ?? null,
-        unitPrice: data.unitPrice ?? null,
-        properties: data.properties ?? {},
-        notes: data.notes ?? null,
-      })
-      .returning();
-
-    const row = rows[0];
-    if (!row) throw new Error("Failed to create material lot");
-    return mapRow(row);
-  });
-}
-
-/** Update an existing material lot. */
-export async function updateMaterialLot(
-  id: string,
-  data: UpdateMaterialLotInput
-): Promise<MaterialLot> {
-  return withTenant(async (tenantId) => {
-    const rows = await db
-      .update(materialLots)
-      .set({
-        ...data,
-        updatedAt: sql`now()`,
-      })
-      .where(
-        and(eq(materialLots.tenantId, tenantId), eq(materialLots.id, id))
+/** Internal: get issue allocations for a receipt line using movements (by tenantId -- already verified). */
+async function getTrackingLotAllocations(
+  tenantId: string,
+  receiptLineId: string
+): Promise<TrackingAllocation[]> {
+  // Find issue movements that reference this receipt line (negative qty, not storno)
+  const issueMoves = await db
+    .select({
+      id: stockMovements.id,
+      quantity: stockMovements.quantity,
+      unitPrice: stockMovements.unitPrice,
+      stockIssueId: stockMovements.stockIssueId,
+    })
+    .from(stockMovements)
+    .where(
+      and(
+        eq(stockMovements.tenantId, tenantId),
+        eq(stockMovements.receiptLineId, receiptLineId),
+        sql`${stockMovements.quantity}::decimal < 0`,
+        sql`${stockMovements.notes} IS DISTINCT FROM 'Storno'`
       )
-      .returning();
+    );
 
-    const row = rows[0];
-    if (!row) throw new Error("Material lot not found");
-    return mapRow(row);
-  });
-}
+  if (issueMoves.length === 0) return [];
 
-/** Delete a material lot (hard delete — lots without batch usage can be deleted). */
-export async function deleteMaterialLot(id: string): Promise<void> {
-  return withTenant(async (tenantId) => {
-    await db
-      .delete(materialLots)
-      .where(
-        and(eq(materialLots.tenantId, tenantId), eq(materialLots.id, id))
-      );
-  });
-}
+  const allAllocations: TrackingAllocation[] = [];
 
-/** Get batch usage (traceability) for a given lot. */
-export async function getLotBatchUsage(
-  lotId: string
-): Promise<LotBatchUsage[]> {
-  return withTenant(async (tenantId) => {
-    const rows = await db
+  for (const mov of issueMoves) {
+    if (!mov.stockIssueId) continue;
+
+    // Get the issue document details
+    const issueDocRows = await db
       .select({
-        batchId: batchMaterialLots.batchId,
-        batchNumber: batches.batchNumber,
-        recipeName: recipes.name,
-        brewDate: batches.brewDate,
-        quantityUsed: batchMaterialLots.quantityUsed,
+        issueCode: stockIssues.code,
+        issueDate: stockIssues.date,
       })
-      .from(batchMaterialLots)
-      .innerJoin(batches, eq(batchMaterialLots.batchId, batches.id))
-      .leftJoin(recipes, eq(batches.recipeId, recipes.id))
-      .where(
-        and(
-          eq(batchMaterialLots.tenantId, tenantId),
-          eq(batchMaterialLots.lotId, lotId)
-        )
-      )
-      .orderBy(desc(batches.brewDate));
+      .from(stockIssues)
+      .where(eq(stockIssues.id, mov.stockIssueId))
+      .limit(1);
 
-    return rows.map((r) => ({
-      batchId: r.batchId,
-      batchNumber: r.batchNumber ?? "",
-      recipeName: r.recipeName ?? null,
-      brewDate: r.brewDate?.toISOString() ?? null,
-      quantityUsed: r.quantityUsed ?? null,
-    }));
-  });
-}
+    const issueDoc = issueDocRows[0];
+    allAllocations.push({
+      id: mov.id,
+      issueCode: issueDoc?.issueCode ?? "?",
+      issueDate: issueDoc?.issueDate ?? "?",
+      quantity: String(Math.abs(Number(mov.quantity))),
+      unitPrice: mov.unitPrice ?? "0",
+    });
+  }
 
-/** Get brew material items for select options (is_brew_material = true). */
-export async function getBrewMaterialOptions(): Promise<
-  { value: string; label: string }[]
-> {
-  return withTenant(async (tenantId) => {
-    const rows = await db
-      .select({ id: items.id, name: items.name })
-      .from(items)
-      .where(
-        and(
-          eq(items.tenantId, tenantId),
-          eq(items.isBrewMaterial, true),
-          eq(items.isActive, true)
-        )
-      )
-      .orderBy(items.name);
-
-    return rows.map((r) => ({ value: r.id, label: r.name }));
-  });
-}
-
-/** Get supplier partners for select options. */
-export async function getSupplierOptions(): Promise<
-  { value: string; label: string }[]
-> {
-  return withTenant(async (tenantId) => {
-    const rows = await db
-      .select({ id: partners.id, name: partners.name })
-      .from(partners)
-      .where(
-        and(
-          eq(partners.tenantId, tenantId),
-          eq(partners.isSupplier, true),
-          eq(partners.isActive, true)
-        )
-      )
-      .orderBy(partners.name);
-
-    return rows.map((r) => ({ value: r.id, label: r.name }));
-  });
+  return allAllocations;
 }

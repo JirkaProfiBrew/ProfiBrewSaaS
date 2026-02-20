@@ -82,6 +82,13 @@ export const stockIssueLines = pgTable(
     issueModeSnapshot: text("issue_mode_snapshot"), // snapshot of item's issue_mode at time of issue
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
+    // Manual allocation entries (for manual_lot issue lines, stored as JSONB)
+    manualAllocations: jsonb("manual_allocations"),
+    // Lot tracking (filled on receipt lines only)
+    lotNumber: text("lot_number"),
+    expiryDate: date("expiry_date"),
+    lotAttributes: jsonb("lot_attributes").default({}),
+    remainingQty: decimal("remaining_qty"), // materialized: for receipts = issuedQty - allocated
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
@@ -115,6 +122,9 @@ export const stockMovements = pgTable(
     orderId: uuid("order_id"), // NO FK — Sprint 4
     batchId: uuid("batch_id").references(() => batches.id),
     lotId: uuid("lot_id"), // NO FK — will reference material_lots
+    receiptLineId: uuid("receipt_line_id").references(
+      () => stockIssueLines.id
+    ), // FK to the receipt line this issue movement draws from
     isClosed: boolean("is_closed").default(false),
     date: date("date").notNull(),
     notes: text("notes"),
@@ -127,11 +137,12 @@ export const stockMovements = pgTable(
       table.warehouseId
     ),
     index("idx_stock_movements_date").on(table.tenantId, table.date),
+    index("idx_movements_receipt_line").on(table.receiptLineId),
   ]
 );
 
 // ============================================================
-// STOCK ISSUE ALLOCATIONS (FIFO/LIFO allocation records)
+// STOCK ISSUE ALLOCATIONS (DEPRECATED — kept for compilation, no longer used in code)
 // ============================================================
 export const stockIssueAllocations = pgTable(
   "stock_issue_allocations",

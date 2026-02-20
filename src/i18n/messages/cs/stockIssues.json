@@ -109,7 +109,32 @@
     "lineRemoved": "Řádek smazán",
     "lineRemoveError": "Chyba při mazání řádku",
     "selectItem": "Vyberte položku",
-    "searchItem": "Hledat položku..."
+    "searchItem": "Hledat položku...",
+    "lotNumber": "Šarže",
+    "expiryDate": "Expirace",
+    "lotAttributes": "Atributy šarže",
+    "quantity": "Množství",
+    "actualQty": "Skutečné",
+    "lotAttr": {
+      "title": "Atributy šarže",
+      "extractPercent": "Výtěžnost (%)",
+      "moisture": "Vlhkost (%)",
+      "cropYear": "Ročník sklizně",
+      "actualAlpha": "Skutečná alpha (%)",
+      "generation": "Generace",
+      "viability": "Životaschopnost (%)"
+    }
+  },
+  "partialIssue": {
+    "title": "Nedostatek na skladě",
+    "description": "U některých položek není dostatečné množství. Bude vydáno pouze dostupné množství:",
+    "item": "Položka",
+    "requested": "Požadováno",
+    "available": "Dostupné",
+    "willIssue": "Bude vydáno",
+    "missing": "Chybí",
+    "confirmPartial": "Potvrdit částečný výdej",
+    "cancel": "Zrušit"
   },
   "confirmDialog": {
     "title": "Potvrdit doklad {code}?",
@@ -132,7 +157,11 @@
     "bullet3": "Obnovení alokovaných příjemek (u výdejek)",
     "warning": "Tuto akci nelze vrátit zpět.",
     "confirm": "Stornovat",
-    "cancel": "Zrušit"
+    "cancel": "Zrušit",
+    "close": "Zavřít",
+    "checking": "Kontrola závislostí…",
+    "blocked": "Příjemku nelze stornovat — existují výdejky, které z ní čerpají:",
+    "blockedHint": "Nejprve stornujte příslušné výdejky."
   },
   "movementsTab": {
     "date": "Datum",
@@ -151,5 +180,28 @@
     "quantity": "Množství",
     "unitPrice": "Cena příjmu",
     "noAllocations": "Doklad nemá žádné alokace"
+  },
+  "lotSelection": {
+    "title": "Výběr šarže pro výdej",
+    "receiptDate": "Datum příjmu",
+    "receiptCode": "Příjemka",
+    "supplier": "Dodavatel",
+    "lotNumber": "Šarže",
+    "expiry": "Expirace",
+    "remaining": "Zbývá",
+    "unitPrice": "Cena",
+    "allocate": "Přidělit",
+    "totalAllocated": "Přiděleno celkem",
+    "required": "Požadováno",
+    "confirm": "Potvrdit výběr",
+    "cancel": "Zrušit",
+    "noLots": "Žádné dostupné příjmové šarže",
+    "mismatch": "Celkové přidělené množství musí odpovídat požadovanému",
+    "overAllocated": "Přiděleno více než je dostupné",
+    "allocated": "Šarže přiděleny",
+    "allocateError": "Chyba při přidělování šarží",
+    "selectLots": "Vybrat šarže",
+    "lotsSelected": "{count} šarží vybráno",
+    "noLotsSelected": "Šarže nevybrány"
   }
 }

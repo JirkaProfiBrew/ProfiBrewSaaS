@@ -1,0 +1,53 @@
+{
+  "title": "Lot Tracking",
+  "search": "Search lot, receipt, item...",
+  "loading": "Loading...",
+  "noLots": "No tracked lots",
+  "notFound": "Lot not found",
+  "filters": {
+    "all": "All",
+    "inStock": "In Stock",
+    "partial": "Partially Issued",
+    "issued": "Issued",
+    "expired": "Expired"
+  },
+  "status": {
+    "in_stock": "In Stock",
+    "partial": "Partial",
+    "issued": "Issued",
+    "expired": "Expired"
+  },
+  "columns": {
+    "receiptCode": "Receipt",
+    "date": "Date",
+    "item": "Item",
+    "supplier": "Supplier",
+    "lotNumber": "Lot #",
+    "expiry": "Expiry",
+    "remaining": "Remaining",
+    "unitPrice": "Price",
+    "status": "Status"
+  },
+  "detail": {
+    "lotNumber": "Lot Number",
+    "expiry": "Expiry Date",
+    "receivedQty": "Received Qty",
+    "remainingQty": "Remaining Qty",
+    "unitPrice": "Unit Price",
+    "lotAttributes": "Lot Attributes",
+    "allocations": "Issue History",
+    "noAllocations": "No issues yet",
+    "issueCode": "Issue Document",
+    "issueDate": "Issue Date",
+    "issuedQty": "Issued Qty",
+    "allocUnitPrice": "Price",
+    "attr": {
+      "extractPercent": "Extract (%)",
+      "moisture": "Moisture (%)",
+      "cropYear": "Crop Year",
+      "actualAlpha": "Actual Alpha (%)",
+      "generation": "Generation",
+      "viability": "Viability (%)"
+    }
+  }
+}

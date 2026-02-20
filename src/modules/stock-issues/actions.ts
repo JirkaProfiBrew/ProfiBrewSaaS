@@ -9,12 +9,14 @@ import {
   stockIssues,
   stockIssueLines,
   stockMovements,
-  stockIssueAllocations,
 } from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
-import { allocateIssue } from "./lib/allocation-engine";
+import {
+  allocateFIFO,
+  processManualAllocations,
+} from "./lib/allocation-engine";
 import { updateStockStatusRow } from "./lib/stock-status-sync";
 import type {
   StockIssue,
@@ -25,6 +27,13 @@ import type {
   CreateLineInput,
   UpdateLineInput,
   StockIssueFilter,
+  AvailableReceiptLine,
+  ManualAllocationInput,
+  ManualAllocationJsonEntry,
+  ReceiptCancelCheck,
+  BlockingIssueInfo,
+  PrevalidationResult,
+  PrevalidationWarning,
 } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -60,7 +69,20 @@ function mapIssueRow(
   };
 }
 
-function mapLineRow(row: typeof stockIssueLines.$inferSelect): StockIssueLine {
+function mapLineRow(
+  row: typeof stockIssueLines.$inferSelect,
+  computedIssuedQty?: string | null
+): StockIssueLine {
+  const issuedQty = computedIssuedQty ?? row.issuedQty;
+  const requestedNum = Number(row.requestedQty);
+  const issuedNum = Number(issuedQty ?? "0");
+  const computedMissing =
+    computedIssuedQty !== undefined && issuedQty
+      ? requestedNum > issuedNum
+        ? String(requestedNum - issuedNum)
+        : null
+      : row.missingQty;
+
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -68,13 +90,19 @@ function mapLineRow(row: typeof stockIssueLines.$inferSelect): StockIssueLine {
     itemId: row.itemId,
     lineNo: row.lineNo,
     requestedQty: row.requestedQty,
-    issuedQty: row.issuedQty,
-    missingQty: row.missingQty,
+    issuedQty: issuedQty,
+    missingQty: computedMissing,
     unitPrice: row.unitPrice,
     totalCost: row.totalCost,
     issueModeSnapshot: row.issueModeSnapshot,
     notes: row.notes,
     sortOrder: row.sortOrder ?? 0,
+    manualAllocations:
+      (row.manualAllocations as ManualAllocationJsonEntry[] | null) ?? null,
+    lotNumber: row.lotNumber ?? null,
+    expiryDate: row.expiryDate ?? null,
+    lotAttributes: (row.lotAttributes as Record<string, unknown>) ?? {},
+    remainingQty: row.remainingQty ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -136,7 +164,7 @@ export async function getStockIssues(
   });
 }
 
-/** Get a single stock issue by ID, including lines. */
+/** Get a single stock issue by ID, including lines with computed actuals. */
 export async function getStockIssue(
   id: string
 ): Promise<StockIssueWithLines | null> {
@@ -158,9 +186,41 @@ export async function getStockIssue(
       .where(eq(stockIssueLines.stockIssueId, id))
       .orderBy(stockIssueLines.sortOrder, stockIssueLines.createdAt);
 
+    const isConfirmedIssue =
+      issueRow.movementType === "issue" && issueRow.status === "confirmed";
+
+    // For confirmed issues: compute issuedQty from movements
+    let computedActuals: Record<string, string> = {};
+    if (isConfirmedIssue) {
+      const movementSums = await db
+        .select({
+          lineId: stockMovements.stockIssueLineId,
+          totalQty: sql<string>`SUM(ABS(${stockMovements.quantity}::decimal))`,
+        })
+        .from(stockMovements)
+        .where(
+          and(
+            eq(stockMovements.stockIssueId, id),
+            sql`${stockMovements.notes} IS DISTINCT FROM 'Storno'`
+          )
+        )
+        .groupBy(stockMovements.stockIssueLineId);
+
+      computedActuals = Object.fromEntries(
+        movementSums
+          .filter((r) => r.lineId != null)
+          .map((r) => [r.lineId!, r.totalQty])
+      );
+    }
+
     return {
       ...mapIssueRow(issueRow),
-      lines: lineRows.map(mapLineRow),
+      lines: lineRows.map((row) =>
+        mapLineRow(
+          row,
+          isConfirmedIssue ? (computedActuals[row.id] ?? "0") : undefined
+        )
+      ),
     };
   });
 }
@@ -319,6 +379,9 @@ export async function addStockIssueLine(
         totalCost,
         notes: data.notes ?? null,
         sortOrder: nextLineNo,
+        lotNumber: data.lotNumber ?? null,
+        expiryDate: data.expiryDate ?? null,
+        lotAttributes: data.lotAttributes ?? {},
       })
       .returning();
 
@@ -377,6 +440,9 @@ export async function updateStockIssueLine(
         unitPrice,
         totalCost,
         notes: data.notes !== undefined ? data.notes : current.notes,
+        lotNumber: data.lotNumber !== undefined ? (data.lotNumber ?? null) : current.lotNumber,
+        expiryDate: data.expiryDate !== undefined ? (data.expiryDate ?? null) : current.expiryDate,
+        lotAttributes: data.lotAttributes !== undefined ? (data.lotAttributes ?? {}) : current.lotAttributes,
       })
       .where(
         and(
@@ -416,6 +482,7 @@ export async function removeStockIssueLine(lineId: string): Promise<void> {
       throw new Error("Can only remove lines from draft stock issues");
     }
 
+    // manualAllocations JSONB is on the line itself — deleted with the line
     await db
       .delete(stockIssueLines)
       .where(
@@ -427,12 +494,107 @@ export async function removeStockIssueLine(lineId: string): Promise<void> {
   });
 }
 
+// ── WORKFLOW: Prevalidation ──────────────────────────────────
+
+/**
+ * Pre-validate an issue before confirming.
+ * Checks if there's sufficient stock for each line and returns warnings for partial issues.
+ */
+export async function prevalidateIssue(
+  issueId: string
+): Promise<PrevalidationResult> {
+  return withTenant(async (tenantId) => {
+    // Load issue + lines
+    const issueRows = await db
+      .select()
+      .from(stockIssues)
+      .where(
+        and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, issueId))
+      )
+      .limit(1);
+
+    const issue = issueRows[0];
+    if (!issue) throw new Error("Stock issue not found");
+    if (issue.movementType !== "issue") {
+      return { canConfirm: true, hasWarnings: false, warnings: [] };
+    }
+
+    const lines = await db
+      .select({
+        id: stockIssueLines.id,
+        itemId: stockIssueLines.itemId,
+        requestedQty: stockIssueLines.requestedQty,
+      })
+      .from(stockIssueLines)
+      .where(eq(stockIssueLines.stockIssueId, issueId));
+
+    if (lines.length === 0) {
+      return { canConfirm: false, hasWarnings: false, warnings: [] };
+    }
+
+    const warnings: PrevalidationWarning[] = [];
+
+    for (const line of lines) {
+      const requested = Number(line.requestedQty);
+
+      // Sum remaining_qty from confirmed receipt lines for this item+warehouse
+      const availableRows = await db.execute(sql`
+        SELECT COALESCE(SUM(sil.remaining_qty::decimal), 0) AS available
+        FROM stock_issue_lines sil
+        JOIN stock_issues si ON si.id = sil.stock_issue_id
+        WHERE sil.tenant_id = ${tenantId}
+          AND sil.item_id = ${line.itemId}
+          AND si.warehouse_id = ${issue.warehouseId}
+          AND si.movement_type = 'receipt'
+          AND si.status = 'confirmed'
+          AND COALESCE(sil.remaining_qty::decimal, 0) > 0
+      `);
+
+      const available = Number(
+        (availableRows[0] as { available: string } | undefined)?.available ?? "0"
+      );
+
+      if (available < requested - 0.0001) {
+        // Get item info for display
+        const { units } = await import("@/../drizzle/schema/system");
+        const itemRows = await db
+          .select({ name: items.name, unitSymbol: units.symbol })
+          .from(items)
+          .leftJoin(units, eq(items.unitId, units.id))
+          .where(eq(items.id, line.itemId))
+          .limit(1);
+
+        const itemName = itemRows[0]?.name ?? "?";
+        const unit = itemRows[0]?.unitSymbol ?? "";
+        const willIssue = Math.min(available, requested);
+        const missing = requested - willIssue;
+
+        warnings.push({
+          itemName,
+          unit,
+          requested,
+          available,
+          willIssue,
+          missing,
+        });
+      }
+    }
+
+    return {
+      canConfirm: true,
+      hasWarnings: warnings.length > 0,
+      warnings,
+    };
+  });
+}
+
 // ── WORKFLOW: Confirm ──────────────────────────────────────────
 
 /**
  * Confirm a stock issue: draft → confirmed.
- * Creates stock movements, runs FIFO/LIFO allocation (for issues),
- * and updates stock_status. All within a DB transaction.
+ * Receipts: creates "in" movements, sets remaining_qty.
+ * Issues: uses FIFO/manual engine to create "out" movements with receipt_line_id.
+ * All within a DB transaction.
  */
 export async function confirmStockIssue(id: string): Promise<StockIssue> {
   return withTenant(async (tenantId) => {
@@ -464,47 +626,62 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
         throw new Error("Stock issue must have at least one line");
       }
 
-      for (const line of lines) {
-        const issuedQty = Number(line.issuedQty ?? line.requestedQty);
-        if (issuedQty <= 0) {
-          throw new Error(
-            `Line ${line.lineNo ?? "?"} must have issued quantity > 0`
-          );
-        }
-      }
-
       const isReceipt = issue.movementType === "receipt";
       let documentTotalCost = 0;
 
       // 3. PROCESS each line
       for (const line of lines) {
-        const issuedQty = Number(line.issuedQty ?? line.requestedQty);
-        let lineUnitPrice = Number(line.unitPrice ?? "0");
-        let lineTotalCost = issuedQty * lineUnitPrice;
+        const requestedQty = Number(line.requestedQty);
 
-        // 3a. Create stock movement
-        const movementRows = await tx
-          .insert(stockMovements)
-          .values({
+        if (requestedQty <= 0) {
+          throw new Error(
+            `Line ${line.lineNo ?? "?"} must have quantity > 0`
+          );
+        }
+
+        if (isReceipt) {
+          // ── RECEIPT: single "in" movement, set remaining_qty ──
+          const unitPrice = Number(line.unitPrice ?? "0");
+          const lineTotalCost = requestedQty * unitPrice;
+
+          await tx.insert(stockMovements).values({
             tenantId,
             itemId: line.itemId,
             warehouseId: issue.warehouseId,
-            movementType: isReceipt ? "in" : "out",
-            quantity: String(isReceipt ? issuedQty : -issuedQty),
+            movementType: "in",
+            quantity: String(requestedQty),
             unitPrice: line.unitPrice,
             stockIssueId: id,
             stockIssueLineId: line.id,
             batchId: issue.batchId,
             isClosed: false,
             date: issue.date,
-          })
-          .returning();
+          });
 
-        const movement = movementRows[0];
-        if (!movement) throw new Error("Failed to create stock movement");
+          // Set remaining_qty = requestedQty (full lot available)
+          await tx
+            .update(stockIssueLines)
+            .set({
+              issuedQty: String(requestedQty),
+              unitPrice: String(unitPrice),
+              totalCost: String(lineTotalCost),
+              remainingQty: String(requestedQty),
+            })
+            .where(eq(stockIssueLines.id, line.id));
 
-        // 3b. FIFO/LIFO allocation (only for issues, not receipts)
-        if (!isReceipt) {
+          documentTotalCost += lineTotalCost;
+
+          // Update stock_status
+          await updateStockStatusRow(
+            tx,
+            tenantId,
+            line.itemId,
+            issue.warehouseId,
+            requestedQty
+          );
+        } else {
+          // ── ISSUE: FIFO or manual_lot engine ──
+
           // Get item's issue_mode
           const itemRows = await tx
             .select({ issueMode: items.issueMode })
@@ -513,7 +690,7 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
             .limit(1);
 
           const issueMode =
-            (itemRows[0]?.issueMode as "fifo" | "lifo" | "average") ?? "fifo";
+            (itemRows[0]?.issueMode as "fifo" | "manual_lot") ?? "fifo";
 
           // Snapshot issue mode on the line
           await tx
@@ -521,57 +698,58 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
             .set({ issueModeSnapshot: issueMode })
             .where(eq(stockIssueLines.id, line.id));
 
-          // Run allocation
-          const allocation = await allocateIssue(
+          // Run allocation engine
+          const engineResult =
+            issueMode === "manual_lot"
+              ? await processManualAllocations(
+                  tx,
+                  tenantId,
+                  id,
+                  {
+                    id: line.id,
+                    itemId: line.itemId,
+                    requestedQty: line.requestedQty,
+                    manualAllocations:
+                      (line.manualAllocations as ManualAllocationJsonEntry[] | null) ?? null,
+                  },
+                  issue.warehouseId,
+                  issue.date,
+                  issue.batchId
+                )
+              : await allocateFIFO(
+                  tx,
+                  tenantId,
+                  id,
+                  {
+                    id: line.id,
+                    itemId: line.itemId,
+                    requestedQty: line.requestedQty,
+                  },
+                  issue.warehouseId,
+                  issue.date,
+                  issue.batchId
+                );
+
+          // Update line with cost from engine (issuedQty/missingQty computed from movements)
+          await tx
+            .update(stockIssueLines)
+            .set({
+              unitPrice: String(engineResult.weightedAvgPrice),
+              totalCost: String(engineResult.totalCost),
+            })
+            .where(eq(stockIssueLines.id, line.id));
+
+          documentTotalCost += engineResult.totalCost;
+
+          // Update stock_status with allocated amount
+          await updateStockStatusRow(
             tx,
             tenantId,
             line.itemId,
             issue.warehouseId,
-            issuedQty,
-            issueMode
+            -engineResult.allocated
           );
-
-          // Create allocation records
-          for (const alloc of allocation.allocations) {
-            await tx.insert(stockIssueAllocations).values({
-              tenantId,
-              stockIssueLineId: line.id,
-              sourceMovementId: alloc.sourceMovementId,
-              quantity: String(alloc.quantity),
-              unitPrice: String(alloc.unitPrice),
-            });
-          }
-
-          // Update line with computed prices
-          lineUnitPrice = allocation.weightedAvgPrice;
-          lineTotalCost = allocation.totalCost;
         }
-
-        // 3c. Update line with final cost
-        await tx
-          .update(stockIssueLines)
-          .set({
-            issuedQty: String(issuedQty),
-            unitPrice: String(lineUnitPrice),
-            totalCost: String(lineTotalCost),
-            missingQty:
-              Number(line.requestedQty) > issuedQty
-                ? String(Number(line.requestedQty) - issuedQty)
-                : null,
-          })
-          .where(eq(stockIssueLines.id, line.id));
-
-        documentTotalCost += lineTotalCost;
-
-        // 3d. Update stock_status
-        const quantityDelta = isReceipt ? issuedQty : -issuedQty;
-        await updateStockStatusRow(
-          tx,
-          tenantId,
-          line.itemId,
-          issue.warehouseId,
-          quantityDelta
-        );
       }
 
       // 4. Update issue header
@@ -597,12 +775,129 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
   });
 }
 
+// ── WORKFLOW: Receipt Cancel Check ────────────────────────────
+
+/**
+ * Check if a receipt can be cancelled.
+ * A receipt cannot be cancelled if any of its lines have movements
+ * with receipt_line_id pointing to them (i.e., issue movements that consumed stock).
+ */
+export async function checkReceiptCancellable(
+  id: string
+): Promise<ReceiptCancelCheck> {
+  return withTenant(async (tenantId) => {
+    // Verify this is a confirmed receipt
+    const issueRows = await db
+      .select({
+        status: stockIssues.status,
+        movementType: stockIssues.movementType,
+      })
+      .from(stockIssues)
+      .where(
+        and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, id))
+      )
+      .limit(1);
+
+    const issue = issueRows[0];
+    if (!issue) throw new Error("Stock issue not found");
+    if (issue.movementType !== "receipt") {
+      return { canCancel: true, blockingIssues: [] };
+    }
+    if (issue.status !== "confirmed") {
+      return { canCancel: true, blockingIssues: [] };
+    }
+
+    // Get receipt lines
+    const receiptLines = await db
+      .select({ id: stockIssueLines.id })
+      .from(stockIssueLines)
+      .where(eq(stockIssueLines.stockIssueId, id));
+
+    if (receiptLines.length === 0) {
+      return { canCancel: true, blockingIssues: [] };
+    }
+
+    const blockingIssues: BlockingIssueInfo[] = [];
+
+    for (const receiptLine of receiptLines) {
+      // Find issue movements that reference this receipt line (negative qty, not storno)
+      const issueMoves = await db
+        .select({
+          stockIssueId: stockMovements.stockIssueId,
+          quantity: stockMovements.quantity,
+          stockIssueLineId: stockMovements.stockIssueLineId,
+        })
+        .from(stockMovements)
+        .where(
+          and(
+            eq(stockMovements.receiptLineId, receiptLine.id),
+            sql`${stockMovements.quantity}::decimal < 0`,
+            sql`${stockMovements.notes} IS DISTINCT FROM 'Storno'`
+          )
+        );
+
+      for (const mov of issueMoves) {
+        if (!mov.stockIssueId) continue;
+
+        // Get the issue document details
+        const issueDocRows = await db
+          .select({
+            issueId: stockIssues.id,
+            issueCode: stockIssues.code,
+            issueStatus: stockIssues.status,
+          })
+          .from(stockIssues)
+          .where(eq(stockIssues.id, mov.stockIssueId))
+          .limit(1);
+
+        const issueDoc = issueDocRows[0];
+        if (!issueDoc || issueDoc.issueStatus !== "confirmed") continue;
+
+        // Get item name from the issue line
+        let itemName = "?";
+        if (mov.stockIssueLineId) {
+          const lineItemRows = await db
+            .select({ itemName: items.name })
+            .from(stockIssueLines)
+            .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+            .where(eq(stockIssueLines.id, mov.stockIssueLineId))
+            .limit(1);
+          itemName = lineItemRows[0]?.itemName ?? "?";
+        }
+
+        const allocatedQty = Math.abs(Number(mov.quantity));
+
+        // Aggregate
+        const existing = blockingIssues.find(
+          (b) => b.issueId === issueDoc.issueId
+        );
+        if (existing) {
+          existing.allocatedQty += allocatedQty;
+        } else {
+          blockingIssues.push({
+            issueId: issueDoc.issueId,
+            issueCode: issueDoc.issueCode,
+            itemName,
+            allocatedQty,
+          });
+        }
+      }
+    }
+
+    return {
+      canCancel: blockingIssues.length === 0,
+      blockingIssues,
+    };
+  });
+}
+
 // ── WORKFLOW: Cancel ───────────────────────────────────────────
 
 /**
  * Cancel a confirmed stock issue: confirmed → cancelled.
- * Creates counter-movements, reverses allocations and stock_status.
- * All within a DB transaction.
+ * Creates counter-movements, reverses stock_status.
+ * For issues: restores remaining_qty on receipt lines.
+ * For receipts: checks no confirmed issues reference this receipt.
  */
 export async function cancelStockIssue(id: string): Promise<StockIssue> {
   return withTenant(async (tenantId) => {
@@ -625,11 +920,29 @@ export async function cancelStockIssue(id: string): Promise<StockIssue> {
 
       const isReceipt = issue.movementType === "receipt";
 
-      // 2. Load existing movements for this issue
+      // 1b. For receipts: check that no confirmed issues reference this receipt
+      if (isReceipt) {
+        const cancelCheck = await checkReceiptCancellable(id);
+        if (!cancelCheck.canCancel) {
+          const details = cancelCheck.blockingIssues
+            .map((b) => `${b.issueCode} (${b.itemName}: ${b.allocatedQty})`)
+            .join(", ");
+          throw new Error(
+            `RECEIPT_HAS_ALLOCATIONS:${JSON.stringify(cancelCheck.blockingIssues)}:${details}`
+          );
+        }
+      }
+
+      // 2. Load existing movements for this issue (non-storno only)
       const movements = await tx
         .select()
         .from(stockMovements)
-        .where(eq(stockMovements.stockIssueId, id));
+        .where(
+          and(
+            eq(stockMovements.stockIssueId, id),
+            sql`${stockMovements.notes} IS DISTINCT FROM 'Storno'`
+          )
+        );
 
       // 3. For each movement: create counter-movement, reverse stock_status
       for (const movement of movements) {
@@ -645,11 +958,23 @@ export async function cancelStockIssue(id: string): Promise<StockIssue> {
           unitPrice: movement.unitPrice,
           stockIssueId: id,
           stockIssueLineId: movement.stockIssueLineId,
+          receiptLineId: movement.receiptLineId,
           batchId: movement.batchId,
           isClosed: true,
           date: issue.date,
           notes: "Storno",
         });
+
+        // If this is an issue movement with receipt_line_id, restore remaining_qty
+        if (!isReceipt && movement.receiptLineId) {
+          const allocatedQty = Math.abs(qty);
+          await tx
+            .update(stockIssueLines)
+            .set({
+              remainingQty: sql`COALESCE(${stockIssueLines.remainingQty}::decimal, 0) + ${allocatedQty}`,
+            })
+            .where(eq(stockIssueLines.id, movement.receiptLineId));
+        }
 
         // Reverse stock_status
         await updateStockStatusRow(
@@ -661,33 +986,12 @@ export async function cancelStockIssue(id: string): Promise<StockIssue> {
         );
       }
 
-      // 4. For issues (not receipts): restore allocations
-      if (!isReceipt) {
-        // Load allocations for this issue's lines
-        const lines = await tx
-          .select({ id: stockIssueLines.id })
-          .from(stockIssueLines)
+      // 4. For receipts: set remaining_qty = 0 on all receipt lines
+      if (isReceipt) {
+        await tx
+          .update(stockIssueLines)
+          .set({ remainingQty: "0" })
           .where(eq(stockIssueLines.stockIssueId, id));
-
-        for (const line of lines) {
-          const allocations = await tx
-            .select()
-            .from(stockIssueAllocations)
-            .where(eq(stockIssueAllocations.stockIssueLineId, line.id));
-
-          // Re-open the source movements
-          for (const alloc of allocations) {
-            await tx
-              .update(stockMovements)
-              .set({ isClosed: false })
-              .where(eq(stockMovements.id, alloc.sourceMovementId));
-          }
-
-          // Delete allocation records
-          await tx
-            .delete(stockIssueAllocations)
-            .where(eq(stockIssueAllocations.stockIssueLineId, line.id));
-        }
       }
 
       // 5. Update issue status
@@ -760,39 +1064,6 @@ export async function getStockIssueMovements(
   });
 }
 
-/** Get allocations for a stock issue's lines. */
-export async function getStockIssueAllocations(
-  issueId: string
-): Promise<Array<typeof stockIssueAllocations.$inferSelect>> {
-  return withTenant(async (tenantId) => {
-    const lines = await db
-      .select({ id: stockIssueLines.id })
-      .from(stockIssueLines)
-      .where(eq(stockIssueLines.stockIssueId, issueId));
-
-    if (lines.length === 0) return [];
-
-    const lineIds = lines.map((l) => l.id);
-
-    // Use OR to match any line
-    const allAllocations: Array<typeof stockIssueAllocations.$inferSelect> = [];
-    for (const lineId of lineIds) {
-      const rows = await db
-        .select()
-        .from(stockIssueAllocations)
-        .where(
-          and(
-            eq(stockIssueAllocations.tenantId, tenantId),
-            eq(stockIssueAllocations.stockIssueLineId, lineId)
-          )
-        );
-      allAllocations.push(...rows);
-    }
-
-    return allAllocations;
-  });
-}
-
 // ── HELPERS: Select Options ──────────────────────────────────
 
 /** Get warehouse options for select fields. */
@@ -825,18 +1096,142 @@ export async function getPartnerOptions(): Promise<
   });
 }
 
-/** Get item options for line item selection. */
+/** Get item options for line item selection (includes material info for lot attributes). */
 export async function getItemOptions(): Promise<
-  Array<{ value: string; label: string; code: string }>
+  Array<{
+    value: string;
+    label: string;
+    code: string;
+    isBrewMaterial: boolean;
+    materialType: string | null;
+    issueMode: string;
+  }>
 > {
   return withTenant(async (tenantId) => {
     const rows = await db
-      .select({ id: items.id, name: items.name, code: items.code })
+      .select({
+        id: items.id,
+        name: items.name,
+        code: items.code,
+        isBrewMaterial: items.isBrewMaterial,
+        materialType: items.materialType,
+        issueMode: items.issueMode,
+      })
       .from(items)
       .where(and(eq(items.tenantId, tenantId), eq(items.isActive, true)))
       .orderBy(items.name);
 
-    return rows.map((r) => ({ value: r.id, label: `${r.code} — ${r.name}`, code: r.code }));
+    return rows.map((r) => ({
+      value: r.id,
+      label: `${r.code} — ${r.name}`,
+      code: r.code,
+      isBrewMaterial: r.isBrewMaterial ?? false,
+      materialType: r.materialType ?? null,
+      issueMode: r.issueMode ?? "fifo",
+    }));
+  });
+}
+
+// ── LOT ACTIONS: Manual Lot Selection ───────────────────────
+
+/**
+ * Get available receipt lines for manual lot selection.
+ * Returns confirmed receipt lines with remaining_qty > 0 for a given item+warehouse.
+ */
+export async function getAvailableReceiptLines(
+  itemId: string,
+  warehouseId: string
+): Promise<AvailableReceiptLine[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        receiptLineId: stockIssueLines.id,
+        receiptDate: stockIssues.date,
+        receiptCode: stockIssues.code,
+        supplierName: partners.name,
+        lotNumber: stockIssueLines.lotNumber,
+        expiryDate: stockIssueLines.expiryDate,
+        requestedQty: stockIssueLines.requestedQty,
+        remainingQty: stockIssueLines.remainingQty,
+        unitPrice: stockIssueLines.unitPrice,
+      })
+      .from(stockIssueLines)
+      .innerJoin(
+        stockIssues,
+        eq(stockIssueLines.stockIssueId, stockIssues.id)
+      )
+      .leftJoin(partners, eq(stockIssues.partnerId, partners.id))
+      .where(
+        and(
+          eq(stockIssueLines.tenantId, tenantId),
+          eq(stockIssueLines.itemId, itemId),
+          eq(stockIssues.warehouseId, warehouseId),
+          eq(stockIssues.movementType, "receipt"),
+          eq(stockIssues.status, "confirmed"),
+          sql`${stockIssueLines.remainingQty}::decimal > 0`
+        )
+      )
+      .orderBy(stockIssues.date, stockIssueLines.createdAt);
+
+    return rows.map((r) => ({
+      receiptLineId: r.receiptLineId,
+      receiptDate: r.receiptDate,
+      receiptCode: r.receiptCode,
+      supplierName: r.supplierName ?? null,
+      lotNumber: r.lotNumber ?? null,
+      expiryDate: r.expiryDate ?? null,
+      requestedQty: r.requestedQty,
+      remainingQty: r.remainingQty ?? "0",
+      unitPrice: r.unitPrice ?? null,
+    }));
+  });
+}
+
+/**
+ * Save manual allocation entries to a line's manualAllocations JSONB.
+ * Called from the LotSelectionDialog before confirm.
+ */
+export async function saveManualAllocations(
+  issueLineId: string,
+  entries: ManualAllocationInput[]
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    // Verify draft status
+    const lineRow = await db
+      .select({ issueStatus: stockIssues.status })
+      .from(stockIssueLines)
+      .innerJoin(
+        stockIssues,
+        eq(stockIssueLines.stockIssueId, stockIssues.id)
+      )
+      .where(
+        and(
+          eq(stockIssueLines.tenantId, tenantId),
+          eq(stockIssueLines.id, issueLineId)
+        )
+      )
+      .limit(1);
+
+    if (!lineRow[0]) throw new Error("Stock issue line not found");
+    if (lineRow[0].issueStatus !== "draft") {
+      throw new Error("Can only set allocations on draft stock issues");
+    }
+
+    // Convert to JSONB format
+    const jsonEntries: ManualAllocationJsonEntry[] = entries.map((e) => ({
+      receipt_line_id: e.receiptLineId,
+      quantity: Number(e.quantity),
+    }));
+
+    await db
+      .update(stockIssueLines)
+      .set({ manualAllocations: jsonEntries.length > 0 ? jsonEntries : null })
+      .where(
+        and(
+          eq(stockIssueLines.tenantId, tenantId),
+          eq(stockIssueLines.id, issueLineId)
+        )
+      );
   });
 }
 

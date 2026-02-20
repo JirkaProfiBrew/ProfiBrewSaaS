@@ -1,406 +1,208 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2, Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
-import { DetailView } from "@/components/detail-view";
-import { FormSection } from "@/components/forms";
-import type { FormSectionDef, FormMode } from "@/components/forms";
-import type { DetailViewAction } from "@/components/detail-view";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import { useMaterialLotDetail } from "../hooks";
+import { Badge } from "@/components/ui/badge";
 import {
-  createMaterialLot,
-  updateMaterialLot,
-  deleteMaterialLot,
-  getBrewMaterialOptions,
-  getSupplierOptions,
-} from "../actions";
-import { LotTraceabilityView } from "./LotTraceabilityView";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-// ── Props ──────────────────────────────────────────────────────
+import { getTrackingLot } from "../actions";
+import type { TrackingLotDetail } from "../types";
+import type { TrackingLotStatus } from "@/modules/stock-issues/types";
+
+const STATUS_COLORS: Record<TrackingLotStatus, string> = {
+  in_stock: "bg-green-100 text-green-700",
+  partial: "bg-yellow-100 text-yellow-700",
+  issued: "bg-gray-100 text-gray-500",
+  expired: "bg-red-100 text-red-700",
+};
 
 interface LotDetailProps {
   id: string;
 }
 
-// ── Default values ─────────────────────────────────────────────
-
-function getDefaultValues(): Record<string, unknown> {
-  return {
-    lotNumber: "",
-    itemId: "__none__",
-    supplierId: "__none__",
-    receivedDate: new Date().toISOString().split("T")[0],
-    expiryDate: "",
-    quantityInitial: "",
-    quantityRemaining: "",
-    unitPrice: "",
-    notes: "",
-  };
-}
-
-// ── Component ──────────────────────────────────────────────────
-
 export function LotDetail({ id }: LotDetailProps): React.ReactNode {
-  const t = useTranslations("materialLots");
-  const tCommon = useTranslations("common");
+  const t = useTranslations("tracking");
   const router = useRouter();
 
-  const isNew = id === "new";
-  const mode: FormMode = isNew ? "create" : "edit";
+  const [lot, setLot] = useState<TrackingLotDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const { data: lot, isLoading } = useMaterialLotDetail(isNew ? "" : id);
-
-  const [values, setValues] = useState<Record<string, unknown>>(getDefaultValues());
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [properties, setProperties] = useState<Array<{ key: string; value: string }>>([]);
-
-  // Select options
-  const [itemOptions, setItemOptions] = useState<{ value: string; label: string }[]>([]);
-  const [supplierOptions, setSupplierOptions] = useState<{ value: string; label: string }[]>([]);
-
-  // Load select options
   useEffect(() => {
-    void getBrewMaterialOptions().then((opts) =>
-      setItemOptions([{ value: "__none__", label: "—" }, ...opts])
+    async function load(): Promise<void> {
+      setLoading(true);
+      try {
+        const data = await getTrackingLot(id);
+        setLot(data);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {t("loading")}
+      </p>
     );
-    void getSupplierOptions().then((opts) =>
-      setSupplierOptions([{ value: "__none__", label: "—" }, ...opts])
+  }
+
+  if (!lot) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {t("notFound")}
+      </p>
     );
-  }, []);
+  }
 
-  // Populate form when lot data loads
-  useEffect(() => {
-    if (lot) {
-      setValues({
-        lotNumber: lot.lotNumber,
-        itemId: lot.itemId ?? "__none__",
-        supplierId: lot.supplierId ?? "__none__",
-        receivedDate: lot.receivedDate ?? "",
-        expiryDate: lot.expiryDate ?? "",
-        quantityInitial: lot.quantityInitial ?? "",
-        quantityRemaining: lot.quantityRemaining ?? "",
-        unitPrice: lot.unitPrice ?? "",
-        notes: lot.notes ?? "",
-      });
-      // Convert properties object to array of key-value pairs
-      if (lot.properties && typeof lot.properties === "object") {
-        const entries = Object.entries(lot.properties).map(([key, value]) => ({
-          key,
-          value: String(value),
-        }));
-        setProperties(entries.length > 0 ? entries : []);
-      }
-    }
-  }, [lot]);
-
-  // ── Form section definitions ──────────────────────────────────
-
-  const basicSection: FormSectionDef = useMemo(
-    () => ({
-      columns: 2,
-      fields: [
-        {
-          key: "lotNumber",
-          label: t("form.lotNumber"),
-          type: "text",
-          required: true,
-        },
-        {
-          key: "itemId",
-          label: t("form.item"),
-          type: "select",
-          required: true,
-          options: itemOptions,
-          disabled: !isNew,
-        },
-        {
-          key: "supplierId",
-          label: t("form.supplier"),
-          type: "select",
-          options: supplierOptions,
-        },
-        {
-          key: "receivedDate",
-          label: t("form.receivedDate"),
-          type: "date",
-        },
-        {
-          key: "expiryDate",
-          label: t("form.expiryDate"),
-          type: "date",
-        },
-        {
-          key: "quantityInitial",
-          label: t("form.quantityInitial"),
-          type: "number",
-          disabled: !isNew,
-        },
-        {
-          key: "quantityRemaining",
-          label: t("form.quantityRemaining"),
-          type: "number",
-          disabled: true,
-        },
-        {
-          key: "unitPrice",
-          label: t("form.unitPrice"),
-          type: "number",
-        },
-        {
-          key: "notes",
-          label: t("form.notes"),
-          type: "textarea",
-          colSpan: 2,
-        },
-      ],
-    }),
-    [t, isNew, itemOptions, supplierOptions]
-  );
-
-  // ── Handlers ──────────────────────────────────────────────────
-
-  const handleChange = useCallback(
-    (key: string, value: unknown): void => {
-      setValues((prev) => ({ ...prev, [key]: value }));
-      setErrors((prev) => {
-        if (prev[key]) {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        }
-        return prev;
-      });
-    },
-    []
-  );
-
-  const handleAddProperty = useCallback((): void => {
-    setProperties((prev) => [...prev, { key: "", value: "" }]);
-  }, []);
-
-  const handleRemoveProperty = useCallback((index: number): void => {
-    setProperties((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handlePropertyChange = useCallback(
-    (index: number, field: "key" | "value", newValue: string): void => {
-      setProperties((prev) =>
-        prev.map((p, i) => (i === index ? { ...p, [field]: newValue } : p))
-      );
-    },
-    []
-  );
-
-  const handleSave = useCallback(async (): Promise<void> => {
-    const newErrors: Record<string, string> = {};
-    if (!values.lotNumber || String(values.lotNumber).trim() === "") {
-      newErrors.lotNumber = tCommon("validation.required");
-    }
-    if (!values.itemId || String(values.itemId) === "__none__") {
-      newErrors.itemId = tCommon("validation.required");
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    // Convert properties array back to object
-    const propsObj: Record<string, string> = {};
-    for (const p of properties) {
-      if (p.key.trim()) {
-        propsObj[p.key.trim()] = p.value;
-      }
-    }
-
-    try {
-      if (isNew) {
-        await createMaterialLot({
-          lotNumber: String(values.lotNumber),
-          itemId: String(values.itemId),
-          supplierId: String(values.supplierId) !== "__none__" ? String(values.supplierId) : null,
-          receivedDate: String(values.receivedDate) || null,
-          expiryDate: String(values.expiryDate) || null,
-          quantityInitial: String(values.quantityInitial) || null,
-          quantityRemaining: String(values.quantityInitial) || null,
-          unitPrice: String(values.unitPrice) || null,
-          properties: Object.keys(propsObj).length > 0 ? propsObj : null,
-          notes: String(values.notes) || null,
-        });
-      } else {
-        await updateMaterialLot(id, {
-          lotNumber: String(values.lotNumber),
-          supplierId: String(values.supplierId) !== "__none__" ? String(values.supplierId) : null,
-          receivedDate: String(values.receivedDate) || null,
-          expiryDate: String(values.expiryDate) || null,
-          unitPrice: String(values.unitPrice) || null,
-          properties: Object.keys(propsObj).length > 0 ? propsObj : null,
-          notes: String(values.notes) || null,
-        });
-      }
-      toast.success(t("detail.saved"));
-      router.push("/stock/tracking");
-    } catch (error) {
-      console.error("Failed to save material lot:", error);
-      toast.error(t("detail.saveFailed"));
-    }
-  }, [values, properties, isNew, id, router, t, tCommon]);
-
-  const handleDelete = useCallback(async (): Promise<void> => {
-    try {
-      await deleteMaterialLot(id);
-      toast.success(t("detail.deleted"));
-      router.push("/stock/tracking");
-    } catch (error) {
-      console.error("Failed to delete material lot:", error);
-      toast.error(t("detail.deleteFailed"));
-    }
-  }, [id, router, t]);
-
-  const handleCancel = useCallback((): void => {
-    router.push("/stock/tracking");
-  }, [router]);
-
-  // ── Actions ───────────────────────────────────────────────────
-
-  const actions: DetailViewAction[] = useMemo(() => {
-    if (isNew) return [];
-    return [
-      {
-        key: "delete",
-        label: tCommon("delete"),
-        icon: Trash2,
-        variant: "destructive",
-        onClick: () => {
-          void handleDelete();
-        },
-      },
-    ];
-  }, [isNew, tCommon, handleDelete]);
-
-  // ── Render ────────────────────────────────────────────────────
-
-  const title = isNew ? t("detail.newTitle") : lot?.lotNumber ?? t("detail.title");
+  const attrs = lot.lotAttributes;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <DetailView
-        title={title}
-        backHref="/stock/tracking"
-        actions={actions}
-        isLoading={!isNew && isLoading}
-        onSave={() => {
-          void handleSave();
-        }}
-        onCancel={handleCancel}
-        saveLabel={tCommon("save")}
-        cancelLabel={tCommon("cancel")}
-      >
-        {isNew ? (
-          <FormSection
-            section={basicSection}
-            values={values}
-            errors={errors}
-            mode={mode}
-            onChange={handleChange}
-          />
-        ) : (
-          <Tabs defaultValue="basic" className="w-full">
-            <TabsList>
-              <TabsTrigger value="basic">{t("tabs.basic")}</TabsTrigger>
-              <TabsTrigger value="properties">{t("tabs.properties")}</TabsTrigger>
-              <TabsTrigger value="traceability">{t("tabs.traceability")}</TabsTrigger>
-            </TabsList>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="size-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {lot.receiptCode} — {lot.itemName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {lot.receiptDate} · {lot.warehouseName}
+            {lot.supplierName ? ` · ${lot.supplierName}` : ""}
+          </p>
+        </div>
+        <Badge variant="secondary" className={STATUS_COLORS[lot.status]}>
+          {t(`status.${lot.status}`)}
+        </Badge>
+      </div>
 
-            <TabsContent value="basic" className="mt-4">
-              <FormSection
-                section={basicSection}
-                values={values}
-                errors={errors}
-                mode={mode}
-                onChange={handleChange}
-              />
-            </TabsContent>
+      {/* Info grid */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <InfoField
+          label={t("detail.lotNumber")}
+          value={lot.lotNumber ?? "\u2014"}
+        />
+        <InfoField
+          label={t("detail.expiry")}
+          value={lot.expiryDate ?? "\u2014"}
+        />
+        <InfoField
+          label={t("detail.receivedQty")}
+          value={`${lot.issuedQty}${lot.unitSymbol ? ` ${lot.unitSymbol}` : ""}`}
+        />
+        <InfoField
+          label={t("detail.remainingQty")}
+          value={`${lot.remainingQty}${lot.unitSymbol ? ` ${lot.unitSymbol}` : ""}`}
+        />
+        <InfoField
+          label={t("detail.unitPrice")}
+          value={
+            lot.unitPrice
+              ? `${Number(lot.unitPrice).toLocaleString("cs-CZ", { minimumFractionDigits: 2 })} K\u010d`
+              : "\u2014"
+          }
+        />
+      </div>
 
-            <TabsContent value="properties" className="mt-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">{t("properties.title")}</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddProperty}
-                  >
-                    <Plus className="mr-1 h-4 w-4" />
-                    {t("properties.addProperty")}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {t("properties.examples")}
-                </p>
-
-                {properties.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    {t("properties.noProperties")}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {properties.map((prop, index) => (
-                      <div key={index} className="flex items-end gap-2">
-                        <div className="flex-1">
-                          {index === 0 && (
-                            <Label className="mb-1 text-xs">{t("properties.key")}</Label>
-                          )}
-                          <Input
-                            value={prop.key}
-                            onChange={(e) =>
-                              handlePropertyChange(index, "key", e.target.value)
-                            }
-                            placeholder={t("properties.key")}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          {index === 0 && (
-                            <Label className="mb-1 text-xs">{t("properties.value")}</Label>
-                          )}
-                          <Input
-                            value={prop.value}
-                            onChange={(e) =>
-                              handlePropertyChange(index, "value", e.target.value)
-                            }
-                            placeholder={t("properties.value")}
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveProperty(index)}
-                          className="h-9 w-9 shrink-0"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+      {/* Lot attributes (if brew material) */}
+      {Object.keys(attrs).length > 0 && (
+        <div>
+          <h2 className="mb-2 text-lg font-semibold">
+            {t("detail.lotAttributes")}
+          </h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {Object.entries(attrs).map(([key, val]) => (
+              <InfoField
+                key={key}
+                label={t(
+                  `detail.attr.${key}` as Parameters<typeof t>[0]
                 )}
-              </div>
-            </TabsContent>
+                value={String(val ?? "\u2014")}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
-            <TabsContent value="traceability" className="mt-4">
-              <LotTraceabilityView lotId={id} />
-            </TabsContent>
-          </Tabs>
+      {/* Allocation history */}
+      <div>
+        <h2 className="mb-2 text-lg font-semibold">
+          {t("detail.allocations")}
+        </h2>
+        {lot.allocations.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {t("detail.noAllocations")}
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("detail.issueCode")}</TableHead>
+                  <TableHead>{t("detail.issueDate")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("detail.issuedQty")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("detail.allocUnitPrice")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lot.allocations.map((alloc) => (
+                  <TableRow key={alloc.id}>
+                    <TableCell className="font-medium">
+                      {alloc.issueCode}
+                    </TableCell>
+                    <TableCell>{alloc.issueDate}</TableCell>
+                    <TableCell className="text-right">
+                      {alloc.quantity}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {Number(alloc.unitPrice).toLocaleString("cs-CZ", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      K{"\u010d"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-      </DetailView>
+      </div>
+    </div>
+  );
+}
+
+// Small readonly field
+function InfoField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): React.ReactNode {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-medium">{value}</p>
     </div>
   );
 }

@@ -16,7 +16,19 @@ export type {
   UpdateLineInput,
   StockIssueFilter,
   AllocationResult,
+  AllocationRecord,
   StockStatusRow,
+  AvailableReceiptLine,
+  ManualAllocationInput,
+  ManualAllocationJsonEntry,
+  MaltLotAttributes,
+  HopLotAttributes,
+  YeastLotAttributes,
+  TrackingLotStatus,
+  BlockingIssueInfo,
+  ReceiptCancelCheck,
+  PrevalidationWarning,
+  PrevalidationResult,
 } from "./types";
 
 export { StockIssueBrowser } from "./components/StockIssueBrowser";

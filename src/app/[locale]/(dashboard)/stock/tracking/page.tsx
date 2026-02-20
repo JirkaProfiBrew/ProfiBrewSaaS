@@ -1,4 +1,4 @@
-import { LotBrowser } from "@/modules/material-lots/components/LotBrowser";
+import { LotBrowser } from "@/modules/material-lots";
 
 export default function LotTrackingPage(): React.ReactNode {
   return <LotBrowser />;

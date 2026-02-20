@@ -109,7 +109,32 @@
     "lineRemoved": "Line removed",
     "lineRemoveError": "Failed to remove line",
     "selectItem": "Select item",
-    "searchItem": "Search item..."
+    "searchItem": "Search item...",
+    "lotNumber": "Lot #",
+    "expiryDate": "Expiry",
+    "lotAttributes": "Lot Attributes",
+    "quantity": "Quantity",
+    "actualQty": "Actual",
+    "lotAttr": {
+      "title": "Lot Attributes",
+      "extractPercent": "Extract (%)",
+      "moisture": "Moisture (%)",
+      "cropYear": "Crop Year",
+      "actualAlpha": "Actual Alpha (%)",
+      "generation": "Generation",
+      "viability": "Viability (%)"
+    }
+  },
+  "partialIssue": {
+    "title": "Insufficient Stock",
+    "description": "Some items have insufficient stock. Only available quantity will be issued:",
+    "item": "Item",
+    "requested": "Requested",
+    "available": "Available",
+    "willIssue": "Will Issue",
+    "missing": "Missing",
+    "confirmPartial": "Confirm Partial Issue",
+    "cancel": "Cancel"
   },
   "confirmDialog": {
     "title": "Confirm document {code}?",
@@ -132,7 +157,11 @@
     "bullet3": "Re-open allocated receipts (for issues)",
     "warning": "This action cannot be undone.",
     "confirm": "Cancel Document",
-    "cancel": "Go Back"
+    "cancel": "Go Back",
+    "close": "Close",
+    "checking": "Checking dependencies…",
+    "blocked": "This receipt cannot be cancelled — there are issues that allocated from it:",
+    "blockedHint": "Cancel the blocking issues first."
   },
   "movementsTab": {
     "date": "Date",
@@ -151,5 +180,28 @@
     "quantity": "Quantity",
     "unitPrice": "Receipt Price",
     "noAllocations": "No allocations for this document"
+  },
+  "lotSelection": {
+    "title": "Select Lots for Issue",
+    "receiptDate": "Receipt Date",
+    "receiptCode": "Receipt",
+    "supplier": "Supplier",
+    "lotNumber": "Lot #",
+    "expiry": "Expiry",
+    "remaining": "Remaining",
+    "unitPrice": "Price",
+    "allocate": "Allocate",
+    "totalAllocated": "Total Allocated",
+    "required": "Required",
+    "confirm": "Confirm Selection",
+    "cancel": "Cancel",
+    "noLots": "No available receipt lots",
+    "mismatch": "Total allocated must match required quantity",
+    "overAllocated": "Allocated more than available",
+    "allocated": "Lots allocated",
+    "allocateError": "Failed to allocate lots",
+    "selectLots": "Select lots",
+    "lotsSelected": "{count} lots selected",
+    "noLotsSelected": "No lots selected"
   }
 }

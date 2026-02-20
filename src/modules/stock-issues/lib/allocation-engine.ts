@@ -1,103 +1,186 @@
 /**
- * FIFO/LIFO allocation engine.
- * Allocates issue quantities against open receipt movements.
+ * FIFO allocation engine (v2).
+ * Creates issue movements directly referencing receipt lines via receipt_line_id.
+ * No more stock_issue_allocations table — movements are the single source of truth.
  */
 
-import { eq, and, asc, desc, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
-import { stockMovements, stockIssueAllocations } from "@/../drizzle/schema/stock";
-import type { AllocationResult, IssueMode } from "../types";
+import {
+  stockIssueLines,
+  stockMovements,
+} from "@/../drizzle/schema/stock";
+import type { ManualAllocationJsonEntry } from "../types";
 
 type Transaction = PgTransaction<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle transaction type is complex
   any, any, any
 >;
 
+export interface AllocationEngineResult {
+  allocated: number;
+  missing: number;
+  weightedAvgPrice: number;
+  totalCost: number;
+}
+
 /**
- * Allocate an issue quantity against open receipt movements using FIFO or LIFO.
- *
- * @throws Error if insufficient stock
+ * Allocate an issue line via FIFO against receipt lines with remaining_qty > 0.
+ * Creates one movement per receipt line consumed. Does NOT throw on insufficient stock.
  */
-export async function allocateIssue(
+export async function allocateFIFO(
   tx: Transaction,
   tenantId: string,
-  itemId: string,
+  issueId: string,
+  issueLine: { id: string; itemId: string; requestedQty: string },
   warehouseId: string,
-  quantity: number,
-  issueMode: IssueMode
-): Promise<AllocationResult> {
-  // 1. Load open receipt movements for this item + warehouse
-  const dateOrder = issueMode === "lifo" ? desc(stockMovements.date) : asc(stockMovements.date);
+  date: string,
+  batchId: string | null
+): Promise<AllocationEngineResult> {
+  const requestedQty = Number(issueLine.requestedQty);
 
-  const openMovements = await tx
-    .select()
-    .from(stockMovements)
-    .where(
-      and(
-        eq(stockMovements.tenantId, tenantId),
-        eq(stockMovements.itemId, itemId),
-        eq(stockMovements.warehouseId, warehouseId),
-        eq(stockMovements.movementType, "in"),
-        eq(stockMovements.isClosed, false)
-      )
-    )
-    .orderBy(dateOrder, asc(stockMovements.createdAt));
+  // Find receipt lines with remaining stock in the same warehouse, ordered by date (FIFO)
+  const receiptLinesInWarehouse = await tx.execute(sql`
+    SELECT sil.id, sil.remaining_qty, sil.unit_price, sil.stock_issue_id
+    FROM stock_issue_lines sil
+    JOIN stock_issues si ON si.id = sil.stock_issue_id
+    WHERE sil.tenant_id = ${tenantId}
+      AND sil.item_id = ${issueLine.itemId}
+      AND si.warehouse_id = ${warehouseId}
+      AND si.movement_type = 'receipt'
+      AND si.status = 'confirmed'
+      AND COALESCE(sil.remaining_qty::decimal, 0) > 0
+    ORDER BY si.date ASC, sil.created_at ASC
+  `);
 
-  // 2. For each movement, calculate remaining capacity
-  const allocations: AllocationResult["allocations"] = [];
-  let remaining = quantity;
+  let remaining = requestedQty;
+  let totalCost = 0;
+  let totalAllocated = 0;
 
-  for (const movement of openMovements) {
-    if (remaining <= 0) break;
+  for (const rl of receiptLinesInWarehouse as unknown as Array<{
+    id: string;
+    remaining_qty: string;
+    unit_price: string | null;
+    stock_issue_id: string;
+  }>) {
+    if (remaining <= 0.0001) break;
 
-    const movementQty = Number(movement.quantity);
+    const available = Number(rl.remaining_qty);
+    const allocateQty = Math.min(available, remaining);
+    const unitPrice = Number(rl.unit_price ?? "0");
 
-    // Sum existing allocations against this movement
-    const existingAllocRows = await tx
-      .select({ total: sql<string>`COALESCE(SUM(${stockIssueAllocations.quantity}::decimal), 0)` })
-      .from(stockIssueAllocations)
-      .where(eq(stockIssueAllocations.sourceMovementId, movement.id));
-
-    const existingAllocated = Number(existingAllocRows[0]?.total ?? "0");
-    const availableInMovement = movementQty - existingAllocated;
-
-    if (availableInMovement <= 0) continue;
-
-    // 3. Allocate
-    const allocateQty = Math.min(availableInMovement, remaining);
-    const unitPrice = Number(movement.unitPrice ?? "0");
-
-    allocations.push({
-      sourceMovementId: movement.id,
-      quantity: allocateQty,
-      unitPrice,
+    // Create "out" movement referencing the receipt line
+    await tx.insert(stockMovements).values({
+      tenantId,
+      itemId: issueLine.itemId,
+      warehouseId,
+      movementType: "out",
+      quantity: String(-allocateQty),
+      unitPrice: String(unitPrice),
+      stockIssueId: issueId,
+      stockIssueLineId: issueLine.id,
+      receiptLineId: rl.id,
+      batchId,
+      date,
     });
 
+    // Decrement remaining_qty on the receipt line
+    await tx
+      .update(stockIssueLines)
+      .set({
+        remainingQty: sql`(${stockIssueLines.remainingQty}::decimal - ${allocateQty})`,
+      })
+      .where(eq(stockIssueLines.id, rl.id));
+
+    totalCost += allocateQty * unitPrice;
+    totalAllocated += allocateQty;
     remaining -= allocateQty;
-
-    // 4. If fully allocated, close the movement
-    if (availableInMovement - allocateQty <= 0) {
-      await tx
-        .update(stockMovements)
-        .set({ isClosed: true })
-        .where(eq(stockMovements.id, movement.id));
-    }
   }
 
-  // 5. Check if we have enough stock
-  if (remaining > 0.0001) {
-    throw new Error(
-      `Insufficient stock for item ${itemId} in warehouse ${warehouseId}. ` +
-      `Requested: ${quantity}, available: ${quantity - remaining}`
-    );
+  const missing = Math.max(0, remaining);
+  const weightedAvgPrice = totalAllocated > 0 ? totalCost / totalAllocated : 0;
+
+  return { allocated: totalAllocated, missing, weightedAvgPrice, totalCost };
+}
+
+/**
+ * Process manual allocations stored in line.manualAllocations JSONB.
+ * Creates one movement per entry. Does NOT throw on insufficient stock.
+ */
+export async function processManualAllocations(
+  tx: Transaction,
+  tenantId: string,
+  issueId: string,
+  issueLine: {
+    id: string;
+    itemId: string;
+    requestedQty: string;
+    manualAllocations: ManualAllocationJsonEntry[] | null;
+  },
+  warehouseId: string,
+  date: string,
+  batchId: string | null
+): Promise<AllocationEngineResult> {
+  const entries = issueLine.manualAllocations ?? [];
+  if (entries.length === 0) {
+    // No manual allocations — fall back to FIFO
+    return allocateFIFO(tx, tenantId, issueId, issueLine, warehouseId, date, batchId);
   }
 
-  // 6. Calculate weighted average price
+  let totalAllocated = 0;
   let totalCost = 0;
-  for (const alloc of allocations) {
-    totalCost += alloc.quantity * alloc.unitPrice;
-  }
-  const weightedAvgPrice = quantity > 0 ? totalCost / quantity : 0;
 
-  return { allocations, weightedAvgPrice, totalCost };
+  for (const entry of entries) {
+    const allocateQty = entry.quantity;
+    if (allocateQty <= 0) continue;
+
+    // Read receipt line to get unit price and verify remaining
+    const [receiptLine] = await tx
+      .select({
+        remainingQty: stockIssueLines.remainingQty,
+        unitPrice: stockIssueLines.unitPrice,
+      })
+      .from(stockIssueLines)
+      .where(eq(stockIssueLines.id, entry.receipt_line_id));
+
+    if (!receiptLine) continue;
+
+    const available = Number(receiptLine.remainingQty ?? "0");
+    const actualQty = Math.min(allocateQty, available);
+    if (actualQty <= 0) continue;
+
+    const unitPrice = Number(receiptLine.unitPrice ?? "0");
+
+    // Create "out" movement referencing the receipt line
+    await tx.insert(stockMovements).values({
+      tenantId,
+      itemId: issueLine.itemId,
+      warehouseId,
+      movementType: "out",
+      quantity: String(-actualQty),
+      unitPrice: String(unitPrice),
+      stockIssueId: issueId,
+      stockIssueLineId: issueLine.id,
+      receiptLineId: entry.receipt_line_id,
+      batchId,
+      date,
+    });
+
+    // Decrement remaining_qty on the receipt line
+    await tx
+      .update(stockIssueLines)
+      .set({
+        remainingQty: sql`(${stockIssueLines.remainingQty}::decimal - ${actualQty})`,
+      })
+      .where(eq(stockIssueLines.id, entry.receipt_line_id));
+
+    totalCost += actualQty * unitPrice;
+    totalAllocated += actualQty;
+  }
+
+  const requestedQty = Number(issueLine.requestedQty);
+  const missing = Math.max(0, requestedQty - totalAllocated);
+  const weightedAvgPrice = totalAllocated > 0 ? totalCost / totalAllocated : 0;
+
+  return { allocated: totalAllocated, missing, weightedAvgPrice, totalCost };
 }

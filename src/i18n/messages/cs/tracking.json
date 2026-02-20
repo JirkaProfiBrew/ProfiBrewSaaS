@@ -1,0 +1,53 @@
+{
+  "title": "Sledování šarží",
+  "search": "Hledat šarži, příjemku, položku...",
+  "loading": "Načítání...",
+  "noLots": "Žádné sledované šarže",
+  "notFound": "Šarže nenalezena",
+  "filters": {
+    "all": "Vše",
+    "inStock": "Na skladě",
+    "partial": "Částečně vydáno",
+    "issued": "Vydáno",
+    "expired": "Expirováno"
+  },
+  "status": {
+    "in_stock": "Na skladě",
+    "partial": "Částečně",
+    "issued": "Vydáno",
+    "expired": "Expirováno"
+  },
+  "columns": {
+    "receiptCode": "Příjemka",
+    "date": "Datum",
+    "item": "Položka",
+    "supplier": "Dodavatel",
+    "lotNumber": "Šarže",
+    "expiry": "Expirace",
+    "remaining": "Zbývá",
+    "unitPrice": "Cena",
+    "status": "Stav"
+  },
+  "detail": {
+    "lotNumber": "Číslo šarže",
+    "expiry": "Datum expirace",
+    "receivedQty": "Přijaté množství",
+    "remainingQty": "Zbývající množství",
+    "unitPrice": "Jednotková cena",
+    "lotAttributes": "Atributy šarže",
+    "allocations": "Historie výdejů",
+    "noAllocations": "Zatím žádné výdeje",
+    "issueCode": "Výdejka",
+    "issueDate": "Datum výdeje",
+    "issuedQty": "Vydané množství",
+    "allocUnitPrice": "Cena",
+    "attr": {
+      "extractPercent": "Výtěžnost (%)",
+      "moisture": "Vlhkost (%)",
+      "cropYear": "Ročník",
+      "actualAlpha": "Skutečná alpha (%)",
+      "generation": "Generace",
+      "viability": "Životaschopnost (%)"
+    }
+  }
+}

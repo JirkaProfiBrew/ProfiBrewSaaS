@@ -59,6 +59,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     unitId: null,
     recipeUnitId: null,
     baseUnitAmount: null,
+    hasBaseItem: false,
     baseItemId: null,
     baseItemQuantity: null,
     materialType: null,
@@ -84,12 +85,12 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [productionItemOptions, setProductionItemOptions] = useState<{ value: string; label: string }[]>([]);
+  const [productionItemOptions, setProductionItemOptions] = useState<{ value: string; label: string; unitSymbol: string | null }[]>([]);
 
   // Load production items for base-item select
   useEffect(() => {
     void getProductionItemOptions().then((opts) =>
-      setProductionItemOptions([{ value: "__none__", label: "\u2014" }, ...opts])
+      setProductionItemOptions([{ value: "__none__", label: "\u2014", unitSymbol: null }, ...opts])
     );
   }, []);
 
@@ -109,6 +110,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         unitId: item.unitId,
         recipeUnitId: item.recipeUnitId,
         baseUnitAmount: item.baseUnitAmount,
+        hasBaseItem: item.baseItemId !== null,
         baseItemId: item.baseItemId ?? "__none__",
         baseItemQuantity: item.baseItemQuantity,
         materialType: item.materialType,
@@ -138,6 +140,17 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
   const handleChange = useCallback((key: string, value: unknown): void => {
     setValues((prev) => {
       const next = { ...prev, [key]: value };
+
+      // When hasBaseItem toggle is turned off, clear base item fields
+      if (key === "hasBaseItem" && value === false) {
+        next.baseItemId = "__none__";
+        next.baseItemQuantity = null;
+      }
+
+      // Comma → dot for baseItemQuantity decimal input
+      if (key === "baseItemQuantity" && typeof value === "string") {
+        next.baseItemQuantity = value.replace(",", ".");
+      }
 
       // Auto-set unit defaults when materialType changes
       if (key === "materialType" && allUnits.length > 0) {
@@ -174,10 +187,34 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
 
   const handleSave = useCallback(async (): Promise<void> => {
     // Basic validation
+    const newErrors: Record<string, string> = {};
     if (!values.name || (typeof values.name === "string" && values.name.trim() === "")) {
-      setErrors({ name: t("detail.fields.name") + " is required" });
+      newErrors.name = t("detail.fields.name") + " is required";
+    }
+
+    // Validate base item fields when hasBaseItem is true
+    if (values.hasBaseItem === true) {
+      if (!values.baseItemId || values.baseItemId === "__none__") {
+        newErrors.baseItemId = t("detail.fields.baseItemId") + " is required";
+      }
+      if (!values.baseItemQuantity || String(values.baseItemQuantity).trim() === "") {
+        newErrors.baseItemQuantity = t("detail.fields.baseItemQuantity") + " is required";
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    // Resolve base item fields: null out when toggle is off, normalize comma→dot
+    const resolvedBaseItemId = values.hasBaseItem && String(values.baseItemId) !== "__none__"
+      ? (values.baseItemId as string)
+      : null;
+    const rawQty = values.hasBaseItem && values.baseItemQuantity != null
+      ? String(values.baseItemQuantity)
+      : null;
+    const resolvedBaseItemQuantity = rawQty ? rawQty.replace(",", ".") : null;
 
     setIsSaving(true);
     try {
@@ -194,8 +231,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           unitId: (values.unitId as string | null) ?? null,
           recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
-          baseItemId: String(values.baseItemId) !== "__none__" ? (values.baseItemId as string) : null,
-          baseItemQuantity: (values.baseItemQuantity as string | null) ?? null,
+          baseItemId: resolvedBaseItemId,
+          baseItemQuantity: resolvedBaseItemQuantity,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
@@ -230,8 +267,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           unitId: (values.unitId as string | null) ?? null,
           recipeUnitId: (values.recipeUnitId as string | null) ?? null,
           baseUnitAmount: (values.baseUnitAmount as string | null) ?? null,
-          baseItemId: String(values.baseItemId) !== "__none__" ? (values.baseItemId as string) : null,
-          baseItemQuantity: (values.baseItemQuantity as string | null) ?? null,
+          baseItemId: resolvedBaseItemId,
+          baseItemQuantity: resolvedBaseItemQuantity,
           materialType: (values.materialType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
@@ -301,6 +338,18 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         label: `${u.symbol} — ${u.nameCs}`,
       }));
   }, [allUnits, values.materialType]);
+
+  // Compute dynamic label for baseItemQuantity based on selected base item's unit
+  const baseItemQuantityLabel = useMemo(() => {
+    const selectedId = values.baseItemId as string | null;
+    if (selectedId && selectedId !== "__none__") {
+      const selected = productionItemOptions.find((o) => o.value === selectedId);
+      if (selected?.unitSymbol) {
+        return t("detail.fields.baseItemQuantityWithUnit", { unit: selected.unitSymbol });
+      }
+    }
+    return t("detail.fields.baseItemQuantity");
+  }, [values.baseItemId, productionItemOptions, t]);
 
   // ── Form Sections ──────────────────────────────────────────
 
@@ -377,10 +426,10 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             key: "issueMode",
             label: t("detail.fields.issueMode"),
             type: "select",
+            helpText: t("issueModeHelp.description"),
             options: [
               { value: "fifo", label: t("issueMode.fifo") },
-              { value: "lifo", label: t("issueMode.lifo") },
-              { value: "average", label: t("issueMode.average") },
+              { value: "manual_lot", label: t("issueMode.manual_lot") },
             ],
           },
           {
@@ -498,9 +547,15 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             type: "text",
             visible: (v: Record<string, unknown>) => v.isSaleItem === true,
           },
+          {
+            key: "hasBaseItem",
+            label: t("detail.fields.hasBaseItem"),
+            type: "toggle",
+            visible: (v: Record<string, unknown>) => v.isSaleItem === true,
+          },
         ],
       },
-      // Section 6: Base Item (visible only if isSaleItem)
+      // Section 6: Base Item (visible only if hasBaseItem)
       {
         title: t("detail.sections.baseItem"),
         columns: 2,
@@ -510,15 +565,17 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             label: t("detail.fields.baseItemId"),
             type: "select",
             options: productionItemOptions,
-            visible: (v: Record<string, unknown>) => v.isSaleItem === true,
+            visible: (v: Record<string, unknown>) => v.hasBaseItem === true,
+            required: true,
             helpText: t("detail.fields.baseItemHelp"),
           },
           {
             key: "baseItemQuantity",
-            label: t("detail.fields.baseItemQuantity"),
+            label: baseItemQuantityLabel,
             type: "decimal",
             visible: (v: Record<string, unknown>) =>
-              v.isSaleItem === true && v.baseItemId !== null && v.baseItemId !== "__none__",
+              v.hasBaseItem === true && v.baseItemId !== null && v.baseItemId !== "__none__",
+            required: true,
             helpText: t("detail.fields.baseItemQuantityHelp"),
           },
         ],
@@ -602,7 +659,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         ],
       },
     ],
-    [t, unitOptions, values.materialType, productionItemOptions]
+    [t, unitOptions, values.materialType, productionItemOptions, baseItemQuantityLabel]
   );
 
   // ── Actions ────────────────────────────────────────────────

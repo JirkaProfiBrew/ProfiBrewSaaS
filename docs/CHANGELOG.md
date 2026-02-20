@@ -156,6 +156,36 @@
 
 ---
 
+## [0.3.1] — Sprint 3 Patch: Lots = Receipt Lines
+**Období:** T9 (19.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB migrace: lot_number, expiry_date, lot_attributes (JSONB), remaining_qty na stock_issue_lines
+- [x] IssueMode zjednodušen: FIFO + Ruční výběr šarže (odstraněny LIFO a Průměrná cena)
+- [x] Příjemky: číslo šarže, expirace, atributy šarže (per materialType) přímo na řádku příjemky
+- [x] LotAttributesSection — Popover s material-specific polemi (výtěžnost, vlhkost, ročník, alpha, generace, viabilita)
+- [x] remaining_qty materializace — sleduje zbývající dostupné množství na příjemkových řádcích
+- [x] Confirm flow: příjemka nastaví remaining_qty = issuedQty, výdejka dekrementuje remaining_qty
+- [x] Cancel flow: příjemka vynuluje remaining_qty, výdejka obnoví remaining_qty
+- [x] Manual lot selection — LotSelectionDialog pro výběr konkrétních příjmových šarží při výdeji
+- [x] Pre-alokace v draft stavu — alokace se ukládají před potvrzením, při potvrzení se validují
+- [x] FIFO engine: odstraněn LIFO branch, vždy FIFO
+- [x] Nové server actions: getAvailableReceiptLines, createManualAllocations, deleteLineAllocations
+- [x] getItemOptions rozšířen o isBrewMaterial, materialType, issueMode
+- [x] Tracking agenda přepsána — readonly browser nad příjemkovými řádky (LotBrowser, LotDetail)
+- [x] removeStockIssueLine — maže pre-alokace před smazáním řádku (bez FK cascade)
+- [x] i18n: lot keys (stockIssues cs+en), tracking namespace (cs+en), items issueMode aktualizace
+
+### Architektonická rozhodnutí
+- Lot = příjemkový řádek — žádná duplicitní entita, data se zadávají jednou při příjmu
+- remaining_qty je materializovaný — výkon + atomické aktualizace v transakcích
+- Pre-alokace pro manual_lot — uživatel vybírá šarže před potvrzením
+- Tracking je readonly — browsing nad stock_issue_lines (receipt + confirmed)
+- LotTraceabilityView odstraněn — nahrazen alokační historií v LotDetail
+
+---
+
 <!--
 
 ## [0.4.0] — Sprint 4: Prodej + Finance

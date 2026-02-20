@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 19.02.2026 | Poslední sprint: Sprint 3
+### Aktualizováno: 19.02.2026 | Poslední sprint: Sprint 3 Patch (Lots)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -197,7 +197,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 **Detail suroviny:**
 - Základní info: kód, název, značka/výrobce
 - Flagy: Surovina na výrobu piva ✓, Položka pro evidenci výroby ☐, Prodávat položku ✓
-- Kategorie skladu, spotřební daň (toggle), mód výdeje (FIFO/LIFO)
+- Kategorie skladu, spotřební daň (toggle), mód výdeje (FIFO / Ruční výběr šarže)
 - Material-specific: typ suroviny (dropdown), alpha (chmel), EBC (slad)
 - Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/ks, přísady=kg/g/l/ml)
 - Měrná jednotka receptury (MJ receptury): viditelné pouze pro chmel — odlišná MJ pro skladovou evidenci (kg) vs recepturu (g)
@@ -327,13 +327,14 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 
 **Detail dokladu:**
 - Hlavička: kód (z číslovací řady), typ pohybu, účel, datum, sklad, partner, objednávka/šarže
-- Řádky: položka, požadované množství, skutečné množství, chybějící, cena, celkem
+- Řádky: položka, požadované množství, skutečné množství, chybějící, cena, celkem, číslo šarže, expirace (příjemky)
 - Potvrzení dokladu vytvoří atomické stock_movements
 
-**FIFO alokace (při výdeji):**
-- Systém automaticky přiřadí výdej ke konkrétním příjmům (stock_issue_allocations)
-- Dle nastaveného módu (FIFO/LIFO) na položce
-- Řeší správné ocenění výdeje (průměrná vs konkrétní cena příjmu)
+**Alokace při výdeji:**
+- **FIFO** (výchozí): systém automaticky přiřadí výdej ke konkrétním příjmům od nejstaršího (stock_issue_allocations)
+- **Ruční výběr šarže** (manual_lot): uživatel vybírá konkrétní příjemkové šarže v LotSelectionDialog, alokace se uloží jako pre-alokace v draft stavu a při potvrzení se validují
+- Alokace dekrementují remaining_qty na zdrojových příjemkových řádcích
+- Plně alokované příjemky se automaticky uzavřou (isClosed=true)
 
 **Byznys pravidla:**
 - Draft doklad nemění stav skladu — teprve potvrzení (confirmed) vytvoří movements
@@ -353,12 +354,17 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 
 ### 5.4 Lot tracking ✅
 
-**Co to je:** Sledování šarží surovin od dodavatele.
+**Co to je:** Sledování šarží surovin od dodavatele. Lot = příjemkový řádek.
 
 **Jak to funguje:**
-- Při příjmu surovin: záznam material_lot (číslo šarže dodavatele, datum příjmu, expirace)
-- Při spotřebě v šarži: vazba batch_material_lots (jaký lot → do jaké várky, kolik)
-- Traceability: z hotového piva zpět k šarži surovin
+- Při příjmu surovin: na řádku příjemky se zadá číslo šarže, expirace, atributy šarže (per materialType)
+- Atributy šarže (Popover na řádku příjemky): slad (výtěžnost, vlhkost), chmel (ročník, skutečná alpha), kvasnice (generace, viabilita)
+- remaining_qty: materializovaný sloupec — při potvrzení příjemky = issuedQty, dekrementuje se výdejkami, inkrementuje stornováním
+- Tracking agenda (/stock/tracking): readonly browser nad potvrzenými příjemkovými řádky
+  - Quick filtry: Vše, Na skladě, Částečně vydáno, Vydáno, Expirováno
+  - Status je computed: in_stock (remaining = issued), partial (0 < remaining < issued), issued (remaining = 0), expired (expiry < today)
+- Detail šarže: readonly — header, atributy šarže, historie výdejů (alokací)
+- Traceability: z hotového piva zpět k šarži surovin (přes batch_material_lots, Sprint 4)
 
 ### 5.5 Spotřební daň 📋
 

@@ -1135,53 +1135,53 @@ Aktualizovat "Co je hotové" sekci o Sprint 3 scope.
 ## AKCEPTAČNÍ KRITÉRIA (Definition of Done)
 
 ### Sklady
-1. [ ] CRUD warehouses funguje (vytvořit, editovat, deaktivovat)
-2. [ ] Jen 1 výchozí sklad per tenant
-3. [ ] Warehouse se zobrazuje v nastavení
+1. [x] CRUD warehouses funguje (vytvořit, editovat, deaktivovat)
+2. [] Jen 1 výchozí sklad per tenant
+3. [x] Warehouse se zobrazuje v nastavení
 
 ### Skladové doklady — Příjemka
-4. [ ] Vytvoření příjemky s automatickým kódem z řady
-5. [ ] Přidání řádků s item lookup
-6. [ ] Potvrzení příjemky vytvoří stock_movements (type: 'in')
-7. [ ] Po potvrzení: stock_status se aktualizuje (quantity +)
-8. [ ] Potvrzený doklad je readonly
-9. [ ] Storno příjemky vytvoří protipohyby a sníží stock_status
+4. [x] Vytvoření příjemky s automatickým kódem z řady
+5. [x] Přidání řádků s item lookup
+6. [x] Potvrzení příjemky vytvoří stock_movements (type: 'in')
+7. [x] Po potvrzení: stock_status se aktualizuje (quantity +)
+8. [x] Potvrzený doklad je readonly
+9. [x] Storno příjemky vytvoří protipohyby a sníží stock_status
 
 ### Skladové doklady — Výdejka
-10. [ ] Vytvoření výdejky s automatickým kódem z řady
-11. [ ] Kontrola dostupnosti v confirm dialogu
-12. [ ] Potvrzení výdejky: FIFO alokace funguje (stock_issue_allocations vytvořeny)
-13. [ ] Cena na řádku výdejky = vážený průměr z FIFO
-14. [ ] Po potvrzení: stock_status se aktualizuje (quantity -)
-15. [ ] Výdejka nemůže vydat víc než je na skladě (validace)
+10. [x] Vytvoření výdejky s automatickým kódem z řady
+11. [x] Kontrola dostupnosti v confirm dialogu
+12. [x] Potvrzení výdejky: FIFO alokace funguje (stock_issue_allocations vytvořeny)
+13. [x] Cena na řádku výdejky = vážený průměr z FIFO
+14. [x] Po potvrzení: stock_status se aktualizuje (quantity -)
+15. [x] Výdejka nemůže vydat víc než je na skladě (validace)
 16. [ ] Storno výdejky obnoví stock_status + alokace
 
 ### Stock Status
-17. [ ] Katalog položek (/stock/items) zobrazuje sloupce stav/rezervováno/dostupné
-18. [ ] Detail položky má tab "Stav skladu" s per-warehouse přehledem
-19. [ ] Detail položky má historii pohybů
+17. [x] Katalog položek (/stock/items) zobrazuje sloupce stav/rezervováno/dostupné
+18. [x] Detail položky má tab "Stav skladu" s per-warehouse přehledem
+19. [x] Detail položky má historii pohybů
 
 ### Lot Tracking
 20. [ ] CRUD material_lots funguje
-21. [ ] Lot browser zobrazuje stav (active/exhausted/expiring/expired)
+21. [x] Lot browser zobrazuje stav (active/exhausted/expiring/expired)
 22. [ ] Na lot detailu vidím použití ve várkách (traceability)
 23. [ ] Při příjemce lze volitelně vytvořit lot
 24. [ ] Na batch detail tab suroviny lze přiřadit lot
 
 ### Číslovací řady per sklad
-25. [ ] Při vytvoření skladu se automaticky vytvoří 2 countery (příjemka + výdejka)
-26. [ ] Kód dokladu se generuje z counteru vázaného na zvolený sklad
-27. [ ] Různé sklady mají nezávislé číselné řady
+25. [x] Při vytvoření skladu se automaticky vytvoří 2 countery (příjemka + výdejka)
+26. [x] Kód dokladu se generuje z counteru vázaného na zvolený sklad
+27. [x] Různé sklady mají nezávislé číselné řady
 
 ### Shops Settings
-28. [ ] Shop detail má tab "Parametry" s konfigurací režimu naskladnění
-29. [ ] Ukládání cenotvorbových parametrů (ingredient_pricing_mode, beer_pricing_mode)
-30. [ ] Konfigurace defaultních skladů per provozovna
+28. [x] Shop detail má tab "Parametry" s konfigurací režimu naskladnění
+29. [x] Ukládání cenotvorbových parametrů (ingredient_pricing_mode, beer_pricing_mode)
+30. [x] Konfigurace defaultních skladů per provozovna
 
 ### Items — obsahový poměr
-31. [ ] Na detail prodejní položky (is_sale_item=true) lze nastavit base_item + quantity
-32. [ ] Validace: base_item musí být is_base_production_item=true
-33. [ ] Validace: base_item_quantity > 0 pokud base_item_id je vyplněno
+31. [x] Na detail prodejní položky (is_sale_item=true) lze nastavit base_item + quantity
+32. [x] Validace: base_item musí být is_base_production_item=true
+33. [x] Validace: base_item_quantity > 0 pokud base_item_id je vyplněno
 
 ### Obecné
 34. [ ] Všechny texty přes i18n (cs + en)

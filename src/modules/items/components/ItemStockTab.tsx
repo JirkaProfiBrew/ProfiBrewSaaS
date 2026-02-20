@@ -143,6 +143,7 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
               {movements.map((m) => {
                 const isIn = m.movementType === "in";
                 const qty = Number(m.quantity);
+                const isStorno = qty < 0;
                 return (
                   <TableRow key={m.id}>
                     <TableCell>{m.date}</TableCell>
@@ -175,8 +176,8 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
                         {isIn ? t("stockTab.in") : t("stockTab.out")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {Math.abs(qty).toLocaleString("cs-CZ")}
+                    <TableCell className={`text-right font-mono${isStorno ? " text-red-600" : ""}`}>
+                      {isStorno ? "- " : ""}{Math.abs(qty).toLocaleString("cs-CZ")}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {m.unitPrice

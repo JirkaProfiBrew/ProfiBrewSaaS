@@ -35,7 +35,7 @@ export const items = pgTable(
 
     // === STOCK ===
     stockCategory: text("stock_category"), // 'raw_material' | 'finished_product' | 'packaging' | 'other'
-    issueMode: text("issue_mode").default("fifo"), // 'fifo' | 'lifo' | 'average'
+    issueMode: text("issue_mode").default("fifo"), // 'fifo' | 'manual_lot'
     unitId: uuid("unit_id").references(() => units.id),
     recipeUnitId: uuid("recipe_unit_id").references(() => units.id),
     baseUnitAmount: decimal("base_unit_amount"),
