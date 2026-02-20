@@ -1,0 +1,139 @@
+{
+  "title": "Objednávky",
+  "columns": {
+    "orderNumber": "Číslo",
+    "partnerName": "Zákazník",
+    "orderDate": "Datum obj.",
+    "deliveryDate": "Datum dodání",
+    "status": "Stav",
+    "totalInclVat": "Celkem s DPH",
+    "totalDeposit": "Zálohy"
+  },
+  "quickFilters": {
+    "all": "Vše",
+    "open": "Otevřené",
+    "toDeliver": "K dodání",
+    "closed": "Uzavřené",
+    "cancelled": "Zrušené"
+  },
+  "filters": {
+    "status": "Stav"
+  },
+  "status": {
+    "draft": "Koncept",
+    "confirmed": "Potvrzeno",
+    "in_preparation": "V přípravě",
+    "shipped": "Odesláno",
+    "delivered": "Doručeno",
+    "invoiced": "Fakturováno",
+    "cancelled": "Zrušeno"
+  },
+  "createOrder": "Nová objednávka",
+  "detail": {
+    "title": "Objednávka",
+    "newTitle": "Nová objednávka",
+    "backLink": "Zpět na objednávky"
+  },
+  "tabs": {
+    "header": "Hlavička",
+    "items": "Řádky",
+    "stockIssue": "Výdejka",
+    "cashflow": "Cash Flow"
+  },
+  "form": {
+    "orderNumber": "Číslo objednávky",
+    "partner": "Zákazník",
+    "partnerPlaceholder": "Vyberte zákazníka",
+    "contact": "Kontaktní osoba",
+    "contactPlaceholder": "Vyberte kontakt",
+    "orderDate": "Datum objednávky",
+    "deliveryDate": "Datum dodání",
+    "shop": "Provozovna",
+    "shopPlaceholder": "Vyberte provozovnu",
+    "warehouse": "Sklad pro výdej",
+    "warehousePlaceholder": "Vyberte sklad",
+    "notes": "Poznámka pro zákazníka",
+    "internalNotes": "Interní poznámka"
+  },
+  "items": {
+    "title": "Řádky objednávky",
+    "addItem": "Přidat řádek",
+    "editItem": "Upravit řádek",
+    "item": "Položka",
+    "itemPlaceholder": "Vyberte položku",
+    "quantity": "Množství",
+    "unit": "MJ",
+    "unitPrice": "Jedn. cena",
+    "discountPct": "Sleva %",
+    "vatRate": "DPH %",
+    "totalExclVat": "Celkem bez DPH",
+    "deposit": "Záloha typ",
+    "depositPlaceholder": "Vyberte zálohu",
+    "depositQty": "Záloha ks",
+    "depositTotal": "Záloha Kč",
+    "notes": "Poznámka",
+    "empty": "Žádné řádky. Přidejte první řádek.",
+    "deleteConfirm": "Opravdu smazat tento řádek?"
+  },
+  "summary": {
+    "title": "Souhrn",
+    "totalExclVat": "Celkem bez DPH",
+    "totalVat": "DPH",
+    "totalInclVat": "Celkem s DPH",
+    "totalDeposit": "Zálohy za obaly",
+    "grandTotal": "K úhradě celkem"
+  },
+  "actions": {
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "confirm": "Potvrdit objednávku",
+    "startPreparation": "Příprava",
+    "ship": "Odeslat",
+    "deliver": "Doručeno",
+    "invoice": "Fakturovat",
+    "cancelOrder": "Stornovat",
+    "delete": "Smazat",
+    "createStockIssue": "Vytvořit výdejku",
+    "createCashFlow": "Vytvořit cash flow"
+  },
+  "messages": {
+    "saved": "Objednávka uložena",
+    "saveFailed": "Nepodařilo se uložit objednávku",
+    "created": "Objednávka vytvořena",
+    "confirmed": "Objednávka potvrzena",
+    "preparationStarted": "Příprava zahájena",
+    "shipped": "Objednávka odeslána",
+    "delivered": "Objednávka doručena",
+    "invoiced": "Objednávka fakturována",
+    "cancelled": "Objednávka stornována",
+    "deleted": "Objednávka smazána",
+    "deleteError": "Nepodařilo se smazat objednávku",
+    "itemAdded": "Řádek přidán",
+    "itemUpdated": "Řádek upraven",
+    "itemRemoved": "Řádek smazán",
+    "itemFailed": "Nepodařilo se uložit řádek",
+    "statusFailed": "Nepodařilo se změnit stav",
+    "needsItems": "Objednávka musí mít alespoň jeden řádek",
+    "onlyDraft": "Tuto akci lze provést pouze u konceptu"
+  },
+  "stockIssueTab": {
+    "title": "Výdejka",
+    "linked": "Výdejka vytvořena",
+    "viewIssue": "Zobrazit výdejku",
+    "noIssue": "Výdejka zatím nebyla vytvořena",
+    "createHint": "Vytvořte výdejku po potvrzení objednávky"
+  },
+  "cashflowTab": {
+    "title": "Cash Flow",
+    "linked": "Cash flow vytvořen",
+    "viewCashflow": "Zobrazit cash flow",
+    "noCashflow": "Cash flow zatím nebyl vytvořen",
+    "createHint": "Vytvořte cash flow po doručení objednávky"
+  },
+  "cancelDialog": {
+    "title": "Stornovat objednávku?",
+    "description": "Opravdu chcete stornovat tuto objednávku? Tuto akci nelze vrátit zpět.",
+    "confirm": "Stornovat",
+    "cancel": "Zpět"
+  }
+}

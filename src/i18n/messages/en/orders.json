@@ -1,0 +1,139 @@
+{
+  "title": "Orders",
+  "columns": {
+    "orderNumber": "Number",
+    "partnerName": "Customer",
+    "orderDate": "Order Date",
+    "deliveryDate": "Delivery Date",
+    "status": "Status",
+    "totalInclVat": "Total incl. VAT",
+    "totalDeposit": "Deposits"
+  },
+  "quickFilters": {
+    "all": "All",
+    "open": "Open",
+    "toDeliver": "To Deliver",
+    "closed": "Closed",
+    "cancelled": "Cancelled"
+  },
+  "filters": {
+    "status": "Status"
+  },
+  "status": {
+    "draft": "Draft",
+    "confirmed": "Confirmed",
+    "in_preparation": "In Preparation",
+    "shipped": "Shipped",
+    "delivered": "Delivered",
+    "invoiced": "Invoiced",
+    "cancelled": "Cancelled"
+  },
+  "createOrder": "New Order",
+  "detail": {
+    "title": "Order",
+    "newTitle": "New Order",
+    "backLink": "Back to orders"
+  },
+  "tabs": {
+    "header": "Header",
+    "items": "Items",
+    "stockIssue": "Stock Issue",
+    "cashflow": "Cash Flow"
+  },
+  "form": {
+    "orderNumber": "Order Number",
+    "partner": "Customer",
+    "partnerPlaceholder": "Select customer",
+    "contact": "Contact Person",
+    "contactPlaceholder": "Select contact",
+    "orderDate": "Order Date",
+    "deliveryDate": "Delivery Date",
+    "shop": "Shop",
+    "shopPlaceholder": "Select shop",
+    "warehouse": "Warehouse",
+    "warehousePlaceholder": "Select warehouse",
+    "notes": "Notes (for customer)",
+    "internalNotes": "Internal Notes"
+  },
+  "items": {
+    "title": "Order Items",
+    "addItem": "Add Item",
+    "editItem": "Edit Item",
+    "item": "Item",
+    "itemPlaceholder": "Select item",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "unitPrice": "Unit Price",
+    "discountPct": "Discount %",
+    "vatRate": "VAT %",
+    "totalExclVat": "Total excl. VAT",
+    "deposit": "Deposit Type",
+    "depositPlaceholder": "Select deposit",
+    "depositQty": "Deposit Qty",
+    "depositTotal": "Deposit Total",
+    "notes": "Notes",
+    "empty": "No items. Add the first item.",
+    "deleteConfirm": "Really delete this item?"
+  },
+  "summary": {
+    "title": "Summary",
+    "totalExclVat": "Total excl. VAT",
+    "totalVat": "VAT",
+    "totalInclVat": "Total incl. VAT",
+    "totalDeposit": "Packaging Deposits",
+    "grandTotal": "Grand Total"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm Order",
+    "startPreparation": "Start Preparation",
+    "ship": "Ship",
+    "deliver": "Delivered",
+    "invoice": "Invoice",
+    "cancelOrder": "Cancel Order",
+    "delete": "Delete",
+    "createStockIssue": "Create Stock Issue",
+    "createCashFlow": "Create Cash Flow"
+  },
+  "messages": {
+    "saved": "Order saved",
+    "saveFailed": "Failed to save order",
+    "created": "Order created",
+    "confirmed": "Order confirmed",
+    "preparationStarted": "Preparation started",
+    "shipped": "Order shipped",
+    "delivered": "Order delivered",
+    "invoiced": "Order invoiced",
+    "cancelled": "Order cancelled",
+    "deleted": "Order deleted",
+    "deleteError": "Failed to delete order",
+    "itemAdded": "Item added",
+    "itemUpdated": "Item updated",
+    "itemRemoved": "Item removed",
+    "itemFailed": "Failed to save item",
+    "statusFailed": "Failed to change status",
+    "needsItems": "Order must have at least one item",
+    "onlyDraft": "This action can only be performed on drafts"
+  },
+  "stockIssueTab": {
+    "title": "Stock Issue",
+    "linked": "Stock issue created",
+    "viewIssue": "View stock issue",
+    "noIssue": "No stock issue created yet",
+    "createHint": "Create a stock issue after confirming the order"
+  },
+  "cashflowTab": {
+    "title": "Cash Flow",
+    "linked": "Cash flow created",
+    "viewCashflow": "View cash flow",
+    "noCashflow": "No cash flow created yet",
+    "createHint": "Create cash flow after order delivery"
+  },
+  "cancelDialog": {
+    "title": "Cancel this order?",
+    "description": "Are you sure you want to cancel this order? This action cannot be undone.",
+    "confirm": "Cancel Order",
+    "cancel": "Go Back"
+  }
+}
