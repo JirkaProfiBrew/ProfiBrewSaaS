@@ -1,0 +1,144 @@
+{
+  "title": "Cash Flow",
+  "columns": {
+    "code": "Kód",
+    "date": "Datum",
+    "type": "Typ",
+    "cashflowType": "Typ",
+    "category": "Kategorie",
+    "categoryName": "Kategorie",
+    "description": "Popis",
+    "partner": "Partner",
+    "partnerName": "Partner",
+    "amount": "Částka",
+    "status": "Stav"
+  },
+  "quickFilters": {
+    "all": "Vše",
+    "income": "Příjmy",
+    "expense": "Výdaje",
+    "planned": "Plánované",
+    "paid": "Zaplacené"
+  },
+  "filters": {
+    "cashflowType": "Typ",
+    "status": "Stav"
+  },
+  "status": {
+    "planned": "Plánováno",
+    "pending": "K úhradě",
+    "paid": "Zaplaceno",
+    "cancelled": "Zrušeno"
+  },
+  "type": {
+    "income": "Příjem",
+    "expense": "Výdaj"
+  },
+  "createCashFlow": "Nový záznam",
+  "detail": {
+    "title": "Cash Flow",
+    "newTitle": "Nový záznam CF",
+    "backLink": "Zpět na cash flow"
+  },
+  "tabs": {
+    "detail": "Detail",
+    "crossLinks": "Vazby"
+  },
+  "form": {
+    "code": "Kód",
+    "type": "Typ",
+    "typeIncome": "Příjem",
+    "typeExpense": "Výdaj",
+    "category": "Kategorie",
+    "categoryPlaceholder": "Vyberte kategorii",
+    "amount": "Částka",
+    "date": "Datum",
+    "dueDate": "Datum splatnosti",
+    "paidDate": "Datum úhrady",
+    "status": "Stav",
+    "partner": "Partner",
+    "partnerPlaceholder": "Vyberte partnera",
+    "description": "Popis",
+    "notes": "Poznámka",
+    "isCash": "Pokladní operace"
+  },
+  "summary": {
+    "title": "Přehled za období",
+    "income": "Příjmy",
+    "expense": "Výdaje",
+    "balance": "Saldo",
+    "totalLabel": "Celkem",
+    "paidLabel": "Uhrazeno",
+    "month": "Měsíc",
+    "year": "Rok"
+  },
+  "actions": {
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "delete": "Smazat",
+    "markPaid": "Zaplatit",
+    "markPending": "K úhradě",
+    "cancelCashFlow": "Stornovat"
+  },
+  "messages": {
+    "saved": "Záznam uložen",
+    "saveFailed": "Nepodařilo se uložit",
+    "created": "Záznam vytvořen",
+    "deleted": "Záznam smazán",
+    "deleteFailed": "Nepodařilo se smazat",
+    "paid": "Označeno jako zaplaceno",
+    "cancelled": "Záznam stornován",
+    "statusFailed": "Nepodařilo se změnit stav",
+    "onlyPlanned": "Tuto akci lze provést pouze u plánovaných záznamů",
+    "notEditable": "Tento záznam nelze upravit"
+  },
+  "crossLinks": {
+    "title": "Vazby",
+    "order": "Objednávka",
+    "stockIssue": "Výdejka",
+    "viewOrder": "Zobrazit objednávku",
+    "viewStockIssue": "Zobrazit výdejku",
+    "noLinks": "Žádné vazby"
+  },
+  "templates": {
+    "title": "Šablony opakovaných plateb",
+    "description": "Definujte šablony pro pravidelné platby, které se automaticky generují.",
+    "name": "Název",
+    "type": "Typ",
+    "category": "Kategorie",
+    "frequency": "Frekvence",
+    "dayOfMonth": "Den v měsíci",
+    "startDate": "Začátek",
+    "endDate": "Konec",
+    "nextDate": "Další generování",
+    "amount": "Částka",
+    "active": "Aktivní",
+    "partner": "Partner",
+    "partnerPlaceholder": "Vyberte partnera",
+    "categoryPlaceholder": "Vyberte kategorii",
+    "description": "Popis",
+    "addTemplate": "Nová šablona",
+    "editTemplate": "Upravit šablonu",
+    "generate": "Generovat platby",
+    "generateSuccess": "Vygenerováno {count} záznamů",
+    "generateEmpty": "Žádné záznamy k vygenerování",
+    "generateFailed": "Nepodařilo se generovat",
+    "empty": "Žádné šablony",
+    "deleteConfirm": "Opravdu smazat tuto šablonu?",
+    "actions": "Akce",
+    "saved": "Šablona uložena",
+    "saveFailed": "Nepodařilo se uložit šablonu",
+    "deleted": "Šablona smazána",
+    "deleteFailed": "Nepodařilo se smazat šablonu",
+    "nameRequired": "Název je povinný",
+    "amountRequired": "Částka musí být číslo",
+    "cancel": "Zrušit",
+    "save": "Uložit"
+  },
+  "frequency": {
+    "weekly": "Týdně",
+    "monthly": "Měsíčně",
+    "quarterly": "Čtvrtletně",
+    "yearly": "Ročně"
+  }
+}

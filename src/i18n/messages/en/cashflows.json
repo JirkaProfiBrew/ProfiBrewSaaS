@@ -1,0 +1,144 @@
+{
+  "title": "Cash Flow",
+  "columns": {
+    "code": "Code",
+    "date": "Date",
+    "type": "Type",
+    "cashflowType": "Type",
+    "category": "Category",
+    "categoryName": "Category",
+    "description": "Description",
+    "partner": "Partner",
+    "partnerName": "Partner",
+    "amount": "Amount",
+    "status": "Status"
+  },
+  "quickFilters": {
+    "all": "All",
+    "income": "Income",
+    "expense": "Expenses",
+    "planned": "Planned",
+    "paid": "Paid"
+  },
+  "filters": {
+    "cashflowType": "Type",
+    "status": "Status"
+  },
+  "status": {
+    "planned": "Planned",
+    "pending": "Pending",
+    "paid": "Paid",
+    "cancelled": "Cancelled"
+  },
+  "type": {
+    "income": "Income",
+    "expense": "Expense"
+  },
+  "createCashFlow": "New Record",
+  "detail": {
+    "title": "Cash Flow",
+    "newTitle": "New Cash Flow Record",
+    "backLink": "Back to cash flow"
+  },
+  "tabs": {
+    "detail": "Detail",
+    "crossLinks": "Links"
+  },
+  "form": {
+    "code": "Code",
+    "type": "Type",
+    "typeIncome": "Income",
+    "typeExpense": "Expense",
+    "category": "Category",
+    "categoryPlaceholder": "Select category",
+    "amount": "Amount",
+    "date": "Date",
+    "dueDate": "Due Date",
+    "paidDate": "Paid Date",
+    "status": "Status",
+    "partner": "Partner",
+    "partnerPlaceholder": "Select partner",
+    "description": "Description",
+    "notes": "Notes",
+    "isCash": "Cash Desk Operation"
+  },
+  "summary": {
+    "title": "Period Summary",
+    "income": "Income",
+    "expense": "Expenses",
+    "balance": "Balance",
+    "totalLabel": "Total",
+    "paidLabel": "Paid",
+    "month": "Month",
+    "year": "Year"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "markPaid": "Mark Paid",
+    "markPending": "Mark Pending",
+    "cancelCashFlow": "Cancel"
+  },
+  "messages": {
+    "saved": "Record saved",
+    "saveFailed": "Failed to save",
+    "created": "Record created",
+    "deleted": "Record deleted",
+    "deleteFailed": "Failed to delete",
+    "paid": "Marked as paid",
+    "cancelled": "Record cancelled",
+    "statusFailed": "Failed to change status",
+    "onlyPlanned": "This action can only be performed on planned records",
+    "notEditable": "This record cannot be edited"
+  },
+  "crossLinks": {
+    "title": "Links",
+    "order": "Order",
+    "stockIssue": "Stock Issue",
+    "viewOrder": "View order",
+    "viewStockIssue": "View stock issue",
+    "noLinks": "No links"
+  },
+  "templates": {
+    "title": "Recurring Payment Templates",
+    "description": "Define templates for recurring payments that are automatically generated.",
+    "name": "Name",
+    "type": "Type",
+    "category": "Category",
+    "frequency": "Frequency",
+    "dayOfMonth": "Day of Month",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "nextDate": "Next Generation",
+    "amount": "Amount",
+    "active": "Active",
+    "partner": "Partner",
+    "partnerPlaceholder": "Select partner",
+    "categoryPlaceholder": "Select category",
+    "description": "Description",
+    "addTemplate": "New Template",
+    "editTemplate": "Edit Template",
+    "generate": "Generate Payments",
+    "generateSuccess": "Generated {count} records",
+    "generateEmpty": "No records to generate",
+    "generateFailed": "Failed to generate",
+    "empty": "No templates",
+    "deleteConfirm": "Really delete this template?",
+    "actions": "Actions",
+    "saved": "Template saved",
+    "saveFailed": "Failed to save template",
+    "deleted": "Template deleted",
+    "deleteFailed": "Failed to delete template",
+    "nameRequired": "Name is required",
+    "amountRequired": "Amount must be a number",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "frequency": {
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly"
+  }
+}

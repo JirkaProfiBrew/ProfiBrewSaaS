@@ -1,6 +1,6 @@
 /**
  * Cashflows module -- public API.
- * Re-exports types, actions, hooks, and config for use by other modules and pages.
+ * Re-exports types, actions, hooks, config, and components for use by other modules and pages.
  */
 
 export type {
@@ -48,3 +48,11 @@ export {
 } from "./hooks";
 
 export { cashflowBrowserConfig } from "./config";
+
+// Components
+export { CashFlowBrowser } from "./components/CashFlowBrowser";
+export { CashFlowDetail } from "./components/CashFlowDetail";
+export { CashFlowStatusBadge } from "./components/CashFlowStatusBadge";
+export { CashFlowTypeBadge } from "./components/CashFlowTypeBadge";
+export { CashFlowSummaryPanel } from "./components/CashFlowSummaryPanel";
+export { TemplateManager } from "./components/TemplateManager";
