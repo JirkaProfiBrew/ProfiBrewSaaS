@@ -25,9 +25,11 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const stockIssuesMsg = (await import(`./messages/${locale}/stockIssues.json`)).default as Record<string, unknown>;
   const materialLotsMsg = (await import(`./messages/${locale}/materialLots.json`)).default as Record<string, unknown>;
   const trackingMsg = (await import(`./messages/${locale}/tracking.json`)).default as Record<string, unknown>;
+  const depositsMsg = (await import(`./messages/${locale}/deposits.json`)).default as Record<string, unknown>;
+  const cashflowCategoriesMsg = (await import(`./messages/${locale}/cashflowCategories.json`)).default as Record<string, unknown>;
 
   return {
     locale,
-    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg },
+    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg, deposits: depositsMsg, cashflowCategories: cashflowCategoriesMsg },
   };
 });

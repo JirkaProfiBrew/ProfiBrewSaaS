@@ -123,4 +123,6 @@ export const settingsSubAgendas: AgendaConfig[] = [
   { slug: "warehouses", icon: Warehouse, labelKey: "warehouses", path: "settings/warehouses" },
   { slug: "users", icon: UserCog, labelKey: "users", path: "settings/users" },
   { slug: "counters", icon: Hash, labelKey: "counters", path: "settings/counters" },
+  { slug: "deposits", icon: Package, labelKey: "deposits", path: "settings/deposits" },
+  { slug: "cashflowCategories", icon: Banknote, labelKey: "cashflowCategories", path: "settings/cashflow-categories" },
 ];

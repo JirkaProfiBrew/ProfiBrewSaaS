@@ -28,6 +28,8 @@
     "users": "Users",
     "counters": "Numbering",
     "productSetup": "Product Setup",
-    "warehouses": "Warehouses"
+    "warehouses": "Warehouses",
+    "deposits": "Deposits",
+    "cashflowCategories": "CF Categories"
   }
 }

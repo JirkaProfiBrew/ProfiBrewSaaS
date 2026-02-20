@@ -1,0 +1,51 @@
+{
+  "title": "Income & Expense Categories",
+  "description": "Manage hierarchical categories for cash flow",
+  "tabs": {
+    "income": "Income",
+    "expense": "Expenses"
+  },
+  "columns": {
+    "name": "Name",
+    "type": "Type",
+    "system": "System",
+    "actions": "Actions"
+  },
+  "dialog": {
+    "createTitle": "New Category",
+    "editTitle": "Edit Category",
+    "name": "Name",
+    "namePlaceholder": "Category name",
+    "parent": "Parent Category",
+    "parentNone": "None (root)",
+    "type": "Type",
+    "typeIncome": "Income",
+    "typeExpense": "Expense",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "actions": {
+    "add": "Add Category",
+    "edit": "Edit",
+    "seed": "Generate Default Categories"
+  },
+  "messages": {
+    "saved": "Category saved",
+    "saveFailed": "Failed to save category",
+    "deleted": "Category deleted",
+    "deleteFailed": "Failed to delete category",
+    "seeded": "Default categories created",
+    "seedFailed": "Failed to create default categories",
+    "nameRequired": "Name is required",
+    "systemCategory": "System categories cannot be edited",
+    "hasChildren": "Cannot delete category with subcategories"
+  },
+  "badges": {
+    "system": "System",
+    "income": "Income",
+    "expense": "Expense"
+  },
+  "empty": "No categories.",
+  "emptyHint": "Click \"Generate Default Categories\" to create standard categories.",
+  "loading": "Loading..."
+}

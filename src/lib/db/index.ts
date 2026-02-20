@@ -13,6 +13,9 @@ import * as recipesSchema from "@/../drizzle/schema/recipes";
 import * as batchesSchema from "@/../drizzle/schema/batches";
 import * as warehousesSchema from "@/../drizzle/schema/warehouses";
 import * as stockSchema from "@/../drizzle/schema/stock";
+import * as depositsSchema from "@/../drizzle/schema/deposits";
+import * as ordersSchema from "@/../drizzle/schema/orders";
+import * as cashflowsSchema from "@/../drizzle/schema/cashflows";
 
 const client = postgres(process.env.DATABASE_URL!);
 
@@ -31,5 +34,8 @@ export const db = drizzle(client, {
     ...batchesSchema,
     ...warehousesSchema,
     ...stockSchema,
+    ...depositsSchema,
+    ...ordersSchema,
+    ...cashflowsSchema,
   },
 });

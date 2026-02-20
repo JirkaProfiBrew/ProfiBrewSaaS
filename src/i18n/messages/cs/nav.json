@@ -28,6 +28,8 @@
     "users": "Uživatelé",
     "counters": "Číslovací řady",
     "productSetup": "Nastavení produktu",
-    "warehouses": "Sklady"
+    "warehouses": "Sklady",
+    "deposits": "Zálohy",
+    "cashflowCategories": "Kategorie CF"
   }
 }

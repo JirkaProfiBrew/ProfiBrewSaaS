@@ -1,0 +1,37 @@
+{
+  "title": "Zálohy za obaly",
+  "description": "Správa záloh za sudy a přepravky",
+  "columns": {
+    "name": "Název",
+    "amount": "Výše zálohy",
+    "active": "Aktivní",
+    "actions": "Akce"
+  },
+  "dialog": {
+    "createTitle": "Nová záloha",
+    "editTitle": "Upravit zálohu",
+    "name": "Název",
+    "namePlaceholder": "např. Keg 30L",
+    "amount": "Výše zálohy (Kč)",
+    "amountPlaceholder": "0",
+    "active": "Aktivní",
+    "save": "Uložit",
+    "cancel": "Zrušit"
+  },
+  "actions": {
+    "add": "Přidat zálohu",
+    "edit": "Upravit"
+  },
+  "messages": {
+    "saved": "Záloha uložena",
+    "saveFailed": "Nepodařilo se uložit zálohu",
+    "nameRequired": "Název je povinný",
+    "amountRequired": "Výše zálohy je povinná"
+  },
+  "status": {
+    "active": "Aktivní",
+    "inactive": "Neaktivní"
+  },
+  "empty": "Žádné zálohy. Přidejte první zálohu.",
+  "loading": "Načítání..."
+}

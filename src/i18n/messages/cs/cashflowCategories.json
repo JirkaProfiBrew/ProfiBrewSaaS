@@ -1,0 +1,51 @@
+{
+  "title": "Kategorie příjmů a výdajů",
+  "description": "Správa hierarchických kategorií pro cash flow",
+  "tabs": {
+    "income": "Příjmy",
+    "expense": "Výdaje"
+  },
+  "columns": {
+    "name": "Název",
+    "type": "Typ",
+    "system": "Systémová",
+    "actions": "Akce"
+  },
+  "dialog": {
+    "createTitle": "Nová kategorie",
+    "editTitle": "Upravit kategorii",
+    "name": "Název",
+    "namePlaceholder": "Název kategorie",
+    "parent": "Nadřazená kategorie",
+    "parentNone": "Žádná (kořenová)",
+    "type": "Typ",
+    "typeIncome": "Příjem",
+    "typeExpense": "Výdaj",
+    "save": "Uložit",
+    "cancel": "Zrušit"
+  },
+  "actions": {
+    "add": "Přidat kategorii",
+    "edit": "Upravit",
+    "seed": "Vygenerovat výchozí kategorie"
+  },
+  "messages": {
+    "saved": "Kategorie uložena",
+    "saveFailed": "Nepodařilo se uložit kategorii",
+    "deleted": "Kategorie smazána",
+    "deleteFailed": "Nepodařilo se smazat kategorii",
+    "seeded": "Výchozí kategorie vytvořeny",
+    "seedFailed": "Nepodařilo se vytvořit výchozí kategorie",
+    "nameRequired": "Název je povinný",
+    "systemCategory": "Systémové kategorie nelze upravovat",
+    "hasChildren": "Kategorii s podkategoriemi nelze smazat"
+  },
+  "badges": {
+    "system": "Systémová",
+    "income": "Příjem",
+    "expense": "Výdaj"
+  },
+  "empty": "Žádné kategorie.",
+  "emptyHint": "Klikněte na \"Vygenerovat výchozí kategorie\" pro vytvoření standardních kategorií.",
+  "loading": "Načítání..."
+}

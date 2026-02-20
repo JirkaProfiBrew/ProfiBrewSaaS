@@ -1,0 +1,37 @@
+{
+  "title": "Packaging Deposits",
+  "description": "Manage deposits for kegs and crates",
+  "columns": {
+    "name": "Name",
+    "amount": "Deposit Amount",
+    "active": "Active",
+    "actions": "Actions"
+  },
+  "dialog": {
+    "createTitle": "New Deposit",
+    "editTitle": "Edit Deposit",
+    "name": "Name",
+    "namePlaceholder": "e.g. Keg 30L",
+    "amount": "Deposit Amount (CZK)",
+    "amountPlaceholder": "0",
+    "active": "Active",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "actions": {
+    "add": "Add Deposit",
+    "edit": "Edit"
+  },
+  "messages": {
+    "saved": "Deposit saved",
+    "saveFailed": "Failed to save deposit",
+    "nameRequired": "Name is required",
+    "amountRequired": "Deposit amount is required"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "empty": "No deposits. Add the first deposit.",
+  "loading": "Loading..."
+}
