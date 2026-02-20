@@ -64,7 +64,7 @@ export const orderBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Objednávka", enabled: true },
+    create: { label: "Objednávka", enabled: true },
     bulkDelete: false,
     rowClick: "detail",
   },

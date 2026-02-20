@@ -2,12 +2,9 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
-import { Button } from "@/components/ui/button";
 
 import { orderBrowserConfig } from "../config";
 import { useOrderList } from "../hooks";
@@ -113,7 +110,6 @@ function sortOrders(
 
 export function OrderBrowser(): React.ReactNode {
   const t = useTranslations("orders");
-  const router = useRouter();
   const { params } = useDataBrowserParams(orderBrowserConfig);
   const { data: orderData, isLoading } = useOrderList();
 
@@ -194,18 +190,6 @@ export function OrderBrowser(): React.ReactNode {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <Button
-          size="sm"
-          onClick={() => {
-            router.push("/sales/orders/new");
-          }}
-        >
-          <Plus className="mr-1 size-4" />
-          {t("createOrder")}
-        </Button>
-      </div>
       <DataBrowser
         config={localizedConfig}
         data={pageData}
