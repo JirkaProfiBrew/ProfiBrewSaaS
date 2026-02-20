@@ -150,11 +150,7 @@ export async function deleteDeposit(
       }
 
       const rows = await db
-        .update(deposits)
-        .set({
-          isActive: false,
-          updatedAt: sql`now()`,
-        })
+        .delete(deposits)
         .where(and(eq(deposits.id, id), eq(deposits.tenantId, tenantId)))
         .returning();
 
