@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 20.02.2026 | Poslední sprint: Sprint 3 Patch (Lots)
+### Aktualizováno: 20.02.2026 | Poslední sprint: Sprint 4 (Orders + Finance)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -95,7 +95,7 @@ Cash Flow, Pokladna
 **Plán:** 💡 (Fáze 2)
 
 **Nastavení** (vždy dostupné):
-Obecné, Provozovny, Uživatelé, Číslovací řady, Billing
+Obecné, Provozovny, Uživatelé, Číslovací řady, Zálohy, Kategorie CF, Pokladny, Billing
 
 ---
 
@@ -399,7 +399,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 
 ## 6. MODUL OBCHOD
 
-### 6.1 Objednávky 📋
+### 6.1 Objednávky ✅
 
 **Co to je:** Odběratelské objednávky.
 
@@ -427,7 +427,7 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 
 ## 7. MODUL FINANCE
 
-### 7.1 Cash Flow 📋
+### 7.1 Cash Flow ✅
 
 **Co to je:** Evidence příjmů a výdajů pivovaru.
 
@@ -445,7 +445,7 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Objednávka (příjem z prodeje)
 - Skladový doklad (výdaj za nákup)
 
-### 7.2 Šablony a recurring 📋
+### 7.2 Šablony a recurring ✅
 
 **Co to je:** Šablony pro opakované příjmy/výdaje.
 
@@ -460,14 +460,22 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Pojistka: 48 000 Kč/rok, výdaj, k 1.1.
 - Paušální odběr restaurace: 15 000 Kč/měsíc, příjem, k 15. dni
 
-### 7.3 Pokladna 📋
+### 7.3 Pokladna ✅
 
 **Co to je:** Evidence hotovostních příjmů a výdajů (taproom, výčep).
 
-- Vazba na provozovnu (shop)
-- Příjmy a výdaje v hotovosti
-- Aktuální zůstatek
-- Denní přehled
+**Jak to funguje:**
+- Pokladna je entita navázaná na provozovnu (shop)
+- Příjmy a výdaje se evidují jako cashflow s `is_cash = true`
+- Zůstatek pokladny se aktualizuje atomicky v DB transakci
+- POS view: velké zobrazení zůstatku, rychlé tlačítka Příjem/Výdej
+- Denní přehled: seznam operací za den, sumář příjmů/výdajů/bilance
+- Quick presets: předvolby popisu (Prodej piva, Drobný výdaj...)
+- Kategorizace: výběr z CF kategorií filtrovaných dle typu
+
+**Nastavení:** Settings → Pokladny
+- CRUD: název + provozovna
+- Aktivní/neaktivní toggle
 
 ---
 
@@ -510,6 +518,21 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Add-on moduly
 - Fakturační údaje
 - Historie plateb
+
+### 8.7 Zálohy ✅
+- CRUD záloh za obaly (sudy, přepravky)
+- Název, částka, aktivní/neaktivní
+- Používáno v objednávkách jako deposit per řádek
+
+### 8.8 Kategorie Cash Flow ✅
+- Hierarchické kategorie příjmů/výdajů
+- Systémové kategorie (is_system=true) — needitovatelné
+- Idempotentní seed při registraci tenantu
+
+### 8.9 Pokladny ✅
+- CRUD pokladen (název + provozovna)
+- Správa v Settings → Pokladny
+- Zůstatek se aktualizuje automaticky z operací
 
 ---
 
@@ -657,10 +680,10 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | material_lots | Sklad | Tracking | 📋 |
 | excise_movements | Sklad | Daňové pohyby | 📋 |
 | excise_monthly_reports | Sklad | Měsíční podání | 📋 |
-| orders | Obchod | Objednávky | 📋 |
-| cashflows | Finance | Cash Flow | 📋 |
-| cashflow_templates | Finance | (šablony) | 📋 |
-| cash_desks | Finance | Pokladna | 📋 |
+| orders | Obchod | Objednávky | ✅ |
+| cashflows | Finance | Cash Flow | ✅ |
+| cashflow_templates | Finance | (šablony) | ✅ |
+| cash_desks | Finance | Pokladna | ✅ |
 | shops | Nastavení | Provozovny | ✅ |
 | tenants | Nastavení | Obecné | 📋 |
 | tenant_users | Nastavení | Uživatelé | 📋 |

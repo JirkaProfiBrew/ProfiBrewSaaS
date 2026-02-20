@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.2 | 20.02.2026 | Sprint 4: Orders, deposits, cashflows, cashflow_categories, cashflow_templates, cash_desks tables. Reserved qty on stock_status. Production issues with recipe_item_id. Auto-receipts on batch completion. |
 | 2.1 | 17.02.2026 | Pricing model: tier-based + add-on modules + overage per hl. Temporal plans/subscriptions in DB. Subscription decoupled from tenants table. Usage records for billing. |
 | 2.0 | 17.02.2026 | Hybrid items model, unified Partner, excise/equipment/shop/cashflow into MVP, card view, lot tracking, i18n, Drizzle ORM, configurable numbering sequences, extended data model based on Bubble audit |
 | 1.0 | 17.02.2026 | Initial draft |
@@ -1593,6 +1594,8 @@ CREATE TABLE cashflows (
   partner_id      UUID REFERENCES partners(id),
   order_id        UUID REFERENCES orders(id),
   stock_issue_id  UUID REFERENCES stock_issues(id),
+  shop_id         UUID REFERENCES shops(id),
+  is_cash         BOOLEAN DEFAULT false,
 
   -- === RECURRING ===
   template_id     UUID REFERENCES cashflow_templates(id),  -- From which template generated
@@ -1603,6 +1606,19 @@ CREATE TABLE cashflows (
   created_by      UUID REFERENCES auth.users(id),
   created_at      TIMESTAMPTZ DEFAULT now(),
   updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- === CASHFLOW CATEGORIES (hierarchical categories) ===
+CREATE TABLE cashflow_categories (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  name            TEXT NOT NULL,
+  parent_id       UUID REFERENCES cashflow_categories(id),
+  cashflow_type   TEXT NOT NULL,                    -- 'income' | 'expense'
+  is_system       BOOLEAN DEFAULT false,
+  sort_order      INTEGER DEFAULT 0,
+  is_active       BOOLEAN DEFAULT true,
+  created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- === CASHFLOW TEMPLATES (templates for recurring income/expenses) ===
@@ -1641,17 +1657,9 @@ CREATE TABLE cash_desks (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE cash_desk_items (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id),
-  cash_desk_id    UUID NOT NULL REFERENCES cash_desks(id),
-  cashflow_type   TEXT NOT NULL,                    -- 'income' | 'expense'
-  amount          DECIMAL NOT NULL,
-  description     TEXT,
-  date            TIMESTAMPTZ DEFAULT now(),
-  created_by      UUID REFERENCES auth.users(id),
-  created_at      TIMESTAMPTZ DEFAULT now()
-);
+-- NOTE: Cash desk transactions are stored as cashflow records with is_cash = true.
+-- No separate cash_desk_items table — cash desk operations create cashflows
+-- and atomically update cash_desks.current_balance in the same transaction.
 ```
 
 ### 5.11 Excise Tax
@@ -1769,6 +1777,7 @@ tenants
   │     └── → cashflows
   │
   ├── cashflows → partners, orders, categories
+  │     ├── cashflow_categories (hierarchical)
   │     └── → cashflow_templates
   │
   ├── excise_monthly_reports

@@ -187,19 +187,44 @@
 
 ---
 
-<!--
-
-## [0.4.0] — Sprint 4: Prodej + Finance
-**Období:** T10-T11
-**Status:** ⏳ Planned
+## [0.4.0] — Sprint 4: Obchod + Finance
+**Období:** T10-T11 (20.02.2026)
+**Status:** ✅ Done
 
 ### Přidáno
-- [ ] Orders — CRUD, řádky, zálohy, status workflow
-- [ ] Cashflows — příjmy, výdaje, kategorie
-- [ ] Cashflow templates — recurring generování
-- [ ] Cash desk — pokladna pro taproom
+- [x] DB schema: orders, order_items, deposits, cashflows, cashflow_categories, cashflow_templates, cash_desks + RLS policies
+- [x] DB schema: `is_reserved` na stock_issues, `recipe_item_id` na stock_issue_lines
+- [x] Deposits — Settings CRUD (zálohy za obaly: sudy, přepravky)
+- [x] CashFlow Categories — hierarchické kategorie příjmů/výdajů, seed systémových kategorií
+- [x] Orders — OrderBrowser, OrderDetail s taby (hlavička, řádky, sumář, sklad, CF, poznámky)
+- [x] Order items — cenotvorba (jednotková cena, DPH, sleva, zálohy), přepočet sumáře
+- [x] Order status workflow: draft → confirmed → in_preparation → shipped → delivered → invoiced → cancelled
+- [x] Order ↔ Stock integration — createStockIssueFromOrder, reserved_qty na confirm/cancel
+- [x] Bulk mode — allocation engine rozšířen o targetItemId/targetQty pro baseItem konverzi
+- [x] CashFlow — CashFlowBrowser, CashFlowDetail, kategorizace, status workflow (planned→pending→paid→cancelled)
+- [x] CashFlow šablony — CRUD, recurring generování (weekly/monthly/quarterly/yearly)
+- [x] CashFlow summary panel — měsíční přehled příjmů/výdajů
+- [x] CashFlow z objednávky — createCashFlowFromOrder s vazbou na order
+- [x] Auto-receipty na dokončení várky — onBatchCompleted vytvoří skladový příjem pro production item
+- [x] Production issues — createProductionIssue z receptury, škálování dle batch size
+- [x] BatchIngredientsTab přepsán — receptura/vydáno/chybí se stock integrací
+- [x] Cash Desk — Settings CRUD (pokladna + provozovna), POS view se zůstatkem
+- [x] Cash Desk transakce — příjmy/výdaje s atomickou aktualizací zůstatku
+- [x] Navigation: settings sub-agendas (Zálohy, Kategorie CF, Pokladny), finance sidebar (Cash Flow, Pokladna)
+- [x] i18n pro všechny nové moduly: orders, deposits, cashflows, cashflowCategories, cashDesks (cs + en)
+
+### Architektonická rozhodnutí
+- Error handling: `{ error: "CODE" }` return pattern (Next.js 16 nepropaguje throw z server actions)
+- Reserved qty: materializováno v stock_status, inkrementováno/dekrementováno atomicky v transakcích
+- Order sumář: server-side recalculation při každé mutaci řádku
+- Cash desk balance: atomická aktualizace v DB transakci společně s vytvořením cashflow
+- CashFlow kategorie: systémové (is_system=true) needitovatelné, seed idempotentní
+- Auto-receipt na batch completion: inline v transakci transitionBatchStatus, ne externím voláním
+- Production issues: recipeItemId na stock_issue_lines pro vazbu ingredience ↔ řádek výdejky
 
 ---
+
+<!--
 
 ## [0.5.0] — Sprint 5: Excise + Dashboard
 **Období:** T12-T13
