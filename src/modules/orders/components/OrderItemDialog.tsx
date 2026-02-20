@@ -137,13 +137,18 @@ export function OrderItemDialog({
         setDepositQty("");
       } else {
         setDepositId(value);
-        if (quantity) {
-          setDepositQty(quantity);
-        }
+        setDepositQty(quantity || "1");
       }
     },
     [quantity]
   );
+
+  // When quantity changes and a deposit is selected, sync depositQty
+  useEffect(() => {
+    if (depositId && quantity) {
+      setDepositQty(quantity);
+    }
+  }, [quantity, depositId]);
 
   // Computed total excl. VAT (live calculation)
   const computedTotalExclVat = useMemo((): string => {
