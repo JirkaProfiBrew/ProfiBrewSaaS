@@ -465,6 +465,7 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
             <OrderStatusActions
               orderId={id}
               currentStatus={order.status}
+              hasItems={(order.items ?? []).length > 0}
               onTransition={handleTransition}
             />
           </div>

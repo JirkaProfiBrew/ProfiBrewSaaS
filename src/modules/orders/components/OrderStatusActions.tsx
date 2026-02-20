@@ -39,6 +39,7 @@ import {
 interface OrderStatusActionsProps {
   orderId: string;
   currentStatus: string;
+  hasItems: boolean;
   onTransition: () => void;
 }
 
@@ -47,6 +48,7 @@ interface OrderStatusActionsProps {
 export function OrderStatusActions({
   orderId,
   currentStatus,
+  hasItems,
   onTransition,
 }: OrderStatusActionsProps): React.ReactNode {
   const t = useTranslations("orders");
@@ -115,7 +117,8 @@ export function OrderStatusActions({
                 t("messages.confirmed")
               )
             }
-            disabled={isLoading}
+            disabled={isLoading || !hasItems}
+            title={!hasItems ? t("messages.needsItems") : undefined}
           >
             <Check className="mr-1 size-4" />
             {t("actions.confirm")}
