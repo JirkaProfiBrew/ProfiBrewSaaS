@@ -1,0 +1,81 @@
+{
+  "title": "Cash Desks",
+  "description": "Manage cash desks for your locations",
+  "empty": "No cash desks",
+  "columns": {
+    "name": "Name",
+    "shop": "Location",
+    "balance": "Balance",
+    "active": "Active",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "actions": {
+    "add": "Add Cash Desk",
+    "edit": "Edit"
+  },
+  "dialog": {
+    "createTitle": "New Cash Desk",
+    "editTitle": "Edit Cash Desk",
+    "name": "Name",
+    "namePlaceholder": "Cash desk name",
+    "shop": "Location",
+    "shopPlaceholder": "Select location",
+    "active": "Active",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "messages": {
+    "nameRequired": "Name is required",
+    "shopRequired": "Location is required",
+    "saved": "Cash desk saved",
+    "saveFailed": "Failed to save cash desk"
+  },
+  "view": {
+    "title": "Cash Desk",
+    "selectDesk": "Select cash desk",
+    "noDesks": "No cash desks found. Create one in Settings.",
+    "goToSettings": "Go to settings",
+    "balance": "Balance",
+    "income": "Income",
+    "expense": "Expense",
+    "dailySummary": "Daily Summary",
+    "dailyIncome": "Income",
+    "dailyExpense": "Expenses",
+    "dailyNet": "Net",
+    "todayTransactions": "Today's Operations",
+    "noTransactions": "No operations today",
+    "transactionColumns": {
+      "time": "Time",
+      "type": "Type",
+      "amount": "Amount",
+      "description": "Description",
+      "category": "Category"
+    }
+  },
+  "transaction": {
+    "incomeTitle": "New Income",
+    "expenseTitle": "New Expense",
+    "amount": "Amount",
+    "amountPlaceholder": "0.00",
+    "description": "Description",
+    "descriptionPlaceholder": "Operation description",
+    "category": "Category",
+    "categoryPlaceholder": "Select category",
+    "submit": "Confirm",
+    "cancel": "Cancel",
+    "creating": "Saving...",
+    "created": "Operation saved",
+    "createFailed": "Failed to save operation",
+    "presets": {
+      "beerSale": "Beer sale",
+      "ciderSale": "Cider sale",
+      "other": "Other",
+      "smallExpense": "Small expense",
+      "materialPurchase": "Material purchase"
+    }
+  }
+}

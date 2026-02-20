@@ -1,0 +1,81 @@
+{
+  "title": "Pokladny",
+  "description": "Správa pokladen pro vaše provozovny",
+  "empty": "Žádné pokladny",
+  "columns": {
+    "name": "Název",
+    "shop": "Provozovna",
+    "balance": "Zůstatek",
+    "active": "Aktivní",
+    "actions": "Akce"
+  },
+  "status": {
+    "active": "Aktivní",
+    "inactive": "Neaktivní"
+  },
+  "actions": {
+    "add": "Přidat pokladnu",
+    "edit": "Upravit"
+  },
+  "dialog": {
+    "createTitle": "Nová pokladna",
+    "editTitle": "Upravit pokladnu",
+    "name": "Název",
+    "namePlaceholder": "Název pokladny",
+    "shop": "Provozovna",
+    "shopPlaceholder": "Vyberte provozovnu",
+    "active": "Aktivní",
+    "cancel": "Zrušit",
+    "save": "Uložit"
+  },
+  "messages": {
+    "nameRequired": "Název je povinný",
+    "shopRequired": "Provozovna je povinná",
+    "saved": "Pokladna uložena",
+    "saveFailed": "Nepodařilo se uložit pokladnu"
+  },
+  "view": {
+    "title": "Pokladna",
+    "selectDesk": "Vyberte pokladnu",
+    "noDesks": "Nemáte žádné pokladny. Vytvořte je v Nastavení.",
+    "goToSettings": "Přejít do nastavení",
+    "balance": "Zůstatek",
+    "income": "Příjem",
+    "expense": "Výdej",
+    "dailySummary": "Denní přehled",
+    "dailyIncome": "Příjmy",
+    "dailyExpense": "Výdaje",
+    "dailyNet": "Bilance",
+    "todayTransactions": "Dnešní operace",
+    "noTransactions": "Dnes žádné operace",
+    "transactionColumns": {
+      "time": "Čas",
+      "type": "Typ",
+      "amount": "Částka",
+      "description": "Popis",
+      "category": "Kategorie"
+    }
+  },
+  "transaction": {
+    "incomeTitle": "Nový příjem",
+    "expenseTitle": "Nový výdej",
+    "amount": "Částka",
+    "amountPlaceholder": "0.00",
+    "description": "Popis",
+    "descriptionPlaceholder": "Popis operace",
+    "category": "Kategorie",
+    "categoryPlaceholder": "Vyberte kategorii",
+    "submit": "Potvrdit",
+    "cancel": "Zrušit",
+    "creating": "Ukládám...",
+    "created": "Operace uložena",
+    "createFailed": "Nepodařilo se uložit operaci",
+    "presets": {
+      "beerSale": "Prodej piva",
+      "ciderSale": "Prodej cideru",
+      "other": "Jiné",
+      "smallExpense": "Drobný výdaj",
+      "materialPurchase": "Nákup surovin"
+    }
+  }
+}
