@@ -16,6 +16,7 @@ import { warehouses } from "./warehouses";
 import { partners } from "./partners";
 import { items } from "./items";
 import { batches } from "./batches";
+import { recipeItems } from "./recipes";
 import { counters } from "./system";
 
 // ============================================================
@@ -43,6 +44,7 @@ export const stockIssues = pgTable(
     orderId: uuid("order_id"), // NO FK — Sprint 4
     batchId: uuid("batch_id").references(() => batches.id),
     season: text("season"),
+    isReserved: boolean("is_reserved").default(false),
     additionalCost: decimal("additional_cost").default("0"),
     totalCost: decimal("total_cost").default("0"),
     notes: text("notes"),
@@ -82,6 +84,7 @@ export const stockIssueLines = pgTable(
     issueModeSnapshot: text("issue_mode_snapshot"), // snapshot of item's issue_mode at time of issue
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
+    recipeItemId: uuid("recipe_item_id").references(() => recipeItems.id),
     // Manual allocation entries (for manual_lot issue lines, stored as JSONB)
     manualAllocations: jsonb("manual_allocations"),
     // Lot tracking (filled on receipt lines only)

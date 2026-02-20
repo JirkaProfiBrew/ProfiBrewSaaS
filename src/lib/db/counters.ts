@@ -10,6 +10,7 @@ const COUNTER_DEFAULTS: Record<string, { prefix: string; includeYear: boolean; p
   order:                { prefix: "OBJ", includeYear: true,  padding: 4, separator: "-", resetYearly: true },
   stock_issue_receipt:  { prefix: "PR",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
   stock_issue_dispatch: { prefix: "VD",  includeYear: true,  padding: 3, separator: "-", resetYearly: true },
+  cashflow:             { prefix: "CF",  includeYear: true,  padding: 4, separator: "-", resetYearly: true },
 };
 
 /** Per-warehouse counter config: prefix includes warehouse code. */
