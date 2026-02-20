@@ -176,6 +176,7 @@
 - [x] Tracking agenda přepsána — readonly browser nad příjemkovými řádky (LotBrowser, LotDetail)
 - [x] removeStockIssueLine — maže pre-alokace před smazáním řádku (bez FK cascade)
 - [x] i18n: lot keys (stockIssues cs+en), tracking namespace (cs+en), items issueMode aktualizace
+- [x] Recipe Snapshot: při vytvoření várky se receptura zkopíruje (recipe + items + steps), snapshot se neobjeví v prohlížeči receptur, batch detail zobrazuje odkaz na originální recept
 
 ### Architektonická rozhodnutí
 - Lot = příjemkový řádek — žádná duplicitní entita, data se zadávají jednou při příjmu
