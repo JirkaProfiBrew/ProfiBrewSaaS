@@ -11,6 +11,11 @@ import { shops } from "@/../drizzle/schema/shops";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { eq, and, sql, desc, ilike, or, gte, lte } from "drizzle-orm";
 import { getNextNumber } from "@/lib/db/counters";
+import { updateReservedQtyRow } from "@/modules/stock-issues/lib/stock-status-sync";
+import {
+  stockIssues,
+  stockIssueLines,
+} from "@/../drizzle/schema/stock";
 import type {
   Order,
   OrderItem,
@@ -694,14 +699,100 @@ export async function removeOrderItem(
   });
 }
 
+// ── Reserved Qty Helper ──────────────────────────────────────
+
+/**
+ * Adjust reserved_qty for all items in an order.
+ * @param delta +1 to reserve, -1 to release
+ */
+async function adjustReservedQtyForOrder(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tenantId: string,
+  orderId: string
+  ,
+  delta: 1 | -1
+): Promise<void> {
+  // Load order header for shop/warehouse
+  const orderRow = await tx
+    .select({
+      shopId: orders.shopId,
+      warehouseId: orders.warehouseId,
+    })
+    .from(orders)
+    .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
+    .limit(1);
+
+  const warehouseId = orderRow[0]?.warehouseId;
+  if (!warehouseId) return;
+
+  // Resolve shop's stock_mode
+  let stockMode: string | undefined;
+  if (orderRow[0]?.shopId) {
+    const shopRows = await tx
+      .select({ settings: shops.settings })
+      .from(shops)
+      .where(eq(shops.id, orderRow[0].shopId))
+      .limit(1);
+    const settings = shopRows[0]?.settings as Record<string, unknown> | null;
+    stockMode = settings?.stock_mode as string | undefined;
+  }
+
+  if (stockMode === "none") return;
+
+  const oItems = await tx
+    .select({
+      itemId: orderItems.itemId,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(
+      and(eq(orderItems.orderId, orderId), eq(orderItems.tenantId, tenantId))
+    );
+
+  for (const oi of oItems) {
+    const itemRow = await tx
+      .select({
+        baseItemId: items.baseItemId,
+        baseItemQuantity: items.baseItemQuantity,
+      })
+      .from(items)
+      .where(eq(items.id, oi.itemId))
+      .limit(1);
+
+    const qty = Number(oi.quantity);
+    let reserveItemId = oi.itemId;
+    let reserveQty = qty;
+
+    if (
+      stockMode === "bulk" &&
+      itemRow[0]?.baseItemId &&
+      itemRow[0]?.baseItemQuantity
+    ) {
+      reserveItemId = itemRow[0].baseItemId;
+      reserveQty = qty * Number(itemRow[0].baseItemQuantity);
+    }
+
+    await updateReservedQtyRow(
+      tx,
+      tenantId,
+      reserveItemId,
+      warehouseId,
+      delta * reserveQty
+    );
+  }
+}
+
 // ── Status Workflow Actions ───────────────────────────────────
 
-/** Confirm an order: draft -> confirmed. Must have at least 1 item. */
+/** Confirm an order: draft -> confirmed. Must have at least 1 item.
+ * Increments reserved_qty on the correct item (base_item in bulk mode).
+ */
 export async function confirmOrder(
   id: string
 ): Promise<Order | { error: string }> {
   return withTenant(async (tenantId) => {
     try {
+      // Pre-checks outside transaction
       const existing = await db
         .select({ status: orders.status })
         .from(orders)
@@ -711,7 +802,6 @@ export async function confirmOrder(
       if (!existing[0]) return { error: "NOT_FOUND" };
       if (existing[0].status !== "draft") return { error: "NOT_DRAFT" };
 
-      // Check at least 1 item
       const itemCount = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(orderItems)
@@ -724,25 +814,33 @@ export async function confirmOrder(
       // Recalculate totals one final time
       await recalculateOrderTotals(id, tenantId);
 
-      const rows = await db
-        .update(orders)
-        .set({
-          status: "confirmed",
-          updatedAt: sql`now()`,
-        })
-        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-        .returning();
+      // Reserve stock + update status in a transaction
+      const result = await db.transaction(async (tx) => {
+        // Reserve stock for each order item
+        await adjustReservedQtyForOrder(tx, tenantId, id, 1);
 
-      const row = rows[0];
-      if (!row) return { error: "NOT_FOUND" };
+        // Set status to confirmed
+        const rows = await tx
+          .update(orders)
+          .set({
+            status: "confirmed",
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+          .returning();
+
+        return rows[0];
+      });
+
+      if (!result) return { error: "NOT_FOUND" };
 
       const partnerRows = await db
         .select({ name: partners.name })
         .from(partners)
-        .where(eq(partners.id, row.partnerId))
+        .where(eq(partners.id, result.partnerId))
         .limit(1);
 
-      return mapOrderRow(row, { partnerName: partnerRows[0]?.name });
+      return mapOrderRow(result, { partnerName: partnerRows[0]?.name });
     } catch (err: unknown) {
       console.error("[orders] confirmOrder failed:", err);
       return { error: "CONFIRM_FAILED" };
@@ -792,7 +890,9 @@ export async function startPreparation(
   });
 }
 
-/** Ship order: in_preparation -> shipped. Sets shippedDate to today. */
+/** Ship order: in_preparation -> shipped. Sets shippedDate to today.
+ * Releases reserved_qty (stock was already physically consumed via stock issue).
+ */
 export async function shipOrder(
   id: string
 ): Promise<Order | { error: string }> {
@@ -810,26 +910,33 @@ export async function shipOrder(
 
       const today = new Date().toISOString().slice(0, 10);
 
-      const rows = await db
-        .update(orders)
-        .set({
-          status: "shipped",
-          shippedDate: today,
-          updatedAt: sql`now()`,
-        })
-        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-        .returning();
+      // Release reserved_qty + update status in a transaction
+      const result = await db.transaction(async (tx) => {
+        // Release reserved stock
+        await adjustReservedQtyForOrder(tx, tenantId, id, -1);
 
-      const row = rows[0];
-      if (!row) return { error: "NOT_FOUND" };
+        const rows = await tx
+          .update(orders)
+          .set({
+            status: "shipped",
+            shippedDate: today,
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+          .returning();
+
+        return rows[0];
+      });
+
+      if (!result) return { error: "NOT_FOUND" };
 
       const partnerRows = await db
         .select({ name: partners.name })
         .from(partners)
-        .where(eq(partners.id, row.partnerId))
+        .where(eq(partners.id, result.partnerId))
         .limit(1);
 
-      return mapOrderRow(row, { partnerName: partnerRows[0]?.name });
+      return mapOrderRow(result, { partnerName: partnerRows[0]?.name });
     } catch (err: unknown) {
       console.error("[orders] shipOrder failed:", err);
       return { error: "TRANSITION_FAILED" };
@@ -926,7 +1033,10 @@ export async function invoiceOrder(
   });
 }
 
-/** Cancel an order: any status except invoiced -> cancelled. Sets closedDate. */
+/** Cancel an order: any status except invoiced -> cancelled. Sets closedDate.
+ * Releases reserved_qty if order was confirmed+ and not yet shipped.
+ * Cancels any linked draft stock issue.
+ */
 export async function cancelOrder(
   id: string,
   reason?: string
@@ -937,21 +1047,25 @@ export async function cancelOrder(
         .select({
           status: orders.status,
           internalNotes: orders.internalNotes,
+          stockIssueId: orders.stockIssueId,
         })
         .from(orders)
         .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
         .limit(1);
 
-      if (!existing[0]) return { error: "NOT_FOUND" };
-      if (existing[0].status === "invoiced")
+      const existingRow = existing[0];
+      if (!existingRow) return { error: "NOT_FOUND" };
+      if (existingRow.status === "invoiced")
         return { error: "ALREADY_INVOICED" };
-      if (existing[0].status === "cancelled")
+      if (existingRow.status === "cancelled")
         return { error: "ALREADY_CANCELLED" };
 
       const today = new Date().toISOString().slice(0, 10);
+      const previousStatus = existingRow.status;
+      const linkedStockIssueId = existingRow.stockIssueId;
 
       // Append or set cancellation reason in internalNotes
-      let newInternalNotes = existing[0].internalNotes;
+      let newInternalNotes = existingRow.internalNotes;
       if (reason) {
         if (newInternalNotes) {
           newInternalNotes = `${newInternalNotes}\n[Cancelled] ${reason}`;
@@ -960,30 +1074,176 @@ export async function cancelOrder(
         }
       }
 
-      const rows = await db
-        .update(orders)
-        .set({
-          status: "cancelled",
-          closedDate: today,
-          internalNotes: newInternalNotes,
-          updatedAt: sql`now()`,
-        })
-        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-        .returning();
+      const result = await db.transaction(async (tx) => {
+        // Release reserved_qty if order was confirmed but not yet shipped
+        // (shipped already released reserved_qty)
+        const hasReservation =
+          previousStatus === "confirmed" ||
+          previousStatus === "in_preparation";
 
-      const row = rows[0];
-      if (!row) return { error: "NOT_FOUND" };
+        if (hasReservation) {
+          await adjustReservedQtyForOrder(tx, tenantId, id, -1);
+        }
+
+        // Cancel linked draft stock issue if any
+        if (linkedStockIssueId) {
+          const issueRows = await tx
+            .select({ status: stockIssues.status })
+            .from(stockIssues)
+            .where(eq(stockIssues.id, linkedStockIssueId))
+            .limit(1);
+
+          if (issueRows[0]?.status === "draft") {
+            await tx
+              .update(stockIssues)
+              .set({ status: "cancelled", updatedAt: sql`now()` })
+              .where(eq(stockIssues.id, linkedStockIssueId));
+          }
+        }
+
+        // Set order status to cancelled
+        const rows = await tx
+          .update(orders)
+          .set({
+            status: "cancelled",
+            closedDate: today,
+            internalNotes: newInternalNotes,
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+          .returning();
+
+        return rows[0];
+      });
+
+      if (!result) return { error: "NOT_FOUND" };
 
       const partnerRows = await db
         .select({ name: partners.name })
         .from(partners)
-        .where(eq(partners.id, row.partnerId))
+        .where(eq(partners.id, result.partnerId))
         .limit(1);
 
-      return mapOrderRow(row, { partnerName: partnerRows[0]?.name });
+      return mapOrderRow(result, { partnerName: partnerRows[0]?.name });
     } catch (err: unknown) {
       console.error("[orders] cancelOrder failed:", err);
       return { error: "CANCEL_FAILED" };
+    }
+  });
+}
+
+// ── Stock Issue from Order ────────────────────────────────────
+
+/**
+ * Create a draft stock issue from an order.
+ * Creates one issue line per order item. Links the stock issue to the order.
+ * Only allowed for confirmed+ orders without an existing stock issue.
+ */
+export async function createStockIssueFromOrder(
+  orderId: string
+): Promise<{ stockIssueId: string } | { error: string }> {
+  return withTenant(async (tenantId) => {
+    try {
+      // Load order with items
+      const orderRow = await db
+        .select({
+          status: orders.status,
+          partnerId: orders.partnerId,
+          warehouseId: orders.warehouseId,
+          stockIssueId: orders.stockIssueId,
+          orderDate: orders.orderDate,
+        })
+        .from(orders)
+        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)))
+        .limit(1);
+
+      const oRow = orderRow[0];
+      if (!oRow) return { error: "NOT_FOUND" };
+      if (oRow.status === "draft") return { error: "NOT_CONFIRMED" };
+      if (oRow.status === "cancelled") return { error: "CANCELLED" };
+      if (oRow.stockIssueId) return { error: "ALREADY_HAS_ISSUE" };
+
+      const warehouseId = oRow.warehouseId;
+      if (!warehouseId) return { error: "NO_WAREHOUSE" };
+
+      const issueDate = oRow.orderDate;
+      const issueParnerId = oRow.partnerId;
+
+      // Load order items
+      const oItems = await db
+        .select({
+          itemId: orderItems.itemId,
+          quantity: orderItems.quantity,
+          unitPrice: orderItems.unitPrice,
+        })
+        .from(orderItems)
+        .where(
+          and(
+            eq(orderItems.orderId, orderId),
+            eq(orderItems.tenantId, tenantId)
+          )
+        )
+        .orderBy(orderItems.sortOrder, orderItems.createdAt);
+
+      if (oItems.length === 0) return { error: "NO_ITEMS" };
+
+      // Generate stock issue code
+      const counterEntity = "stock_issue_dispatch";
+      const code = await getNextNumber(tenantId, counterEntity, warehouseId);
+
+      // Create stock issue + lines in a transaction
+      const issueId = await db.transaction(async (tx) => {
+        // Create draft stock issue
+        const issueRows = await tx
+          .insert(stockIssues)
+          .values({
+            tenantId,
+            code,
+            movementType: "issue",
+            movementPurpose: "sale",
+            date: issueDate,
+            status: "draft",
+            warehouseId,
+            partnerId: issueParnerId,
+            orderId,
+          })
+          .returning({ id: stockIssues.id });
+
+        const newIssueId = issueRows[0]?.id;
+        if (!newIssueId) throw new Error("Failed to create stock issue");
+
+        // Create issue lines from order items
+        let lineNo = 0;
+        for (const oi of oItems) {
+          lineNo += 1;
+          await tx.insert(stockIssueLines).values({
+            tenantId,
+            stockIssueId: newIssueId,
+            itemId: oi.itemId,
+            lineNo,
+            requestedQty: oi.quantity,
+            issuedQty: oi.quantity,
+            unitPrice: oi.unitPrice,
+            sortOrder: lineNo,
+          });
+        }
+
+        // Link stock issue back to the order
+        await tx
+          .update(orders)
+          .set({
+            stockIssueId: newIssueId,
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)));
+
+        return newIssueId;
+      });
+
+      return { stockIssueId: issueId };
+    } catch (err: unknown) {
+      console.error("[orders] createStockIssueFromOrder failed:", err);
+      return { error: "CREATE_ISSUE_FAILED" };
     }
   });
 }

@@ -96,6 +96,7 @@ export interface CreateStockIssueInput {
   date: string;
   warehouseId: string;
   partnerId?: string | null;
+  orderId?: string | null;
   batchId?: string | null;
   season?: string | null;
   additionalCost?: string;

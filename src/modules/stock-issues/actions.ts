@@ -13,6 +13,8 @@ import {
 import { items } from "@/../drizzle/schema/items";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
+import { orders } from "@/../drizzle/schema/orders";
+import { shops } from "@/../drizzle/schema/shops";
 import {
   allocateFIFO,
   processManualAllocations,
@@ -250,6 +252,7 @@ export async function createStockIssue(
         status: "draft",
         warehouseId: data.warehouseId,
         partnerId: data.partnerId ?? null,
+        orderId: data.orderId ?? null,
         batchId: data.batchId ?? null,
         season: data.season ?? null,
         additionalCost: data.additionalCost ?? "0",
@@ -682,9 +685,13 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
         } else {
           // ── ISSUE: FIFO or manual_lot engine ──
 
-          // Get item's issue_mode
+          // Get item's issue_mode + base_item info for bulk mode resolution
           const itemRows = await tx
-            .select({ issueMode: items.issueMode })
+            .select({
+              issueMode: items.issueMode,
+              baseItemId: items.baseItemId,
+              baseItemQuantity: items.baseItemQuantity,
+            })
             .from(items)
             .where(eq(items.id, line.itemId))
             .limit(1);
@@ -692,13 +699,45 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
           const issueMode =
             (itemRows[0]?.issueMode as "fifo" | "manual_lot") ?? "fifo";
 
+          // Resolve bulk mode: determine effective item + qty for allocation
+          let targetItemId: string | undefined;
+          let targetQty: number | undefined;
+          let stockUpdateItemId = line.itemId;
+
+          if (itemRows[0]?.baseItemId && itemRows[0]?.baseItemQuantity) {
+            // Check if shop uses bulk mode (via order → shop)
+            let stockMode: string | undefined;
+            if (issue.orderId) {
+              const orderRows = await tx
+                .select({ shopId: orders.shopId })
+                .from(orders)
+                .where(eq(orders.id, issue.orderId))
+                .limit(1);
+              if (orderRows[0]?.shopId) {
+                const shopRows = await tx
+                  .select({ settings: shops.settings })
+                  .from(shops)
+                  .where(eq(shops.id, orderRows[0].shopId))
+                  .limit(1);
+                const settings = shopRows[0]?.settings as Record<string, unknown> | null;
+                stockMode = settings?.stock_mode as string | undefined;
+              }
+            }
+
+            if (stockMode === "bulk") {
+              targetItemId = itemRows[0].baseItemId;
+              targetQty = requestedQty * Number(itemRows[0].baseItemQuantity);
+              stockUpdateItemId = itemRows[0].baseItemId;
+            }
+          }
+
           // Snapshot issue mode on the line
           await tx
             .update(stockIssueLines)
             .set({ issueModeSnapshot: issueMode })
             .where(eq(stockIssueLines.id, line.id));
 
-          // Run allocation engine
+          // Run allocation engine (with optional bulk mode params)
           const engineResult =
             issueMode === "manual_lot"
               ? await processManualAllocations(
@@ -714,7 +753,9 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
                   },
                   issue.warehouseId,
                   issue.date,
-                  issue.batchId
+                  issue.batchId,
+                  targetItemId,
+                  targetQty
                 )
               : await allocateFIFO(
                   tx,
@@ -727,7 +768,9 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
                   },
                   issue.warehouseId,
                   issue.date,
-                  issue.batchId
+                  issue.batchId,
+                  targetItemId,
+                  targetQty
                 );
 
           // Update line with cost from engine (issuedQty/missingQty computed from movements)
@@ -741,11 +784,11 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
 
           documentTotalCost += engineResult.totalCost;
 
-          // Update stock_status with allocated amount
+          // Update stock_status on the effective item (base_item in bulk mode)
           await updateStockStatusRow(
             tx,
             tenantId,
-            line.itemId,
+            stockUpdateItemId,
             issue.warehouseId,
             -engineResult.allocated
           );

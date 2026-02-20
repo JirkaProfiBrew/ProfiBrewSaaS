@@ -28,6 +28,12 @@ export interface AllocationEngineResult {
  * Allocate an issue line via FIFO against receipt lines with remaining_qty > 0.
  * Creates one movement per receipt line consumed. Does NOT throw on insufficient stock.
  */
+/**
+ * @param targetItemId Optional — if provided, searches receipt lines for this item instead of issueLine.itemId.
+ *                     Used for bulk mode where the sale item differs from the physical stock item.
+ * @param targetQty    Optional — if provided, uses this quantity instead of issueLine.requestedQty.
+ *                     Used for bulk mode with quantity conversion (e.g., 5 cans × 0.33L = 1.65L).
+ */
 export async function allocateFIFO(
   tx: Transaction,
   tenantId: string,
@@ -35,9 +41,12 @@ export async function allocateFIFO(
   issueLine: { id: string; itemId: string; requestedQty: string },
   warehouseId: string,
   date: string,
-  batchId: string | null
+  batchId: string | null,
+  targetItemId?: string,
+  targetQty?: number
 ): Promise<AllocationEngineResult> {
-  const requestedQty = Number(issueLine.requestedQty);
+  const effectiveItemId = targetItemId ?? issueLine.itemId;
+  const requestedQty = targetQty ?? Number(issueLine.requestedQty);
 
   // Find receipt lines with remaining stock in the same warehouse, ordered by date (FIFO)
   const receiptLinesInWarehouse = await tx.execute(sql`
@@ -45,7 +54,7 @@ export async function allocateFIFO(
     FROM stock_issue_lines sil
     JOIN stock_issues si ON si.id = sil.stock_issue_id
     WHERE sil.tenant_id = ${tenantId}
-      AND sil.item_id = ${issueLine.itemId}
+      AND sil.item_id = ${effectiveItemId}
       AND si.warehouse_id = ${warehouseId}
       AND si.movement_type = 'receipt'
       AND si.status = 'confirmed'
@@ -70,9 +79,10 @@ export async function allocateFIFO(
     const unitPrice = Number(rl.unit_price ?? "0");
 
     // Create "out" movement referencing the receipt line
+    // In bulk mode, effectiveItemId may differ from issueLine.itemId
     await tx.insert(stockMovements).values({
       tenantId,
-      itemId: issueLine.itemId,
+      itemId: effectiveItemId,
       warehouseId,
       movementType: "out",
       quantity: String(-allocateQty),
@@ -107,6 +117,10 @@ export async function allocateFIFO(
  * Process manual allocations stored in line.manualAllocations JSONB.
  * Creates one movement per entry. Does NOT throw on insufficient stock.
  */
+/**
+ * @param targetItemId Optional — for bulk mode, the physical stock item to allocate from.
+ * @param targetQty    Optional — for bulk mode, the converted quantity to allocate.
+ */
 export async function processManualAllocations(
   tx: Transaction,
   tenantId: string,
@@ -119,12 +133,15 @@ export async function processManualAllocations(
   },
   warehouseId: string,
   date: string,
-  batchId: string | null
+  batchId: string | null,
+  targetItemId?: string,
+  targetQty?: number
 ): Promise<AllocationEngineResult> {
+  const effectiveItemId = targetItemId ?? issueLine.itemId;
   const entries = issueLine.manualAllocations ?? [];
   if (entries.length === 0) {
     // No manual allocations — fall back to FIFO
-    return allocateFIFO(tx, tenantId, issueId, issueLine, warehouseId, date, batchId);
+    return allocateFIFO(tx, tenantId, issueId, issueLine, warehouseId, date, batchId, targetItemId, targetQty);
   }
 
   let totalAllocated = 0;
@@ -152,9 +169,10 @@ export async function processManualAllocations(
     const unitPrice = Number(receiptLine.unitPrice ?? "0");
 
     // Create "out" movement referencing the receipt line
+    // In bulk mode, effectiveItemId may differ from issueLine.itemId
     await tx.insert(stockMovements).values({
       tenantId,
-      itemId: issueLine.itemId,
+      itemId: effectiveItemId,
       warehouseId,
       movementType: "out",
       quantity: String(-actualQty),
@@ -178,7 +196,7 @@ export async function processManualAllocations(
     totalAllocated += actualQty;
   }
 
-  const requestedQty = Number(issueLine.requestedQty);
+  const requestedQty = targetQty ?? Number(issueLine.requestedQty);
   const missing = Math.max(0, requestedQty - totalAllocated);
   const weightedAvgPrice = totalAllocated > 0 ? totalCost / totalAllocated : 0;
 

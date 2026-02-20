@@ -121,7 +121,14 @@
     "linked": "Výdejka vytvořena",
     "viewIssue": "Zobrazit výdejku",
     "noIssue": "Výdejka zatím nebyla vytvořena",
-    "createHint": "Vytvořte výdejku po potvrzení objednávky"
+    "createHint": "Vytvořte výdejku po potvrzení objednávky",
+    "createTitle": "Vytvořit výdejku",
+    "createDescription": "Bude vytvořena výdejka (koncept) se všemi řádky objednávky. Po kontrole ji můžete potvrdit.",
+    "creating": "Vytvářím...",
+    "created": "Výdejka vytvořena",
+    "createFailed": "Nepodařilo se vytvořit výdejku",
+    "noWarehouse": "Objednávka nemá přiřazený sklad",
+    "alreadyExists": "Výdejka pro tuto objednávku již existuje"
   },
   "cashflowTab": {
     "title": "Cash Flow",

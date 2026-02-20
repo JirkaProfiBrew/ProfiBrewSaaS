@@ -29,6 +29,7 @@ import { OrderStatusBadge } from "./OrderStatusBadge";
 import { OrderStatusActions } from "./OrderStatusActions";
 import { OrderItemsTable } from "./OrderItemsTable";
 import { OrderSummary } from "./OrderSummary";
+import { CreateStockIssueDialog } from "./CreateStockIssueDialog";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -532,13 +533,21 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      {t("stockIssueTab.noIssue")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("stockIssueTab.createHint")}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {t("stockIssueTab.noIssue")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("stockIssueTab.createHint")}
+                      </p>
+                    </div>
+                    {order && order.status !== "draft" && order.status !== "cancelled" && (
+                      <CreateStockIssueDialog
+                        orderId={id}
+                        onCreated={() => mutate()}
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>

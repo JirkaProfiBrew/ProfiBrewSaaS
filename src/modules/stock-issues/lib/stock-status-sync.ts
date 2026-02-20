@@ -47,3 +47,39 @@ export async function updateStockStatusRow(
       ),
     });
 }
+
+/**
+ * Update reserved_qty on stock_status for a given item + warehouse.
+ * Uses UPSERT: INSERT ... ON CONFLICT DO UPDATE.
+ *
+ * @param reservedQtyDelta Positive = reserve, negative = release
+ */
+export async function updateReservedQtyRow(
+  tx: Transaction,
+  tenantId: string,
+  itemId: string,
+  warehouseId: string,
+  reservedQtyDelta: number
+): Promise<void> {
+  await tx
+    .insert(stockStatus)
+    .values({
+      tenantId,
+      itemId,
+      warehouseId,
+      quantity: "0",
+      reservedQty: String(reservedQtyDelta),
+    })
+    .onConflictDoUpdate({
+      target: [stockStatus.tenantId, stockStatus.itemId, stockStatus.warehouseId],
+      set: {
+        reservedQty: sql`${stockStatus.reservedQty}::decimal + ${reservedQtyDelta}`,
+        updatedAt: sql`now()`,
+      },
+      setWhere: and(
+        eq(stockStatus.tenantId, tenantId),
+        eq(stockStatus.itemId, itemId),
+        eq(stockStatus.warehouseId, warehouseId)
+      ),
+    });
+}

@@ -121,7 +121,14 @@
     "linked": "Stock issue created",
     "viewIssue": "View stock issue",
     "noIssue": "No stock issue created yet",
-    "createHint": "Create a stock issue after confirming the order"
+    "createHint": "Create a stock issue after confirming the order",
+    "createTitle": "Create Stock Issue",
+    "createDescription": "A draft stock issue will be created with all order items. You can review and confirm it afterwards.",
+    "creating": "Creating...",
+    "created": "Stock issue created",
+    "createFailed": "Failed to create stock issue",
+    "noWarehouse": "Order has no warehouse assigned",
+    "alreadyExists": "A stock issue for this order already exists"
   },
   "cashflowTab": {
     "title": "Cash Flow",
