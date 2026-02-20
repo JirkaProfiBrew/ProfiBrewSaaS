@@ -128,7 +128,12 @@ export async function signUp(
     }
 
     // 6. Seed default data (counters, deposits, CF categories)
-    await seedTenantDefaults(tenant.id);
+    // Non-blocking: registration must succeed even if seeding fails
+    try {
+      await seedTenantDefaults(tenant.id);
+    } catch (seedErr) {
+      console.error("seedTenantDefaults failed (non-fatal):", seedErr);
+    }
   } catch (err) {
     console.error("signUp error:", err);
     return { error: "Unexpected error occurred" };

@@ -148,7 +148,21 @@ async function seedDefaultCashFlowCategories(tenantId: string): Promise<void> {
  * Called from the signUp flow. Idempotent — safe to re-run.
  */
 export async function seedTenantDefaults(tenantId: string): Promise<void> {
-  await seedDefaultCounters(tenantId);
-  await seedDefaultDeposits(tenantId);
-  await seedDefaultCashFlowCategories(tenantId);
+  try {
+    await seedDefaultCounters(tenantId);
+  } catch (err) {
+    console.error("[seed] seedDefaultCounters failed:", err);
+  }
+
+  try {
+    await seedDefaultDeposits(tenantId);
+  } catch (err) {
+    console.error("[seed] seedDefaultDeposits failed:", err);
+  }
+
+  try {
+    await seedDefaultCashFlowCategories(tenantId);
+  } catch (err) {
+    console.error("[seed] seedDefaultCashFlowCategories failed:", err);
+  }
 }
