@@ -10,6 +10,7 @@ import { tenantUsers } from "@/../drizzle/schema/auth";
 import { subscriptions, plans } from "@/../drizzle/schema/subscriptions";
 import { eq } from "drizzle-orm";
 import { routing } from "@/i18n/routing";
+import { seedTenantDefaults } from "@/lib/db/seed-tenant";
 
 async function getLocale(): Promise<string> {
   const cookieStore = await cookies();
@@ -125,6 +126,9 @@ export async function signUp(
         currentPeriodEnd: periodEnd.toISOString().split("T")[0]!,
       });
     }
+
+    // 6. Seed default data (counters, deposits, CF categories)
+    await seedTenantDefaults(tenant.id);
   } catch (err) {
     console.error("signUp error:", err);
     return { error: "Unexpected error occurred" };
