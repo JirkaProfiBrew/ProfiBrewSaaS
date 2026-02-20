@@ -809,7 +809,7 @@ export async function confirmOrder(
           and(eq(orderItems.orderId, id), eq(orderItems.tenantId, tenantId))
         );
 
-      if ((itemCount[0]?.value ?? 0) === 0) return { error: "NO_ITEMS" };
+      if (Number(itemCount[0]?.value ?? 0) === 0) return { error: "NO_ITEMS" };
 
       // Recalculate totals one final time
       await recalculateOrderTotals(id, tenantId);
