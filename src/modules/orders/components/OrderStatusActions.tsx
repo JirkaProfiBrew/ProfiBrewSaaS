@@ -14,6 +14,12 @@ import {
 
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -109,20 +115,33 @@ export function OrderStatusActions({
       {/* draft: Confirm + Cancel */}
       {currentStatus === "draft" && (
         <>
-          <Button
-            size="sm"
-            onClick={() =>
-              void handleTransition(
-                () => confirmOrder(orderId),
-                t("messages.confirmed")
-              )
-            }
-            disabled={isLoading || !hasItems}
-            title={!hasItems ? t("messages.needsItems") : undefined}
-          >
-            <Check className="mr-1 size-4" />
-            {t("actions.confirm")}
-          </Button>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={!hasItems ? 0 : undefined}>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void handleTransition(
+                        () => confirmOrder(orderId),
+                        t("messages.confirmed")
+                      )
+                    }
+                    disabled={isLoading || !hasItems}
+                    className={!hasItems ? "pointer-events-none" : ""}
+                  >
+                    <Check className="mr-1 size-4" />
+                    {t("actions.confirm")}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!hasItems && (
+                <TooltipContent>
+                  {t("messages.needsItems")}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
 
           <CancelButton
             isLoading={isLoading}
