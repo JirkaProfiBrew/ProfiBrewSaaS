@@ -68,17 +68,13 @@ export async function signUp(
     });
 
     if (authError) {
-      console.error("[signUp] step 1 auth error:", authError.message);
       return { error: authError.message };
     }
 
     const userId = authData.user?.id;
     if (!userId) {
-      console.error("[signUp] step 1 no userId, identities:", authData.user?.identities?.length);
       return { error: "User creation failed" };
     }
-
-    console.log("[signUp] step 1 OK, userId:", userId);
 
     // 2. Create user profile
     await db.insert(userProfiles).values({
@@ -98,11 +94,8 @@ export async function signUp(
       .returning();
 
     if (!tenant) {
-      console.error("[signUp] step 3 tenant creation failed");
       return { error: "Tenant creation failed" };
     }
-
-    console.log("[signUp] step 3 OK, tenantId:", tenant.id);
 
     // 4. Link user to tenant as owner
     await db.insert(tenantUsers).values({
