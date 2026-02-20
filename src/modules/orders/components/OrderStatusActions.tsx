@@ -61,7 +61,12 @@ export function OrderStatusActions({
       try {
         const result = await action();
         if (result && typeof result === "object" && "error" in result) {
-          toast.error(t("messages.statusFailed"));
+          const err = (result as { error: string }).error;
+          if (err === "NO_ITEMS") {
+            toast.error(t("messages.needsItems"));
+          } else {
+            toast.error(t("messages.statusFailed"));
+          }
         } else {
           toast.success(successMessage);
           onTransition();
