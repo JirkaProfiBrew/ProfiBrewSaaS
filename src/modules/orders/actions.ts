@@ -9,7 +9,7 @@ import { deposits } from "@/../drizzle/schema/deposits";
 import { units } from "@/../drizzle/schema/system";
 import { shops } from "@/../drizzle/schema/shops";
 import { warehouses } from "@/../drizzle/schema/warehouses";
-import { eq, and, sql, desc, ilike, or, gte, lte } from "drizzle-orm";
+import { eq, and, sql, desc, ilike, or, gte, lte, count } from "drizzle-orm";
 import { getNextNumber } from "@/lib/db/counters";
 import { updateReservedQtyRow } from "@/modules/stock-issues/lib/stock-status-sync";
 import {
@@ -803,13 +803,13 @@ export async function confirmOrder(
       if (existing[0].status !== "draft") return { error: "NOT_DRAFT" };
 
       const itemCount = await db
-        .select({ count: sql<number>`COUNT(*)` })
+        .select({ value: count() })
         .from(orderItems)
         .where(
           and(eq(orderItems.orderId, id), eq(orderItems.tenantId, tenantId))
         );
 
-      if ((itemCount[0]?.count ?? 0) === 0) return { error: "NO_ITEMS" };
+      if ((itemCount[0]?.value ?? 0) === 0) return { error: "NO_ITEMS" };
 
       // Recalculate totals one final time
       await recalculateOrderTotals(id, tenantId);
