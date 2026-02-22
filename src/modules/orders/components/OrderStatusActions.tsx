@@ -72,6 +72,10 @@ export function OrderStatusActions({
           const err = (result as { error: string }).error;
           if (err === "NO_ITEMS") {
             toast.error(t("messages.needsItems"));
+          } else if (err === "NO_WAREHOUSE") {
+            toast.error(t("messages.noWarehouse"));
+          } else if (err === "STOCK_MODE_NONE") {
+            toast.error(t("messages.stockModeNone"));
           } else {
             toast.error(t("messages.statusFailed"));
           }

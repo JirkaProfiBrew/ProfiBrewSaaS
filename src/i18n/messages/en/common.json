@@ -9,6 +9,8 @@
   "loading": "Loading...",
   "noResults": "No results",
   "confirmDelete": "Are you sure you want to delete?",
+  "confirmDeleteDescription": "This action cannot be undone.",
+  "confirm": "Confirm",
   "yes": "Yes",
   "no": "No",
   "back": "Back",

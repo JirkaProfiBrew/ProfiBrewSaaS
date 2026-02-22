@@ -9,6 +9,8 @@
   "loading": "Načítání...",
   "noResults": "Žádné výsledky",
   "confirmDelete": "Opravdu chcete smazat?",
+  "confirmDeleteDescription": "Tuto akci nelze vrátit zpět.",
+  "confirm": "Potvrdit",
   "yes": "Ano",
   "no": "Ne",
   "back": "Zpět",

@@ -1332,23 +1332,7 @@ export async function createProductionIssue(
     const warehouse = warehouseRows[0];
     if (!warehouse) return { error: "NO_WAREHOUSE" };
 
-    // f. Check if production issue already exists
-    const existingRows = await db
-      .select({ id: stockIssues.id })
-      .from(stockIssues)
-      .where(
-        and(
-          eq(stockIssues.tenantId, tenantId),
-          eq(stockIssues.batchId, batchId),
-          eq(stockIssues.movementPurpose, "production_out"),
-          sql`${stockIssues.status} != 'cancelled'`
-        )
-      )
-      .limit(1);
-
-    if (existingRows.length > 0) return { error: "ALREADY_EXISTS" };
-
-    // g. Compute scale factor
+    // f. Compute scale factor
     const recipeBatchSizeL = Number(recipe.batchSizeL ?? "0");
     const actualVolumeL = Number(batch.actualVolumeL ?? "0");
     const scaleFactor =
@@ -1358,10 +1342,10 @@ export async function createProductionIssue(
 
     const today = new Date().toISOString().split("T")[0]!;
 
-    // h. Generate code
+    // g. Generate code
     const code = await getNextNumber(tenantId, "stock_issue_dispatch", warehouse.id);
 
-    // i. Create stock issue + lines in transaction
+    // h. Create stock issue + lines in transaction
     const result = await db.transaction(async (tx) => {
       const issueRows = await tx
         .insert(stockIssues)
@@ -1381,7 +1365,7 @@ export async function createProductionIssue(
       const issue = issueRows[0];
       if (!issue) throw new Error("Failed to create production issue");
 
-      // j. Create lines
+      // i. Create lines
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
         const scaledQty = Number(ri.amountG) * scaleFactor;
@@ -1403,6 +1387,186 @@ export async function createProductionIssue(
     return { stockIssueId: result };
   });
 }
+
+/**
+ * Create a production issue and immediately confirm it (direct issue).
+ */
+export async function directProductionIssue(
+  batchId: string
+): Promise<{ stockIssueId: string } | { error: string }> {
+  // Step 1: Create the draft production issue
+  const createResult = await createProductionIssue(batchId);
+  if ("error" in createResult) return createResult;
+
+  // Step 2: Confirm it
+  const { confirmStockIssue } = await import("@/modules/stock-issues/actions");
+  const confirmResult = await confirmStockIssue(createResult.stockIssueId);
+  if (confirmResult && typeof confirmResult === "object" && "error" in confirmResult) {
+    return { error: (confirmResult as { error: string }).error };
+  }
+
+  return { stockIssueId: createResult.stockIssueId };
+}
+
+/**
+ * Clear existing lines on a draft stock issue and prefill from a batch's recipe.
+ */
+export async function prefillIssueFromBatch(
+  issueId: string,
+  batchId: string
+): Promise<{ success: true } | { error: string }> {
+  return withTenant(async (tenantId) => {
+    try {
+      // a. Verify issue exists and is draft
+      const issueRows = await db
+        .select({ status: stockIssues.status })
+        .from(stockIssues)
+        .where(
+          and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, issueId))
+        )
+        .limit(1);
+
+      if (!issueRows[0]) return { error: "NOT_FOUND" };
+      if (issueRows[0].status !== "draft") return { error: "NOT_DRAFT" };
+
+      // b. Load batch + recipe (same as createProductionIssue)
+      const batchRows = await db
+        .select()
+        .from(batches)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        )
+        .limit(1);
+
+      const batch = batchRows[0];
+      if (!batch) return { error: "BATCH_NOT_FOUND" };
+      if (!batch.recipeId) return { error: "NO_RECIPE" };
+
+      const recipeRows = await db
+        .select({ batchSizeL: recipes.batchSizeL })
+        .from(recipes)
+        .where(
+          and(eq(recipes.tenantId, tenantId), eq(recipes.id, batch.recipeId))
+        )
+        .limit(1);
+
+      const recipe = recipeRows[0];
+      if (!recipe) return { error: "NO_RECIPE" };
+
+      const recipeItemRows = await db
+        .select({
+          id: recipeItems.id,
+          itemId: recipeItems.itemId,
+          amountG: recipeItems.amountG,
+          sortOrder: recipeItems.sortOrder,
+        })
+        .from(recipeItems)
+        .where(
+          and(
+            eq(recipeItems.tenantId, tenantId),
+            eq(recipeItems.recipeId, batch.recipeId)
+          )
+        )
+        .orderBy(asc(recipeItems.sortOrder));
+
+      if (recipeItemRows.length === 0) return { error: "NO_INGREDIENTS" };
+
+      // c. Compute scale factor
+      const recipeBatchSizeL = Number(recipe.batchSizeL ?? "0");
+      const actualVolumeL = Number(batch.actualVolumeL ?? "0");
+      const scaleFactor =
+        recipeBatchSizeL > 0
+          ? (actualVolumeL > 0 ? actualVolumeL : recipeBatchSizeL) / recipeBatchSizeL
+          : 1;
+
+      // d. Delete existing lines + update batchId in transaction
+      await db.transaction(async (tx) => {
+        // Delete existing lines
+        await tx
+          .delete(stockIssueLines)
+          .where(
+            and(
+              eq(stockIssueLines.tenantId, tenantId),
+              eq(stockIssueLines.stockIssueId, issueId)
+            )
+          );
+
+        // Insert new lines from recipe
+        for (let i = 0; i < recipeItemRows.length; i++) {
+          const ri = recipeItemRows[i]!;
+          const scaledQty = Number(ri.amountG) * scaleFactor;
+
+          await tx.insert(stockIssueLines).values({
+            tenantId,
+            stockIssueId: issueId,
+            itemId: ri.itemId,
+            lineNo: i + 1,
+            requestedQty: String(scaledQty),
+            recipeItemId: ri.id,
+            sortOrder: ri.sortOrder ?? i,
+          });
+        }
+
+        // Update issue's batchId
+        await tx
+          .update(stockIssues)
+          .set({ batchId, updatedAt: sql`now()` })
+          .where(
+            and(
+              eq(stockIssues.tenantId, tenantId),
+              eq(stockIssues.id, issueId)
+            )
+          );
+      });
+
+      return { success: true as const };
+    } catch (err: unknown) {
+      console.error("[batches] prefillIssueFromBatch failed:", err);
+      return { error: "PREFILL_FAILED" };
+    }
+  });
+}
+
+/**
+ * Get batches suitable for production issue selection.
+ * Returns batches with status planned/brewing/fermenting/conditioning that have a recipe.
+ */
+export async function getBatchOptionsForIssue(): Promise<
+  Array<{ value: string; label: string }>
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: batches.id,
+        batchNumber: batches.batchNumber,
+        recipeName: recipes.name,
+      })
+      .from(batches)
+      .leftJoin(
+        recipes,
+        and(eq(recipes.id, batches.recipeId), eq(recipes.tenantId, tenantId))
+      )
+      .where(
+        and(
+          eq(batches.tenantId, tenantId),
+          inArray(batches.status, [
+            "planned",
+            "brewing",
+            "fermenting",
+            "conditioning",
+          ]),
+          sql`${batches.recipeId} IS NOT NULL`
+        )
+      )
+      .orderBy(desc(batches.createdAt));
+
+    return rows.map((r) => ({
+      value: r.id,
+      label: `${r.batchNumber}${r.recipeName ? ` — ${r.recipeName}` : ""}`,
+    }));
+  });
+}
+
 /**
  * Get batch ingredients with recipe quantities, issued quantities, and missing quantities.
  */
@@ -1492,6 +1656,45 @@ export async function getBatchIngredients(
       }
     }
 
+    // e2. Load lot details from confirmed production issue movements
+    const lotRows = recipeItemIds.length > 0 ? await db
+      .select({
+        recipeItemId: stockIssueLines.recipeItemId,
+        lotNumber: sql<string | null>`rl."lot_number"`,
+        receiptLineId: stockMovements.receiptLineId,
+        quantity: sql<string>`ABS(${stockMovements.quantity}::decimal)`,
+      })
+      .from(stockMovements)
+      .innerJoin(stockIssueLines, eq(stockMovements.stockIssueLineId, stockIssueLines.id))
+      .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+      .leftJoin(
+        sql`stock_issue_lines rl`,
+        sql`rl.id = ${stockMovements.receiptLineId}`
+      )
+      .where(
+        and(
+          eq(stockIssues.tenantId, tenantId),
+          eq(stockIssues.batchId, batchId),
+          eq(stockIssues.movementPurpose, "production_out"),
+          eq(stockIssues.status, "confirmed"),
+          sql`${stockMovements.quantity}::decimal < 0`,
+          inArray(stockIssueLines.recipeItemId, recipeItemIds)
+        )
+      ) : [];
+
+    // Build a map of recipeItemId -> lots
+    const lotsMap = new Map<string, Array<{ lotNumber: string | null; quantity: number; receiptLineId: string }>>();
+    for (const row of lotRows) {
+      if (!row.recipeItemId || !row.receiptLineId) continue;
+      const key = row.recipeItemId;
+      if (!lotsMap.has(key)) lotsMap.set(key, []);
+      lotsMap.get(key)!.push({
+        lotNumber: row.lotNumber,
+        quantity: Number(row.quantity),
+        receiptLineId: row.receiptLineId,
+      });
+    }
+
     // f. Build result rows
     return riRows.map((row): BatchIngredientRow => {
       const recipeQty = Number(row.recipeItem.amountG) * scaleFactor;
@@ -1509,6 +1712,7 @@ export async function getBatchIngredients(
         useStage: row.recipeItem.useStage,
         issuedQty: String(issuedQty),
         missingQty: String(missingQty),
+        lots: lotsMap.get(row.recipeItem.id) ?? [],
       };
     });
   });

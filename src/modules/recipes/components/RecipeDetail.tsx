@@ -342,6 +342,10 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         label: t("detail.actions.delete"),
         icon: Trash2,
         variant: "destructive" as const,
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
         onClick: () => {
           void handleDelete();
         },
@@ -349,7 +353,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     }
 
     return result;
-  }, [isNew, t, handleDuplicate, handleArchive, handleDelete, recipeDetail]);
+  }, [isNew, t, tCommon, handleDuplicate, handleArchive, handleDelete, recipeDetail]);
 
   // Build tabs — always shown (in create mode some tabs have placeholder content)
   const tabs: DetailViewTab[] = useMemo(() => {

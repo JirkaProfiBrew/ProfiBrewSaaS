@@ -188,12 +188,30 @@
       "time": "Time",
       "recipeQty": "Recipe",
       "issued": "Issued",
-      "missing": "Missing"
+      "missing": "Missing",
+      "lots": "Lots"
     },
     "actions": {
       "issueMaterials": "Issue Materials",
+      "prepareIssue": "Prepare Issue",
+      "directIssue": "Issue Materials",
+      "confirmDirectIssue": "Issue materials for batch {batchNumber}?",
+      "directIssueSuccess": "Materials issued",
+      "directIssueFailed": "Failed to issue materials",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
       "issueSuccess": "Production issue created",
       "issueFailed": "Failed to create production issue"
+    },
+    "issueStatus": {
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled"
+    },
+    "purpose": {
+      "production_out": "Production",
+      "production_in": "Production In",
+      "sale": "Sale"
     },
     "linkedIssues": "Material Issues",
     "noLinkedIssues": "No material issues yet"

@@ -299,12 +299,16 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
         label: t("detail.actions.delete"),
         icon: Trash2,
         variant: "destructive" as const,
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
         onClick: () => {
           void handleDelete();
         },
       },
     ];
-  }, [isNew, t, handleDelete]);
+  }, [isNew, t, tCommon, handleDelete]);
 
   // ── NEW mode ────────────────────────────────────────────────
 
@@ -412,6 +416,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
             <BatchIngredientsTab
               batchId={id}
               recipeId={batch?.recipeId ?? null}
+              batchNumber={batch?.batchNumber ?? ""}
             />
           </TabsContent>
 

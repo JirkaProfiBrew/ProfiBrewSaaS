@@ -190,10 +190,19 @@ export function OrderItemsTable({
                   <TableCell className="text-right tabular-nums font-medium">
                     {formatAmount(item.totalExclVat)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {parseFloat(item.depositTotal ?? "0") > 0
-                      ? formatAmount(item.depositTotal)
-                      : "—"}
+                  <TableCell className="text-right">
+                    {parseFloat(item.depositTotal ?? "0") > 0 ? (
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium">
+                          {item.depositName ?? "—"}
+                        </div>
+                        <div className="text-muted-foreground tabular-nums text-xs">
+                          {formatAmount(item.depositQty)} × {formatAmount(item.depositAmount ?? "0")} = {formatAmount(item.depositTotal)}
+                        </div>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   {isDraft && (
                     <TableCell>

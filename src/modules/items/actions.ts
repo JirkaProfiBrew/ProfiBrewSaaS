@@ -292,7 +292,7 @@ export async function duplicateItem(id: string): Promise<Item> {
 /** Get items with aggregated stock status. */
 export async function getItemsWithStock(
   filter?: ItemFilter
-): Promise<Array<Item & { totalQty: number; reservedQty: number; availableQty: number }>> {
+): Promise<Array<Item & { totalQty: number; reservedQty: number; demandedQty: number; availableQty: number }>> {
   return withTenant(async (tenantId) => {
     const { stockStatus } = await import("@/../drizzle/schema/stock");
 
@@ -342,54 +342,267 @@ export async function getItemsWithStock(
       .orderBy(items.name);
 
     return rows.map((r) => {
-      const totalQty = Number(r.totalQty);
-      const reservedQty = Number(r.reservedQty);
+      const qty = Number(r.totalQty);
+      const rawReserved = Number(r.reservedQty);
+      const effectiveReserved = Math.min(rawReserved, qty);
+      const demanded = Math.max(0, rawReserved - qty);
+      const available = Math.max(0, qty - rawReserved);
       return {
         ...mapRow(r.item),
-        totalQty,
-        reservedQty,
-        availableQty: totalQty - reservedQty,
+        totalQty: qty,
+        reservedQty: effectiveReserved,
+        demandedQty: demanded,
+        availableQty: available,
       };
     });
   });
 }
 
-/** Get per-warehouse stock status for an item. */
+/** Get per-warehouse stock status for an item, with computed demand from getDemandBreakdown. */
 export async function getItemStockByWarehouse(
   itemId: string
-): Promise<Array<{ warehouseId: string; warehouseName: string; quantity: number; reservedQty: number; availableQty: number }>> {
+): Promise<{
+  warehouses: Array<{ warehouseId: string; warehouseName: string; quantity: number; reservedQty: number; demandedQty: number; availableQty: number }>;
+  demandBreakdown: DemandBreakdownRow[];
+}> {
   return withTenant(async (tenantId) => {
     const { stockStatus } = await import("@/../drizzle/schema/stock");
     const { warehouses } = await import("@/../drizzle/schema/warehouses");
 
-    const rows = await db
+    const [stockRows, demand] = await Promise.all([
+      db
+        .select({
+          warehouseId: stockStatus.warehouseId,
+          warehouseName: warehouses.name,
+          quantity: stockStatus.quantity,
+          reservedQty: stockStatus.reservedQty,
+        })
+        .from(stockStatus)
+        .innerJoin(warehouses, eq(stockStatus.warehouseId, warehouses.id))
+        .where(
+          and(
+            eq(stockStatus.tenantId, tenantId),
+            eq(stockStatus.itemId, itemId)
+          )
+        )
+        .orderBy(warehouses.name),
+      getDemandBreakdown(itemId),
+    ]);
+
+    // Total stock across all warehouses
+    const totalQty = stockRows.reduce(
+      (sum, r) => sum + Number(r.quantity ?? "0"),
+      0
+    );
+    const demandedTotal = demand.totalDemanded;
+
+    return {
+      warehouses: stockRows.map((r) => {
+        const qty = Number(r.quantity ?? "0");
+        const rawReserved = Number(r.reservedQty ?? "0");
+        const effectiveReserved = Math.min(rawReserved, qty);
+        // Distribute demand proportionally per warehouse by stock share
+        const warehouseDemand =
+          totalQty > 0
+            ? Math.round((qty / totalQty) * demandedTotal * 100) / 100
+            : demandedTotal;
+        const available = Math.max(0, qty - warehouseDemand);
+        return {
+          warehouseId: r.warehouseId,
+          warehouseName: r.warehouseName,
+          quantity: qty,
+          reservedQty: effectiveReserved,
+          demandedQty: warehouseDemand,
+          availableQty: Math.round(available * 100) / 100,
+        };
+      }),
+      demandBreakdown: demand.rows,
+    };
+  });
+}
+
+// ── Demand Model ────────────────────────────────────────────────
+
+export interface DemandBreakdownRow {
+  source: "order" | "batch";
+  sourceId: string;
+  sourceCode: string;
+  requiredQty: number;
+  issuedQty: number;
+  remainingQty: number;
+}
+
+/**
+ * Get demand breakdown for an item — computed from active orders + active batches.
+ * Order demand: confirmed/in_preparation/shipped orders with this item.
+ * Batch demand: planned/brewing/fermenting/conditioning batches whose recipe snapshot includes this item.
+ * Issued qty is computed from confirmed stock_issue_lines linked by order_item_id / recipe_item_id.
+ */
+export async function getDemandBreakdown(
+  itemId: string
+): Promise<{ totalDemanded: number; rows: DemandBreakdownRow[] }> {
+  return withTenant(async (tenantId) => {
+    const { orders, orderItems } = await import("@/../drizzle/schema/orders");
+    const { recipes, recipeItems } = await import(
+      "@/../drizzle/schema/recipes"
+    );
+    const { batches } = await import("@/../drizzle/schema/batches");
+    const { stockIssueLines, stockIssues } = await import(
+      "@/../drizzle/schema/stock"
+    );
+
+    const rows: DemandBreakdownRow[] = [];
+
+    // ── 1. Order demand ──────────────────────────────────────────
+    const orderDemandRows = await db
       .select({
-        warehouseId: stockStatus.warehouseId,
-        warehouseName: warehouses.name,
-        quantity: stockStatus.quantity,
-        reservedQty: stockStatus.reservedQty,
+        orderItemId: orderItems.id,
+        orderId: orders.id,
+        orderNumber: orders.orderNumber,
+        quantity: orderItems.quantity,
       })
-      .from(stockStatus)
-      .innerJoin(warehouses, eq(stockStatus.warehouseId, warehouses.id))
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
       .where(
         and(
-          eq(stockStatus.tenantId, tenantId),
-          eq(stockStatus.itemId, itemId)
+          eq(orderItems.tenantId, tenantId),
+          eq(orderItems.itemId, itemId),
+          sql`${orders.status} IN ('confirmed', 'in_preparation', 'shipped')`
+        )
+      );
+
+    // Compute issued qty per order_item_id
+    if (orderDemandRows.length > 0) {
+      const oiIds = orderDemandRows.map((r) => r.orderItemId);
+      const issuedRows = await db
+        .select({
+          orderItemId: stockIssueLines.orderItemId,
+          totalIssued: sql<string>`COALESCE(SUM(ABS(${stockIssueLines.issuedQty}::decimal)), 0)`,
+        })
+        .from(stockIssueLines)
+        .innerJoin(
+          stockIssues,
+          and(
+            eq(stockIssueLines.stockIssueId, stockIssues.id),
+            eq(stockIssues.status, "confirmed")
+          )
+        )
+        .where(
+          and(
+            eq(stockIssueLines.tenantId, tenantId),
+            sql`${stockIssueLines.orderItemId} = ANY(${oiIds})`
+          )
+        )
+        .groupBy(stockIssueLines.orderItemId);
+
+      const issuedMap = new Map<string, number>();
+      for (const r of issuedRows) {
+        if (r.orderItemId) issuedMap.set(r.orderItemId, Number(r.totalIssued));
+      }
+
+      for (const od of orderDemandRows) {
+        const required = Number(od.quantity);
+        const issued = issuedMap.get(od.orderItemId) ?? 0;
+        const remaining = Math.max(0, required - issued);
+        if (remaining > 0) {
+          rows.push({
+            source: "order",
+            sourceId: od.orderId,
+            sourceCode: od.orderNumber,
+            requiredQty: required,
+            issuedQty: issued,
+            remainingQty: remaining,
+          });
+        }
+      }
+    }
+
+    // ── 2. Batch demand ──────────────────────────────────────────
+    // Find active batches whose snapshot recipe contains this item
+    const batchDemandRows = await db
+      .select({
+        batchId: batches.id,
+        batchNumber: batches.batchNumber,
+        recipeItemId: recipeItems.id,
+        amountG: recipeItems.amountG,
+        batchSizeL: recipes.batchSizeL,
+        actualVolumeL: batches.actualVolumeL,
+      })
+      .from(batches)
+      .innerJoin(
+        recipes,
+        and(eq(batches.recipeId, recipes.id), eq(recipes.tenantId, tenantId))
+      )
+      .innerJoin(
+        recipeItems,
+        and(
+          eq(recipeItems.recipeId, recipes.id),
+          eq(recipeItems.tenantId, tenantId),
+          eq(recipeItems.itemId, itemId)
         )
       )
-      .orderBy(warehouses.name);
+      .where(
+        and(
+          eq(batches.tenantId, tenantId),
+          sql`${batches.status} IN ('planned', 'brewing', 'fermenting', 'conditioning')`,
+          sql`${batches.recipeId} IS NOT NULL`
+        )
+      );
 
-    return rows.map((r) => {
-      const qty = Number(r.quantity ?? "0");
-      const reserved = Number(r.reservedQty ?? "0");
-      return {
-        warehouseId: r.warehouseId,
-        warehouseName: r.warehouseName,
-        quantity: qty,
-        reservedQty: reserved,
-        availableQty: qty - reserved,
-      };
-    });
+    if (batchDemandRows.length > 0) {
+      // Compute issued qty per recipe_item_id
+      const riIds = batchDemandRows.map((r) => r.recipeItemId);
+      const issuedRows = await db
+        .select({
+          recipeItemId: stockIssueLines.recipeItemId,
+          totalIssued: sql<string>`COALESCE(SUM(ABS(${stockIssueLines.issuedQty}::decimal)), 0)`,
+        })
+        .from(stockIssueLines)
+        .innerJoin(
+          stockIssues,
+          and(
+            eq(stockIssueLines.stockIssueId, stockIssues.id),
+            eq(stockIssues.status, "confirmed")
+          )
+        )
+        .where(
+          and(
+            eq(stockIssueLines.tenantId, tenantId),
+            sql`${stockIssueLines.recipeItemId} = ANY(${riIds})`
+          )
+        )
+        .groupBy(stockIssueLines.recipeItemId);
+
+      const issuedMap = new Map<string, number>();
+      for (const r of issuedRows) {
+        if (r.recipeItemId) issuedMap.set(r.recipeItemId, Number(r.totalIssued));
+      }
+
+      for (const bd of batchDemandRows) {
+        const batchSizeL = Number(bd.batchSizeL ?? "0");
+        const actualVolumeL = Number(bd.actualVolumeL ?? "0");
+        const scaleFactor =
+          batchSizeL > 0
+            ? (actualVolumeL > 0 ? actualVolumeL : batchSizeL) / batchSizeL
+            : 1;
+        const required = Number(bd.amountG) * scaleFactor;
+        const issued = issuedMap.get(bd.recipeItemId) ?? 0;
+        const remaining = Math.max(0, required - issued);
+        if (remaining > 0) {
+          rows.push({
+            source: "batch",
+            sourceId: bd.batchId,
+            sourceCode: bd.batchNumber,
+            requiredQty: Math.round(required * 100) / 100,
+            issuedQty: Math.round(issued * 100) / 100,
+            remainingQty: Math.round(remaining * 100) / 100,
+          });
+        }
+      }
+    }
+
+    const totalDemanded = rows.reduce((sum, r) => sum + r.remainingQty, 0);
+    return { totalDemanded: Math.round(totalDemanded * 100) / 100, rows };
   });
 }
 

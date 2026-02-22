@@ -21,6 +21,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  getBatchOptionsForIssue,
+  prefillIssueFromBatch,
+} from "@/modules/batches/actions";
+
 import { useStockIssueDetail } from "../hooks";
 import {
   createStockIssue,
@@ -113,6 +128,8 @@ export function StockIssueDetail({
 
   const isNew = id === "new";
   const newType = (searchParams.get("type") ?? "receipt") as MovementType;
+  const paramPurpose = searchParams.get("purpose") as MovementPurpose | null;
+  const paramBatchId = searchParams.get("batchId");
 
   const { data: issueDetail, isLoading, error: loadError, mutate } = useStockIssueDetail(
     isNew ? "" : id
@@ -136,6 +153,10 @@ export function StockIssueDetail({
     }>
   >([]);
 
+  const [batchOptions, setBatchOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
+
   // Movements (loaded on demand)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
   const [movements, setMovements] = useState<any[]>([]);
@@ -143,17 +164,20 @@ export function StockIssueDetail({
   // Dialog states
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [prefillConfirmOpen, setPrefillConfirmOpen] = useState(false);
+  const [pendingBatchId, setPendingBatchId] = useState<string>("");
 
   // Active tab
   const [activeTab, setActiveTab] = useState("header");
 
-  // Form values
+  // Form values — use searchParams for initial purpose + batchId if provided
   const [values, setValues] = useState<Record<string, unknown>>({
-    movementPurpose: newType === "receipt" ? "purchase" : "sale",
+    movementPurpose:
+      paramPurpose ?? (newType === "receipt" ? "purchase" : "sale"),
     date: new Date().toISOString().split("T")[0],
     warehouseId: "",
     partnerId: "__none__",
-    batchId: "",
+    batchId: paramBatchId ?? "",
     season: "",
     additionalCost: "0",
     notes: "",
@@ -163,12 +187,18 @@ export function StockIssueDetail({
   // Load select options
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getWarehouseOptions(), getPartnerOptions(), getItemOptions()])
-      .then(([whOpts, pOpts, iOpts]) => {
+    Promise.all([
+      getWarehouseOptions(),
+      getPartnerOptions(),
+      getItemOptions(),
+      getBatchOptionsForIssue(),
+    ])
+      .then(([whOpts, pOpts, iOpts, bOpts]) => {
         if (!cancelled) {
           setWarehouseOptions(whOpts);
           setPartnerOptions(pOpts);
           setItemOptions(iOpts);
+          setBatchOptions(bOpts);
         }
       })
       .catch((error: unknown) => {
@@ -235,6 +265,18 @@ export function StockIssueDetail({
     [partnerOptions, t]
   );
 
+  // Batch options with "none" sentinel
+  const batchSelectOptions = useMemo(
+    () => [
+      { value: "__none__", label: t("form.noBatch") },
+      ...batchOptions,
+    ],
+    [batchOptions, t]
+  );
+
+  // Should we show the batch select?
+  const showBatchSelect = String(values.movementPurpose) === "production_out";
+
   // ── Form Section ────────────────────────────────────────────
 
   const headerSection: FormSectionDef = useMemo(
@@ -282,6 +324,17 @@ export function StockIssueDetail({
           options: partnerSelectOptions,
           disabled: !isDraft,
         },
+        ...(showBatchSelect
+          ? [
+              {
+                key: "batchId",
+                label: t("form.batchId"),
+                type: "select" as const,
+                options: batchSelectOptions,
+                disabled: !isDraft,
+              },
+            ]
+          : []),
         {
           key: "season",
           label: t("form.season"),
@@ -303,14 +356,52 @@ export function StockIssueDetail({
         },
       ],
     }),
-    [t, isNew, isDraft, purposeOptions, warehouseOptions, partnerSelectOptions]
+    [t, isNew, isDraft, purposeOptions, warehouseOptions, partnerSelectOptions, showBatchSelect, batchSelectOptions]
   );
 
   // ── Handlers ────────────────────────────────────────────────
 
+  // Prefill lines from batch (for existing draft issues)
+  const doPrefillFromBatch = useCallback(
+    async (batchId: string): Promise<void> => {
+      if (isNew || !batchId || batchId === "__none__") return;
+      try {
+        const result = await prefillIssueFromBatch(id, batchId);
+        if (result && typeof result === "object" && "error" in result) {
+          toast.error(t("form.prefillError"));
+        } else {
+          toast.success(t("form.prefillSuccess"));
+          mutate();
+        }
+      } catch {
+        toast.error(t("form.prefillError"));
+      }
+    },
+    [isNew, id, t, mutate]
+  );
+
   const handleChange = useCallback(
     (key: string, value: unknown): void => {
-      setValues((prev) => ({ ...prev, [key]: value }));
+      // When purpose changes away from production_out → clear batchId
+      if (key === "movementPurpose" && String(value) !== "production_out") {
+        setValues((prev) => ({ ...prev, [key]: value, batchId: "__none__" }));
+      } else if (key === "batchId" && !isNew) {
+        // Batch changed on existing draft → trigger prefill
+        const newBatch = String(value);
+        setValues((prev) => ({ ...prev, [key]: value }));
+        if (newBatch && newBatch !== "__none__") {
+          const hasLines = (issueDetail?.lines ?? []).length > 0;
+          if (hasLines) {
+            // Ask user to confirm overwrite
+            setPendingBatchId(newBatch);
+            setPrefillConfirmOpen(true);
+          } else {
+            void doPrefillFromBatch(newBatch);
+          }
+        }
+      } else {
+        setValues((prev) => ({ ...prev, [key]: value }));
+      }
       if (errors[key]) {
         setErrors((prev) => {
           const next = { ...prev };
@@ -319,8 +410,25 @@ export function StockIssueDetail({
         });
       }
     },
-    [errors]
+    [errors, isNew, issueDetail, doPrefillFromBatch]
   );
+
+  // Confirm prefill from pending batch change
+  const handlePrefillConfirm = useCallback((): void => {
+    setPrefillConfirmOpen(false);
+    void doPrefillFromBatch(pendingBatchId);
+    setPendingBatchId("");
+  }, [pendingBatchId, doPrefillFromBatch]);
+
+  const handlePrefillCancel = useCallback((): void => {
+    // Revert batchId to previous value
+    setPrefillConfirmOpen(false);
+    setValues((prev) => ({
+      ...prev,
+      batchId: issueDetail?.batchId ?? "__none__",
+    }));
+    setPendingBatchId("");
+  }, [issueDetail]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     // Validate required fields
@@ -345,6 +453,11 @@ export function StockIssueDetail({
           ? String(values.partnerId)
           : null;
 
+      const batchId =
+        String(values.batchId) !== "__none__" && String(values.batchId)
+          ? String(values.batchId)
+          : null;
+
       if (isNew) {
         const result = await createStockIssue({
           movementType: newType,
@@ -352,12 +465,20 @@ export function StockIssueDetail({
           date: String(values.date),
           warehouseId: String(values.warehouseId),
           partnerId,
+          batchId,
           season: values.season ? String(values.season) : null,
           additionalCost: values.additionalCost
             ? String(values.additionalCost)
             : "0",
           notes: values.notes ? String(values.notes) : null,
         });
+        // If batch selected on new issue → prefill lines after creation
+        if (batchId) {
+          await prefillIssueFromBatch(result.id, batchId).catch(() => {
+            // Non-critical — issue was created, prefill failed
+            console.error("Failed to prefill lines from batch");
+          });
+        }
         toast.success(t("detail.saved"));
         router.push(`/stock/movements/${result.id}`);
       } else {
@@ -366,6 +487,7 @@ export function StockIssueDetail({
           date: String(values.date),
           warehouseId: String(values.warehouseId),
           partnerId,
+          batchId,
           season: values.season ? String(values.season) : null,
           additionalCost: values.additionalCost
             ? String(values.additionalCost)
@@ -428,6 +550,10 @@ export function StockIssueDetail({
         label: t("detail.actions.delete"),
         icon: Trash2,
         variant: "destructive",
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
         onClick: () => {
           void handleDelete();
         },
@@ -578,6 +704,28 @@ export function StockIssueDetail({
         isIssueType={movementType === "issue"}
         onCancelled={handleCancelled}
       />
+
+      {/* Prefill confirm dialog */}
+      <AlertDialog open={prefillConfirmOpen} onOpenChange={setPrefillConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("form.prefillConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("form.prefillConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handlePrefillCancel}>
+              {tCommon("cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handlePrefillConfirm}>
+              {tCommon("confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -366,21 +366,25 @@ export async function updateOrder(
   });
 }
 
-/** Delete an order (only in draft status). Cascade deletes order_items. */
+/** Delete an order. Blocked if a linked stock issue or cashflow exists. */
 export async function deleteOrder(
   id: string
 ): Promise<{ success: true } | { error: string }> {
   return withTenant(async (tenantId) => {
     try {
-      // Verify draft status
       const existing = await db
-        .select({ status: orders.status })
+        .select({
+          stockIssueId: orders.stockIssueId,
+          cashflowId: orders.cashflowId,
+        })
         .from(orders)
         .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
         .limit(1);
 
       if (!existing[0]) return { error: "NOT_FOUND" };
-      if (existing[0].status !== "draft") return { error: "NOT_DRAFT" };
+      if (existing[0].stockIssueId || existing[0].cashflowId) {
+        return { error: "HAS_RELATED_RECORDS" };
+      }
 
       await db
         .delete(orders)
@@ -794,13 +798,32 @@ export async function confirmOrder(
     try {
       // Pre-checks outside transaction
       const existing = await db
-        .select({ status: orders.status })
+        .select({
+          status: orders.status,
+          warehouseId: orders.warehouseId,
+          shopId: orders.shopId,
+        })
         .from(orders)
         .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
         .limit(1);
 
       if (!existing[0]) return { error: "NOT_FOUND" };
       if (existing[0].status !== "draft") return { error: "NOT_DRAFT" };
+
+      // Warehouse is required for stock reservation
+      if (!existing[0].warehouseId) return { error: "NO_WAREHOUSE" };
+
+      // Check shop stock_mode — "none" means no stock tracking
+      if (existing[0].shopId) {
+        const shopRows = await db
+          .select({ settings: shops.settings })
+          .from(shops)
+          .where(eq(shops.id, existing[0].shopId))
+          .limit(1);
+        const settings = shopRows[0]?.settings as Record<string, unknown> | null;
+        const stockMode = settings?.stock_mode as string | undefined;
+        if (stockMode === "none") return { error: "STOCK_MODE_NONE" };
+      }
 
       const itemCount = await db
         .select({ value: count() })
@@ -1172,6 +1195,7 @@ export async function createStockIssueFromOrder(
       // Load order items
       const oItems = await db
         .select({
+          id: orderItems.id,
           itemId: orderItems.itemId,
           quantity: orderItems.quantity,
           unitPrice: orderItems.unitPrice,
@@ -1220,6 +1244,7 @@ export async function createStockIssueFromOrder(
             tenantId,
             stockIssueId: newIssueId,
             itemId: oi.itemId,
+            orderItemId: oi.id,
             lineNo,
             requestedQty: oi.quantity,
             issuedQty: oi.quantity,

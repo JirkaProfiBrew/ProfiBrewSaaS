@@ -194,15 +194,23 @@ async function getTrackingLotAllocations(
   tenantId: string,
   receiptLineId: string
 ): Promise<TrackingAllocation[]> {
-  // Find issue movements that reference this receipt line (negative qty, not storno)
-  const issueMoves = await db
+  const { batches } = await import("@/../drizzle/schema/batches");
+
+  // Single query with JOIN to stock_issues + batches instead of N+1
+  const rows = await db
     .select({
       id: stockMovements.id,
       quantity: stockMovements.quantity,
       unitPrice: stockMovements.unitPrice,
-      stockIssueId: stockMovements.stockIssueId,
+      issueCode: stockIssues.code,
+      issueDate: stockIssues.date,
+      movementPurpose: stockIssues.movementPurpose,
+      batchId: stockIssues.batchId,
+      batchNumber: batches.batchNumber,
     })
     .from(stockMovements)
+    .innerJoin(stockIssues, eq(stockMovements.stockIssueId, stockIssues.id))
+    .leftJoin(batches, eq(stockIssues.batchId, batches.id))
     .where(
       and(
         eq(stockMovements.tenantId, tenantId),
@@ -212,32 +220,14 @@ async function getTrackingLotAllocations(
       )
     );
 
-  if (issueMoves.length === 0) return [];
-
-  const allAllocations: TrackingAllocation[] = [];
-
-  for (const mov of issueMoves) {
-    if (!mov.stockIssueId) continue;
-
-    // Get the issue document details
-    const issueDocRows = await db
-      .select({
-        issueCode: stockIssues.code,
-        issueDate: stockIssues.date,
-      })
-      .from(stockIssues)
-      .where(eq(stockIssues.id, mov.stockIssueId))
-      .limit(1);
-
-    const issueDoc = issueDocRows[0];
-    allAllocations.push({
-      id: mov.id,
-      issueCode: issueDoc?.issueCode ?? "?",
-      issueDate: issueDoc?.issueDate ?? "?",
-      quantity: String(Math.abs(Number(mov.quantity))),
-      unitPrice: mov.unitPrice ?? "0",
-    });
-  }
-
-  return allAllocations;
+  return rows.map((r) => ({
+    id: r.id,
+    issueCode: r.issueCode ?? "?",
+    issueDate: r.issueDate ?? "?",
+    quantity: String(Math.abs(Number(r.quantity))),
+    unitPrice: r.unitPrice ?? "0",
+    movementPurpose: r.movementPurpose ?? null,
+    batchId: r.batchId ?? null,
+    batchNumber: r.batchNumber ?? null,
+  }));
 }

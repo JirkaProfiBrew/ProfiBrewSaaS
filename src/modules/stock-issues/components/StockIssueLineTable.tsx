@@ -24,6 +24,17 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Command,
   CommandInput,
   CommandList,
@@ -440,6 +451,7 @@ function StockIssueLineRow({
   onOpenLotDialog,
 }: StockIssueLineRowProps): React.ReactNode {
   const tRow = useTranslations("stockIssues");
+  const tCommon = useTranslations("common");
   const [requestedQty, setRequestedQty] = useState(line.requestedQty);
   const [unitPrice, setUnitPrice] = useState(line.unitPrice ?? "0");
   const [notes, setNotes] = useState(line.notes ?? "");
@@ -655,16 +667,34 @@ function StockIssueLineRow({
                 <ListChecks className="size-4" />
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-destructive hover:text-destructive"
-              onClick={() => {
-                void onRemove(line.id);
-              }}
-            >
-              <Trash2 className="size-4" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                  <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      void onRemove(line.id);
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {tCommon("delete")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </TableCell>
       )}

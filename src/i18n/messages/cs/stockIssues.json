@@ -66,7 +66,7 @@
   },
   "tabs": {
     "header": "Hlavička",
-    "lines": "Řádky",
+    "lines": "Položky",
     "movements": "Pohyby",
     "allocations": "Alokace"
   },
@@ -86,10 +86,14 @@
     "selectBatch": "Vyberte šarži",
     "selectPurpose": "Vyberte účel",
     "noPartner": "— bez partnera —",
-    "noBatch": "— bez šarže —"
+    "noBatch": "— bez šarže —",
+    "prefillConfirmTitle": "Přepsat řádky?",
+    "prefillConfirmDescription": "Stávající řádky budou odstraněny a nahrazeny surovinami z receptury vybrané šarže.",
+    "prefillSuccess": "Řádky předvyplněny ze šarže",
+    "prefillError": "Chyba při předvyplnění řádků"
   },
   "lines": {
-    "addLine": "Přidat řádek",
+    "addLine": "Přidat položku",
     "lineNo": "#",
     "item": "Položka",
     "requestedQty": "Požadované mn.",
@@ -101,13 +105,13 @@
     "subtotal": "Mezisoučet",
     "additionalCost": "Vedlejší náklady",
     "grandTotal": "CELKEM",
-    "noLines": "Zatím žádné řádky",
-    "lineAdded": "Řádek přidán",
-    "lineAddError": "Chyba při přidávání řádku",
-    "lineUpdated": "Řádek aktualizován",
-    "lineUpdateError": "Chyba při aktualizaci řádku",
-    "lineRemoved": "Řádek smazán",
-    "lineRemoveError": "Chyba při mazání řádku",
+    "noLines": "Zatím žádné položky",
+    "lineAdded": "Položka přidána",
+    "lineAddError": "Chyba při přidávání položky",
+    "lineUpdated": "Položka aktualizována",
+    "lineUpdateError": "Chyba při aktualizaci položky",
+    "lineRemoved": "Položka smazána",
+    "lineRemoveError": "Chyba při mazání položky",
     "selectItem": "Vyberte položku",
     "searchItem": "Hledat položku...",
     "lotNumber": "Šarže",
@@ -174,7 +178,7 @@
     "noMovements": "Doklad nemá žádné pohyby"
   },
   "allocationsTab": {
-    "line": "Řádek",
+    "line": "Položka",
     "sourceCode": "Zdrojová příjemka",
     "sourceDate": "Datum příjmu",
     "quantity": "Množství",

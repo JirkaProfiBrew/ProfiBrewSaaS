@@ -41,6 +41,18 @@
     "issueDate": "Issue Date",
     "issuedQty": "Issued Qty",
     "allocUnitPrice": "Price",
+    "purpose": "Purpose",
+    "batch": "Batch",
+    "purposeLabel": {
+      "purchase": "Purchase",
+      "production_in": "Production (in)",
+      "production_out": "Production (out)",
+      "sale": "Sale",
+      "transfer": "Transfer",
+      "inventory": "Inventory",
+      "waste": "Waste",
+      "other": "Other"
+    },
     "attr": {
       "extractPercent": "Extract (%)",
       "moisture": "Moisture (%)",

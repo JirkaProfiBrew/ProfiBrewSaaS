@@ -36,7 +36,7 @@
   },
   "tabs": {
     "header": "Hlavička",
-    "items": "Řádky",
+    "items": "Položky",
     "stockIssue": "Výdejka",
     "cashflow": "Cash Flow"
   },
@@ -56,9 +56,9 @@
     "internalNotes": "Interní poznámka"
   },
   "items": {
-    "title": "Řádky objednávky",
-    "addItem": "Přidat řádek",
-    "editItem": "Upravit řádek",
+    "title": "Položky objednávky",
+    "addItem": "Přidat položku",
+    "editItem": "Upravit položku",
     "item": "Položka",
     "itemPlaceholder": "Vyberte položku",
     "quantity": "Množství",
@@ -70,14 +70,15 @@
     "deposit": "Záloha typ",
     "depositPlaceholder": "Vyberte zálohu",
     "depositQty": "Záloha ks",
-    "depositTotal": "Záloha Kč",
+    "depositTotal": "Záloha",
     "notes": "Poznámka",
-    "empty": "Žádné řádky. Přidejte první řádek.",
-    "deleteConfirm": "Opravdu smazat tento řádek?"
+    "empty": "Žádné položky. Přidejte první položku.",
+    "deleteConfirm": "Opravdu smazat tuto položku?"
   },
   "summary": {
     "title": "Souhrn",
     "totalExclVat": "Celkem bez DPH",
+    "totalDiscount": "Sleva",
     "totalVat": "DPH",
     "totalInclVat": "Celkem s DPH",
     "totalDeposit": "Zálohy za obaly",
@@ -108,12 +109,15 @@
     "cancelled": "Objednávka stornována",
     "deleted": "Objednávka smazána",
     "deleteError": "Nepodařilo se smazat objednávku",
-    "itemAdded": "Řádek přidán",
-    "itemUpdated": "Řádek upraven",
-    "itemRemoved": "Řádek smazán",
-    "itemFailed": "Nepodařilo se uložit řádek",
+    "hasRelatedRecords": "Objednávku nelze smazat — existuje navázaná výdejka nebo cash flow",
+    "itemAdded": "Položka přidána",
+    "itemUpdated": "Položka upravena",
+    "itemRemoved": "Položka smazána",
+    "itemFailed": "Nepodařilo se uložit položku",
     "statusFailed": "Nepodařilo se změnit stav",
-    "needsItems": "Objednávka musí mít alespoň jeden řádek",
+    "needsItems": "Objednávka musí mít alespoň jednu položku",
+    "noWarehouse": "Objednávka nemá přiřazený sklad — nelze potvrdit",
+    "stockModeNone": "Prodejna má vypnuté sledování skladu — nelze rezervovat položky",
     "onlyDraft": "Tuto akci lze provést pouze u konceptu"
   },
   "stockIssueTab": {
@@ -123,7 +127,7 @@
     "noIssue": "Výdejka zatím nebyla vytvořena",
     "createHint": "Vytvořte výdejku po potvrzení objednávky",
     "createTitle": "Vytvořit výdejku",
-    "createDescription": "Bude vytvořena výdejka (koncept) se všemi řádky objednávky. Po kontrole ji můžete potvrdit.",
+    "createDescription": "Bude vytvořena výdejka (koncept) se všemi položkami objednávky. Po kontrole ji můžete potvrdit.",
     "creating": "Vytvářím...",
     "created": "Výdejka vytvořena",
     "createFailed": "Nepodařilo se vytvořit výdejku",

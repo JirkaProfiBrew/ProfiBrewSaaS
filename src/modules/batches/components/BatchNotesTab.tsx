@@ -7,6 +7,17 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import { addBatchNote, deleteBatchNote } from "../actions";
 import type { BatchNote } from "../types";
@@ -38,6 +49,7 @@ export function BatchNotesTab({
   onMutate,
 }: BatchNotesTabProps): React.ReactNode {
   const t = useTranslations("batches");
+  const tCommon = useTranslations("common");
 
   const [newNote, setNewNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,15 +128,33 @@ export function BatchNotesTab({
                   {formatDate(note.createdAt)}
                 </p>
               </div>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                onClick={() => {
-                  void handleDelete(note.id);
-                }}
-              >
-                <Trash2 className="size-3 text-destructive" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3 text-destructive" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                    <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        void handleDelete(note.id);
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {tCommon("delete")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ))}
         </div>

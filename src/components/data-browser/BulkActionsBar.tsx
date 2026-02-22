@@ -6,6 +6,17 @@ import { Download, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import type { BulkActionsBarProps } from "./types";
 
@@ -46,12 +57,33 @@ export function BulkActionsBar({
         </Button>
       )}
 
-      {/* Delete button */}
+      {/* Delete button with confirmation */}
       {onDelete && (
-        <Button variant="destructive" size="sm" onClick={onDelete}>
-          <Trash2 />
-          {t("delete")}
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              <Trash2 />
+              {t("delete")}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("confirmBulkDelete")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("confirmBulkDeleteDescription", { count: selectedCount })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {t("delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {/* Clear selection button */}

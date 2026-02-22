@@ -41,6 +41,18 @@
     "issueDate": "Datum výdeje",
     "issuedQty": "Vydané množství",
     "allocUnitPrice": "Cena",
+    "purpose": "Účel",
+    "batch": "Várka",
+    "purposeLabel": {
+      "purchase": "Nákup",
+      "production_in": "Výroba (příjem)",
+      "production_out": "Výroba (spotřeba)",
+      "sale": "Prodej",
+      "transfer": "Převod",
+      "inventory": "Inventura",
+      "waste": "Odpis",
+      "other": "Ostatní"
+    },
     "attr": {
       "extractPercent": "Výtěžnost (%)",
       "moisture": "Vlhkost (%)",

@@ -93,6 +93,7 @@ export const orderItems = pgTable(
     depositTotal: decimal("deposit_total").default("0"),
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
+    reservedQty: decimal("reserved_qty").default("0"), // post-MVP prep, unused in MVP
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [

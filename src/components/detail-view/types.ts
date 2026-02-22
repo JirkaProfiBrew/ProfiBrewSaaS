@@ -13,6 +13,11 @@ export interface DetailViewAction {
   icon?: LucideIcon;
   variant?: "default" | "destructive" | "outline" | "ghost";
   onClick: () => void;
+  /** When set, the action shows a confirmation AlertDialog before executing. */
+  confirm?: {
+    title: string;
+    description: string;
+  };
 }
 
 export interface DetailViewProps {

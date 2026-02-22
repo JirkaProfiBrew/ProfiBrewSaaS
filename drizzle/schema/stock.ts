@@ -44,7 +44,6 @@ export const stockIssues = pgTable(
     orderId: uuid("order_id"), // NO FK — Sprint 4
     batchId: uuid("batch_id").references(() => batches.id),
     season: text("season"),
-    isReserved: boolean("is_reserved").default(false),
     additionalCost: decimal("additional_cost").default("0"),
     totalCost: decimal("total_cost").default("0"),
     notes: text("notes"),
@@ -85,6 +84,7 @@ export const stockIssueLines = pgTable(
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
     recipeItemId: uuid("recipe_item_id").references(() => recipeItems.id),
+    orderItemId: uuid("order_item_id"), // NO FK — circular dep with orders.ts
     // Manual allocation entries (for manual_lot issue lines, stored as JSONB)
     manualAllocations: jsonb("manual_allocations"),
     // Lot tracking (filled on receipt lines only)

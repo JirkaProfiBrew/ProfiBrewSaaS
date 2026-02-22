@@ -146,6 +146,16 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
   const isDraft = isNew || orderDetail?.status === "draft";
   const mode: FormMode = isDraft ? "edit" : "readonly";
 
+  const totalDiscount = useMemo((): number => {
+    const items = orderDetail?.items ?? [];
+    return items.reduce((sum, item) => {
+      const qty = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unitPrice) || 0;
+      const disc = parseFloat(item.discountPct) || 0;
+      return sum + (qty * price * disc) / 100;
+    }, 0);
+  }, [orderDetail?.items]);
+
   // ── Create form section ──────────────────────────────────
 
   const createFormSection: FormSectionDef = useMemo(
@@ -362,8 +372,8 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
     try {
       const result = await deleteOrder(id);
       if ("error" in result) {
-        if (result.error === "NOT_DRAFT") {
-          toast.error(t("messages.onlyDraft"));
+        if (result.error === "HAS_RELATED_RECORDS") {
+          toast.error(t("messages.hasRelatedRecords"));
         } else {
           toast.error(t("messages.deleteError"));
         }
@@ -389,21 +399,30 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
     mutate();
   }, [mutate]);
 
-  // Header actions (delete only for draft edit mode)
+  // Header actions (delete for non-terminal statuses)
+  const canDelete =
+    !isNew &&
+    orderDetail?.status !== "invoiced" &&
+    orderDetail?.status !== "cancelled";
+
   const actions: DetailViewAction[] = useMemo(() => {
-    if (isNew || !isDraft) return [];
+    if (!canDelete) return [];
     return [
       {
         key: "delete",
         label: t("actions.delete"),
         icon: Trash2,
         variant: "destructive" as const,
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
         onClick: () => {
           void handleDelete();
         },
       },
     ];
-  }, [isNew, isDraft, t, handleDelete]);
+  }, [canDelete, t, tCommon, handleDelete]);
 
   // ── NEW mode ──────────────────────────────────────────────
 
@@ -507,6 +526,7 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
                   totalVat={order.totalVat}
                   totalInclVat={order.totalInclVat}
                   totalDeposit={order.totalDeposit}
+                  totalDiscount={totalDiscount}
                 />
               )}
             </div>

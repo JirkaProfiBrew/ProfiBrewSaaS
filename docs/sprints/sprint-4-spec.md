@@ -1681,14 +1681,14 @@ Aktualizovat scope: Sprint 4 completed. Orders, CashFlows, Deposits, CashDesk ad
 ## AKCEPTAČNÍ KRITÉRIA
 
 ### Deposits
-1. [ ] CRUD záloh v Settings
+1. [x] CRUD záloh v Settings
 2. [ ] 3 defaultní zálohy seed při registraci tenanta
 
 ### Orders
 3. [ ] Vytvoření objednávky s automatickým kódem (OBJ-2026-0001)
-4. [ ] Přidání řádků s items lookup (is_sale_item=true), cenami, slevou, DPH
-5. [ ] Záloha za obaly per řádek (deposit_id + deposit_qty)
-6. [ ] Sumární přepočet (excl_vat, vat, incl_vat, deposit) real-time
+4. [x] Přidání řádků s items lookup (is_sale_item=true), cenami, slevou, DPH
+5. [x] Záloha za obaly per řádek (deposit_id + deposit_qty)
+6. [x] Sumární přepočet (excl_vat, vat, incl_vat, deposit) real-time
 7. [ ] Confirm order: validace, reserved_qty update, status = confirmed
 8. [ ] Vytvoření výdejky z objednávky — řádky odpovídají objednaným položkám
 9. [ ] Bulk režim: alokace jde na base_item s přepočtem množství (5× PET 0,33 = 1,65L base_item)

@@ -115,6 +115,7 @@ export const catalogBrowserConfig: DataBrowserConfig = {
     { key: "stockCategory", label: "Kat. skladu", type: "text" },
     { key: "totalQty", label: "Sklad", type: "number", sortable: true },
     { key: "reservedQty", label: "Rezervováno", type: "number", sortable: true },
+    { key: "demandedQty", label: "Požadováno", type: "number", sortable: true },
     { key: "availableQty", label: "Dostupné", type: "number", sortable: true },
     { key: "costPrice", label: "Cena", type: "currency", sortable: true },
     { key: "isActive", label: "Aktivní", type: "boolean" },

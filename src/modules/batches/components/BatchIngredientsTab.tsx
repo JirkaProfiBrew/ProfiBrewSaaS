@@ -3,9 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Package, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Package, ExternalLink, Beaker } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { getBatchIngredients, getProductionIssues, createProductionIssue } from "../actions";
+import { getBatchIngredients, getProductionIssues, createProductionIssue, directProductionIssue } from "../actions";
 import type { BatchIngredientRow, ProductionIssueInfo } from "../types";
 
 // ── Category color mapping ────────────────────────────────────
@@ -48,13 +60,16 @@ function formatAmount(amount: string): string {
 interface BatchIngredientsTabProps {
   batchId: string;
   recipeId: string | null;
+  batchNumber: string;
 }
 
 export function BatchIngredientsTab({
   batchId,
   recipeId,
+  batchNumber,
 }: BatchIngredientsTabProps): React.ReactNode {
   const t = useTranslations("batches");
+  const router = useRouter();
   const [ingredients, setIngredients] = useState<BatchIngredientRow[]>([]);
   const [linkedIssues, setLinkedIssues] = useState<ProductionIssueInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,10 +108,28 @@ export function BatchIngredientsTab({
         return;
       }
       toast.success(t("ingredients.actions.issueSuccess"));
-      loadData();
+      router.push(`/stock/movements/${result.stockIssueId}`);
     } catch (error: unknown) {
       console.error("Failed to create production issue:", error);
       toast.error(t("ingredients.actions.issueFailed"));
+    } finally {
+      setIsCreating(false);
+    }
+  }, [batchId, t, router]);
+
+  const handleDirectIssue = useCallback(async (): Promise<void> => {
+    setIsCreating(true);
+    try {
+      const result = await directProductionIssue(batchId);
+      if ("error" in result) {
+        toast.error(t("ingredients.actions.directIssueFailed"));
+        return;
+      }
+      toast.success(t("ingredients.actions.directIssueSuccess"));
+      loadData();
+    } catch (error: unknown) {
+      console.error("Failed to direct issue:", error);
+      toast.error(t("ingredients.actions.directIssueFailed"));
     } finally {
       setIsCreating(false);
     }
@@ -137,8 +170,35 @@ export function BatchIngredientsTab({
           disabled={isCreating}
         >
           <Package className="h-4 w-4 mr-2" />
-          {t("ingredients.actions.issueMaterials")}
+          {t("ingredients.actions.prepareIssue")}
         </Button>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={isCreating}
+            >
+              <Beaker className="h-4 w-4 mr-2" />
+              {t("ingredients.actions.directIssue")}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("ingredients.actions.directIssue")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("ingredients.actions.confirmDirectIssue", { batchNumber })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("ingredients.actions.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { void handleDirectIssue(); }}>
+                {t("ingredients.actions.confirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Ingredients table */}
@@ -151,6 +211,7 @@ export function BatchIngredientsTab({
             <TableHead>{t("ingredients.columns.unit")}</TableHead>
             <TableHead className="text-right">{t("ingredients.columns.issued")}</TableHead>
             <TableHead className="text-right">{t("ingredients.columns.missing")}</TableHead>
+            <TableHead>{t("ingredients.columns.lots")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -179,6 +240,19 @@ export function BatchIngredientsTab({
                 <TableCell className={missingVal > 0 ? "text-right text-red-600 font-medium" : "text-right"}>
                   {missingVal > 0 ? formatAmount(item.missingQty) : "-"}
                 </TableCell>
+                <TableCell className="text-xs">
+                  {item.lots.length > 0 ? (
+                    <div className="flex flex-col gap-0.5">
+                      {item.lots.map((lot, idx) => (
+                        <span key={idx}>
+                          {lot.lotNumber ?? "\u2014"} ({lot.quantity.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    "\u2014"
+                  )}
+                </TableCell>
               </TableRow>
             );
           })}
@@ -204,10 +278,10 @@ export function BatchIngredientsTab({
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                   <Badge variant="outline" className={statusClass}>
-                    {issue.status}
+                    {t(`ingredients.issueStatus.${issue.status}` as Parameters<typeof t>[0])}
                   </Badge>
                   <span className="text-muted-foreground">{issue.date}</span>
-                  <span className="text-muted-foreground">({issue.movementPurpose})</span>
+                  <span className="text-muted-foreground">({t(`ingredients.purpose.${issue.movementPurpose}` as Parameters<typeof t>[0])})</span>
                 </div>
               );
             })}

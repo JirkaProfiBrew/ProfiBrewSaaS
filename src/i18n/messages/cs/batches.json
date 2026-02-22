@@ -188,12 +188,30 @@
       "time": "Čas",
       "recipeQty": "Recept",
       "issued": "Vydáno",
-      "missing": "Chybí"
+      "missing": "Chybí",
+      "lots": "Šarže"
     },
     "actions": {
       "issueMaterials": "Vydat suroviny",
+      "prepareIssue": "Připravit výdejku",
+      "directIssue": "Vydat suroviny",
+      "confirmDirectIssue": "Vydat suroviny pro várku {batchNumber}?",
+      "directIssueSuccess": "Suroviny vydány",
+      "directIssueFailed": "Nepodařilo se vydat suroviny",
+      "cancel": "Zrušit",
+      "confirm": "Potvrdit",
       "issueSuccess": "Výrobní výdejka vytvořena",
       "issueFailed": "Nepodařilo se vytvořit výdejku"
+    },
+    "issueStatus": {
+      "draft": "Koncept",
+      "confirmed": "Potvrzeno",
+      "cancelled": "Stornováno"
+    },
+    "purpose": {
+      "production_out": "Výroba",
+      "production_in": "Produkce",
+      "sale": "Prodej"
     },
     "linkedIssues": "Výdejky surovin",
     "noLinkedIssues": "Zatím žádné výdejky surovin"

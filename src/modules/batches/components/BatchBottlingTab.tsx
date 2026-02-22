@@ -17,6 +17,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -76,6 +87,7 @@ export function BatchBottlingTab({
   onMutate,
 }: BatchBottlingTabProps): React.ReactNode {
   const t = useTranslations("batches");
+  const tCommon = useTranslations("common");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
@@ -315,15 +327,33 @@ export function BatchBottlingTab({
                     >
                       <Pencil className="size-3" />
                     </Button>
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      onClick={() => {
-                        void handleDelete(item.id);
-                      }}
-                    >
-                      <Trash2 className="size-3 text-destructive" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                        >
+                          <Trash2 className="size-3 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                          <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              void handleDelete(item.id);
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {tCommon("delete")}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>

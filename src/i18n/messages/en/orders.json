@@ -70,7 +70,7 @@
     "deposit": "Deposit Type",
     "depositPlaceholder": "Select deposit",
     "depositQty": "Deposit Qty",
-    "depositTotal": "Deposit Total",
+    "depositTotal": "Deposit",
     "notes": "Notes",
     "empty": "No items. Add the first item.",
     "deleteConfirm": "Really delete this item?"
@@ -78,6 +78,7 @@
   "summary": {
     "title": "Summary",
     "totalExclVat": "Total excl. VAT",
+    "totalDiscount": "Discount",
     "totalVat": "VAT",
     "totalInclVat": "Total incl. VAT",
     "totalDeposit": "Packaging Deposits",
@@ -108,12 +109,15 @@
     "cancelled": "Order cancelled",
     "deleted": "Order deleted",
     "deleteError": "Failed to delete order",
+    "hasRelatedRecords": "Cannot delete order — a linked stock issue or cash flow exists",
     "itemAdded": "Item added",
     "itemUpdated": "Item updated",
     "itemRemoved": "Item removed",
     "itemFailed": "Failed to save item",
     "statusFailed": "Failed to change status",
     "needsItems": "Order must have at least one item",
+    "noWarehouse": "Order has no warehouse assigned — cannot confirm",
+    "stockModeNone": "Shop has stock tracking disabled — cannot reserve items",
     "onlyDraft": "This action can only be performed on drafts"
   },
   "stockIssueTab": {

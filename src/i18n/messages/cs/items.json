@@ -28,6 +28,7 @@
     "salePrice": "Prodejní cena",
     "totalQty": "Sklad",
     "reservedQty": "Rezervováno",
+    "demandedQty": "Požadováno",
     "availableQty": "Dostupné"
   },
   "materialType": {
@@ -122,6 +123,7 @@
     "warehouse": "Sklad",
     "quantity": "Množství",
     "reserved": "Rezervováno",
+    "demanded": "Požadováno",
     "available": "Dostupné",
     "noStock": "Žádné skladové zásoby",
     "recentMovements": "Poslední pohyby",
@@ -131,6 +133,14 @@
     "price": "Cena",
     "in": "PŘÍJEM",
     "out": "VÝDEJ",
-    "noMovements": "Žádné pohyby"
+    "noMovements": "Žádné pohyby",
+    "demandBreakdown": "Rozpad požadavků",
+    "demandSource": "Zdroj",
+    "demandCode": "Doklad",
+    "demandRequired": "Požadováno",
+    "demandIssued": "Vydáno",
+    "demandRemaining": "Zbývá",
+    "sourceOrder": "Objednávka",
+    "sourceBatch": "Várka"
   }
 }

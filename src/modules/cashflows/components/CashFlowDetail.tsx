@@ -29,6 +29,7 @@ interface CashFlowDetailProps { id: string; }
 
 export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   const t = useTranslations("cashflows");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const isNew = id === "new";
   const { data: cashflowDetail, isLoading, mutate } = useCashFlowDetail(id);
@@ -126,8 +127,8 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
 
   const dvActions: DetailViewAction[] = useMemo(() => {
     if (isNew || cashflowDetail?.status !== "planned") return [];
-    return [{ key: "delete", label: t("actions.delete"), icon: Trash2, variant: "destructive" as const, onClick: () => { void handleDelete(); } }];
-  }, [isNew, cashflowDetail?.status, t, handleDelete]);
+    return [{ key: "delete", label: t("actions.delete"), icon: Trash2, variant: "destructive" as const, confirm: { title: tCommon("confirmDelete"), description: tCommon("confirmDeleteDescription") }, onClick: () => { void handleDelete(); } }];
+  }, [isNew, cashflowDetail?.status, t, tCommon, handleDelete]);
 
   if (isNew) {
     return (

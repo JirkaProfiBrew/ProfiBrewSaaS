@@ -12,6 +12,17 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import type { DetailViewProps } from "./types";
 
@@ -99,16 +110,48 @@ export function DetailView({
         {actions !== undefined && actions.length > 0 &&
           actions.map((action) => {
             const Icon = action.icon;
-            return (
+            const btn = (
               <Button
-                key={action.key}
                 variant={action.variant ?? "outline"}
-                onClick={action.onClick}
+                onClick={action.confirm ? undefined : action.onClick}
               >
                 {Icon !== undefined && <Icon className="size-4" />}
                 {action.label}
               </Button>
             );
+
+            if (action.confirm) {
+              return (
+                <AlertDialog key={action.key}>
+                  <AlertDialogTrigger asChild>{btn}</AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {action.confirm.title}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {action.confirm.description}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={action.onClick}
+                        className={
+                          action.variant === "destructive"
+                            ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            : ""
+                        }
+                      >
+                        {action.label}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              );
+            }
+
+            return <span key={action.key}>{btn}</span>;
           })}
       </div>
 

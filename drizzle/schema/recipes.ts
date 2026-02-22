@@ -89,6 +89,7 @@ export const recipeItems = pgTable(
     hopPhase: text("hop_phase"),
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
+    reservedQty: decimal("reserved_qty").default("0"), // post-MVP prep, unused in MVP
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

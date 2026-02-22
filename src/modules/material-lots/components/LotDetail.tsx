@@ -156,6 +156,8 @@ export function LotDetail({ id }: LotDetailProps): React.ReactNode {
                 <TableRow>
                   <TableHead>{t("detail.issueCode")}</TableHead>
                   <TableHead>{t("detail.issueDate")}</TableHead>
+                  <TableHead>{t("detail.purpose")}</TableHead>
+                  <TableHead>{t("detail.batch")}</TableHead>
                   <TableHead className="text-right">
                     {t("detail.issuedQty")}
                   </TableHead>
@@ -171,6 +173,30 @@ export function LotDetail({ id }: LotDetailProps): React.ReactNode {
                       {alloc.issueCode}
                     </TableCell>
                     <TableCell>{alloc.issueDate}</TableCell>
+                    <TableCell>
+                      {alloc.movementPurpose
+                        ? t(
+                            `detail.purposeLabel.${alloc.movementPurpose}` as Parameters<typeof t>[0]
+                          )
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {alloc.batchNumber ? (
+                        <button
+                          type="button"
+                          className="text-primary hover:underline cursor-pointer"
+                          onClick={() =>
+                            router.push(
+                              `/brewery/batches/${alloc.batchId}`
+                            )
+                          }
+                        >
+                          {alloc.batchNumber}
+                        </button>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       {alloc.quantity}
                     </TableCell>

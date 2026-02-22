@@ -27,6 +27,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import { usePartner, useContacts, useAddresses, useBankAccounts } from "../hooks";
 import {
@@ -432,10 +443,14 @@ export function PartnerDetail({
         label: t("detail.actions.delete"),
         icon: Trash2,
         variant: "destructive" as const,
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
         onClick: handleDelete,
       },
     ];
-  }, [isNew, t, handleDelete]);
+  }, [isNew, t, tCommon, handleDelete]);
 
   // ── Render ──────────────────────────────────────────────────
 
@@ -621,16 +636,33 @@ function ContactsTab({ partnerId }: { partnerId: string }): React.ReactNode {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDeleteContact(contact.id);
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                        <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => { void handleDeleteContact(contact.id); }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {tCommon("delete")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
@@ -857,16 +889,33 @@ function AddressesTab({ partnerId }: { partnerId: string }): React.ReactNode {
                 <TableCell>{address.city ?? ""}</TableCell>
                 <TableCell>{address.zip ?? ""}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDeleteAddress(address.id);
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                        <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => { void handleDeleteAddress(address.id); }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {tCommon("delete")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
@@ -1054,16 +1103,33 @@ function BankAccountsTab({
                   )}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDeleteAccount(account.id);
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+                        <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => { void handleDeleteAccount(account.id); }}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {tCommon("delete")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}

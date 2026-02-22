@@ -31,6 +31,9 @@ export interface TrackingAllocation {
   issueDate: string;
   quantity: string;
   unitPrice: string;
+  movementPurpose: string | null;
+  batchId: string | null;
+  batchNumber: string | null;
 }
 
 export interface TrackingFilter {

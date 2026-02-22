@@ -86,7 +86,11 @@
     "selectBatch": "Select batch",
     "selectPurpose": "Select purpose",
     "noPartner": "— no partner —",
-    "noBatch": "— no batch —"
+    "noBatch": "— no batch —",
+    "prefillConfirmTitle": "Overwrite lines?",
+    "prefillConfirmDescription": "Existing lines will be removed and replaced with ingredients from the selected batch recipe.",
+    "prefillSuccess": "Lines prefilled from batch",
+    "prefillError": "Failed to prefill lines"
   },
   "lines": {
     "addLine": "Add Line",

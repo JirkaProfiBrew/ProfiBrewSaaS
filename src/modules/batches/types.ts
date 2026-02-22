@@ -148,6 +148,12 @@ export interface RecipeIngredient {
   sortOrder: number;
 }
 
+export interface BatchIngredientLot {
+  lotNumber: string | null;
+  quantity: number;
+  receiptLineId: string;
+}
+
 export interface BatchIngredientRow {
   recipeItemId: string;
   itemId: string;
@@ -159,6 +165,7 @@ export interface BatchIngredientRow {
   useStage: string | null;
   issuedQty: string; // from confirmed production issue lines
   missingQty: string; // recipeQty - issuedQty
+  lots: BatchIngredientLot[]; // lot breakdown from confirmed movements
 }
 
 export interface ProductionIssueInfo {

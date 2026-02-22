@@ -13,6 +13,7 @@ interface OrderSummaryProps {
   totalVat: string;
   totalInclVat: string;
   totalDeposit: string;
+  totalDiscount: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -32,6 +33,7 @@ export function OrderSummary({
   totalVat,
   totalInclVat,
   totalDeposit,
+  totalDiscount,
 }: OrderSummaryProps): React.ReactNode {
   const t = useTranslations("orders");
 
@@ -56,6 +58,18 @@ export function OrderSummary({
             {formatCZK(totalExclVat)} Kč
           </span>
         </div>
+
+        {/* Discount */}
+        {totalDiscount > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              {t("summary.totalDiscount")}
+            </span>
+            <span className="font-medium tabular-nums text-green-600">
+              −{formatCZK(totalDiscount.toFixed(2))} Kč
+            </span>
+          </div>
+        )}
 
         {/* VAT */}
         <div className="flex items-center justify-between text-sm">

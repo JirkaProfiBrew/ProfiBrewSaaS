@@ -19,7 +19,7 @@ import {
   allocateFIFO,
   processManualAllocations,
 } from "./lib/allocation-engine";
-import { updateStockStatusRow, updateReservedQtyRow } from "./lib/stock-status-sync";
+import { updateStockStatusRow } from "./lib/stock-status-sync";
 import type {
   StockIssue,
   StockIssueLine,
@@ -684,11 +684,6 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
           );
         } else {
           // ── ISSUE: FIFO or manual_lot engine ──
-
-          // Release reservation if this is a reserved production issue
-          if (issue.isReserved) {
-            await updateReservedQtyRow(tx, tenantId, line.itemId, issue.warehouseId, -Number(line.requestedQty));
-          }
 
           // Get item's issue_mode + base_item info for bulk mode resolution
           const itemRows = await tx
