@@ -131,6 +131,7 @@
   "detail": {
     "title": "Detail receptury",
     "newTitle": "Nová receptura",
+    "snapshotBanner": "Kopie receptu pro várku {batchNumber}",
     "actions": {
       "save": "Uložit",
       "cancel": "Zrušit",

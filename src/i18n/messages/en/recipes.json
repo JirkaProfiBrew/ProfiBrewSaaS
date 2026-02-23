@@ -131,6 +131,7 @@
   "detail": {
     "title": "Recipe Detail",
     "newTitle": "New Recipe",
+    "snapshotBanner": "Recipe copy for batch {batchNumber}",
     "actions": {
       "save": "Save",
       "cancel": "Cancel",

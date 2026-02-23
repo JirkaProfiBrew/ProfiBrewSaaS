@@ -375,7 +375,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
         {/* Recipe tile — links to snapshot recipe for editing */}
         {batch?.recipeId && (
           <Link
-            href={`/brewery/recipes/${batch.recipeId}`}
+            href={`/brewery/recipes/${batch.recipeId}?batchId=${id}&batchNumber=${encodeURIComponent(batch.batchNumber)}`}
             className="block mb-4 rounded-lg border-l-4 border-l-yellow-400 border bg-card p-4 transition-colors hover:bg-accent"
           >
             <div className="flex flex-col gap-1">

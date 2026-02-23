@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Copy, Archive, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Copy, Archive, Trash2, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -33,10 +33,16 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   const t = useTranslations("recipes");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const isNew = id === "new";
   const { data: recipeDetail, isLoading, mutate } = useRecipeDetail(id);
   const { data: beerStyles } = useBeerStyles();
+
+  // Snapshot mode: opened from a batch detail
+  const batchId = searchParams.get("batchId");
+  const batchNumber = searchParams.get("batchNumber");
+  const isSnapshot = batchId != null && batchNumber != null;
 
   const [values, setValues] = useState<Record<string, unknown>>({
     name: "",
@@ -302,8 +308,12 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   }, [id, router, t, tCommon]);
 
   const handleCancel = useCallback((): void => {
-    router.push("/brewery/recipes");
-  }, [router]);
+    if (isSnapshot) {
+      router.push(`/brewery/batches/${batchId}`);
+    } else {
+      router.push("/brewery/recipes");
+    }
+  }, [router, isSnapshot, batchId]);
 
   // Header actions (only for edit mode)
   const actions: DetailViewAction[] = useMemo(() => {
@@ -460,12 +470,25 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     ? recipeDetail.recipe.beerStyleName
     : undefined;
 
+  const backHref = isSnapshot
+    ? `/brewery/batches/${batchId}`
+    : "/brewery/recipes";
+
   return (
     <div className="flex flex-col gap-6 p-6">
+      {/* Snapshot banner — shown when editing a batch copy */}
+      {isSnapshot && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm dark:border-yellow-700 dark:bg-yellow-950">
+          <FlaskConical className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+          <span>
+            {t("detail.snapshotBanner", { batchNumber })}
+          </span>
+        </div>
+      )}
       <DetailView
         title={title}
         subtitle={subtitle}
-        backHref="/brewery/recipes"
+        backHref={backHref}
         actions={actions}
         tabs={tabs}
         activeTab={activeTab}
