@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { getBatchIngredients, getProductionIssues, createProductionIssue, directProductionIssue } from "../actions";
+import { getBatchIngredients, getProductionIssues, createProductionIssue, directProductionIssue, confirmDirectProductionIssue } from "../actions";
 import type { BatchIngredientRow, ProductionIssueInfo } from "../types";
 
 // ── Category color mapping ────────────────────────────────────
@@ -74,6 +74,9 @@ export function BatchIngredientsTab({
   const [linkedIssues, setLinkedIssues] = useState<ProductionIssueInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [warningsOpen, setWarningsOpen] = useState(false);
+  const [pendingIssueId, setPendingIssueId] = useState<string>("");
+  const [warnings, setWarnings] = useState<Array<{ itemName: string; unit: string; requested: number; available: number; willIssue: number; missing: number }>>([]);
 
   const loadData = useCallback((): void => {
     if (!batchId) return;
@@ -125,6 +128,13 @@ export function BatchIngredientsTab({
         toast.error(t("ingredients.actions.directIssueFailed"));
         return;
       }
+      if ("warnings" in result && result.warnings.length > 0) {
+        // Stock insufficient — show warnings dialog, let user decide
+        setPendingIssueId(result.stockIssueId);
+        setWarnings(result.warnings);
+        setWarningsOpen(true);
+        return;
+      }
       toast.success(t("ingredients.actions.directIssueSuccess"));
       loadData();
     } catch (error: unknown) {
@@ -134,6 +144,37 @@ export function BatchIngredientsTab({
       setIsCreating(false);
     }
   }, [batchId, t, loadData]);
+
+  const handleWarningsConfirm = useCallback(async (): Promise<void> => {
+    setWarningsOpen(false);
+    setIsCreating(true);
+    try {
+      const result = await confirmDirectProductionIssue(pendingIssueId);
+      if ("error" in result) {
+        toast.error(t("ingredients.actions.directIssueFailed"));
+        return;
+      }
+      toast.success(t("ingredients.actions.directIssueSuccess"));
+      loadData();
+    } catch (error: unknown) {
+      console.error("Failed to confirm direct issue:", error);
+      toast.error(t("ingredients.actions.directIssueFailed"));
+    } finally {
+      setIsCreating(false);
+      setPendingIssueId("");
+      setWarnings([]);
+    }
+  }, [pendingIssueId, t, loadData]);
+
+  const handleWarningsCancel = useCallback((): void => {
+    setWarningsOpen(false);
+    setPendingIssueId("");
+    setWarnings([]);
+    setIsCreating(false);
+  }, []);
+
+  // Show "Originál" column only when at least one ingredient has original qty
+  const hasOriginal = ingredients.some((i) => i.originalQty != null);
 
   if (!recipeId) {
     return (
@@ -207,6 +248,9 @@ export function BatchIngredientsTab({
           <TableRow>
             <TableHead>{t("ingredients.columns.name")}</TableHead>
             <TableHead>{t("ingredients.columns.category")}</TableHead>
+            {hasOriginal && (
+              <TableHead className="text-right">{t("ingredients.columns.original")}</TableHead>
+            )}
             <TableHead className="text-right">{t("ingredients.columns.recipeQty")}</TableHead>
             <TableHead>{t("ingredients.columns.unit")}</TableHead>
             <TableHead className="text-right">{t("ingredients.columns.issued")}</TableHead>
@@ -219,6 +263,8 @@ export function BatchIngredientsTab({
             const categoryClass =
               CATEGORY_CLASS_MAP[item.category] ?? CATEGORY_CLASS_MAP.other;
             const missingVal = parseFloat(item.missingQty);
+            const originalDiffers = item.originalQty != null
+              && parseFloat(item.originalQty) !== parseFloat(item.recipeQty);
             return (
               <TableRow key={item.recipeItemId}>
                 <TableCell className="font-medium">
@@ -234,7 +280,14 @@ export function BatchIngredientsTab({
                     {t(`ingredients.category.${item.category}` as Parameters<typeof t>[0])}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right">{formatAmount(item.recipeQty)}</TableCell>
+                {hasOriginal && (
+                  <TableCell className="text-right text-muted-foreground">
+                    {item.originalQty != null ? formatAmount(item.originalQty) : "\u2014"}
+                  </TableCell>
+                )}
+                <TableCell className={originalDiffers ? "text-right font-semibold" : "text-right"}>
+                  {formatAmount(item.recipeQty)}
+                </TableCell>
                 <TableCell>{item.unitSymbol ?? "g"}</TableCell>
                 <TableCell className="text-right">{formatAmount(item.issuedQty)}</TableCell>
                 <TableCell className={missingVal > 0 ? "text-right text-red-600 font-medium" : "text-right"}>
@@ -245,7 +298,13 @@ export function BatchIngredientsTab({
                     <div className="flex flex-col gap-0.5">
                       {item.lots.map((lot, idx) => (
                         <span key={idx}>
-                          {lot.lotNumber ?? "\u2014"} ({lot.quantity.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })})
+                          <Link
+                            href={`/stock/tracking/${lot.receiptLineId}`}
+                            className="text-primary hover:underline"
+                          >
+                            {lot.lotNumber ?? "\u2014"}
+                          </Link>
+                          {" "}({lot.quantity.toLocaleString("cs-CZ", { maximumFractionDigits: 2 })})
                         </span>
                       ))}
                     </div>
@@ -262,11 +321,13 @@ export function BatchIngredientsTab({
       {/* Linked production issues */}
       <div className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">{t("ingredients.linkedIssues")}</h4>
-        {linkedIssues.length === 0 ? (
+        {linkedIssues.filter((i) => i.status !== "cancelled").length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("ingredients.noLinkedIssues")}</p>
         ) : (
           <div className="flex flex-col gap-1">
-            {linkedIssues.map((issue) => {
+            {linkedIssues
+              .filter((issue) => issue.status !== "cancelled")
+              .map((issue) => {
               const statusClass = STATUS_CLASS_MAP[issue.status] ?? STATUS_CLASS_MAP.draft;
               return (
                 <div key={issue.id} className="flex items-center gap-3 text-sm">
@@ -288,6 +349,38 @@ export function BatchIngredientsTab({
           </div>
         )}
       </div>
+
+      {/* Stock warnings dialog for direct issue */}
+      <AlertDialog open={warningsOpen} onOpenChange={setWarningsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("ingredients.actions.stockWarningTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("ingredients.actions.stockWarningDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-2 space-y-1 text-sm">
+            {warnings.map((w, idx) => (
+              <div key={idx} className="flex justify-between text-red-600">
+                <span className="font-medium">{w.itemName}</span>
+                <span>
+                  {t("ingredients.actions.warningRequested")} {w.requested.toLocaleString("cs-CZ")} {w.unit},
+                  {" "}{t("ingredients.actions.warningAvailable")} {w.available.toLocaleString("cs-CZ")} {w.unit},
+                  {" "}{t("ingredients.actions.warningMissing")} {w.missing.toLocaleString("cs-CZ")} {w.unit}
+                </span>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleWarningsCancel}>
+              {t("ingredients.actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => { void handleWarningsConfirm(); }}>
+              {t("ingredients.actions.confirmPartialIssue")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

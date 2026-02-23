@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -349,7 +350,6 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
     <div className="flex flex-col gap-6 p-6">
       <DetailView
         title={title}
-        subtitle={batch?.recipeName ?? undefined}
         backHref="/brewery/batches"
         actions={actions}
         isLoading={isLoading}
@@ -370,6 +370,70 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
               onTransition={handleTransition}
             />
           </div>
+        )}
+
+        {/* Recipe tile — links to snapshot recipe for editing */}
+        {batch?.recipeId && (
+          <Link
+            href={`/brewery/recipes/${batch.recipeId}`}
+            className="block mb-4 rounded-lg border-l-4 border-l-yellow-400 border bg-card p-4 transition-colors hover:bg-accent"
+          >
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold">
+                  {batch.recipeName ?? t("form.recipe")}
+                </span>
+                {batch.recipeOg && (
+                  <span className="text-sm text-muted-foreground">
+                    {batch.recipeOg}°P
+                  </span>
+                )}
+              </div>
+              {batch.recipeBeerStyleName && (
+                <span className="text-sm text-muted-foreground">
+                  {batch.recipeBeerStyleName}
+                </span>
+              )}
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+                {batch.recipeAbv && (
+                  <span>
+                    <span className="text-muted-foreground">ABV</span>{" "}
+                    <span className="font-medium">{batch.recipeAbv}%</span>
+                  </span>
+                )}
+                {batch.recipeIbu && (
+                  <span>
+                    <span className="text-muted-foreground">IBU</span>{" "}
+                    <span className="font-medium">{batch.recipeIbu}</span>
+                  </span>
+                )}
+                {batch.recipeOg && (
+                  <span>
+                    <span className="text-muted-foreground">OG</span>{" "}
+                    <span className="font-medium">{batch.recipeOg}</span>
+                  </span>
+                )}
+                {batch.recipeEbc && (
+                  <span>
+                    <span className="text-muted-foreground">EBC</span>{" "}
+                    <span className="font-medium">{batch.recipeEbc}</span>
+                  </span>
+                )}
+                {batch.recipeFg && (
+                  <span>
+                    <span className="text-muted-foreground">FG</span>{" "}
+                    <span className="font-medium">{batch.recipeFg}</span>
+                  </span>
+                )}
+                {batch.recipeBatchSizeL && (
+                  <span>
+                    <span className="text-muted-foreground">{t("detail.recipeVolume")}</span>{" "}
+                    <span className="font-medium">{batch.recipeBatchSizeL} L</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </Link>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

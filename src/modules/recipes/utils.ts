@@ -28,16 +28,16 @@ export interface IngredientInput {
 
 /**
  * Convert ingredient amount to kg using the unit's toBaseFactor.
- * If no factor is provided, assumes the amount is already in grams (legacy behavior).
+ * - factor present (e.g. 0.001 for grams): amountG * factor → kg
+ * - factor null: unit IS the base unit (kg), amount already in kg
  */
 function toKg(ingredient: IngredientInput): number {
   const factor = ingredient.unitToBaseFactor;
   if (factor != null && factor !== 0) {
-    // factor converts to base unit (kg for weight)
     return ingredient.amountG * factor;
   }
-  // Legacy fallback: assume grams
-  return ingredient.amountG / 1000;
+  // null/0 = already in base unit (kg for weight)
+  return ingredient.amountG;
 }
 
 // ── OG (Plato) ──────────────────────────────────────────────

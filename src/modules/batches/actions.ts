@@ -14,6 +14,7 @@ import {
 } from "@/../drizzle/schema/batches";
 import { recipes, recipeSteps } from "@/../drizzle/schema/recipes";
 import { recipeItems } from "@/../drizzle/schema/recipes";
+import { beerStyles } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
 import { units } from "@/../drizzle/schema/system";
 import { equipment } from "@/../drizzle/schema/equipment";
@@ -66,6 +67,13 @@ function mapBatchRow(
     recipeName?: string | null;
     sourceRecipeId?: string | null;
     sourceRecipeName?: string | null;
+    recipeOg?: string | null;
+    recipeFg?: string | null;
+    recipeAbv?: string | null;
+    recipeIbu?: string | null;
+    recipeEbc?: string | null;
+    recipeBatchSizeL?: string | null;
+    recipeBeerStyleName?: string | null;
     itemName?: string | null;
     itemCode?: string | null;
     equipmentName?: string | null;
@@ -98,6 +106,13 @@ function mapBatchRow(
     recipeName: joined?.recipeName ?? null,
     sourceRecipeId: joined?.sourceRecipeId ?? null,
     sourceRecipeName: joined?.sourceRecipeName ?? null,
+    recipeOg: joined?.recipeOg ?? null,
+    recipeFg: joined?.recipeFg ?? null,
+    recipeAbv: joined?.recipeAbv ?? null,
+    recipeIbu: joined?.recipeIbu ?? null,
+    recipeEbc: joined?.recipeEbc ?? null,
+    recipeBatchSizeL: joined?.recipeBatchSizeL ?? null,
+    recipeBeerStyleName: joined?.recipeBeerStyleName ?? null,
     itemName: joined?.itemName ?? null,
     itemCode: joined?.itemCode ?? null,
     equipmentName: joined?.equipmentName ?? null,
@@ -253,6 +268,13 @@ export async function getBatchDetail(
         recipeName: recipes.name,
         sourceRecipeId: recipes.sourceRecipeId,
         sourceRecipeName: sourceRecipe.name,
+        recipeOg: recipes.og,
+        recipeFg: recipes.fg,
+        recipeAbv: recipes.abv,
+        recipeIbu: recipes.ibu,
+        recipeEbc: recipes.ebc,
+        recipeBatchSizeL: recipes.batchSizeL,
+        recipeBeerStyleName: beerStyles.name,
         itemName: items.name,
         itemCode: items.code,
         equipmentName: equipment.name,
@@ -260,6 +282,7 @@ export async function getBatchDetail(
       .from(batches)
       .leftJoin(recipes, eq(batches.recipeId, recipes.id))
       .leftJoin(sourceRecipe, eq(recipes.sourceRecipeId, sourceRecipe.id))
+      .leftJoin(beerStyles, eq(recipes.beerStyleId, beerStyles.id))
       .leftJoin(items, eq(batches.itemId, items.id))
       .leftJoin(equipment, eq(batches.equipmentId, equipment.id))
       .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
@@ -325,6 +348,13 @@ export async function getBatchDetail(
         recipeName: batchRow.recipeName,
         sourceRecipeId: batchRow.sourceRecipeId,
         sourceRecipeName: batchRow.sourceRecipeName,
+        recipeOg: batchRow.recipeOg,
+        recipeFg: batchRow.recipeFg,
+        recipeAbv: batchRow.recipeAbv,
+        recipeIbu: batchRow.recipeIbu,
+        recipeEbc: batchRow.recipeEbc,
+        recipeBatchSizeL: batchRow.recipeBatchSizeL,
+        recipeBeerStyleName: batchRow.recipeBeerStyleName,
         itemName: batchRow.itemName,
         itemCode: batchRow.itemCode,
         equipmentName: batchRow.equipmentName,
@@ -1285,19 +1315,7 @@ export async function createProductionIssue(
     // b. Check recipe
     if (!batch.recipeId) return { error: "NO_RECIPE" };
 
-    // c. Load recipe
-    const recipeRows = await db
-      .select({ batchSizeL: recipes.batchSizeL })
-      .from(recipes)
-      .where(
-        and(eq(recipes.tenantId, tenantId), eq(recipes.id, batch.recipeId))
-      )
-      .limit(1);
-
-    const recipe = recipeRows[0];
-    if (!recipe) return { error: "NO_RECIPE" };
-
-    // d. Load recipe items
+    // c. Load recipe items
     const recipeItemRows = await db
       .select({
         id: recipeItems.id,
@@ -1332,14 +1350,6 @@ export async function createProductionIssue(
     const warehouse = warehouseRows[0];
     if (!warehouse) return { error: "NO_WAREHOUSE" };
 
-    // f. Compute scale factor
-    const recipeBatchSizeL = Number(recipe.batchSizeL ?? "0");
-    const actualVolumeL = Number(batch.actualVolumeL ?? "0");
-    const scaleFactor =
-      recipeBatchSizeL > 0
-        ? (actualVolumeL > 0 ? actualVolumeL : recipeBatchSizeL) / recipeBatchSizeL
-        : 1;
-
     const today = new Date().toISOString().split("T")[0]!;
 
     // g. Generate code
@@ -1368,14 +1378,12 @@ export async function createProductionIssue(
       // i. Create lines
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
-        const scaledQty = Number(ri.amountG) * scaleFactor;
-
         await tx.insert(stockIssueLines).values({
           tenantId,
           stockIssueId: issue.id,
           itemId: ri.itemId,
           lineNo: i + 1,
-          requestedQty: String(scaledQty),
+          requestedQty: ri.amountG,
           recipeItemId: ri.id,
           sortOrder: ri.sortOrder ?? i,
         });
@@ -1390,22 +1398,53 @@ export async function createProductionIssue(
 
 /**
  * Create a production issue and immediately confirm it (direct issue).
+ * If stock is insufficient, returns warnings so the UI can ask the user before confirming.
  */
 export async function directProductionIssue(
-  batchId: string
-): Promise<{ stockIssueId: string } | { error: string }> {
+  batchId: string,
+  forceConfirm?: boolean
+): Promise<
+  | { stockIssueId: string }
+  | { stockIssueId: string; warnings: Array<{ itemName: string; unit: string; requested: number; available: number; willIssue: number; missing: number }> }
+  | { error: string }
+> {
   // Step 1: Create the draft production issue
   const createResult = await createProductionIssue(batchId);
   if ("error" in createResult) return createResult;
 
-  // Step 2: Confirm it
-  const { confirmStockIssue } = await import("@/modules/stock-issues/actions");
-  const confirmResult = await confirmStockIssue(createResult.stockIssueId);
+  const issueId = createResult.stockIssueId;
+
+  // Step 2: Prevalidate stock availability
+  const { prevalidateIssue, confirmStockIssue } = await import("@/modules/stock-issues/actions");
+
+  if (!forceConfirm) {
+    const validation = await prevalidateIssue(issueId);
+    if (validation.hasWarnings) {
+      return { stockIssueId: issueId, warnings: validation.warnings };
+    }
+  }
+
+  // Step 3: Confirm
+  const confirmResult = await confirmStockIssue(issueId);
   if (confirmResult && typeof confirmResult === "object" && "error" in confirmResult) {
     return { error: (confirmResult as { error: string }).error };
   }
 
-  return { stockIssueId: createResult.stockIssueId };
+  return { stockIssueId: issueId };
+}
+
+/**
+ * Confirm an existing draft production issue (used after user approves warnings).
+ */
+export async function confirmDirectProductionIssue(
+  issueId: string
+): Promise<{ stockIssueId: string } | { error: string }> {
+  const { confirmStockIssue } = await import("@/modules/stock-issues/actions");
+  const confirmResult = await confirmStockIssue(issueId);
+  if (confirmResult && typeof confirmResult === "object" && "error" in confirmResult) {
+    return { error: (confirmResult as { error: string }).error };
+  }
+  return { stockIssueId: issueId };
 }
 
 /**
@@ -1442,17 +1481,6 @@ export async function prefillIssueFromBatch(
       if (!batch) return { error: "BATCH_NOT_FOUND" };
       if (!batch.recipeId) return { error: "NO_RECIPE" };
 
-      const recipeRows = await db
-        .select({ batchSizeL: recipes.batchSizeL })
-        .from(recipes)
-        .where(
-          and(eq(recipes.tenantId, tenantId), eq(recipes.id, batch.recipeId))
-        )
-        .limit(1);
-
-      const recipe = recipeRows[0];
-      if (!recipe) return { error: "NO_RECIPE" };
-
       const recipeItemRows = await db
         .select({
           id: recipeItems.id,
@@ -1471,15 +1499,7 @@ export async function prefillIssueFromBatch(
 
       if (recipeItemRows.length === 0) return { error: "NO_INGREDIENTS" };
 
-      // c. Compute scale factor
-      const recipeBatchSizeL = Number(recipe.batchSizeL ?? "0");
-      const actualVolumeL = Number(batch.actualVolumeL ?? "0");
-      const scaleFactor =
-        recipeBatchSizeL > 0
-          ? (actualVolumeL > 0 ? actualVolumeL : recipeBatchSizeL) / recipeBatchSizeL
-          : 1;
-
-      // d. Delete existing lines + update batchId in transaction
+      // c. Delete existing lines + update batchId in transaction
       await db.transaction(async (tx) => {
         // Delete existing lines
         await tx
@@ -1491,17 +1511,16 @@ export async function prefillIssueFromBatch(
             )
           );
 
-        // Insert new lines from recipe
+        // Insert new lines from recipe (direct amounts, no scaling)
         for (let i = 0; i < recipeItemRows.length; i++) {
           const ri = recipeItemRows[i]!;
-          const scaledQty = Number(ri.amountG) * scaleFactor;
 
           await tx.insert(stockIssueLines).values({
             tenantId,
             stockIssueId: issueId,
             itemId: ri.itemId,
             lineNo: i + 1,
-            requestedQty: String(scaledQty),
+            requestedQty: ri.amountG,
             recipeItemId: ri.id,
             sortOrder: ri.sortOrder ?? i,
           });
@@ -1578,7 +1597,6 @@ export async function getBatchIngredients(
     const batchRows = await db
       .select({
         recipeId: batches.recipeId,
-        actualVolumeL: batches.actualVolumeL,
       })
       .from(batches)
       .where(
@@ -1589,22 +1607,35 @@ export async function getBatchIngredients(
     const batch = batchRows[0];
     if (!batch?.recipeId) return [];
 
-    // b. Load recipe for batch size
+    // b. Load recipe to get sourceRecipeId for original qty comparison
     const recipeRows = await db
-      .select({ batchSizeL: recipes.batchSizeL })
+      .select({ sourceRecipeId: recipes.sourceRecipeId })
       .from(recipes)
       .where(eq(recipes.id, batch.recipeId))
       .limit(1);
 
-    const recipe = recipeRows[0];
+    const snapshotRecipe = recipeRows[0];
 
-    // c. Compute scale factor
-    const recipeBatchSizeL = Number(recipe?.batchSizeL ?? "0");
-    const actualVolumeL = Number(batch.actualVolumeL ?? "0");
-    const scaleFactor =
-      recipeBatchSizeL > 0
-        ? (actualVolumeL > 0 ? actualVolumeL : recipeBatchSizeL) / recipeBatchSizeL
-        : 1;
+    // c. Load original recipe items (if source exists) for comparison
+    let originalQtyMap: Map<string, string> | null = null;
+    if (snapshotRecipe?.sourceRecipeId) {
+      const origItems = await db
+        .select({
+          itemId: recipeItems.itemId,
+          amountG: recipeItems.amountG,
+        })
+        .from(recipeItems)
+        .where(
+          and(
+            eq(recipeItems.tenantId, tenantId),
+            eq(recipeItems.recipeId, snapshotRecipe.sourceRecipeId)
+          )
+        );
+      originalQtyMap = new Map<string, string>();
+      for (const oi of origItems) {
+        originalQtyMap.set(oi.itemId, oi.amountG);
+      }
+    }
 
     // d. Load recipe items with item names
     const riRows = await db
@@ -1695,9 +1726,9 @@ export async function getBatchIngredients(
       });
     }
 
-    // f. Build result rows
+    // f. Build result rows (direct amounts from snapshot recipe, no scaling)
     return riRows.map((row): BatchIngredientRow => {
-      const recipeQty = Number(row.recipeItem.amountG) * scaleFactor;
+      const recipeQty = Number(row.recipeItem.amountG);
       const issuedQty = issuedMap.get(row.recipeItem.id) ?? 0;
       const missingQty = Math.max(0, recipeQty - issuedQty);
 
@@ -1707,7 +1738,8 @@ export async function getBatchIngredients(
         itemName: row.itemName ?? "",
         itemCode: row.itemCode ?? null,
         category: row.recipeItem.category,
-        recipeQty: String(recipeQty),
+        originalQty: originalQtyMap?.get(row.recipeItem.itemId) ?? null,
+        recipeQty: row.recipeItem.amountG,
         unitSymbol: row.unitSymbol ?? null,
         useStage: row.recipeItem.useStage,
         issuedQty: String(issuedQty),

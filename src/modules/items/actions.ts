@@ -525,8 +525,6 @@ export async function getDemandBreakdown(
         batchNumber: batches.batchNumber,
         recipeItemId: recipeItems.id,
         amountG: recipeItems.amountG,
-        batchSizeL: recipes.batchSizeL,
-        actualVolumeL: batches.actualVolumeL,
       })
       .from(batches)
       .innerJoin(
@@ -579,13 +577,7 @@ export async function getDemandBreakdown(
       }
 
       for (const bd of batchDemandRows) {
-        const batchSizeL = Number(bd.batchSizeL ?? "0");
-        const actualVolumeL = Number(bd.actualVolumeL ?? "0");
-        const scaleFactor =
-          batchSizeL > 0
-            ? (actualVolumeL > 0 ? actualVolumeL : batchSizeL) / batchSizeL
-            : 1;
-        const required = Number(bd.amountG) * scaleFactor;
+        const required = Number(bd.amountG);
         const issued = issuedMap.get(bd.recipeItemId) ?? 0;
         const remaining = Math.max(0, required - issued);
         if (remaining > 0) {

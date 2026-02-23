@@ -132,13 +132,21 @@ export function RecipeCalculation({
   // Cost breakdown from ingredient data
   const costBreakdown = useMemo(() => {
     return items.map((item) => {
-      const amountG = parseFloat(item.amountG) || 0;
+      const amount = parseFloat(item.amountG) || 0;
+      const toBaseFactor = item.unitToBaseFactor;
+      const unitSymbol = item.unitSymbol ?? "g";
+      // Convert recipe-unit amount to kg (null = already base unit i.e. kg)
+      const weightKg =
+        toBaseFactor != null && toBaseFactor !== 0
+          ? amount * toBaseFactor
+          : amount; // null = already in base unit (kg)
       const costPerKg = item.itemCostPrice ? parseFloat(item.itemCostPrice) : 0;
-      const totalCost = (amountG / 1000) * costPerKg;
+      const totalCost = weightKg * costPerKg;
       return {
         id: item.id,
         name: item.itemName ?? item.itemId,
-        amountG,
+        amount,
+        unitSymbol,
         costPerKg,
         totalCost: Math.round(totalCost * 100) / 100,
       };
@@ -262,9 +270,7 @@ export function RecipeCalculation({
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.name}</TableCell>
                     <TableCell className="text-right">
-                      {row.amountG >= 1000
-                        ? `${(row.amountG / 1000).toFixed(2)} kg`
-                        : `${row.amountG.toFixed(0)} g`}
+                      {`${row.amount % 1 === 0 ? row.amount : row.amount.toFixed(2)} ${row.unitSymbol}`}
                     </TableCell>
                     <TableCell className="text-right">
                       {row.costPerKg > 0

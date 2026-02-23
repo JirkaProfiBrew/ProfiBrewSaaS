@@ -65,6 +65,13 @@ export interface Batch {
   recipeName?: string | null;
   sourceRecipeId?: string | null;
   sourceRecipeName?: string | null;
+  recipeOg?: string | null;
+  recipeFg?: string | null;
+  recipeAbv?: string | null;
+  recipeIbu?: string | null;
+  recipeEbc?: string | null;
+  recipeBatchSizeL?: string | null;
+  recipeBeerStyleName?: string | null;
   itemName?: string | null;
   itemCode?: string | null;
   equipmentName?: string | null;
@@ -160,7 +167,8 @@ export interface BatchIngredientRow {
   itemName: string;
   itemCode: string | null;
   category: string;
-  recipeQty: string; // scaled from recipe
+  originalQty: string | null; // amount from the original (source) recipe; null if no source
+  recipeQty: string; // amount from the batch snapshot recipe (no scaling)
   unitSymbol: string | null;
   useStage: string | null;
   issuedQty: string; // from confirmed production issue lines

@@ -186,6 +186,7 @@
       "unit": "Unit",
       "stage": "Stage",
       "time": "Time",
+      "original": "Original",
       "recipeQty": "Recipe",
       "issued": "Issued",
       "missing": "Missing",
@@ -201,7 +202,13 @@
       "cancel": "Cancel",
       "confirm": "Confirm",
       "issueSuccess": "Production issue created",
-      "issueFailed": "Failed to create production issue"
+      "issueFailed": "Failed to create production issue",
+      "stockWarningTitle": "Insufficient stock",
+      "stockWarningDescription": "Some ingredients are not available in the required quantity. Do you want to proceed with a partial issue?",
+      "warningRequested": "required",
+      "warningAvailable": "available",
+      "warningMissing": "missing",
+      "confirmPartialIssue": "Issue partially"
     },
     "issueStatus": {
       "draft": "Draft",
@@ -272,6 +279,7 @@
     "newTitle": "New Batch",
     "deleted": "Batch deleted",
     "deleteError": "Failed to delete batch",
+    "recipeVolume": "Vol.",
     "actions": {
       "save": "Save",
       "cancel": "Cancel",

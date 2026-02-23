@@ -186,6 +186,7 @@
       "unit": "MJ",
       "stage": "Fáze",
       "time": "Čas",
+      "original": "Originál",
       "recipeQty": "Recept",
       "issued": "Vydáno",
       "missing": "Chybí",
@@ -201,7 +202,13 @@
       "cancel": "Zrušit",
       "confirm": "Potvrdit",
       "issueSuccess": "Výrobní výdejka vytvořena",
-      "issueFailed": "Nepodařilo se vytvořit výdejku"
+      "issueFailed": "Nepodařilo se vytvořit výdejku",
+      "stockWarningTitle": "Nedostatek surovin na skladě",
+      "stockWarningDescription": "Některé suroviny nejsou dostupné v požadovaném množství. Chcete pokračovat s částečným výdejem?",
+      "warningRequested": "požadováno",
+      "warningAvailable": "dostupné",
+      "warningMissing": "chybí",
+      "confirmPartialIssue": "Vydat částečně"
     },
     "issueStatus": {
       "draft": "Koncept",
@@ -272,6 +279,7 @@
     "newTitle": "Nová várka",
     "deleted": "Várka byla smazána",
     "deleteError": "Chyba při mazání várky",
+    "recipeVolume": "Obj.",
     "actions": {
       "save": "Uložit",
       "cancel": "Zrušit",
