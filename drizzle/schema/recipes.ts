@@ -53,6 +53,7 @@ export const recipes = pgTable(
     durationFermentationDays: integer("duration_fermentation_days"),
     durationConditioningDays: integer("duration_conditioning_days"),
     notes: text("notes"),
+    itemId: uuid("item_id").references(() => items.id),
     isFromLibrary: boolean("is_from_library").default(false),
     sourceLibraryId: uuid("source_library_id"),
     sourceRecipeId: uuid("source_recipe_id"),

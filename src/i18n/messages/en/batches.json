@@ -62,7 +62,8 @@
     "dumpDescription": "This action is irreversible. The batch will be marked as dumped.",
     "dumpReasonLabel": "Dump Reason",
     "dumpReasonPlaceholder": "Describe the reason...",
-    "confirmDump": "Dump"
+    "confirmDump": "Dump",
+    "bottlingRequired": "Complete the bottling tab before finishing the batch"
   },
   "steps": {
     "start": "Start",
@@ -212,37 +213,29 @@
     "noLinkedIssues": "No material issues yet"
   },
   "bottling": {
-    "add": "Bottling",
-    "addTitle": "Add Bottling",
-    "empty": "No bottling records",
-    "added": "Bottling added",
-    "addError": "Failed to add bottling",
-    "deleted": "Bottling deleted",
-    "deleteError": "Failed to delete bottling",
-    "cancel": "Cancel",
-    "save": "Save",
-    "selectProduct": "Select Product",
+    "empty": "Batch has no assigned production item",
+    "noProducts": "Production item has no assigned products",
+    "modeNone": "Beer stocking is disabled in shop settings.",
+    "modeBulk": "Bulk stocking — enter volume in liters",
+    "modePackaged": "Packaged stocking — enter piece count",
     "product": "Product",
-    "quantity": "Quantity (pcs)",
-    "volume": "Total Volume (L)",
-    "date": "Bottling Date",
-    "notes": "Note",
-    "totalVolume": "Total Volume",
-    "totalBottled": "Total Bottled",
-    "remaining": "Remaining in Tank",
-    "columns": {
-      "product": "Product",
-      "quantity": "Quantity (pcs)",
-      "volume": "Volume (L)",
-      "date": "Bottling Date",
-      "notes": "Note"
-    },
-    "edited": "Bottling updated",
-    "editError": "Failed to update bottling",
-    "dialog": {
-      "title": "Add Bottling",
-      "editTitle": "Edit Bottling",
-      "selectProduct": "Select Product"
+    "volume": "Volume (L)",
+    "unit": "Unit",
+    "amount": "Amount (L)",
+    "quantity": "Pcs",
+    "lineTotal": "Total (L)",
+    "save": "Save",
+    "saved": "Bottling saved",
+    "saveError": "Failed to save bottling",
+    "summary": {
+      "totalBottled": "Total Bottled",
+      "recipeVolume": "Recipe Volume",
+      "tankVolume": "Tank Volume",
+      "diffRecipe": "Diff (recipe)",
+      "diffTank": "Diff (tank)",
+      "surplus": "Surplus",
+      "loss": "Loss",
+      "exact": "Exact"
     }
   },
   "notes": {

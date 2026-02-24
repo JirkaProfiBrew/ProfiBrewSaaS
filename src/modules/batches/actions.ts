@@ -24,6 +24,7 @@ import {
   stockMovements,
 } from "@/../drizzle/schema/stock";
 import { warehouses } from "@/../drizzle/schema/warehouses";
+import { shops } from "@/../drizzle/schema/shops";
 import { updateStockStatusRow } from "@/modules/stock-issues/lib/stock-status-sync";
 import type {
   Batch,
@@ -95,6 +96,7 @@ function mapBatchRow(
     ogActual: row.ogActual,
     fgActual: row.fgActual,
     abvActual: row.abvActual,
+    packagingLossL: row.packagingLossL,
     equipmentId: row.equipmentId,
     primaryBatchId: row.primaryBatchId,
     isPaused: row.isPaused ?? false,
@@ -184,7 +186,7 @@ function mapBottlingRow(
     tenantId: row.tenantId,
     batchId: row.batchId,
     itemId: row.itemId,
-    quantity: row.quantity,
+    quantity: Number(row.quantity),
     baseUnits: row.baseUnits,
     bottledAt: row.bottledAt,
     notes: row.notes,
@@ -381,6 +383,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
 
       // 2. If recipeId provided, snapshot the recipe
       let snapshotRecipeId: string | null = null;
+      let recipeItemId: string | null = null;
 
       if (data.recipeId) {
         // Load original recipe
@@ -394,6 +397,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
 
         const orig = origRows[0];
         if (!orig) throw new Error("Recipe not found");
+        recipeItemId = orig.itemId;
 
         // Insert snapshot copy
         const snapshotRows = await tx
@@ -418,6 +422,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
             durationFermentationDays: orig.durationFermentationDays,
             durationConditioningDays: orig.durationConditioningDays,
             notes: orig.notes,
+            itemId: orig.itemId,
           })
           .returning();
 
@@ -508,7 +513,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
           tenantId,
           batchNumber,
           recipeId: snapshotRecipeId ?? null,
-          itemId: data.itemId ?? null,
+          itemId: data.itemId ?? recipeItemId,
           status: "planned",
           plannedDate: data.plannedDate ? new Date(data.plannedDate) : null,
           equipmentId: data.equipmentId ?? null,
@@ -807,6 +812,27 @@ export async function transitionBatchStatus(
 
       // 8. Auto-receipt on completion
       if (newStatus === "completed") {
+        // Resolve shop settings for stock_mode-aware validation
+        const shopSettings = await resolveShopSettings(tx, tenantId);
+
+        // Packaged mode: MUST have bottling data
+        if (shopSettings.stock_mode === "packaged" && updated.itemId) {
+          const bottlingCount = await tx
+            .select({ count: sql<number>`count(*)::int` })
+            .from(bottlingItems)
+            .where(
+              and(
+                eq(bottlingItems.tenantId, tenantId),
+                eq(bottlingItems.batchId, batchId)
+              )
+            );
+          if ((bottlingCount[0]?.count ?? 0) === 0) {
+            throw new Error("BOTTLING_REQUIRED");
+          }
+        }
+        // Bulk mode: bottling data optional (fallback in onBatchCompleted)
+        // None mode: no validation needed
+
         await onBatchCompleted(tx, tenantId, batchId, updated);
       }
 
@@ -981,7 +1007,7 @@ export async function addBottlingItem(
         tenantId,
         batchId,
         itemId: data.itemId,
-        quantity: data.quantity,
+        quantity: String(data.quantity),
         baseUnits: data.baseUnits ?? null,
         bottledAt: data.bottledAt ? new Date(data.bottledAt) : sql`now()`,
         notes: data.notes ?? null,
@@ -1004,7 +1030,7 @@ export async function updateBottlingItem(
       .update(bottlingItems)
       .set({
         ...(data.itemId !== undefined ? { itemId: data.itemId } : {}),
-        ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+        ...(data.quantity !== undefined ? { quantity: String(data.quantity) } : {}),
         ...(data.baseUnits !== undefined ? { baseUnits: data.baseUnits } : {}),
         ...(data.bottledAt !== undefined
           ? { bottledAt: data.bottledAt ? new Date(data.bottledAt) : null }
@@ -1150,7 +1176,8 @@ type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * Auto-receipt on batch completion.
- * Creates a confirmed stock issue receipt for the production item.
+ * Creates a confirmed stock issue receipt from bottling_items data.
+ * Supports both bulk (1 line = production item) and packaged (N lines = child items).
  * Runs within transitionBatchStatus's transaction.
  */
 async function onBatchCompleted(
@@ -1159,55 +1186,86 @@ async function onBatchCompleted(
   batchId: string,
   batch: typeof batches.$inferSelect
 ): Promise<void> {
-  // a. Find the first active warehouse
+  // 1. Resolve shop settings
+  const settings = await resolveShopSettings(tx, tenantId);
+
+  // 2. stock_mode 'none' → no receipt
+  if (settings.stock_mode === "none") return;
+
+  // 3. No production item → skip
+  if (!batch.itemId) return;
+
+  // 4. Load bottling_items
+  const bottlingRows = await tx
+    .select()
+    .from(bottlingItems)
+    .where(
+      and(
+        eq(bottlingItems.tenantId, tenantId),
+        eq(bottlingItems.batchId, batchId)
+      )
+    );
+
+  // 5. Build receipt lines from bottling data
+  interface ReceiptLine {
+    itemId: string;
+    quantity: number;
+  }
+
+  let receiptLines: ReceiptLine[] = [];
+
+  if (bottlingRows.length > 0) {
+    // Use bottling data
+    receiptLines = bottlingRows
+      .filter((row) => Number(row.quantity) > 0)
+      .map((row) => ({
+        itemId: row.itemId,
+        quantity: Number(row.baseUnits ?? row.quantity),
+      }));
+  } else if (settings.stock_mode === "bulk") {
+    // Fallback for bulk mode: use actual_volume_l
+    const fallbackQty = batch.actualVolumeL ?? "0";
+    if (Number(fallbackQty) > 0) {
+      receiptLines = [{ itemId: batch.itemId, quantity: Number(fallbackQty) }];
+    }
+  }
+  // Packaged without bottling data → skip (validation should catch earlier)
+
+  if (receiptLines.length === 0) return;
+
+  // 6. Resolve warehouse: shop settings → fallback to first active
+  let warehouseId = settings.default_warehouse_beer_id ?? null;
+
+  if (!warehouseId) {
+    const whRows = await tx
+      .select({ id: warehouses.id })
+      .from(warehouses)
+      .where(
+        and(
+          eq(warehouses.tenantId, tenantId),
+          eq(warehouses.isActive, true)
+        )
+      )
+      .orderBy(asc(warehouses.createdAt))
+      .limit(1);
+    warehouseId = whRows[0]?.id ?? null;
+  }
+
+  if (!warehouseId) return; // No warehouse — skip
+
+  // 7. Load warehouse for code generation
   const warehouseRows = await tx
     .select()
     .from(warehouses)
-    .where(
-      and(
-        eq(warehouses.tenantId, tenantId),
-        eq(warehouses.isActive, true)
-      )
-    )
-    .orderBy(asc(warehouses.createdAt))
+    .where(eq(warehouses.id, warehouseId))
     .limit(1);
 
-  const warehouse = warehouseRows[0];
-  if (!warehouse) return; // No warehouse — skip auto-receipt
+  if (!warehouseRows[0]) return;
 
-  // b. If the batch has an itemId (production item)
-  if (!batch.itemId) return;
-
-  // c. Load item for cost price
-  const itemRows = await tx
-    .select({ costPrice: items.costPrice })
-    .from(items)
-    .where(eq(items.id, batch.itemId))
-    .limit(1);
-
-  const item = itemRows[0];
-
-  // d. Load recipe for batch size fallback
-  let recipeBatchSizeL: string | null = null;
-  if (batch.recipeId) {
-    const recipeRows = await tx
-      .select({ batchSizeL: recipes.batchSizeL })
-      .from(recipes)
-      .where(eq(recipes.id, batch.recipeId))
-      .limit(1);
-    recipeBatchSizeL = recipeRows[0]?.batchSizeL ?? null;
-  }
-
-  const receiptQty = batch.actualVolumeL ?? recipeBatchSizeL ?? "0";
-  if (Number(receiptQty) <= 0) return; // No volume — skip
-
-  const unitPrice = item?.costPrice ?? "0";
   const today = new Date().toISOString().split("T")[0]!;
+  const code = await getNextNumber(tenantId, "stock_issue_receipt", warehouseId);
 
-  // e. Generate stock issue code
-  const code = await getNextNumber(tenantId, "stock_issue_receipt", warehouse.id);
-
-  // f. Create the stock issue (receipt, production_in)
+  // 8. Create the stock issue (receipt, production_in)
   const issueRows = await tx
     .insert(stockIssues)
     .values({
@@ -1217,7 +1275,7 @@ async function onBatchCompleted(
       movementPurpose: "production_in",
       date: today,
       status: "draft",
-      warehouseId: warehouse.id,
+      warehouseId,
       batchId,
       notes: `Auto-receipt for batch ${batch.batchNumber}`,
     })
@@ -1226,70 +1284,80 @@ async function onBatchCompleted(
   const issue = issueRows[0];
   if (!issue) return;
 
-  // g. Create one line
-  const lineRows = await tx
-    .insert(stockIssueLines)
-    .values({
+  // 9. Create lines + movements
+  let totalCost = 0;
+
+  for (let i = 0; i < receiptLines.length; i++) {
+    const rl = receiptLines[i]!;
+    if (rl.quantity <= 0) continue;
+
+    // Load item cost price
+    const itemRow = await tx
+      .select({ costPrice: items.costPrice })
+      .from(items)
+      .where(eq(items.id, rl.itemId))
+      .limit(1);
+
+    const unitPrice = itemRow[0]?.costPrice ?? "0";
+    const unitPriceNum = Number(unitPrice);
+    const lineTotalCost = rl.quantity * unitPriceNum;
+    totalCost += lineTotalCost;
+
+    // Insert stock issue line
+    const lineRows = await tx
+      .insert(stockIssueLines)
+      .values({
+        tenantId,
+        stockIssueId: issue.id,
+        itemId: rl.itemId,
+        lineNo: i + 1,
+        requestedQty: String(rl.quantity),
+        unitPrice,
+        sortOrder: i,
+      })
+      .returning();
+
+    const line = lineRows[0];
+    if (!line) continue;
+
+    // Create "in" movement
+    await tx.insert(stockMovements).values({
       tenantId,
-      stockIssueId: issue.id,
-      itemId: batch.itemId,
-      lineNo: 1,
-      requestedQty: receiptQty,
+      itemId: rl.itemId,
+      warehouseId,
+      movementType: "in",
+      quantity: String(rl.quantity),
       unitPrice,
-      sortOrder: 0,
-    })
-    .returning();
+      stockIssueId: issue.id,
+      stockIssueLineId: line.id,
+      batchId,
+      isClosed: false,
+      date: today,
+    });
 
-  const line = lineRows[0];
-  if (!line) return;
+    // Update line with issued data
+    await tx
+      .update(stockIssueLines)
+      .set({
+        issuedQty: String(rl.quantity),
+        totalCost: String(lineTotalCost),
+        remainingQty: String(rl.quantity),
+      })
+      .where(eq(stockIssueLines.id, line.id));
 
-  // h. Confirm inline — create "in" movement, set remaining_qty, update stock_status
-  const requestedQtyNum = Number(receiptQty);
-  const unitPriceNum = Number(unitPrice);
-  const lineTotalCost = requestedQtyNum * unitPriceNum;
+    // Update stock_status
+    await updateStockStatusRow(tx, tenantId, rl.itemId, warehouseId, rl.quantity);
+  }
 
-  await tx.insert(stockMovements).values({
-    tenantId,
-    itemId: batch.itemId,
-    warehouseId: warehouse.id,
-    movementType: "in",
-    quantity: receiptQty,
-    unitPrice,
-    stockIssueId: issue.id,
-    stockIssueLineId: line.id,
-    batchId,
-    isClosed: false,
-    date: today,
-  });
-
-  // Update line with issued data
-  await tx
-    .update(stockIssueLines)
-    .set({
-      issuedQty: receiptQty,
-      totalCost: String(lineTotalCost),
-      remainingQty: receiptQty,
-    })
-    .where(eq(stockIssueLines.id, line.id));
-
-  // Mark issue as confirmed
+  // 10. Confirm issue
   await tx
     .update(stockIssues)
     .set({
       status: "confirmed",
-      totalCost: String(lineTotalCost),
+      totalCost: String(totalCost),
       updatedAt: sql`now()`,
     })
     .where(eq(stockIssues.id, issue.id));
-
-  // Update stock_status
-  await updateStockStatusRow(
-    tx,
-    tenantId,
-    batch.itemId,
-    warehouse.id,
-    requestedQtyNum
-  );
 }
 
 /**
@@ -1845,5 +1913,264 @@ export async function getProductionIssues(
       date: row.date,
       movementPurpose: row.movementPurpose,
     }));
+  });
+}
+
+// ── Bottling Redesign ─────────────────────────────────────────
+
+/** Get products (sale items) that have base_item_id = itemId. */
+export async function getProductsByBaseItem(
+  itemId: string
+): Promise<Array<{ id: string; name: string; code: string | null; baseItemQuantity: string | null }>> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        code: items.code,
+        baseItemQuantity: items.baseItemQuantity,
+      })
+      .from(items)
+      .where(
+        and(
+          eq(items.tenantId, tenantId),
+          eq(items.baseItemId, itemId),
+          eq(items.isActive, true)
+        )
+      )
+      .orderBy(asc(items.baseItemQuantity), asc(items.name));
+
+    return rows;
+  });
+}
+
+/** Atomic save of all bottling data — delete existing, insert non-zero, update packaging_loss_l. */
+export async function saveBottlingData(
+  batchId: string,
+  lines: Array<{ itemId: string; quantity: number; baseItemQuantity: number }>
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    // Verify batch belongs to tenant
+    const batchRows = await db
+      .select({ id: batches.id, actualVolumeL: batches.actualVolumeL })
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const batch = batchRows[0];
+    if (!batch) throw new Error("Batch not found");
+
+    await db.transaction(async (tx) => {
+      // 1. Delete all existing bottling items for this batch
+      await tx
+        .delete(bottlingItems)
+        .where(
+          and(
+            eq(bottlingItems.tenantId, tenantId),
+            eq(bottlingItems.batchId, batchId)
+          )
+        );
+
+      // 2. Insert non-zero lines
+      const nonZero = lines.filter((l) => l.quantity > 0);
+      if (nonZero.length > 0) {
+        await tx.insert(bottlingItems).values(
+          nonZero.map((l) => ({
+            tenantId,
+            batchId,
+            itemId: l.itemId,
+            quantity: String(l.quantity),
+            baseUnits: String(l.quantity * l.baseItemQuantity),
+            bottledAt: new Date(),
+          }))
+        );
+      }
+
+      // 3. Calculate and save packaging_loss_l
+      const totalBottled = lines.reduce(
+        (sum, l) => sum + l.quantity * l.baseItemQuantity,
+        0
+      );
+      const tankVolume = batch.actualVolumeL ? Number(batch.actualVolumeL) : 0;
+      const loss = tankVolume > 0 ? tankVolume - totalBottled : null;
+
+      await tx
+        .update(batches)
+        .set({
+          packagingLossL: loss !== null ? String(loss) : null,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(batches.id, batchId));
+    });
+  });
+}
+
+// ── Shop Settings Resolution ────────────────────────────────────
+
+interface ResolvedShopSettings {
+  stock_mode: "none" | "bulk" | "packaged";
+  default_warehouse_beer_id?: string;
+}
+
+/** Resolve shop settings for a batch — uses default/first active shop for the tenant. */
+async function resolveShopSettings(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
+  tenantId: string
+): Promise<ResolvedShopSettings> {
+  const shopRows = await tx
+    .select({ settings: shops.settings })
+    .from(shops)
+    .where(
+      and(
+        eq(shops.tenantId, tenantId),
+        eq(shops.isActive, true)
+      )
+    )
+    .orderBy(desc(shops.isDefault), asc(shops.createdAt))
+    .limit(1);
+
+  if (!shopRows[0]) {
+    return { stock_mode: "none" };
+  }
+
+  const raw = shopRows[0].settings as Record<string, unknown> | null;
+  return {
+    stock_mode: (raw?.stock_mode as ResolvedShopSettings["stock_mode"]) ?? "packaged",
+    default_warehouse_beer_id: raw?.default_warehouse_beer_id as string | undefined,
+  };
+}
+
+// ── Bottling Lines (auto-generated for tab UI) ──────────────────
+
+export interface BottlingLineData {
+  itemId: string;
+  name: string;
+  code: string | null;
+  baseItemQuantity: number;
+  quantity: number;
+  isBulk: boolean;
+}
+
+export interface BottlingLinesResult {
+  mode: "none" | "bulk" | "packaged";
+  lines: BottlingLineData[];
+}
+
+/** Get auto-generated bottling lines for a batch based on stock_mode. */
+export async function getBottlingLines(
+  batchId: string
+): Promise<BottlingLinesResult> {
+  return withTenant(async (tenantId) => {
+    // Load batch
+    const batchRows = await db
+      .select({
+        itemId: batches.itemId,
+        actualVolumeL: batches.actualVolumeL,
+        recipeId: batches.recipeId,
+      })
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const batch = batchRows[0];
+    if (!batch) return { mode: "none" as const, lines: [] };
+
+    // Resolve shop settings
+    const settings = await resolveShopSettings(db, tenantId);
+
+    if (settings.stock_mode === "none") {
+      return { mode: "none" as const, lines: [] };
+    }
+
+    if (!batch.itemId) {
+      return { mode: settings.stock_mode, lines: [] };
+    }
+
+    // Load existing bottling items for pre-fill
+    const existingRows = await db
+      .select({
+        itemId: bottlingItems.itemId,
+        quantity: bottlingItems.quantity,
+      })
+      .from(bottlingItems)
+      .where(
+        and(
+          eq(bottlingItems.tenantId, tenantId),
+          eq(bottlingItems.batchId, batchId)
+        )
+      );
+
+    const existingMap = new Map<string, number>();
+    for (const row of existingRows) {
+      existingMap.set(row.itemId, Number(row.quantity));
+    }
+
+    if (settings.stock_mode === "bulk") {
+      // 1 line = production item itself
+      const itemRows = await db
+        .select({ id: items.id, name: items.name, code: items.code })
+        .from(items)
+        .where(eq(items.id, batch.itemId))
+        .limit(1);
+
+      const item = itemRows[0];
+      if (!item) return { mode: "bulk" as const, lines: [] };
+
+      // Fallback volume: existing → actual → recipe
+      let defaultQty = existingMap.get(item.id) ?? 0;
+      if (defaultQty === 0) {
+        defaultQty = batch.actualVolumeL ? Number(batch.actualVolumeL) : 0;
+      }
+      if (defaultQty === 0 && batch.recipeId) {
+        const recipeRows = await db
+          .select({ batchSizeL: recipes.batchSizeL })
+          .from(recipes)
+          .where(eq(recipes.id, batch.recipeId))
+          .limit(1);
+        defaultQty = recipeRows[0]?.batchSizeL ? Number(recipeRows[0].batchSizeL) : 0;
+      }
+
+      return {
+        mode: "bulk" as const,
+        lines: [{
+          itemId: item.id,
+          name: item.name,
+          code: item.code,
+          baseItemQuantity: 1,
+          quantity: defaultQty,
+          isBulk: true,
+        }],
+      };
+    }
+
+    // Packaged mode: N lines from child items
+    const childItems = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        code: items.code,
+        baseItemQuantity: items.baseItemQuantity,
+      })
+      .from(items)
+      .where(
+        and(
+          eq(items.tenantId, tenantId),
+          eq(items.baseItemId, batch.itemId),
+          eq(items.isActive, true)
+        )
+      )
+      .orderBy(asc(items.baseItemQuantity), asc(items.name));
+
+    return {
+      mode: "packaged" as const,
+      lines: childItems.map((item) => ({
+        itemId: item.id,
+        name: item.name,
+        code: item.code,
+        baseItemQuantity: item.baseItemQuantity ? Number(item.baseItemQuantity) : 0,
+        quantity: existingMap.get(item.id) ?? 0,
+        isBulk: false,
+      })),
+    };
   });
 }

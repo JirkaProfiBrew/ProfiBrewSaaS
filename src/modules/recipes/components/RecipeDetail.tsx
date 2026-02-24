@@ -19,6 +19,7 @@ import {
   permanentDeleteRecipe,
   duplicateRecipe,
 } from "../actions";
+import { getProductionItemOptions, updateBatch } from "@/modules/batches/actions";
 import { RecipeIngredientsTab } from "./RecipeIngredientsTab";
 import { RecipeStepsTab } from "./RecipeStepsTab";
 import { RecipeCalculation } from "./RecipeCalculation";
@@ -44,10 +45,13 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   const batchNumber = searchParams.get("batchNumber");
   const isSnapshot = batchId != null && batchNumber != null;
 
+  const [productionItemOptions, setProductionItemOptions] = useState<Array<{ value: string; label: string }>>([]);
+
   const [values, setValues] = useState<Record<string, unknown>>({
     name: "",
     code: null,
     beerStyleId: null,
+    itemId: null,
     status: "draft",
     batchSizeL: null,
     batchSizeBrutoL: null,
@@ -69,6 +73,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         name: r.name,
         code: r.code,
         beerStyleId: r.beerStyleId,
+        itemId: r.itemId,
         status: r.status,
         batchSizeL: r.batchSizeL,
         batchSizeBrutoL: r.batchSizeBrutoL,
@@ -80,6 +85,17 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
       });
     }
   }, [recipeDetail]);
+
+  // Load production item options for the select field
+  useEffect(() => {
+    let cancelled = false;
+    getProductionItemOptions()
+      .then((opts) => {
+        if (!cancelled) setProductionItemOptions(opts);
+      })
+      .catch((err: unknown) => console.error("Failed to load production items:", err));
+    return () => { cancelled = true; };
+  }, []);
 
   const mode: FormMode = isNew ? "create" : "edit";
 
@@ -120,6 +136,13 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
           label: t("form.beerStyle"),
           type: "select",
           options: beerStyleOptions,
+        },
+        {
+          key: "itemId",
+          label: t("form.itemId"),
+          type: "select",
+          options: productionItemOptions,
+          placeholder: t("form.itemIdPlaceholder"),
         },
         {
           key: "status",
@@ -182,7 +205,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         },
       ],
     }),
-    [t, isNew, beerStyleOptions]
+    [t, isNew, beerStyleOptions, productionItemOptions]
   );
 
   const handleChange = useCallback(
@@ -218,6 +241,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         const created = await createRecipe({
           name: String(values.name),
           beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
+          itemId: values.itemId ? String(values.itemId) : null,
           status: String(values.status ?? "draft"),
           batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,
           batchSizeBrutoL: values.batchSizeBrutoL
@@ -240,9 +264,12 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         // Redirect to the newly created recipe detail
         router.push(`/brewery/recipes/${created.id}`);
       } else {
+        const itemIdValue = values.itemId ? String(values.itemId) : null;
+
         await updateRecipe(id, {
           name: String(values.name),
           beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
+          itemId: itemIdValue,
           status: String(values.status ?? "draft"),
           batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,
           batchSizeBrutoL: values.batchSizeBrutoL
@@ -261,6 +288,11 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
           notes: values.notes ? String(values.notes) : null,
         });
 
+        // Sync item_id to the batch when saving a snapshot recipe
+        if (batchId) {
+          await updateBatch(batchId, { itemId: itemIdValue });
+        }
+
         toast.success(tCommon("saved"));
         mutate();
       }
@@ -268,7 +300,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
       console.error("Failed to save recipe:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [isNew, id, values, validate, router, tCommon, mutate]);
+  }, [isNew, id, values, validate, router, tCommon, mutate, batchId]);
 
   const handleDuplicate = useCallback(async (): Promise<void> => {
     try {

@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3 | 24.02.2026 | Sprint 4 Patch: recipes.item_id, batches.packaging_loss_l, bottling_items.quantity integer→decimal, bottling tab redesign (bulk/packaged/none modes), onBatchCompleted rewrite (receipt from bottling_items), shop settings resolution, item detail tabs (Recipes + Products). |
 | 2.2 | 20.02.2026 | Sprint 4: Orders, deposits, cashflows, cashflow_categories, cashflow_templates, cash_desks tables. Reserved qty on stock_status. Production issues with recipe_item_id. Auto-receipts on batch completion. |
 | 2.1 | 17.02.2026 | Pricing model: tier-based + add-on modules + overage per hl. Temporal plans/subscriptions in DB. Subscription decoupled from tenants table. Usage records for billing. |
 | 2.0 | 17.02.2026 | Hybrid items model, unified Partner, excise/equipment/shop/cashflow into MVP, card view, lot tracking, i18n, Drizzle ORM, configurable numbering sequences, extended data model based on Bubble audit |
@@ -1137,6 +1138,9 @@ CREATE TABLE recipes (
   duration_fermentation_days INTEGER,             -- Primary fermentation duration
   duration_conditioning_days INTEGER,             -- Conditioning duration
 
+  -- === LINKS ===
+  item_id               UUID REFERENCES items(id),  -- Production item (beer) this recipe makes
+
   -- === META ===
   notes                 TEXT,
   is_from_library       BOOLEAN DEFAULT false,
@@ -1274,6 +1278,9 @@ CREATE TABLE batches (
   excise_relevant_hl  DECIMAL,                  -- Volume subject to excise tax (hl)
   excise_reported_hl  DECIMAL,                  -- Volume reported to customs authority
   excise_status       TEXT,                     -- 'pending' | 'reported' | 'paid'
+
+  -- === BOTTLING ===
+  packaging_loss_l  DECIMAL,                    -- Loss/surplus during bottling (actual - bottled)
 
   -- === META ===
   is_paused         BOOLEAN DEFAULT false,      -- Paused
@@ -1418,10 +1425,24 @@ CREATE TABLE stock_issue_lines (
   requested_qty   DECIMAL NOT NULL,                -- Requested quantity
   issued_qty      DECIMAL,                         -- Actually issued/received
   missing_qty     DECIMAL,                         -- Missing
-  unit_price      DECIMAL,                         -- Unit price
+  unit_price      DECIMAL,                         -- Unit price (NC — nákupní cena)
+  overhead_per_unit DECIMAL DEFAULT 0,             -- VPN per unit (computed from receipt_costs)
+  full_unit_price DECIMAL,                         -- Pořizovací cena = unit_price + overhead_per_unit
   total_cost      DECIMAL,                         -- Line total
   issue_mode_snapshot TEXT,                        -- Snapshot of FIFO/LIFO from item
   notes           TEXT,
+  sort_order      INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- === RECEIPT COSTS (vedlejší pořizovací náklady — VPN) ===
+CREATE TABLE receipt_costs (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL REFERENCES tenants(id),
+  stock_issue_id  UUID NOT NULL REFERENCES stock_issues(id) ON DELETE CASCADE,
+  description     TEXT NOT NULL DEFAULT '',         -- E.g. shipping, customs
+  amount          DECIMAL NOT NULL DEFAULT 0,       -- Cost amount
+  allocation      TEXT NOT NULL DEFAULT 'by_value', -- 'by_value' | 'by_quantity'
   sort_order      INTEGER DEFAULT 0,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -1753,7 +1774,7 @@ tenants
   │     ├── addresses
   │     └── partner_bank_accounts
   │
-  ├── recipes
+  ├── recipes → items (production item)
   │     ├── recipe_items → items
   │     ├── recipe_steps
   │     └── recipe_calculations
@@ -1768,6 +1789,7 @@ tenants
   │
   ├── stock_issues → warehouses, partners, orders, batches
   │     ├── stock_issue_lines → items
+  │     ├── receipt_costs (VPN — vedlejší pořizovací náklady)
   │     └── stock_issue_allocations → stock_movements
   │
   ├── stock_movements → items, warehouses, material_lots

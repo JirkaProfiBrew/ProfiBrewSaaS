@@ -55,6 +55,7 @@ function mapRecipeRow(
     durationFermentationDays: row.durationFermentationDays,
     durationConditioningDays: row.durationConditioningDays,
     notes: row.notes,
+    itemId: row.itemId,
     isFromLibrary: row.isFromLibrary ?? false,
     sourceRecipeId: row.sourceRecipeId ?? null,
     createdBy: row.createdBy,
@@ -254,6 +255,25 @@ export async function getRecipeDetail(
   });
 }
 
+/** Get recipes linked to a production item. */
+export async function getRecipesByItemId(itemId: string): Promise<Recipe[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select()
+      .from(recipes)
+      .where(
+        and(
+          eq(recipes.tenantId, tenantId),
+          eq(recipes.itemId, itemId),
+          sql`${recipes.status} != 'batch_snapshot'`
+        )
+      )
+      .orderBy(asc(recipes.name));
+
+    return rows.map((r) => mapRecipeRow(r));
+  });
+}
+
 /** Create a new recipe. */
 export async function createRecipe(
   data: Record<string, unknown>
@@ -275,6 +295,7 @@ export async function createRecipe(
         durationFermentationDays: parsed.durationFermentationDays ?? null,
         durationConditioningDays: parsed.durationConditioningDays ?? null,
         notes: parsed.notes ?? null,
+        itemId: parsed.itemId ?? null,
       })
       .returning();
 
@@ -387,6 +408,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           durationFermentationDays: orig.durationFermentationDays,
           durationConditioningDays: orig.durationConditioningDays,
           notes: orig.notes,
+          itemId: orig.itemId,
         })
         .returning();
 

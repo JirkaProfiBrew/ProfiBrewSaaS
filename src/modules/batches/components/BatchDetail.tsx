@@ -303,9 +303,13 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
     router.push("/brewery/batches");
   }, [router]);
 
-  const handleTransition = useCallback((): void => {
+  const handleTransition = useCallback((error?: string): void => {
+    if (error === "BOTTLING_REQUIRED") {
+      handleTabChange("bottling");
+      return;
+    }
     mutate();
-  }, [mutate]);
+  }, [mutate, handleTabChange]);
 
   // Header actions (only for edit mode)
   const actions: DetailViewAction[] = useMemo(() => {
@@ -503,8 +507,9 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           <TabsContent value="bottling" className="mt-4">
             <BatchBottlingTab
               batchId={id}
-              bottlingItems={batchDetail?.bottlingItems ?? []}
+              itemId={batch?.itemId ?? null}
               actualVolumeL={batch?.actualVolumeL ?? null}
+              recipeBatchSizeL={batch?.recipeBatchSizeL ?? null}
               onMutate={mutate}
             />
           </TabsContent>

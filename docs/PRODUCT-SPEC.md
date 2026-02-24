@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 20.02.2026 | Poslední sprint: Sprint 4 (Orders + Finance)
+### Aktualizováno: 24.02.2026 | Poslední sprint: Sprint 4 Patch
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -221,15 +221,16 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Status: draft → active → archived
 
 **Detail receptury:**
-- Základní info: název, kód, pivní styl (z BJCP číselníku), cílový objem, doba kvašení/dokvašování
+- Základní info: název, kód, pivní styl (z BJCP číselníku), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování
 - Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
 - Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona).
 - Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace (součet cen surovin + režie)
 - Poznámky
 
 **Byznys pravidla:**
-- Receptura se dá duplikovat (nová kopie, status=draft)
-- Při vytvoření várky se receptura zkopíruje jako snapshot (status=`batch_snapshot`, `source_recipe_id`=originál). Snapshot zahrnuje kompletní kopii receptury včetně všech surovin (recipe_items) a kroků (recipe_steps).
+- Receptura se dá duplikovat (nová kopie, status=draft, včetně `item_id`)
+- Vazba na výrobní položku: `recipes.item_id` → `items.id` (nullable). Při vytvoření várky se `item_id` kopíruje na `batch.item_id` (pokud batch nemá vlastní).
+- Při vytvoření várky se receptura zkopíruje jako snapshot (status=`batch_snapshot`, `source_recipe_id`=originál). Snapshot zahrnuje kompletní kopii receptury včetně všech surovin (recipe_items), kroků (recipe_steps) a `item_id`.
 - Snapshoty se nezobrazují v RecipeBrowseru (filtrováno dle status ≠ batch_snapshot)
 - Detail šarže na tabu Suroviny zobrazuje badge s odkazem na originální recepturu
 - Smazání originální receptury ponechá snapshot beze změny (ON DELETE SET NULL na source_recipe_id)
@@ -254,16 +255,23 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Kroky vaření: tabulka kroků z receptury, u každého plánovaný vs skutečný start/konec, teploty. Krok se "odškrtává" v průběhu vaření.
 - Měření: seznam měření (typ, hodnota, °P, SG, teplota, timestamp). Graf vývoje.
 - Suroviny: spotřebované suroviny s lot tracking vazbou. Tlačítko "Vydat suroviny" → vytvoří draft výdejku z receptury → naviguje na detail výdejky (sládek zkontroluje, upraví, vybere šarže, potvrdí).
-- Stáčení: kolik sudů/lahví/plechovek se nastáčelo (bottling_items)
+- Stáčení: řízeno `stock_mode` z nastavení provozovny (shop settings).
+  - **bulk**: 1 řádek = výrobní položka (batch.item_id), MJ=L, decimal input, předvyplněný z actual_volume_l
+  - **packaged**: N řádků = child items (`base_item_id = batch.item_id`), integer input (ks), objem dopočten
+  - **none**: hláška "Naskladnění vypnuto v nastavení provozovny", žádné řádky
+  - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit" → atomicky uloží bottling_items + vypočte `packaging_loss_l`.
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži
 
 **Byznys pravidla:**
 - Číslo várky z číslovací řady (V-2026-001)
 - Šarže vždy patří k jednomu tanku/zařízení (equipment)
-- Při stáčení se vytvoří skladový příjem hotového piva
+- Při dokončení várky → auto-receipt z bottling_items: bulk (1 řádek) i packaged (N řádků) čtou z bottling_items
+- Warehouse pro příjemku: `shop.settings.default_warehouse_beer_id` → fallback na první aktivní
 - Při spotřebě surovin se vytvoří skladový výdej
 - Excise: objem se eviduje v hl, systém sleduje status nahlášení
+- Validace completion: packaged → bottling data povinná (BOTTLING_REQUIRED), bulk → volitelná (fallback z actual_volume_l), none → žádná příjemka
+- `packaging_loss_l` = actual_volume_l − SUM(qty × base_item_quantity); kladné = ztráta, záporné = přebytek
 
 ### 4.6 Zařízení ✅
 
@@ -310,6 +318,12 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Suroviny = filtr `is_brew_material=true`, zaměřeno na sládka
 - Katalog = vše, zaměřeno na skladníka/obchodníka, víc sloupců (EAN, balení...)
 
+**Detail položky — taby pro výrobní položky** (`is_production_item=true`):
+- Základní informace: standardní formulář
+- Recepty: seznam receptur kde `recipe.item_id = thisItem.id` (tabulka: název, styl, objem, OG, IBU, status badge). Klik → navigace na detail receptu.
+- Produkty: seznam položek kde `base_item_id = thisItem.id` (tabulka: název, kód, objem L). Tlačítko "+ Produkt" → vytvoření nové položky s předvyplněným `baseItemId`.
+- Stav skladu: standardní stock tab
+
 ### 5.2 Skladové doklady ✅
 
 **Co to je:** Příjemky a výdejky — dokumenty evidující pohyb zboží.
@@ -338,6 +352,27 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - **Ruční výběr šarže** (manual_lot): uživatel vybírá konkrétní příjemkové šarže v LotSelectionDialog, alokace se uloží jako pre-alokace v draft stavu a při potvrzení se validují
 - Alokace dekrementují remaining_qty na zdrojových příjemkových řádcích
 - Plně alokované příjemky se automaticky uzavřou (isClosed=true)
+
+**Vedlejší pořizovací náklady (VPN) na příjemkách:** ✅
+- Na příjemce lze zadat vedlejší náklady (doprava, clo, manipulace...) v tabu "Náklady"
+- Každý náklad: popis, částka, režim rozpuštění (hodnotově / množstevně)
+- Systém automaticky rozpustí VPN na řádky příjemky:
+  - **Hodnotově (by_value):** poměrem dle qty × NC (řádky s NC = 0 se přeskočí, fallback na množstevně)
+  - **Množstevně (by_quantity):** poměrem dle qty
+- Výsledek: `overheadPerUnit` (VPN na MJ) a `fullUnitPrice` = NC + VPN/MJ (pořizovací cena)
+- Při potvrzení příjemky jde do stockMovements `fullUnitPrice` (ne prostá NC)
+- FIFO alokační engine čerpá pořizovací cenu automaticky (bez změn)
+- Na řádcích příjemky: sloupce VPN/MJ (readonly), PC (readonly)
+- "Zadat celkem" toggle: zadání celkové ceny řádku, NC = celkem / množství (dopočítáno)
+- VPN se přepočítává automaticky při každé změně nákladů i řádků
+- Na výdejkách se sloupce VPN/PC nezobrazují
+
+**Generování CF výdaje z příjemky:** ✅
+- Na potvrzené příjemce (účel = nákup) tlačítko "Vytvořit CF" → vytvoří CF výdaj s vazbou
+- Pokud CF vazba existuje → tlačítko "Otevřít CF" s navigací na detail
+- Auto-generování: dle nastavení provozovny (`autoCreateCfOnReceipt` + výchozí kategorie)
+- Storno příjemky: pokud má navázaný CF, nabídne "Stornovat také navázaný výdaj"
+- Cross-link sekce na detailu příjemky zobrazuje vazbu na CF
 
 **Byznys pravidla:**
 - Draft doklad nemění stav skladu — teprve potvrzení (confirmed) vytvoří movements
@@ -443,7 +478,12 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 **Vazby:**
 - Partner (dodavatel/zákazník)
 - Objednávka (příjem z prodeje)
-- Skladový doklad (výdaj za nákup)
+- Skladový doklad / příjemka (výdaj za nákup) — automaticky nebo manuálně z potvrzené příjemky
+
+**Generování z příjemky:** ✅
+- Potvrzená příjemka (účel = nákup) → tlačítko "Vytvořit CF" → CF výdaj (částka = totalCost, partner, kategorie)
+- Auto-generování při potvrzení příjemky dle nastavení provozovny (`autoCreateCfOnReceipt`)
+- Stornování příjemky nabídne stornování navázaného CF záznamu
 
 ### 7.2 Šablony a recurring ✅
 
@@ -492,7 +532,8 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - CRUD provozoven (pivovar, taproom, sklad, kancelář)
 - Adresa, výchozí provozovna
 - Zařízení a sklady patří pod provozovnu
-- **Tab "Parametry" (Sprint 3):** konfigurace režimu naskladnění (none/bulk/packaged), defaultní sklady (suroviny/pivo), cenotvorba surovin (calc_price/avg_stock/last_purchase), cenotvorba piva (fixed/recipe_calc/actual_costs), kalkulační vstupy (režie %, režie CZK, náklady var CZK). Logika se aplikuje až v Sprint 4/5.
+- **Tab "Parametry" (Sprint 3):** konfigurace režimu naskladnění (none/bulk/packaged), defaultní sklady (suroviny/pivo), cenotvorba surovin (calc_price/avg_stock/last_purchase), cenotvorba piva (fixed/recipe_calc/actual_costs), kalkulační vstupy (režie %, režie CZK, náklady var CZK).
+- **Parametry CF (Sprint 4 Patch):** `autoCreateCfOnReceipt` (automaticky generovat CF výdaj při potvrzení příjemky), `defaultReceiptCfCategoryId` (výchozí kategorie CF pro nákupy).
 
 ### 8.6 Sklady ✅
 - CRUD skladů s vazbou na provozovnu
@@ -674,10 +715,10 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | recipes | Pivovar | Receptury | ✅ |
 | batches | Pivovar | Vary | ✅ |
 | equipment | Pivovar | Zařízení | ✅ |
-| warehouses | Sklad | (Nastavení) | 📋 |
-| stock_issues | Sklad | Skladové pohyby | 📋 |
-| stock_movements | Sklad | (interní) | 📋 |
-| material_lots | Sklad | Tracking | 📋 |
+| warehouses | Sklad | (Nastavení) | ✅ |
+| stock_issues | Sklad | Skladové pohyby | ✅ |
+| stock_movements | Sklad | (interní) | ✅ |
+| material_lots | Sklad | Tracking | ✅ |
 | excise_movements | Sklad | Daňové pohyby | 📋 |
 | excise_monthly_reports | Sklad | Měsíční podání | 📋 |
 | orders | Obchod | Objednávky | ✅ |

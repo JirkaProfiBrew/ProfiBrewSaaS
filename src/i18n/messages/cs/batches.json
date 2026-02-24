@@ -62,7 +62,8 @@
     "dumpDescription": "Tato akce je nevratná. Várka bude označena jako zlikvidovaná.",
     "dumpReasonLabel": "Důvod likvidace",
     "dumpReasonPlaceholder": "Popište důvod likvidace...",
-    "confirmDump": "Zlikvidovat"
+    "confirmDump": "Zlikvidovat",
+    "bottlingRequired": "Před ukončením vyplňte stáčení (tab Stáčení)"
   },
   "steps": {
     "start": "Zahájit",
@@ -212,37 +213,29 @@
     "noLinkedIssues": "Zatím žádné výdejky surovin"
   },
   "bottling": {
-    "add": "Stáčení",
-    "addTitle": "Přidat stáčení",
-    "empty": "Žádné záznamy o stáčení",
-    "added": "Stáčení přidáno",
-    "addError": "Chyba při přidávání stáčení",
-    "deleted": "Stáčení smazáno",
-    "deleteError": "Chyba při mazání stáčení",
-    "cancel": "Zrušit",
-    "save": "Uložit",
-    "selectProduct": "Vyberte produkt",
+    "empty": "Várka nemá přiřazenou výrobní položku",
+    "noProducts": "Výrobní položka nemá žádné přiřazené produkty",
+    "modeNone": "Naskladnění piva je vypnuto v nastavení provozovny.",
+    "modeBulk": "Naskladnění vcelku — zadejte objem v litrech",
+    "modePackaged": "Naskladnění do obalů — zadejte kusy",
     "product": "Produkt",
-    "quantity": "Množství (ks)",
-    "volume": "Objem celkem (L)",
-    "date": "Datum stáčení",
-    "notes": "Poznámka",
-    "totalVolume": "Celkový objem",
-    "totalBottled": "Celkem nastáčeno",
-    "remaining": "Zbývá v tanku",
-    "columns": {
-      "product": "Produkt",
-      "quantity": "Množství (ks)",
-      "volume": "Objem (L)",
-      "date": "Datum stáčení",
-      "notes": "Poznámka"
-    },
-    "edited": "Stáčení aktualizováno",
-    "editError": "Chyba při aktualizaci stáčení",
-    "dialog": {
-      "title": "Přidat stáčení",
-      "editTitle": "Upravit stáčení",
-      "selectProduct": "Vyberte produkt"
+    "volume": "Objem (L)",
+    "unit": "MJ",
+    "amount": "Množství (L)",
+    "quantity": "Ks",
+    "lineTotal": "Celkem (L)",
+    "save": "Uložit",
+    "saved": "Stáčení uloženo",
+    "saveError": "Chyba při ukládání stáčení",
+    "summary": {
+      "totalBottled": "Stočeno celkem",
+      "recipeVolume": "Objem z receptury",
+      "tankVolume": "Objem z tanku",
+      "diffRecipe": "Rozdíl (receptura)",
+      "diffTank": "Rozdíl (tank)",
+      "surplus": "Přebytek",
+      "loss": "Ztráta",
+      "exact": "Beze zbytku"
     }
   },
   "notes": {

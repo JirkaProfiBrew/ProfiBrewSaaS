@@ -41,7 +41,9 @@
     "boilTime": "Doba varu (min)",
     "fermentationDays": "Kvašení (dní)",
     "conditioningDays": "Dokvašování (dní)",
-    "notes": "Poznámky"
+    "notes": "Poznámky",
+    "itemId": "Výrobní položka",
+    "itemIdPlaceholder": "Vyberte výrobní položku"
   },
   "ingredients": {
     "add": "Surovina",

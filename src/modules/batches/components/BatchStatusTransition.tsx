@@ -25,7 +25,7 @@ import { BATCH_STATUS_TRANSITIONS } from "../types";
 interface BatchStatusTransitionProps {
   batchId: string;
   currentStatus: string;
-  onTransition: () => void;
+  onTransition: (error?: string) => void;
 }
 
 export function BatchStatusTransition({
@@ -54,8 +54,14 @@ export function BatchStatusTransition({
         toast.success(t("statusTransition.success"));
         onTransition();
       } catch (error: unknown) {
-        console.error("Failed to transition batch status:", error);
-        toast.error(t("statusTransition.error"));
+        const msg = error instanceof Error ? error.message : "";
+        if (msg.includes("BOTTLING_REQUIRED")) {
+          toast.error(t("statusTransition.bottlingRequired"));
+          onTransition("BOTTLING_REQUIRED");
+        } else {
+          console.error("Failed to transition batch status:", error);
+          toast.error(t("statusTransition.error"));
+        }
       } finally {
         setIsTransitioning(false);
       }

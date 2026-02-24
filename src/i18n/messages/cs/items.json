@@ -117,6 +117,26 @@
     "unitReadonly": "Měrná jednotka je přednastavena",
     "selectUnit": "Vyberte jednotku"
   },
+  "tabs": {
+    "detail": "Základní informace",
+    "recipes": "Recepty",
+    "products": "Produkty",
+    "stock": "Stav skladu"
+  },
+  "productionTabs": {
+    "recipesEmpty": "Žádné recepty pro tuto výrobní položku",
+    "productsEmpty": "Žádné produkty pro tuto výrobní položku",
+    "addProduct": "Přidat produkt",
+    "recipeName": "Recept",
+    "recipeStyle": "Styl",
+    "recipeVolume": "Objem",
+    "recipeOG": "OG",
+    "recipeIBU": "IBU",
+    "recipeStatus": "Status",
+    "productName": "Produkt",
+    "productCode": "Kód",
+    "productVolume": "Objem (L)"
+  },
   "stockTab": {
     "title": "Stav skladu",
     "warehouse": "Sklad",

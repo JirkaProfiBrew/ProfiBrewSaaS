@@ -2,38 +2,11 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -41,419 +14,317 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
-import {
-  addBottlingItem,
-  updateBottlingItem,
-  deleteBottlingItem,
-  getProductionItemOptions,
-} from "../actions";
-import type { BottlingItem } from "../types";
+import { getBottlingLines, saveBottlingData } from "../actions";
+import type { BottlingLineData } from "../actions";
 
-// ── Helpers ────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 
-function formatDate(date: Date | null): string {
-  if (!date) return "-";
-  return new Date(date).toLocaleDateString("cs-CZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+interface ProductLine extends BottlingLineData {
+  // extends server data — no extra fields needed
 }
 
-/** Format a Date to date input value (YYYY-MM-DD). */
-function toDateInput(date: Date): string {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+interface BatchBottlingTabProps {
+  batchId: string;
+  itemId: string | null;
+  actualVolumeL: string | null;
+  recipeBatchSizeL: string | null;
+  onMutate: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────
 
-interface BatchBottlingTabProps {
-  batchId: string;
-  bottlingItems: BottlingItem[];
-  actualVolumeL: string | null;
-  onMutate: () => void;
-}
-
 export function BatchBottlingTab({
   batchId,
-  bottlingItems,
+  itemId,
   actualVolumeL,
+  recipeBatchSizeL,
   onMutate,
 }: BatchBottlingTabProps): React.ReactNode {
   const t = useTranslations("batches");
-  const tCommon = useTranslations("common");
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [productOptions, setProductOptions] = useState<
-    Array<{ value: string; label: string }>
-  >([]);
-  const [formData, setFormData] = useState({
-    itemId: "",
-    quantity: "",
-    bottledAt: "",
-    notes: "",
-  });
+  const [mode, setMode] = useState<"none" | "bulk" | "packaged" | null>(null);
+  const [lines, setLines] = useState<ProductLine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
-  // Load production items for the select
+  // Load bottling lines from server (auto-generated based on stock_mode)
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
-    getProductionItemOptions()
-      .then((options) => {
-        if (!cancelled) setProductOptions(options);
+    getBottlingLines(batchId)
+      .then((result) => {
+        if (cancelled) return;
+        setMode(result.mode);
+        setLines(result.lines);
+        setDirty(false);
+        setLoading(false);
       })
-      .catch((error: unknown) => {
-        console.error("Failed to load production items:", error);
+      .catch((err: unknown) => {
+        console.error("Failed to load bottling lines:", err);
+        if (!cancelled) {
+          setMode("none");
+          setLoading(false);
+        }
       });
 
     return (): void => {
       cancelled = true;
     };
-  }, []);
+  }, [batchId]);
 
-  const resetForm = useCallback((): void => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    setFormData({
-      itemId: "",
-      quantity: "",
-      bottledAt: `${year}-${month}-${day}`,
-      notes: "",
-    });
-  }, []);
-
-  // ── Open dialog handlers ──────────────────────────────────
-
-  const openAddDialog = useCallback((): void => {
-    setDialogMode("add");
-    setEditingId(null);
-    resetForm();
-    setDialogOpen(true);
-  }, [resetForm]);
-
-  const openEditDialog = useCallback((item: BottlingItem): void => {
-    setDialogMode("edit");
-    setEditingId(item.id);
-    setFormData({
-      itemId: item.itemId,
-      quantity: String(item.quantity),
-      bottledAt: item.bottledAt ? toDateInput(item.bottledAt) : "",
-      notes: item.notes ?? "",
-    });
-    setDialogOpen(true);
-  }, []);
-
-  // ── Save handlers ─────────────────────────────────────────
-
-  const handleAdd = useCallback(async (): Promise<void> => {
-    if (!formData.itemId || !formData.quantity) return;
-
-    const qty = parseInt(formData.quantity, 10);
-    if (isNaN(qty) || qty <= 0) return;
-
-    setIsSubmitting(true);
-    try {
-      await addBottlingItem(batchId, {
-        itemId: formData.itemId,
-        quantity: qty,
-        bottledAt: formData.bottledAt || undefined,
-        notes: formData.notes || null,
-      });
-      toast.success(t("bottling.added"));
-      setDialogOpen(false);
-      resetForm();
-      onMutate();
-    } catch (error: unknown) {
-      console.error("Failed to add bottling item:", error);
-      toast.error(t("bottling.addError"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [batchId, formData, onMutate, resetForm, t]);
-
-  const handleEdit = useCallback(async (): Promise<void> => {
-    if (!editingId || !formData.itemId || !formData.quantity) return;
-
-    const qty = parseInt(formData.quantity, 10);
-    if (isNaN(qty) || qty <= 0) return;
-
-    setIsSubmitting(true);
-    try {
-      await updateBottlingItem(editingId, {
-        itemId: formData.itemId,
-        quantity: qty,
-        bottledAt: formData.bottledAt || undefined,
-        notes: formData.notes || null,
-      });
-      toast.success(t("bottling.edited"));
-      setDialogOpen(false);
-      onMutate();
-    } catch (error: unknown) {
-      console.error("Failed to update bottling item:", error);
-      const msg = error instanceof Error ? error.message : String(error);
-      toast.error(`${t("bottling.editError")}: ${msg}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [editingId, formData, onMutate, t]);
-
-  const handleDialogSave = useCallback((): void => {
-    if (dialogMode === "edit") {
-      void handleEdit();
-    } else {
-      void handleAdd();
-    }
-  }, [dialogMode, handleAdd, handleEdit]);
-
-  const handleDelete = useCallback(
-    async (bottlingId: string): Promise<void> => {
-      try {
-        await deleteBottlingItem(bottlingId);
-        toast.success(t("bottling.deleted"));
-        onMutate();
-      } catch (error: unknown) {
-        console.error("Failed to delete bottling item:", error);
-        toast.error(t("bottling.deleteError"));
-      }
+  // Update quantity for a product line
+  const handleQtyChange = useCallback(
+    (itemIdKey: string, value: string, isBulk: boolean): void => {
+      const qty = isBulk ? parseFloat(value) : parseInt(value, 10);
+      setLines((prev) =>
+        prev.map((l) =>
+          l.itemId === itemIdKey
+            ? { ...l, quantity: isNaN(qty) ? 0 : Math.max(0, qty) }
+            : l
+        )
+      );
+      setDirty(true);
     },
-    [onMutate, t]
+    []
   );
 
-  // Summary: total bottled, remaining
-  const summary = useMemo(() => {
-    const totalBottled = bottlingItems.reduce((sum, item) => {
-      const units = item.baseUnits ? parseFloat(item.baseUnits) : 0;
-      return sum + units;
-    }, 0);
-    const totalVolume = actualVolumeL ? parseFloat(actualVolumeL) : 0;
-    const remaining = totalVolume - totalBottled;
+  // Save handler
+  const handleSave = useCallback(async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await saveBottlingData(
+        batchId,
+        lines.map((l) => ({
+          itemId: l.itemId,
+          quantity: l.quantity,
+          baseItemQuantity: l.baseItemQuantity,
+        }))
+      );
+      toast.success(t("bottling.saved"));
+      setDirty(false);
+      onMutate();
+    } catch (err: unknown) {
+      console.error("Failed to save bottling:", err);
+      toast.error(t("bottling.saveError"));
+    } finally {
+      setSaving(false);
+    }
+  }, [batchId, lines, onMutate, t]);
 
-    return { totalBottled, totalVolume, remaining };
-  }, [bottlingItems, actualVolumeL]);
+  // Summary calculations
+  const summary = useMemo(() => {
+    const totalBottled = lines.reduce(
+      (sum, l) => sum + l.quantity * l.baseItemQuantity,
+      0
+    );
+    const tankVolume = actualVolumeL ? Number(actualVolumeL) : null;
+    const recipeVolume = recipeBatchSizeL ? Number(recipeBatchSizeL) : null;
+
+    const diffTank = tankVolume !== null ? totalBottled - tankVolume : null;
+    const diffRecipe = recipeVolume !== null ? totalBottled - recipeVolume : null;
+
+    return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe };
+  }, [lines, actualVolumeL, recipeBatchSizeL]);
+
+  // ── Loading ──
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        ...
+      </div>
+    );
+  }
+
+  // ── Mode: none ──
+  if (mode === "none") {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        {t("bottling.modeNone")}
+      </div>
+    );
+  }
+
+  // ── No production item ──
+  if (!itemId) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        {t("bottling.empty")}
+      </div>
+    );
+  }
+
+  // ── No products (packaged) or no item data ──
+  if (lines.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        {t("bottling.noProducts")}
+      </div>
+    );
+  }
+
+  const isBulkMode = mode === "bulk";
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Summary */}
-      {actualVolumeL && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("bottling.totalVolume")}
-            </p>
-            <p className="text-lg font-semibold">
-              {summary.totalVolume.toFixed(1)} L
-            </p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("bottling.totalBottled")}
-            </p>
-            <p className="text-lg font-semibold">
-              {summary.totalBottled.toFixed(1)} L
-            </p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs text-muted-foreground">
-              {t("bottling.remaining")}
-            </p>
-            <p className="text-lg font-semibold">
-              {summary.remaining.toFixed(1)} L
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Add button */}
-      <div className="flex justify-end">
-        <Button size="sm" onClick={openAddDialog}>
-          <Plus className="mr-1 size-4" />
-          {t("bottling.add")}
-        </Button>
-      </div>
+      {/* Mode subtitle */}
+      <p className="text-sm text-muted-foreground">
+        {isBulkMode ? t("bottling.modeBulk") : t("bottling.modePackaged")}
+      </p>
 
       {/* Table */}
-      {bottlingItems.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          {t("bottling.empty")}
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("bottling.columns.product")}</TableHead>
-              <TableHead>{t("bottling.columns.quantity")}</TableHead>
-              <TableHead>{t("bottling.columns.volume")}</TableHead>
-              <TableHead>{t("bottling.columns.date")}</TableHead>
-              <TableHead>{t("bottling.columns.notes")}</TableHead>
-              <TableHead className="w-[80px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bottlingItems.map((item) => (
-              <TableRow key={item.id}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("bottling.product")}</TableHead>
+            <TableHead className="w-[120px] text-right">
+              {isBulkMode ? t("bottling.unit") : t("bottling.volume")}
+            </TableHead>
+            <TableHead className="w-[140px] text-right">
+              {isBulkMode ? t("bottling.amount") : t("bottling.quantity")}
+            </TableHead>
+            <TableHead className="w-[120px] text-right">
+              {t("bottling.lineTotal")}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {lines.map((line) => {
+            const lineTotal = line.quantity * line.baseItemQuantity;
+            return (
+              <TableRow key={line.itemId}>
                 <TableCell className="font-medium">
-                  {item.itemName ?? "-"}
-                  {item.itemCode && (
+                  {line.name}
+                  {line.code && (
                     <span className="ml-2 text-xs text-muted-foreground">
-                      ({item.itemCode})
+                      ({line.code})
                     </span>
                   )}
                 </TableCell>
-                <TableCell>{item.quantity}</TableCell>
-                <TableCell>
-                  {item.baseUnits ? `${item.baseUnits} L` : "-"}
+                <TableCell className="text-right tabular-nums">
+                  {line.isBulk ? "L" : line.baseItemQuantity}
                 </TableCell>
-                <TableCell>{formatDate(item.bottledAt)}</TableCell>
-                <TableCell className="max-w-[200px] truncate">
-                  {item.notes ?? "-"}
+                <TableCell className="text-right">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={line.isBulk ? "0.1" : "1"}
+                    className={cn(
+                      "h-8 text-right ml-auto",
+                      line.isBulk ? "w-28" : "w-20"
+                    )}
+                    value={line.quantity || ""}
+                    onChange={(e) =>
+                      handleQtyChange(line.itemId, e.target.value, line.isBulk)
+                    }
+                    placeholder="0"
+                  />
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon-xs"
-                      variant="ghost"
-                      onClick={() => openEditDialog(item)}
-                    >
-                      <Pencil className="size-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                        >
-                          <Trash2 className="size-3 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
-                          <AlertDialogDescription>{tCommon("confirmDeleteDescription")}</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              void handleDelete(item.id);
-                            }}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            {tCommon("delete")}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                <TableCell className="text-right tabular-nums font-medium">
+                  {lineTotal > 0 ? lineTotal.toFixed(1) : "-"}
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+            );
+          })}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={3} className="text-right font-semibold">
+              {t("bottling.summary.totalBottled")}
+            </TableCell>
+            <TableCell className="text-right font-semibold tabular-nums">
+              {summary.totalBottled.toFixed(1)} L
+            </TableCell>
+          </TableRow>
+        </TableFooter>
+      </Table>
 
-      {/* Add / Edit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {dialogMode === "edit"
-                ? t("bottling.dialog.editTitle")
-                : t("bottling.addTitle")}
-            </DialogTitle>
-          </DialogHeader>
+      {/* Summary */}
+      <div className="rounded-lg border p-4 space-y-2 text-sm">
+        <SummaryRow
+          label={t("bottling.summary.totalBottled")}
+          value={`${summary.totalBottled.toFixed(1)} L`}
+          bold
+        />
+        {summary.recipeVolume !== null && (
+          <SummaryRow
+            label={t("bottling.summary.recipeVolume")}
+            value={`${summary.recipeVolume.toFixed(1)} L`}
+          />
+        )}
+        {summary.tankVolume !== null && (
+          <SummaryRow
+            label={t("bottling.summary.tankVolume")}
+            value={`${summary.tankVolume.toFixed(1)} L`}
+          />
+        )}
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label>{t("bottling.columns.product")}</Label>
-              <Select
-                value={formData.itemId}
-                onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, itemId: val }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue
-                    placeholder={t("bottling.selectProduct")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {productOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {summary.diffRecipe !== null && (
+          <SummaryRow
+            label={t("bottling.summary.diffRecipe")}
+            value={formatDiff(summary.diffRecipe, t)}
+            className={diffColor(summary.diffRecipe)}
+          />
+        )}
+        {summary.diffTank !== null && (
+          <SummaryRow
+            label={t("bottling.summary.diffTank")}
+            value={formatDiff(summary.diffTank, t)}
+            className={diffColor(summary.diffTank)}
+            bold
+          />
+        )}
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label>{t("bottling.columns.quantity")}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      quantity: e.target.value,
-                    }))
-                  }
-                  placeholder="0"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label>{t("bottling.columns.date")}</Label>
-                <Input
-                  type="date"
-                  value={formData.bottledAt}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      bottledAt: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>{t("bottling.columns.notes")}</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
-                }
-                rows={2}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {t("bottling.cancel")}
-            </Button>
-            <Button
-              disabled={!formData.itemId || !formData.quantity || isSubmitting}
-              onClick={handleDialogSave}
-            >
-              {t("bottling.save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Save button */}
+      <div className="flex justify-end">
+        <Button onClick={() => void handleSave()} disabled={saving || !dirty}>
+          <Save className="mr-1 size-4" />
+          {t("bottling.save")}
+        </Button>
+      </div>
     </div>
   );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+function SummaryRow({
+  label,
+  value,
+  bold,
+  className,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  className?: string;
+}): React.ReactNode {
+  return (
+    <div className={cn("flex justify-between", bold && "font-semibold", className)}>
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function formatDiff(
+  diff: number,
+  t: ReturnType<typeof useTranslations<"batches">>
+): string {
+  if (diff === 0) return `0 L — ${t("bottling.summary.exact")}`;
+  const sign = diff > 0 ? "+" : "";
+  const label = diff > 0 ? t("bottling.summary.surplus") : t("bottling.summary.loss");
+  return `${sign}${diff.toFixed(1)} L — ${label}`;
+}
+
+function diffColor(diff: number): string {
+  if (diff > 0) return "text-green-600";
+  if (diff < 0) return "text-red-600";
+  return "text-muted-foreground";
 }

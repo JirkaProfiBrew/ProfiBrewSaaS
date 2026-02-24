@@ -237,10 +237,73 @@
 - [x] Sloučení tlačítek výdeje surovin: smazán `directProductionIssue()`, jedno tlačítko "Vydat suroviny" → draft výdejka → navigace na detail výdejky
 - [x] Vyčištění i18n klíčů (`prepareIssue`, `directIssue`, `confirmDirectIssue`, warning keys)
 
+### Přidáno — Vedlejší pořizovací náklady (VPN)
+- [x] DB schema: tabulka `receipt_costs` (id, tenant_id, stock_issue_id, description, amount, allocation, sort_order)
+- [x] DB schema: nové sloupce na `stock_issue_lines` — `overhead_per_unit`, `full_unit_price`
+- [x] Alokační engine `recalculateOverheadForReceipt()` — rozpuštění VPN na řádky hodnotově (by_value) nebo množstevně (by_quantity)
+- [x] CRUD server actions: `addReceiptCost`, `updateReceiptCost`, `removeReceiptCost` (draft-only)
+- [x] Automatický přepočet VPN při změně nákladů i řádků příjemky
+- [x] Confirm flow: `fullUnitPrice` (NC + VPN) → `stockMovements.unitPrice` → FIFO alokace čerpá pořizovací cenu
+- [x] Nový tab "Náklady" na detailu příjemky — inline-editable tabulka (popis, částka, režim rozpuštění)
+- [x] Sumář nákladů: Mezisoučet zboží (NC) | VPN | Celkem s VPN
+- [x] Finanční sloupce na řádcích příjemky: VPN/MJ (readonly), PC (readonly)
+- [x] Grand total na řádcích = SUM(qty × fullUnitPrice)
+- [x] "Zadat celkem" toggle — zadání celkové ceny řádku, NC = celkem / množství (dopočítáno)
+- [x] Přepočet NC při změně množství v režimu "Zadat celkem"
+- [x] Odebrán jednoduchý `additionalCost` z hlavičky příjemky (nahrazen receipt_costs)
+- [x] i18n: `tabs.costs`, `costs.*`, `lines.overheadPerUnit`, `lines.fullUnitPrice`, `lines.totalEntryMode` (cs + en)
+
+### Přidáno — Generování CF z příjemky
+- [x] Tlačítko "Vytvořit CF" na potvrzené příjemce (účel = nákup) → vytvoří CF výdaj s vazbou na příjemku
+- [x] Tlačítko "Otevřít CF" pokud CF vazba existuje → navigace na detail CF záznamu
+- [x] Auto-generování CF při potvrzení příjemky — dle nastavení provozovny (`autoCreateCfOnReceipt`)
+- [x] Nastavení provozovny: `autoCreateCfOnReceipt` toggle + `defaultReceiptCfCategoryId` výchozí kategorie
+- [x] CF záznam: typ=expense, částka=totalCost příjemky, partner, kategorie, vazba `stockIssueId`
+- [x] Storno dialog příjemky: detekce navázaného CF, nabídka "Stornovat také navázaný výdaj"
+- [x] Cross-link sekce na detailu příjemky (Cash flow → Otevřít)
+- [x] i18n: `detail.actions.createCashflow`, `detail.actions.openCashflow`, `detail.messages.*`, `detail.crossLinks.*` (cs + en)
+- [x] i18n: `cancelDialog.hasCashflow`, `cancelDialog.alsoCancelCf` (cs + en)
+
+### Přidáno — Redesign stáčení + vazba Recept→Výrobní položka
+- [x] DB schema: nový sloupec `recipes.item_id` (UUID → items) — vazba receptury na výrobní položku
+- [x] DB schema: nový sloupec `batches.packaging_loss_l` (DECIMAL) — ztráta při stáčení
+- [x] Recept: nové pole "Výrobní položka" (select) na detailu receptury, kopíruje se při duplikaci
+- [x] `getRecipesByItemId()` — nová server action pro vyhledávání receptů dle výrobní položky
+- [x] Vytvoření várky: `recipe.item_id` se automaticky kopíruje na `batch.item_id` (pokud batch nemá vlastní)
+- [x] Recipe snapshot: kopíruje `item_id` z originálu
+- [x] Stáčení tab — kompletní přepis: auto-generované řádky z prodejních položek (base_item_id = batch.item_id)
+- [x] `getProductsByBaseItem()` — nová server action vrací produkty navázané na výrobní položku
+- [x] `saveBottlingData()` — atomický save stáčení (delete + insert) + výpočet `packaging_loss_l`
+- [x] Sumář stáčení: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně: zelená/červená)
+- [x] Validace při dokončení várky: pokud batch má item_id ale žádné bottling_items → BOTTLING_REQUIRED
+- [x] Item detail: nový tab "Recepty" — seznam receptů s `recipe.item_id = thisItem.id` (pouze pro výrobní položky)
+- [x] Item detail: nový tab "Produkty" — seznam položek s `base_item_id = thisItem.id` + tlačítko "+ Produkt"
+- [x] i18n: `recipes.form.itemId`, `batches.bottling.*` (přepis), `items.tabs.*`, `items.productionTabs.*` (cs + en)
+
+### Přidáno — Sjednocení naskladnění piva (bulk + packaged)
+- [x] DB: `bottling_items.quantity` změněn z `integer` na `decimal` (podpora objemu v L pro bulk mód)
+- [x] `resolveShopSettings()` — resolve funkce: najde default/první aktivní shop, vrací `stock_mode` + `default_warehouse_beer_id`
+- [x] `getBottlingLines()` — auto-generování řádků dle stock_mode: bulk = 1 řádek (výrobní položka, MJ=L), packaged = N řádků (child items), none = prázdné
+- [x] Tab Stáčení: podpora tří módů (bulk/packaged/none) — popisek módu, adaptive input (decimal pro bulk, integer pro packaged)
+- [x] Přepis `onBatchCompleted()` — čte z bottling_items, N řádků příjemky, warehouse z shop settings
+- [x] Bulk fallback: pokud bottling data chybí → příjemka z actual_volume_l (zpětná kompatibilita)
+- [x] Validace batch completion: stock_mode-aware — packaged VYŽADUJE bottling data, bulk volitelné, none skip
+- [x] Error handling: BOTTLING_REQUIRED → toast + přepnutí na tab Stáčení
+- [x] i18n: `bottling.modeNone`, `bottling.modeBulk`, `bottling.modePackaged`, `bottling.unit`, `bottling.amount`, `statusTransition.bottlingRequired` (cs + en)
+
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
 - No scaleFactor: snapshot recipe items are the source of truth, amounts used directly
 - Material issue flow: always draft → review → confirm (no direct confirm)
+- VPN: `additionalCost` na hlavičce se stává computed cache = SUM(receipt_costs.amount), již se needituje ručně
+- VPN: recalculate engine běží MIMO transakci (PostgreSQL aborted transaction pattern)
+- VPN: `fullUnitPrice` jde do movements → FIFO alokační engine nepotřebuje žádné změny
+- CF z příjemky: automatické generování řízeno nastavením provozovny (shop parameters JSONB)
+- Stáčení: auto-generované řádky z prodejních položek — sládek zadává pouze ks, systém dopočítá objem
+- Sjednocení naskladnění: bulk i packaged čtou z bottling_items; onBatchCompleted tvoří příjemku z N řádků
+- Bottling validation: stock_mode-aware — packaged VYŽADUJE bottling data, bulk má fallback na actual_volume_l
+- `packaging_loss_l` = actual_volume_l − SUM(bottling ks × base_item_quantity); kladné = ztráta, záporné = přebytek
+- Shop settings resolution: default/first active shop → stock_mode + default_warehouse_beer_id
 
 ---
 

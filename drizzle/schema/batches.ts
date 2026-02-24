@@ -42,6 +42,7 @@ export const batches = pgTable(
     exciseRelevantHl: decimal("excise_relevant_hl"),
     exciseReportedHl: decimal("excise_reported_hl"),
     exciseStatus: text("excise_status"),
+    packagingLossL: decimal("packaging_loss_l"),
     isPaused: boolean("is_paused").default(false),
     notes: text("notes"),
     brewerId: uuid("brewer_id"),
@@ -148,7 +149,7 @@ export const bottlingItems = pgTable("bottling_items", {
   itemId: uuid("item_id")
     .notNull()
     .references(() => items.id),
-  quantity: integer("quantity").notNull(),
+  quantity: decimal("quantity").notNull(),
   baseUnits: decimal("base_units"),
   bottledAt: timestamp("bottled_at", { withTimezone: true }).defaultNow(),
   notes: text("notes"),

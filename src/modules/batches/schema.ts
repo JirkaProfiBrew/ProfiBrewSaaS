@@ -25,6 +25,7 @@ export const batchUpdateSchema = z.object({
   actualVolumeL: z.string().nullable().optional(),
   ogActual: z.string().nullable().optional(),
   fgActual: z.string().nullable().optional(),
+  packagingLossL: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
@@ -48,7 +49,7 @@ export type BatchMeasurementInput = z.infer<typeof batchMeasurementSchema>;
 /** Schema for adding a bottling item to a batch. */
 export const bottlingItemSchema = z.object({
   itemId: z.string().uuid(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().positive(),
   baseUnits: z.string().nullable().optional(),
   bottledAt: z.string().optional(), // ISO string
   notes: z.string().nullable().optional(),

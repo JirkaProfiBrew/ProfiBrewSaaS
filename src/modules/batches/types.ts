@@ -53,6 +53,7 @@ export interface Batch {
   ogActual: string | null;
   fgActual: string | null;
   abvActual: string | null;
+  packagingLossL: string | null;
   equipmentId: string | null;
   primaryBatchId: string | null;
   isPaused: boolean;

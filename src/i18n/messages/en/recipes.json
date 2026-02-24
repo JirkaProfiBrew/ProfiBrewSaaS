@@ -41,7 +41,9 @@
     "boilTime": "Boil Time (min)",
     "fermentationDays": "Fermentation (days)",
     "conditioningDays": "Conditioning (days)",
-    "notes": "Notes"
+    "notes": "Notes",
+    "itemId": "Production Item",
+    "itemIdPlaceholder": "Select production item"
   },
   "ingredients": {
     "add": "Ingredient",

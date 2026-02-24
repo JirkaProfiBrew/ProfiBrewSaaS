@@ -23,6 +23,8 @@ import type { Item } from "../types";
 import { useUnits } from "@/modules/units/hooks";
 import { ALLOWED_UNITS, HAS_RECIPE_UNIT } from "@/modules/units/types";
 import { ItemStockTab } from "./ItemStockTab";
+import { ItemRecipesTab } from "./ItemRecipesTab";
+import { ItemProductsTab } from "./ItemProductsTab";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -748,6 +750,12 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
               <TabsTrigger value="detail">
                 {t("detail.sections.basic")}
               </TabsTrigger>
+              {values.isProductionItem === true && (
+                <>
+                  <TabsTrigger value="recipes">{t("tabs.recipes")}</TabsTrigger>
+                  <TabsTrigger value="products">{t("tabs.products")}</TabsTrigger>
+                </>
+              )}
               <TabsTrigger value="stock">
                 {t("stockTab.title")}
               </TabsTrigger>
@@ -776,6 +784,16 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
                 })}
               </div>
             </TabsContent>
+            {values.isProductionItem === true && (
+              <>
+                <TabsContent value="recipes" className="mt-4">
+                  <ItemRecipesTab itemId={id} />
+                </TabsContent>
+                <TabsContent value="products" className="mt-4">
+                  <ItemProductsTab itemId={id} />
+                </TabsContent>
+              </>
+            )}
             <TabsContent value="stock" className="mt-4">
               <ItemStockTab itemId={id} />
             </TabsContent>

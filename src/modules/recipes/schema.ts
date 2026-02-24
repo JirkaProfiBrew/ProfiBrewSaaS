@@ -16,6 +16,7 @@ export const recipeCreateSchema = z.object({
   durationFermentationDays: z.number().int().min(0).nullable().optional(),
   durationConditioningDays: z.number().int().min(0).nullable().optional(),
   notes: z.string().nullable().optional(),
+  itemId: z.string().uuid().nullable().optional(),
 });
 
 /** Schema for creating a recipe ingredient line. */

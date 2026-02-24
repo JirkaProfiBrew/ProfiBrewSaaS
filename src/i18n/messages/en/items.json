@@ -117,6 +117,26 @@
     "unitReadonly": "Unit is preset",
     "selectUnit": "Select unit"
   },
+  "tabs": {
+    "detail": "Details",
+    "recipes": "Recipes",
+    "products": "Products",
+    "stock": "Stock Status"
+  },
+  "productionTabs": {
+    "recipesEmpty": "No recipes for this production item",
+    "productsEmpty": "No products for this production item",
+    "addProduct": "Add Product",
+    "recipeName": "Recipe",
+    "recipeStyle": "Style",
+    "recipeVolume": "Volume",
+    "recipeOG": "OG",
+    "recipeIBU": "IBU",
+    "recipeStatus": "Status",
+    "productName": "Product",
+    "productCode": "Code",
+    "productVolume": "Volume (L)"
+  },
   "stockTab": {
     "title": "Stock Status",
     "warehouse": "Warehouse",
