@@ -537,7 +537,18 @@ function StockIssueLineRow({
               setRequestedQty(e.target.value);
             }}
             onBlur={() => {
-              handleBlur("requestedQty", requestedQty, line.requestedQty);
+              if (requestedQty !== line.requestedQty) {
+                void onUpdateField(line.id, "requestedQty", requestedQty);
+                // In totalEntryMode: recompute unitPrice from existing total
+                if (totalEntryMode && isReceipt) {
+                  const total = toNumber(totalLinePrice);
+                  const newQty = toNumber(requestedQty);
+                  const computedUnitPrice =
+                    newQty > 0 ? String(total / newQty) : "0";
+                  setUnitPrice(computedUnitPrice);
+                  void onUpdateField(line.id, "unitPrice", computedUnitPrice);
+                }
+              }
             }}
           />
         ) : (
