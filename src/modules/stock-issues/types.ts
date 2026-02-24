@@ -81,13 +81,44 @@ export interface StockIssueLine {
   expiryDate: string | null;
   lotAttributes: Record<string, unknown>;
   remainingQty: string | null;
+  // VPN (vedlejší pořizovací náklady) — computed by recalculate
+  overheadPerUnit: string;
+  fullUnitPrice: string | null;
   createdAt: Date | null;
+}
+
+// ── Receipt Costs (VPN — vedlejší pořizovací náklady) ─────────
+
+export type CostAllocation = "by_value" | "by_quantity";
+
+export interface ReceiptCost {
+  id: string;
+  tenantId: string;
+  stockIssueId: string;
+  description: string;
+  amount: string;
+  allocation: CostAllocation;
+  sortOrder: number;
+  createdAt: Date | null;
+}
+
+export interface CreateReceiptCostInput {
+  description: string;
+  amount: string;
+  allocation?: CostAllocation;
+}
+
+export interface UpdateReceiptCostInput {
+  description?: string;
+  amount?: string;
+  allocation?: CostAllocation;
 }
 
 // ── Composite types ───────────────────────────────────────────
 
 export interface StockIssueWithLines extends StockIssue {
   lines: StockIssueLine[];
+  costs: ReceiptCost[];
 }
 
 // ── Input types ───────────────────────────────────────────────

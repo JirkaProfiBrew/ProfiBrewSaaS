@@ -69,7 +69,6 @@ interface StockIssueLineTableProps {
     materialType: string | null;
     issueMode: string;
   }>;
-  additionalCost?: string;
   warehouseId: string;
 }
 
@@ -103,12 +102,12 @@ export function StockIssueLineTable({
   isDraft,
   onMutate,
   itemOptions,
-  additionalCost,
   warehouseId,
 }: StockIssueLineTableProps): React.ReactNode {
   const t = useTranslations("stockIssues");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [totalEntryMode, setTotalEntryMode] = useState(false);
   const [lotDialogState, setLotDialogState] = useState<{
     lineId: string;
     itemId: string;
@@ -199,17 +198,26 @@ export function StockIssueLineTable({
   // ── Computed totals ─────────────────────────────────────────
 
   const subtotal = lines.reduce(
-    (sum, line) => sum + toNumber(line.totalCost),
+    (sum, line) => sum + toNumber(line.requestedQty) * toNumber(line.unitPrice),
     0
   );
-  const additionalCostNum = toNumber(additionalCost);
-  const grandTotal = subtotal + additionalCostNum;
+  // For receipts: grand total includes VPN (full unit price)
+  const grandTotal = isReceipt
+    ? lines.reduce(
+        (sum, line) =>
+          sum +
+          toNumber(line.requestedQty) *
+            toNumber(line.fullUnitPrice ?? line.unitPrice),
+        0
+      )
+    : subtotal;
 
   // ── Column count for footer ─────────────────────────────────
 
   // Base columns: lineNo, item, qty/requested, unitPrice, totalCost, notes
   let colCount = 6;
   if (isReceipt) colCount += 3; // lotNumber, expiryDate, lotAttributes
+  if (isReceipt) colCount += 2; // overheadPerUnit, fullUnitPrice
   if (isConfirmedIssue) colCount += 2; // actualQty, missingQty
   if (isDraft) colCount += 1; // actions
 
@@ -223,18 +231,31 @@ export function StockIssueLineTable({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">{t("tabs.lines")}</h3>
-        {isDraft && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setAddDialogOpen(true);
-            }}
-          >
-            <Plus className="mr-1 size-4" />
-            {t("lines.addLine")}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isDraft && isReceipt && (
+            <Button
+              size="sm"
+              variant={totalEntryMode ? "default" : "ghost"}
+              onClick={() => {
+                setTotalEntryMode((prev) => !prev);
+              }}
+            >
+              {t("lines.totalEntryMode")}
+            </Button>
+          )}
+          {isDraft && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAddDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-1 size-4" />
+              {t("lines.addLine")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -264,6 +285,12 @@ export function StockIssueLineTable({
                 )}
                 <TableHead className="w-28">{t("lines.unitPrice")}</TableHead>
                 <TableHead className="w-28">{t("lines.totalCost")}</TableHead>
+                {isReceipt && (
+                  <TableHead className="w-28">{t("lines.overheadPerUnit")}</TableHead>
+                )}
+                {isReceipt && (
+                  <TableHead className="w-28 font-bold">{t("lines.fullUnitPrice")}</TableHead>
+                )}
                 <TableHead>{t("lines.notes")}</TableHead>
                 {isReceipt && <TableHead className="w-28">{t("lines.lotNumber")}</TableHead>}
                 {isReceipt && <TableHead className="w-28">{t("lines.expiryDate")}</TableHead>}
@@ -283,6 +310,7 @@ export function StockIssueLineTable({
                     isDraft={isDraft}
                     isReceipt={isReceipt}
                     isConfirmedIssue={isConfirmedIssue}
+                    totalEntryMode={totalEntryMode}
                     itemOptions={itemOptions}
                     onUpdateField={handleUpdateField}
                     onRemove={handleRemoveLine}
@@ -308,32 +336,6 @@ export function StockIssueLineTable({
               })}
             </TableBody>
             <TableFooter>
-              <TableRow>
-                <TableCell
-                  colSpan={footerLabelSpan}
-                  className="text-right font-medium"
-                >
-                  {t("lines.subtotal")}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {formatCurrency(subtotal)}
-                </TableCell>
-                {footerTrailSpan > 0 && <TableCell colSpan={footerTrailSpan} />}
-              </TableRow>
-              {additionalCostNum > 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={footerLabelSpan}
-                    className="text-right font-medium"
-                  >
-                    {t("lines.additionalCost")}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {formatCurrency(additionalCostNum)}
-                  </TableCell>
-                  {footerTrailSpan > 0 && <TableCell colSpan={footerTrailSpan} />}
-                </TableRow>
-              )}
               <TableRow>
                 <TableCell
                   colSpan={footerLabelSpan}
@@ -419,6 +421,7 @@ interface StockIssueLineRowProps {
   isDraft: boolean;
   isReceipt: boolean;
   isConfirmedIssue: boolean;
+  totalEntryMode: boolean;
   itemOptions: Array<{ value: string; label: string }>;
   onUpdateField: (
     lineId: string,
@@ -440,6 +443,7 @@ function StockIssueLineRow({
   isDraft,
   isReceipt,
   isConfirmedIssue,
+  totalEntryMode,
   itemOptions,
   onUpdateField,
   onRemove,
@@ -454,6 +458,9 @@ function StockIssueLineRow({
   const tCommon = useTranslations("common");
   const [requestedQty, setRequestedQty] = useState(line.requestedQty);
   const [unitPrice, setUnitPrice] = useState(line.unitPrice ?? "0");
+  const [totalLinePrice, setTotalLinePrice] = useState(
+    String(toNumber(line.requestedQty) * toNumber(line.unitPrice))
+  );
   const [notes, setNotes] = useState(line.notes ?? "");
   const [lotNumber, setLotNumber] = useState(line.lotNumber ?? "");
   const [expiryDate, setExpiryDate] = useState(line.expiryDate ?? "");
@@ -466,6 +473,10 @@ function StockIssueLineRow({
   const displayTotal = isReceipt
     ? requestedNum * unitPriceNum
     : toNumber(line.totalCost);
+
+  // VPN columns
+  const overheadPerUnitNum = toNumber(line.overheadPerUnit);
+  const fullUnitPriceNum = toNumber(line.fullUnitPrice ?? line.unitPrice);
 
   // Missing: only for confirmed issues
   const missing = isConfirmedIssue
@@ -552,7 +563,7 @@ function StockIssueLineRow({
 
       {/* Unit Price */}
       <TableCell>
-        {isDraft && isReceipt ? (
+        {isDraft && isReceipt && !totalEntryMode ? (
           <Input
             type="number"
             min="0"
@@ -566,15 +577,57 @@ function StockIssueLineRow({
               handleBlur("unitPrice", unitPrice, line.unitPrice ?? "0");
             }}
           />
+        ) : isDraft && isReceipt && totalEntryMode ? (
+          <span className="text-sm text-muted-foreground">
+            {formatCurrency(unitPriceNum)}
+          </span>
         ) : (
           <span>{formatCurrency(unitPriceNum)}</span>
         )}
       </TableCell>
 
-      {/* Total */}
+      {/* Total NC */}
       <TableCell className="font-medium">
-        {formatCurrency(displayTotal)}
+        {isDraft && isReceipt && totalEntryMode ? (
+          <Input
+            type="number"
+            min="0"
+            step="any"
+            className="h-8 w-24"
+            value={totalLinePrice}
+            onChange={(e) => {
+              setTotalLinePrice(e.target.value);
+            }}
+            onBlur={() => {
+              // Compute unit price = total / qty
+              const total = toNumber(totalLinePrice);
+              const qty = toNumber(requestedQty);
+              const computedUnitPrice =
+                qty > 0 ? String(total / qty) : "0";
+              setUnitPrice(computedUnitPrice);
+              void onUpdateField(line.id, "unitPrice", computedUnitPrice);
+            }}
+          />
+        ) : (
+          <span className="font-medium">{formatCurrency(displayTotal)}</span>
+        )}
       </TableCell>
+
+      {/* VPN / MJ (overhead per unit) — receipt only */}
+      {isReceipt && (
+        <TableCell className="text-sm text-muted-foreground">
+          {overheadPerUnitNum > 0
+            ? formatCurrency(overheadPerUnitNum)
+            : "\u2014"}
+        </TableCell>
+      )}
+
+      {/* PC (full unit price) — receipt only */}
+      {isReceipt && (
+        <TableCell className="font-bold">
+          {formatCurrency(fullUnitPriceNum)}
+        </TableCell>
+      )}
 
       {/* Notes */}
       <TableCell>

@@ -9,6 +9,7 @@ import {
   stockIssues,
   stockIssueLines,
   stockMovements,
+  receiptCosts,
 } from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
 import { warehouses } from "@/../drizzle/schema/warehouses";
@@ -25,10 +26,13 @@ import type {
   StockIssue,
   StockIssueLine,
   StockIssueWithLines,
+  ReceiptCost,
   CreateStockIssueInput,
   UpdateStockIssueInput,
   CreateLineInput,
   UpdateLineInput,
+  CreateReceiptCostInput,
+  UpdateReceiptCostInput,
   StockIssueFilter,
   AvailableReceiptLine,
   ManualAllocationInput,
@@ -37,6 +41,7 @@ import type {
   BlockingIssueInfo,
   PrevalidationResult,
   PrevalidationWarning,
+  CostAllocation,
 } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -108,6 +113,23 @@ function mapLineRow(
     expiryDate: row.expiryDate ?? null,
     lotAttributes: (row.lotAttributes as Record<string, unknown>) ?? {},
     remainingQty: row.remainingQty ?? null,
+    overheadPerUnit: row.overheadPerUnit ?? "0",
+    fullUnitPrice: row.fullUnitPrice ?? null,
+    createdAt: row.createdAt,
+  };
+}
+
+function mapCostRow(
+  row: typeof receiptCosts.$inferSelect
+): ReceiptCost {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    stockIssueId: row.stockIssueId,
+    description: row.description,
+    amount: row.amount,
+    allocation: (row.allocation as CostAllocation) ?? "by_value",
+    sortOrder: row.sortOrder ?? 0,
     createdAt: row.createdAt,
   };
 }
@@ -223,6 +245,16 @@ export async function getStockIssue(
       );
     }
 
+    // Load receipt costs (for receipts only)
+    const costRows =
+      issueRow.movementType === "receipt"
+        ? await db
+            .select()
+            .from(receiptCosts)
+            .where(eq(receiptCosts.stockIssueId, id))
+            .orderBy(receiptCosts.sortOrder, receiptCosts.createdAt)
+        : [];
+
     return {
       ...mapIssueRow(issueRow, { cashflowCode: row.cashflowCode }),
       lines: lineRows.map((lr) =>
@@ -231,6 +263,7 @@ export async function getStockIssue(
           isConfirmedIssue ? (computedActuals[lr.id] ?? "0") : undefined
         )
       ),
+      costs: costRows.map(mapCostRow),
     };
   });
 }
@@ -346,7 +379,10 @@ export async function addStockIssueLine(
   return withTenant(async (tenantId) => {
     // Verify draft status
     const existing = await db
-      .select({ status: stockIssues.status })
+      .select({
+        status: stockIssues.status,
+        movementType: stockIssues.movementType,
+      })
       .from(stockIssues)
       .where(
         and(
@@ -398,6 +434,12 @@ export async function addStockIssueLine(
 
     const row = rows[0];
     if (!row) throw new Error("Failed to add line");
+
+    // Recalculate VPN if this is a receipt (costs get redistributed with new line)
+    if (existing[0].movementType === "receipt") {
+      await recalculateOverheadForReceipt(tenantId, issueId);
+    }
+
     return mapLineRow(row);
   });
 }
@@ -413,6 +455,7 @@ export async function updateStockIssueLine(
       .select({
         line: stockIssueLines,
         issueStatus: stockIssues.status,
+        issueMovementType: stockIssues.movementType,
       })
       .from(stockIssueLines)
       .innerJoin(
@@ -465,6 +508,12 @@ export async function updateStockIssueLine(
 
     const row = rows[0];
     if (!row) throw new Error("Stock issue line not found");
+
+    // Recalculate VPN if this is a receipt (qty or price changed → overhead redistribution)
+    if (lineRow[0].issueMovementType === "receipt") {
+      await recalculateOverheadForReceipt(tenantId, current.stockIssueId);
+    }
+
     return mapLineRow(row);
   });
 }
@@ -474,7 +523,11 @@ export async function removeStockIssueLine(lineId: string): Promise<void> {
   return withTenant(async (tenantId) => {
     // Verify draft status
     const lineRow = await db
-      .select({ issueStatus: stockIssues.status })
+      .select({
+        issueId: stockIssueLines.stockIssueId,
+        issueStatus: stockIssues.status,
+        issueMovementType: stockIssues.movementType,
+      })
       .from(stockIssueLines)
       .innerJoin(
         stockIssues,
@@ -493,6 +546,8 @@ export async function removeStockIssueLine(lineId: string): Promise<void> {
       throw new Error("Can only remove lines from draft stock issues");
     }
 
+    const { issueId, issueMovementType } = lineRow[0];
+
     // manualAllocations JSONB is on the line itself — deleted with the line
     await db
       .delete(stockIssueLines)
@@ -502,6 +557,268 @@ export async function removeStockIssueLine(lineId: string): Promise<void> {
           eq(stockIssueLines.id, lineId)
         )
       );
+
+    // Recalculate VPN if this is a receipt (costs redistribute across remaining lines)
+    if (issueMovementType === "receipt") {
+      await recalculateOverheadForReceipt(tenantId, issueId);
+    }
+  });
+}
+
+// ── VPN: Recalculate overhead on receipt lines ──────────────
+
+/**
+ * Recalculate overhead_per_unit and full_unit_price for all lines of a receipt.
+ * Called after adding/updating/removing costs or lines.
+ * IMPORTANT: runs OUTSIDE a transaction (per memory: aborted tx issue).
+ */
+async function recalculateOverheadForReceipt(
+  tenantId: string,
+  issueId: string
+): Promise<void> {
+  // 1. Load costs
+  const costs = await db
+    .select()
+    .from(receiptCosts)
+    .where(
+      and(
+        eq(receiptCosts.tenantId, tenantId),
+        eq(receiptCosts.stockIssueId, issueId)
+      )
+    );
+
+  // 2. Load lines
+  const lines = await db
+    .select({
+      id: stockIssueLines.id,
+      requestedQty: stockIssueLines.requestedQty,
+      unitPrice: stockIssueLines.unitPrice,
+    })
+    .from(stockIssueLines)
+    .where(eq(stockIssueLines.stockIssueId, issueId));
+
+  // 3. Compute per-line overhead
+  const lineData = lines.map((l) => ({
+    id: l.id,
+    qty: Number(l.requestedQty),
+    nc: Number(l.unitPrice ?? "0"),
+  }));
+
+  const totalQty = lineData.reduce((s, l) => s + l.qty, 0);
+  const totalValue = lineData.reduce((s, l) => s + l.qty * l.nc, 0);
+
+  // Per-line accumulated overhead
+  const overheadMap: Record<string, number> = {};
+  for (const l of lineData) {
+    overheadMap[l.id] = 0;
+  }
+
+  for (const cost of costs) {
+    const costAmount = Number(cost.amount);
+    if (costAmount === 0) continue;
+
+    const allocation = (cost.allocation as CostAllocation) ?? "by_value";
+    const useByValue = allocation === "by_value" && totalValue > 0;
+    const useByQty = !useByValue && totalQty > 0;
+
+    if (!useByValue && !useByQty) continue; // no lines or zero denominators
+
+    for (const l of lineData) {
+      let share: number;
+      if (useByValue) {
+        share = totalValue > 0 ? (l.qty * l.nc) / totalValue : 0;
+      } else {
+        share = totalQty > 0 ? l.qty / totalQty : 0;
+      }
+      overheadMap[l.id] = (overheadMap[l.id] ?? 0) + costAmount * share;
+    }
+  }
+
+  // 4. Update each line
+  for (const l of lineData) {
+    const lineOverhead = overheadMap[l.id] ?? 0;
+    const overheadPerUnit = l.qty > 0 ? lineOverhead / l.qty : 0;
+    const fullUnitPrice = l.nc + overheadPerUnit;
+
+    await db
+      .update(stockIssueLines)
+      .set({
+        overheadPerUnit: String(overheadPerUnit),
+        fullUnitPrice: String(fullUnitPrice),
+      })
+      .where(eq(stockIssueLines.id, l.id));
+  }
+
+  // 5. Backfill additionalCost on header = SUM(costs.amount)
+  const totalCostAmount = costs.reduce(
+    (s, c) => s + Number(c.amount),
+    0
+  );
+  await db
+    .update(stockIssues)
+    .set({
+      additionalCost: String(totalCostAmount),
+      updatedAt: sql`now()`,
+    })
+    .where(eq(stockIssues.id, issueId));
+}
+
+// ── CRUD: Receipt Costs ───────────────────────────────────────
+
+/** Add a receipt cost line. Only in draft status. */
+export async function addReceiptCost(
+  issueId: string,
+  data: CreateReceiptCostInput
+): Promise<ReceiptCost> {
+  return withTenant(async (tenantId) => {
+    // Verify draft receipt
+    const existing = await db
+      .select({
+        status: stockIssues.status,
+        movementType: stockIssues.movementType,
+      })
+      .from(stockIssues)
+      .where(
+        and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, issueId))
+      )
+      .limit(1);
+
+    if (!existing[0]) throw new Error("Stock issue not found");
+    if (existing[0].status !== "draft")
+      throw new Error("Can only add costs to draft receipts");
+    if (existing[0].movementType !== "receipt")
+      throw new Error("Costs can only be added to receipts");
+
+    // Get next sort order
+    const maxSort = await db
+      .select({
+        max: sql<number>`COALESCE(MAX(${receiptCosts.sortOrder}), 0)`,
+      })
+      .from(receiptCosts)
+      .where(eq(receiptCosts.stockIssueId, issueId));
+
+    const nextSort = (maxSort[0]?.max ?? 0) + 1;
+
+    const rows = await db
+      .insert(receiptCosts)
+      .values({
+        tenantId,
+        stockIssueId: issueId,
+        description: data.description,
+        amount: data.amount,
+        allocation: data.allocation ?? "by_value",
+        sortOrder: nextSort,
+      })
+      .returning();
+
+    const row = rows[0];
+    if (!row) throw new Error("Failed to add receipt cost");
+
+    // Recalculate overhead
+    await recalculateOverheadForReceipt(tenantId, issueId);
+
+    return mapCostRow(row);
+  });
+}
+
+/** Update a receipt cost line. Only in draft status. */
+export async function updateReceiptCost(
+  costId: string,
+  data: UpdateReceiptCostInput
+): Promise<ReceiptCost> {
+  return withTenant(async (tenantId) => {
+    // Load cost + verify draft
+    const costRow = await db
+      .select({
+        cost: receiptCosts,
+        issueStatus: stockIssues.status,
+      })
+      .from(receiptCosts)
+      .innerJoin(
+        stockIssues,
+        eq(receiptCosts.stockIssueId, stockIssues.id)
+      )
+      .where(
+        and(
+          eq(receiptCosts.tenantId, tenantId),
+          eq(receiptCosts.id, costId)
+        )
+      )
+      .limit(1);
+
+    if (!costRow[0]) throw new Error("Receipt cost not found");
+    if (costRow[0].issueStatus !== "draft")
+      throw new Error("Can only edit costs on draft receipts");
+
+    const current = costRow[0].cost;
+    const issueId = current.stockIssueId;
+
+    const rows = await db
+      .update(receiptCosts)
+      .set({
+        description:
+          data.description !== undefined ? data.description : current.description,
+        amount: data.amount !== undefined ? data.amount : current.amount,
+        allocation:
+          data.allocation !== undefined ? data.allocation : current.allocation,
+      })
+      .where(
+        and(
+          eq(receiptCosts.tenantId, tenantId),
+          eq(receiptCosts.id, costId)
+        )
+      )
+      .returning();
+
+    const row = rows[0];
+    if (!row) throw new Error("Receipt cost not found");
+
+    // Recalculate overhead
+    await recalculateOverheadForReceipt(tenantId, issueId);
+
+    return mapCostRow(row);
+  });
+}
+
+/** Remove a receipt cost line. Only in draft status. */
+export async function removeReceiptCost(costId: string): Promise<void> {
+  return withTenant(async (tenantId) => {
+    // Load cost + verify draft
+    const costRow = await db
+      .select({
+        issueId: receiptCosts.stockIssueId,
+        issueStatus: stockIssues.status,
+      })
+      .from(receiptCosts)
+      .innerJoin(
+        stockIssues,
+        eq(receiptCosts.stockIssueId, stockIssues.id)
+      )
+      .where(
+        and(
+          eq(receiptCosts.tenantId, tenantId),
+          eq(receiptCosts.id, costId)
+        )
+      )
+      .limit(1);
+
+    if (!costRow[0]) throw new Error("Receipt cost not found");
+    if (costRow[0].issueStatus !== "draft")
+      throw new Error("Can only remove costs from draft receipts");
+
+    const issueId = costRow[0].issueId;
+
+    await db
+      .delete(receiptCosts)
+      .where(
+        and(
+          eq(receiptCosts.tenantId, tenantId),
+          eq(receiptCosts.id, costId)
+        )
+      );
+
+    // Recalculate overhead
+    await recalculateOverheadForReceipt(tenantId, issueId);
   });
 }
 
@@ -652,8 +969,11 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
 
         if (isReceipt) {
           // ── RECEIPT: single "in" movement, set remaining_qty ──
-          const unitPrice = Number(line.unitPrice ?? "0");
-          const lineTotalCost = requestedQty * unitPrice;
+          // Use fullUnitPrice (NC + VPN) if available, else fallback to unitPrice
+          const effectiveUnitPrice = Number(
+            line.fullUnitPrice ?? line.unitPrice ?? "0"
+          );
+          const lineTotalCost = requestedQty * effectiveUnitPrice;
 
           await tx.insert(stockMovements).values({
             tenantId,
@@ -661,7 +981,7 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
             warehouseId: issue.warehouseId,
             movementType: "in",
             quantity: String(requestedQty),
-            unitPrice: line.unitPrice,
+            unitPrice: String(effectiveUnitPrice), // PC (pořizovací cena) goes into movement
             stockIssueId: id,
             stockIssueLineId: line.id,
             batchId: issue.batchId,
@@ -674,7 +994,6 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
             .update(stockIssueLines)
             .set({
               issuedQty: String(requestedQty),
-              unitPrice: String(unitPrice),
               totalCost: String(lineTotalCost),
               remainingQty: String(requestedQty),
             })
@@ -805,8 +1124,10 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
       }
 
       // 4. Update issue header
-      const additionalCost = Number(issue.additionalCost ?? "0");
-      const totalCost = documentTotalCost + additionalCost;
+      // For receipts: VPN is already included in fullUnitPrice on each line,
+      // so documentTotalCost already contains NC + VPN. No need to add additionalCost.
+      // For issues: no VPN concept, just use documentTotalCost as is.
+      const totalCost = documentTotalCost;
 
       const updatedRows = await tx
         .update(stockIssues)

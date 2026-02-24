@@ -79,6 +79,7 @@
   "tabs": {
     "header": "Hlavička",
     "lines": "Položky",
+    "costs": "Náklady",
     "movements": "Pohyby",
     "allocations": "Alokace"
   },
@@ -131,6 +132,9 @@
     "lotAttributes": "Atributy šarže",
     "quantity": "Množství",
     "actualQty": "Skutečné",
+    "overheadPerUnit": "VPN/MJ",
+    "fullUnitPrice": "PC",
+    "totalEntryMode": "Zadat celkem",
     "lotAttr": {
       "title": "Atributy šarže",
       "extractPercent": "Výtěžnost (%)",
@@ -139,6 +143,27 @@
       "actualAlpha": "Skutečná alpha (%)",
       "generation": "Generace",
       "viability": "Životaschopnost (%)"
+    }
+  },
+  "costs": {
+    "title": "Vedlejší pořizovací náklady",
+    "description": "Náklady se rozpustí na řádky příjemky a zvýší pořizovací cenu (PC).",
+    "addCost": "Přidat náklad",
+    "noCosts": "Zatím žádné vedlejší náklady",
+    "descriptionCol": "Popis",
+    "descriptionPlaceholder": "Např. doprava, clo…",
+    "amount": "Částka",
+    "allocation": "Rozpuštění",
+    "allocationByValue": "Hodnotově",
+    "allocationByQuantity": "Množstevně",
+    "removed": "Náklad odstraněn",
+    "addError": "Chyba při přidávání nákladu",
+    "updateError": "Chyba při aktualizaci nákladu",
+    "removeError": "Chyba při odstraňování nákladu",
+    "summary": {
+      "goodsSubtotal": "Zboží (NC)",
+      "overhead": "Vedlejší náklady (VPN)",
+      "grandTotal": "CELKEM s VPN"
     }
   },
   "partialIssue": {

@@ -93,10 +93,37 @@ export const stockIssueLines = pgTable(
     expiryDate: date("expiry_date"),
     lotAttributes: jsonb("lot_attributes").default({}),
     remainingQty: decimal("remaining_qty"), // materialized: for receipts = issuedQty - allocated
+    // VPN (vedlejší pořizovací náklady) — computed by recalculateOverheadForReceipt
+    overheadPerUnit: decimal("overhead_per_unit").default("0"),
+    fullUnitPrice: decimal("full_unit_price"), // unitPrice + overheadPerUnit (= pořizovací cena)
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
     index("idx_stock_issue_lines_issue").on(table.stockIssueId),
+  ]
+);
+
+// ============================================================
+// RECEIPT COSTS (vedlejší pořizovací náklady on receipts)
+// ============================================================
+export const receiptCosts = pgTable(
+  "receipt_costs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    stockIssueId: uuid("stock_issue_id")
+      .notNull()
+      .references(() => stockIssues.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    amount: decimal("amount").notNull().default("0"),
+    allocation: text("allocation").notNull().default("by_value"), // 'by_value' | 'by_quantity'
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_receipt_costs_issue").on(table.stockIssueId),
   ]
 );
 

@@ -55,6 +55,7 @@ import type { MovementType, MovementPurpose } from "../types";
 import { StockIssueLineTable } from "./StockIssueLineTable";
 import { StockIssueConfirmDialog } from "./StockIssueConfirmDialog";
 import { StockIssueCancelDialog } from "./StockIssueCancelDialog";
+import { ReceiptCostsTab } from "./ReceiptCostsTab";
 
 // ── Status Badge ────────────────────────────────────────────────
 
@@ -187,7 +188,6 @@ export function StockIssueDetail({
     partnerId: "__none__",
     batchId: paramBatchId ?? "",
     season: "",
-    additionalCost: "0",
     notes: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -227,7 +227,6 @@ export function StockIssueDetail({
         partnerId: issueDetail.partnerId ?? "__none__",
         batchId: issueDetail.batchId ?? "",
         season: issueDetail.season ?? "",
-        additionalCost: issueDetail.additionalCost ?? "0",
         notes: issueDetail.notes ?? "",
       });
     }
@@ -350,12 +349,6 @@ export function StockIssueDetail({
           disabled: !isDraft,
         },
         {
-          key: "additionalCost",
-          label: t("form.additionalCost"),
-          type: "decimal" as const,
-          disabled: !isDraft,
-        },
-        {
           key: "notes",
           label: t("form.notes"),
           type: "textarea" as const,
@@ -475,9 +468,6 @@ export function StockIssueDetail({
           partnerId,
           batchId,
           season: values.season ? String(values.season) : null,
-          additionalCost: values.additionalCost
-            ? String(values.additionalCost)
-            : "0",
           notes: values.notes ? String(values.notes) : null,
         });
         // If batch selected on new issue → prefill lines after creation
@@ -497,9 +487,6 @@ export function StockIssueDetail({
           partnerId,
           batchId,
           season: values.season ? String(values.season) : null,
-          additionalCost: values.additionalCost
-            ? String(values.additionalCost)
-            : "0",
           notes: values.notes ? String(values.notes) : null,
         });
         toast.success(t("detail.saved"));
@@ -720,6 +707,9 @@ export function StockIssueDetail({
           <TabsList>
             <TabsTrigger value="header">{t("tabs.header")}</TabsTrigger>
             <TabsTrigger value="lines">{t("tabs.lines")}</TabsTrigger>
+            {movementType === "receipt" && (
+              <TabsTrigger value="costs">{t("tabs.costs")}</TabsTrigger>
+            )}
             {!isDraft && (
               <TabsTrigger value="movements">{t("tabs.movements")}</TabsTrigger>
             )}
@@ -747,10 +737,21 @@ export function StockIssueDetail({
               isDraft={isDraft}
               onMutate={mutate}
               itemOptions={itemOptions}
-              additionalCost={String(values.additionalCost ?? "0")}
               warehouseId={String(values.warehouseId ?? "")}
             />
           </TabsContent>
+
+          {movementType === "receipt" && (
+            <TabsContent value="costs" className="mt-4">
+              <ReceiptCostsTab
+                issueId={id}
+                costs={issueDetail?.costs ?? []}
+                lines={issueDetail?.lines ?? []}
+                isDraft={isDraft}
+                onMutate={mutate}
+              />
+            </TabsContent>
+          )}
 
           {!isDraft && (
             <TabsContent value="movements" className="mt-4">

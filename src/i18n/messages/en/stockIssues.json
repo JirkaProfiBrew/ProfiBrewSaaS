@@ -79,6 +79,7 @@
   "tabs": {
     "header": "Header",
     "lines": "Lines",
+    "costs": "Costs",
     "movements": "Movements",
     "allocations": "Allocations"
   },
@@ -131,6 +132,9 @@
     "lotAttributes": "Lot Attributes",
     "quantity": "Quantity",
     "actualQty": "Actual",
+    "overheadPerUnit": "OH/Unit",
+    "fullUnitPrice": "Full Price",
+    "totalEntryMode": "Enter total",
     "lotAttr": {
       "title": "Lot Attributes",
       "extractPercent": "Extract (%)",
@@ -139,6 +143,27 @@
       "actualAlpha": "Actual Alpha (%)",
       "generation": "Generation",
       "viability": "Viability (%)"
+    }
+  },
+  "costs": {
+    "title": "Additional Acquisition Costs",
+    "description": "Costs are allocated to receipt lines and increase the acquisition price (Full Price).",
+    "addCost": "Add Cost",
+    "noCosts": "No additional costs yet",
+    "descriptionCol": "Description",
+    "descriptionPlaceholder": "E.g. shipping, customs…",
+    "amount": "Amount",
+    "allocation": "Allocation",
+    "allocationByValue": "By value",
+    "allocationByQuantity": "By quantity",
+    "removed": "Cost removed",
+    "addError": "Failed to add cost",
+    "updateError": "Failed to update cost",
+    "removeError": "Failed to remove cost",
+    "summary": {
+      "goodsSubtotal": "Goods (Unit Price)",
+      "overhead": "Additional costs (OH)",
+      "grandTotal": "TOTAL with OH"
     }
   },
   "partialIssue": {
