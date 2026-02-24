@@ -65,6 +65,7 @@ export const cashflows = pgTable(
     description: text("description"),
     notes: text("notes"),
     isCash: boolean("is_cash").default(false),
+    cashDeskId: uuid("cash_desk_id").references(() => cashDesks.id),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),

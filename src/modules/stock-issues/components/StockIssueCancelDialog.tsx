@@ -16,8 +16,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 import { cancelStockIssue, checkReceiptCancellable } from "../actions";
+import { cancelCashFlow } from "@/modules/cashflows/actions";
 import type { BlockingIssueInfo } from "../types";
 
 interface StockIssueCancelDialogProps {
@@ -26,6 +29,8 @@ interface StockIssueCancelDialogProps {
   issueId: string;
   code: string;
   isIssueType: boolean;
+  cashflowId: string | null;
+  cashflowCode: string | null;
   onCancelled: () => void;
 }
 
@@ -35,6 +40,8 @@ export function StockIssueCancelDialog({
   issueId,
   code,
   isIssueType,
+  cashflowId,
+  cashflowCode,
   onCancelled,
 }: StockIssueCancelDialogProps): React.ReactNode {
   const t = useTranslations("stockIssues");
@@ -43,12 +50,14 @@ export function StockIssueCancelDialog({
   const [isChecking, setIsChecking] = useState(false);
   const [blockingIssues, setBlockingIssues] = useState<BlockingIssueInfo[]>([]);
   const [checkDone, setCheckDone] = useState(false);
+  const [alsoCancelCf, setAlsoCancelCf] = useState(true);
 
   // When dialog opens for a receipt, check if it can be cancelled
   useEffect(() => {
     if (!open) {
       setBlockingIssues([]);
       setCheckDone(false);
+      setAlsoCancelCf(true);
       return;
     }
 
@@ -87,6 +96,17 @@ export function StockIssueCancelDialog({
     setIsSubmitting(true);
     try {
       await cancelStockIssue(issueId);
+
+      // Optionally cancel linked CF
+      if (alsoCancelCf && cashflowId) {
+        try {
+          await cancelCashFlow(cashflowId);
+        } catch (cfErr: unknown) {
+          console.error("Failed to cancel linked CF:", cfErr);
+          // Non-critical — receipt is cancelled, CF cancel failed
+        }
+      }
+
       toast.success(t("detail.cancelled"));
       onCancelled();
       onOpenChange(false);
@@ -109,9 +129,10 @@ export function StockIssueCancelDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [issueId, t, onCancelled, onOpenChange]);
+  }, [issueId, alsoCancelCf, cashflowId, t, onCancelled, onOpenChange]);
 
   const isBlocked = blockingIssues.length > 0;
+  const hasCf = !isIssueType && !!cashflowId;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -166,6 +187,31 @@ export function StockIssueCancelDialog({
                     <li>{t("cancelDialog.bullet2")}</li>
                     {isIssueType && <li>{t("cancelDialog.bullet3")}</li>}
                   </ul>
+                  {hasCf && (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          {t("cancelDialog.hasCashflow", { cfCode: cashflowCode ?? "" })}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="alsoCancelCf"
+                            checked={alsoCancelCf}
+                            onCheckedChange={(checked) =>
+                              setAlsoCancelCf(checked === true)
+                            }
+                          />
+                          <Label
+                            htmlFor="alsoCancelCf"
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            {t("cancelDialog.alsoCancelCf")}
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm font-medium text-destructive">
                     {t("cancelDialog.warning")}
                   </p>

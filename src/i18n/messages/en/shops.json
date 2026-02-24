@@ -72,6 +72,14 @@
       "overheadPct": "Ingredient overhead (%)",
       "overheadCzk": "Overhead (CZK)",
       "brewCostCzk": "Brew cost (CZK)"
+    },
+    "autoCf": {
+      "title": "CF Generation from Receipt",
+      "enabled": "Auto-generate expense (CF) from receipt",
+      "category": "Expense category",
+      "status": "Expense status",
+      "statusPlanned": "Planned",
+      "statusPending": "Pending"
     }
   }
 }

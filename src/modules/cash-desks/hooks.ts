@@ -6,8 +6,9 @@ import {
   getCashDesk,
   getCashDeskTransactions,
   getCashDeskDailySummary,
+  getCashDeskBalanceBreakdown,
 } from "./actions";
-import type { CashDesk, CashDeskDailySummary } from "./types";
+import type { CashDesk, CashDeskDailySummary, CashDeskBalanceBreakdown } from "./types";
 import type { CashFlow } from "@/modules/cashflows/types";
 
 /**
@@ -46,8 +47,8 @@ export function useCashDeskDetail(id: string | null): {
 } {
   const { data, error, isLoading, mutate } = useSWR<CashDesk | null>(
     id ? ["cash-desk", id] : null,
-    () => getCashDesk(id!),
-    { revalidateOnFocus: false }
+    ([, deskId]: [string, string]) => getCashDesk(deskId),
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   return {
@@ -76,8 +77,9 @@ export function useCashDeskTransactions(
     cashDeskId
       ? ["cash-desk-txns", cashDeskId, date ?? "today"]
       : null,
-    () => getCashDeskTransactions(cashDeskId!, date),
-    { revalidateOnFocus: false }
+    ([, deskId, d]: [string, string, string]) =>
+      getCashDeskTransactions(deskId, d === "today" ? undefined : d),
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   return {
@@ -108,11 +110,47 @@ export function useCashDeskDailySummary(
     cashDeskId
       ? ["cash-desk-summary", cashDeskId, date ?? "today"]
       : null,
-    () => getCashDeskDailySummary(cashDeskId!, date),
-    { revalidateOnFocus: false }
+    ([, deskId, d]: [string, string, string]) =>
+      getCashDeskDailySummary(deskId, d === "today" ? undefined : d),
+    { revalidateOnFocus: false, keepPreviousData: false }
   );
 
   // If the server returned an error object, treat it as no data
+  const resolved =
+    data && !("error" in data) ? data : null;
+
+  return {
+    data: resolved,
+    isLoading,
+    error,
+    mutate: () => {
+      void mutate();
+    },
+  };
+}
+
+/**
+ * Fetch all-time balance breakdown (total income, total expense, count) for a cash desk.
+ */
+export function useCashDeskBalanceBreakdown(
+  cashDeskId: string | null
+): {
+  data: CashDeskBalanceBreakdown | null;
+  isLoading: boolean;
+  error: Error | undefined;
+  mutate: () => void;
+} {
+  const { data, error, isLoading, mutate } = useSWR<
+    CashDeskBalanceBreakdown | { error: string }
+  >(
+    cashDeskId
+      ? ["cash-desk-breakdown", cashDeskId]
+      : null,
+    ([, deskId]: [string, string]) =>
+      getCashDeskBalanceBreakdown(deskId),
+    { revalidateOnFocus: false, keepPreviousData: false }
+  );
+
   const resolved =
     data && !("error" in data) ? data : null;
 

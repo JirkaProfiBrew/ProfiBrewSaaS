@@ -237,19 +237,19 @@ Anglické verze analogicky.
 
 ### 7. Akceptační kritéria
 
-1. [ ] Button "Vytvořit výdaj" na detailu potvrzené příjemky (purpose=purchase)
-2. [ ] Vytvoření CF s vazbou stock_issue_id, správnou částkou, partnerem, kategorií
-3. [ ] Duplicitní kontrola — nelze vytvořit druhý CF na stejnou příjemku
-4. [ ] Po vytvoření: button se změní na "Otevřít výdaj" s linkem na CF
-5. [ ] Cross-link na detailu příjemky: "Cash flow: CF-XXX"
-6. [ ] CashFlow formulář: pole "Příjemka" (jen pro výdaje)
-7. [ ] Po výběru příjemky: prefill částky, partnera, popisu
-8. [ ] Filtr: nabízí jen příjemky bez existujícího CF
-9. [ ] Settings: toggle "Automaticky generovat výdaj z příjemky"
-10. [ ] Settings: výběr kategorie a stavu pro automatický CF
-11. [ ] Auto-generování: jen pro purpose=purchase, ne production_in/inventory
-12. [ ] Storno příjemky: dotaz na storno navázaného CF
-13. [ ] i18n: cs + en pro nové texty
+1. [x] Button "Vytvořit výdaj" na detailu potvrzené příjemky (purpose=purchase)
+2. [x] Vytvoření CF s vazbou stock_issue_id, správnou částkou, partnerem, kategorií
+3. [x] Duplicitní kontrola — nelze vytvořit druhý CF na stejnou příjemku
+4. [x] Po vytvoření: button se změní na "Otevřít výdaj" s linkem na CF
+5. [x] Cross-link na detailu příjemky: "Cash flow: CF-XXX"
+6. [x] CashFlow formulář: pole "Příjemka" (jen pro výdaje)
+7. [x] Po výběru příjemky: prefill částky, partnera, popisu
+8. [x] Filtr: nabízí jen příjemky bez existujícího CF
+9. [x] Settings: toggle "Automaticky generovat výdaj z příjemky"
+10. [x] Settings: výběr kategorie a stavu pro automatický CF
+11. [x] Auto-generování: jen pro purpose=purchase, ne production_in/inventory
+12. [x] Storno příjemky: dotaz na storno navázaného CF
+13. [x] i18n: cs + en pro nové texty
 
 ---
 

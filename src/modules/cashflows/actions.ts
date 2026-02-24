@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { cashflows, cashflowCategories, cashflowTemplates, cashDesks } from "@/../drizzle/schema/cashflows";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
+import { stockIssues } from "@/../drizzle/schema/stock";
+import { warehouses } from "@/../drizzle/schema/warehouses";
+import { shops } from "@/../drizzle/schema/shops";
 import { eq, and, sql, desc, asc, ilike, or, gte, lte } from "drizzle-orm";
 import { getNextNumber } from "@/lib/db/counters";
 import type { CashFlow, CashFlowTemplate, CashFlowFilter, CashFlowSummary, CreateCashFlowInput, UpdateCashFlowInput, CreateTemplateInput, UpdateTemplateInput, CashFlowType, SelectOption, CategoryOption } from "./types";
@@ -13,7 +16,7 @@ import type { CashFlow, CashFlowTemplate, CashFlowFilter, CashFlowSummary, Creat
 
 function mapCashFlowRow(
   row: typeof cashflows.$inferSelect,
-  joined?: { categoryName?: string | null; partnerName?: string | null }
+  joined?: { categoryName?: string | null; partnerName?: string | null; cashDeskName?: string | null }
 ): CashFlow {
   return {
     id: row.id,
@@ -34,11 +37,13 @@ function mapCashFlowRow(
     description: row.description ?? null,
     notes: row.notes ?? null,
     isCash: row.isCash ?? false,
+    cashDeskId: row.cashDeskId ?? null,
     createdBy: row.createdBy ?? null,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
     categoryName: joined?.categoryName ?? null,
     partnerName: joined?.partnerName ?? null,
+    cashDeskName: joined?.cashDeskName ?? null,
   };
 }
 
@@ -95,14 +100,16 @@ export async function getCashFlows(
         partnerId: cashflows.partnerId, orderId: cashflows.orderId,
         stockIssueId: cashflows.stockIssueId, shopId: cashflows.shopId,
         description: cashflows.description, notes: cashflows.notes,
-        isCash: cashflows.isCash, createdBy: cashflows.createdBy,
+        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId, createdBy: cashflows.createdBy,
         createdAt: cashflows.createdAt, updatedAt: cashflows.updatedAt,
         categoryName: cashflowCategories.name,
         partnerName: partners.name,
+        cashDeskName: cashDesks.name,
       })
       .from(cashflows)
       .leftJoin(cashflowCategories, eq(cashflows.categoryId, cashflowCategories.id))
       .leftJoin(partners, eq(cashflows.partnerId, partners.id))
+      .leftJoin(cashDesks, eq(cashflows.cashDeskId, cashDesks.id))
       .where(
         and(
           eq(cashflows.tenantId, tenantId),
@@ -122,7 +129,7 @@ export async function getCashFlows(
       )
       .orderBy(desc(cashflows.date), desc(cashflows.createdAt));
     return rows.map((row) =>
-      mapCashFlowRow(row, { categoryName: row.categoryName, partnerName: row.partnerName })
+      mapCashFlowRow(row, { categoryName: row.categoryName, partnerName: row.partnerName, cashDeskName: row.cashDeskName })
     );
   });
 }
@@ -139,19 +146,21 @@ export async function getCashFlow(id: string): Promise<CashFlow | null> {
         partnerId: cashflows.partnerId, orderId: cashflows.orderId,
         stockIssueId: cashflows.stockIssueId, shopId: cashflows.shopId,
         description: cashflows.description, notes: cashflows.notes,
-        isCash: cashflows.isCash, createdBy: cashflows.createdBy,
+        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId, createdBy: cashflows.createdBy,
         createdAt: cashflows.createdAt, updatedAt: cashflows.updatedAt,
         categoryName: cashflowCategories.name,
         partnerName: partners.name,
+        cashDeskName: cashDesks.name,
       })
       .from(cashflows)
       .leftJoin(cashflowCategories, eq(cashflows.categoryId, cashflowCategories.id))
       .leftJoin(partners, eq(cashflows.partnerId, partners.id))
+      .leftJoin(cashDesks, eq(cashflows.cashDeskId, cashDesks.id))
       .where(and(eq(cashflows.id, id), eq(cashflows.tenantId, tenantId)))
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    return mapCashFlowRow(row, { categoryName: row.categoryName, partnerName: row.partnerName });
+    return mapCashFlowRow(row, { categoryName: row.categoryName, partnerName: row.partnerName, cashDeskName: row.cashDeskName });
   });
 }
 
@@ -205,6 +214,7 @@ export async function createCashFlow(
               description:  data.description  ?? null,
               notes:        data.notes        ?? null,
               isCash:       true,
+              cashDeskId:   data.cashDeskId!,
             })
             .returning();
 
@@ -250,6 +260,15 @@ export async function createCashFlow(
         .returning();
       const row = inserted[0];
       if (!row) return { error: "INSERT_FAILED" };
+
+      // Back-link stock issue if provided
+      if (data.stockIssueId) {
+        await db
+          .update(stockIssues)
+          .set({ cashflowId: row.id, updatedAt: sql`now()` })
+          .where(and(eq(stockIssues.id, data.stockIssueId), eq(stockIssues.tenantId, tenantId)));
+      }
+
       return mapCashFlowRow(row);
     });
   } catch (err: unknown) {
@@ -310,12 +329,13 @@ export async function deleteCashFlow(
   try {
     return await withTenant(async (tenantId) => {
       const existing = await db
-        .select({ id: cashflows.id, status: cashflows.status })
+        .select({ id: cashflows.id, status: cashflows.status, cashDeskId: cashflows.cashDeskId })
         .from(cashflows)
         .where(and(eq(cashflows.id, id), eq(cashflows.tenantId, tenantId)))
         .limit(1);
       const record = existing[0];
       if (!record) return { error: "NOT_FOUND" };
+      if (record.cashDeskId) return { error: "HAS_CASH_DESK" };
       if (record.status === "cancelled") return { error: "CASHFLOW_NOT_DELETABLE" };
       await db
         .update(cashflows)
@@ -695,6 +715,221 @@ export async function createCashFlowFromOrder(
     console.error("[cashflows] createCashFlowFromOrder error:", err);
     return { error: "CREATE_FROM_ORDER_FAILED" };
   }
+}
+
+// -- CF defaults from shop settings (warehouse → shop → settings) ----------
+
+/** Internal helper: load CF category/status defaults from warehouse's shop settings. */
+async function loadCfDefaultsFromWarehouse(
+  warehouseId: string
+): Promise<{ categoryId: string | null; status: string }> {
+  const whRows = await db
+    .select({ shopId: warehouses.shopId })
+    .from(warehouses)
+    .where(eq(warehouses.id, warehouseId))
+    .limit(1);
+  const shopId = whRows[0]?.shopId;
+  if (!shopId) return { categoryId: null, status: "pending" };
+
+  const shopRows = await db
+    .select({ settings: shops.settings })
+    .from(shops)
+    .where(eq(shops.id, shopId))
+    .limit(1);
+  const settings = (shopRows[0]?.settings ?? {}) as Record<string, unknown>;
+
+  return {
+    categoryId: (settings.auto_cf_category_id as string | undefined) ?? null,
+    status: (settings.auto_cf_status as string | undefined) ?? "pending",
+  };
+}
+
+/** Public action: get CF defaults for a given stock issue (receipt).
+ *  Used by CashFlowDetail form when a receipt is selected. */
+export async function getReceiptCfDefaults(
+  stockIssueId: string
+): Promise<{ categoryId: string | null; status: string } | null> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ warehouseId: stockIssues.warehouseId })
+      .from(stockIssues)
+      .where(and(eq(stockIssues.id, stockIssueId), eq(stockIssues.tenantId, tenantId)))
+      .limit(1);
+    const issue = rows[0];
+    if (!issue) return null;
+    return loadCfDefaultsFromWarehouse(issue.warehouseId);
+  });
+}
+
+// -- createCashFlowFromReceipt -------------------------------------------
+
+export async function createCashFlowFromReceipt(
+  stockIssueId: string
+): Promise<CashFlow | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      const rows = await db
+        .select({
+          id: stockIssues.id,
+          tenantId: stockIssues.tenantId,
+          code: stockIssues.code,
+          movementType: stockIssues.movementType,
+          status: stockIssues.status,
+          partnerId: stockIssues.partnerId,
+          totalCost: stockIssues.totalCost,
+          date: stockIssues.date,
+          cashflowId: stockIssues.cashflowId,
+          warehouseId: stockIssues.warehouseId,
+        })
+        .from(stockIssues)
+        .where(
+          and(eq(stockIssues.id, stockIssueId), eq(stockIssues.tenantId, tenantId))
+        )
+        .limit(1);
+      const issue = rows[0];
+      if (!issue) return { error: "RECEIPT_NOT_FOUND" };
+      if (issue.movementType !== "receipt") return { error: "NOT_A_RECEIPT" };
+      if (issue.status !== "confirmed") return { error: "RECEIPT_NOT_CONFIRMED" };
+      if (issue.cashflowId) return { error: "RECEIPT_CASHFLOW_EXISTS" };
+
+      // Look up shop settings via warehouse → shop
+      const defaults = await loadCfDefaultsFromWarehouse(issue.warehouseId);
+
+      const code = await getNextNumber(tenantId, "cashflow");
+      const inserted = await db
+        .insert(cashflows)
+        .values({
+          tenantId,
+          code,
+          cashflowType: "expense",
+          categoryId: defaults.categoryId,
+          amount: issue.totalCost ?? "0",
+          currency: "CZK",
+          date: issue.date,
+          status: defaults.status === "planned" ? "planned" : "pending",
+          partnerId: issue.partnerId ?? null,
+          stockIssueId: issue.id,
+          description: issue.code,
+          isCash: false,
+        })
+        .returning();
+      const cfRow = inserted[0];
+      if (!cfRow) return { error: "INSERT_FAILED" };
+
+      await db
+        .update(stockIssues)
+        .set({ cashflowId: cfRow.id, updatedAt: sql`now()` })
+        .where(
+          and(eq(stockIssues.id, stockIssueId), eq(stockIssues.tenantId, tenantId))
+        );
+
+      return mapCashFlowRow(cfRow);
+    });
+  } catch (err: unknown) {
+    console.error("[cashflows] createCashFlowFromReceipt error:", err);
+    return { error: "CREATE_FROM_RECEIPT_FAILED" };
+  }
+}
+
+// -- createCashFlowFromReceiptAuto (called by confirm hook) ---------------
+
+/** Auto-generate CF from receipt. Like createCashFlowFromReceipt but accepts category + status. */
+export async function createCashFlowFromReceiptAuto(
+  stockIssueId: string,
+  categoryId: string | null,
+  status: string
+): Promise<void> {
+  try {
+    await withTenant(async (tenantId) => {
+      const rows = await db
+        .select({
+          id: stockIssues.id,
+          code: stockIssues.code,
+          partnerId: stockIssues.partnerId,
+          totalCost: stockIssues.totalCost,
+          date: stockIssues.date,
+          cashflowId: stockIssues.cashflowId,
+        })
+        .from(stockIssues)
+        .where(and(eq(stockIssues.id, stockIssueId), eq(stockIssues.tenantId, tenantId)))
+        .limit(1);
+      const issue = rows[0];
+      if (!issue || issue.cashflowId) return; // already has CF or not found
+
+      const code = await getNextNumber(tenantId, "cashflow");
+      const inserted = await db
+        .insert(cashflows)
+        .values({
+          tenantId,
+          code,
+          cashflowType: "expense",
+          categoryId: categoryId ?? null,
+          amount: issue.totalCost ?? "0",
+          currency: "CZK",
+          date: issue.date,
+          status: status === "planned" ? "planned" : "pending",
+          partnerId: issue.partnerId ?? null,
+          stockIssueId: issue.id,
+          description: issue.code,
+          isCash: false,
+        })
+        .returning();
+      const cfRow = inserted[0];
+      if (!cfRow) return;
+
+      await db
+        .update(stockIssues)
+        .set({ cashflowId: cfRow.id, updatedAt: sql`now()` })
+        .where(and(eq(stockIssues.id, stockIssueId), eq(stockIssues.tenantId, tenantId)));
+    });
+  } catch (err: unknown) {
+    console.error("[cashflows] createCashFlowFromReceiptAuto error:", err);
+  }
+}
+
+// -- getReceiptOptionsForCashFlow ----------------------------------------
+
+export interface ReceiptOption {
+  value: string;
+  label: string;
+  amount: string;
+  partnerId: string | null;
+  partnerName: string | null;
+  date: string;
+}
+
+/** Confirmed receipts without an existing CF link. */
+export async function getReceiptOptionsForCashFlow(): Promise<ReceiptOption[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: stockIssues.id,
+        code: stockIssues.code,
+        totalCost: stockIssues.totalCost,
+        partnerId: stockIssues.partnerId,
+        partnerName: partners.name,
+        date: stockIssues.date,
+      })
+      .from(stockIssues)
+      .leftJoin(partners, eq(stockIssues.partnerId, partners.id))
+      .where(
+        and(
+          eq(stockIssues.tenantId, tenantId),
+          eq(stockIssues.movementType, "receipt"),
+          eq(stockIssues.status, "confirmed"),
+          sql`${stockIssues.cashflowId} IS NULL`
+        )
+      )
+      .orderBy(desc(stockIssues.date));
+    return rows.map((r) => ({
+      value: r.id,
+      label: r.code,
+      amount: r.totalCost ?? "0",
+      partnerId: r.partnerId,
+      partnerName: r.partnerName ?? null,
+      date: r.date,
+    }));
+  });
 }
 
 // -- getPartnerOptions --------------------------------------------------

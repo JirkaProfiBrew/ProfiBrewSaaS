@@ -15,6 +15,7 @@ import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
 import { shops } from "@/../drizzle/schema/shops";
+import { cashflows } from "@/../drizzle/schema/cashflows";
 import {
   allocateFIFO,
   processManualAllocations,
@@ -42,7 +43,7 @@ import type {
 
 function mapIssueRow(
   row: typeof stockIssues.$inferSelect,
-  joined?: { warehouseName?: string | null; partnerName?: string | null }
+  joined?: { warehouseName?: string | null; partnerName?: string | null; cashflowCode?: string | null }
 ): StockIssue {
   return {
     id: row.id,
@@ -58,6 +59,8 @@ function mapIssueRow(
     warehouseId: row.warehouseId,
     partnerId: row.partnerId,
     orderId: row.orderId,
+    cashflowId: row.cashflowId ?? null,
+    cashflowCode: joined?.cashflowCode ?? null,
     batchId: row.batchId,
     season: row.season,
     additionalCost: row.additionalCost ?? "0",
@@ -172,15 +175,20 @@ export async function getStockIssue(
 ): Promise<StockIssueWithLines | null> {
   return withTenant(async (tenantId) => {
     const issueRows = await db
-      .select()
+      .select({
+        issue: stockIssues,
+        cashflowCode: cashflows.code,
+      })
       .from(stockIssues)
+      .leftJoin(cashflows, eq(stockIssues.cashflowId, cashflows.id))
       .where(
         and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, id))
       )
       .limit(1);
 
-    const issueRow = issueRows[0];
-    if (!issueRow) return null;
+    const row = issueRows[0];
+    if (!row) return null;
+    const issueRow = row.issue;
 
     const lineRows = await db
       .select()
@@ -216,11 +224,11 @@ export async function getStockIssue(
     }
 
     return {
-      ...mapIssueRow(issueRow),
-      lines: lineRows.map((row) =>
+      ...mapIssueRow(issueRow, { cashflowCode: row.cashflowCode }),
+      lines: lineRows.map((lr) =>
         mapLineRow(
-          row,
-          isConfirmedIssue ? (computedActuals[row.id] ?? "0") : undefined
+          lr,
+          isConfirmedIssue ? (computedActuals[lr.id] ?? "0") : undefined
         )
       ),
     };
@@ -812,10 +820,41 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
 
       const updated = updatedRows[0];
       if (!updated) throw new Error("Failed to update stock issue");
-      return mapIssueRow(updated);
+      return { issueRow: updated, warehouseId: issue.warehouseId, movementPurpose: issue.movementPurpose, isReceipt };
     });
 
-    return result;
+    // Auto-generate CF for purchase receipts if shop setting is enabled
+    if (result.isReceipt && result.movementPurpose === "purchase") {
+      try {
+        const whRows = await db
+          .select({ shopId: warehouses.shopId })
+          .from(warehouses)
+          .where(eq(warehouses.id, result.warehouseId))
+          .limit(1);
+        const shopId = whRows[0]?.shopId;
+        if (shopId) {
+          const shopRows = await db
+            .select({ settings: shops.settings })
+            .from(shops)
+            .where(eq(shops.id, shopId))
+            .limit(1);
+          const settings = (shopRows[0]?.settings ?? {}) as Record<string, unknown>;
+          if (settings.auto_cf_from_receipt === true) {
+            const { createCashFlowFromReceiptAuto } = await import("@/modules/cashflows/actions");
+            await createCashFlowFromReceiptAuto(
+              id,
+              (settings.auto_cf_category_id as string | undefined) ?? null,
+              (settings.auto_cf_status as string | undefined) ?? "pending"
+            );
+          }
+        }
+      } catch (err: unknown) {
+        // Non-critical — receipt is confirmed, auto-CF failed silently
+        console.error("[stock-issues] auto-CF generation failed:", err);
+      }
+    }
+
+    return mapIssueRow(result.issueRow);
   });
 }
 

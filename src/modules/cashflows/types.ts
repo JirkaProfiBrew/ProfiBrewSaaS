@@ -31,12 +31,14 @@ export interface CashFlow {
   description: string | null;
   notes: string | null;
   isCash: boolean;
+  cashDeskId: string | null;
   createdBy: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   // Joined fields
   categoryName: string | null;
   partnerName: string | null;
+  cashDeskName: string | null;
 }
 
 // -- CashFlowCategory ----------------------------------------------------------

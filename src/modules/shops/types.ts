@@ -42,4 +42,8 @@ export interface ShopSettings {
   overhead_pct?: number;
   overhead_czk?: number;
   brew_cost_czk?: number;
+  // Auto-CF from receipt
+  auto_cf_from_receipt?: boolean;
+  auto_cf_category_id?: string;
+  auto_cf_status?: "planned" | "pending";
 }

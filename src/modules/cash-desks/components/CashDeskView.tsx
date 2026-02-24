@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import {
   useCashDeskDetail,
   useCashDeskTransactions,
   useCashDeskDailySummary,
+  useCashDeskBalanceBreakdown,
 } from "../hooks";
 import { deleteCashDeskTransaction } from "../actions";
 import { CashDeskTransactionDialog } from "./CashDeskTransactionDialog";
@@ -57,6 +59,8 @@ function isSummaryError(
 
 export function CashDeskView(): React.ReactNode {
   const t = useTranslations("cashDesks");
+  const searchParams = useSearchParams();
+  const deskIdParam = searchParams.get("deskId");
   const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"income" | "expense">("income");
@@ -68,16 +72,20 @@ export function CashDeskView(): React.ReactNode {
   const { data: currentDesk, mutate: mutateDesk } = useCashDeskDetail(selectedDeskId);
   const { data: transactions, mutate: mutateTransactions } = useCashDeskTransactions(selectedDeskId);
   const { data: summaryData, mutate: mutateSummary } = useCashDeskDailySummary(selectedDeskId);
+  const { data: breakdown, mutate: mutateBreakdown } = useCashDeskBalanceBreakdown(selectedDeskId);
 
-  // Auto-select first desk on load
+  // Auto-select desk: from URL param or first active
   useEffect(() => {
     if (!selectedDeskId && desks && desks.length > 0) {
-      const first = desks[0];
-      if (first) {
-        setSelectedDeskId(first.id);
+      const target =
+        (deskIdParam && desks.find((d) => d.id === deskIdParam)) ||
+        desks.find((d) => d.isActive) ||
+        desks[0];
+      if (target) {
+        setSelectedDeskId(target.id);
       }
     }
-  }, [desks, selectedDeskId]);
+  }, [desks, selectedDeskId, deskIdParam]);
 
   const handleOpenIncome = useCallback((): void => {
     setEditingTx(null);
@@ -95,7 +103,8 @@ export function CashDeskView(): React.ReactNode {
     void mutateDesk();
     void mutateTransactions();
     void mutateSummary();
-  }, [mutateDesk, mutateTransactions, mutateSummary]);
+    void mutateBreakdown();
+  }, [mutateDesk, mutateTransactions, mutateSummary, mutateBreakdown]);
 
   const handleEditTx = useCallback((tx: CashFlow): void => {
     setEditingTx({
@@ -109,26 +118,27 @@ export function CashDeskView(): React.ReactNode {
     setTransactionDialogOpen(true);
   }, []);
 
-  const handleDeleteTxConfirm = useCallback(async (): Promise<void> => {
+  const handleDeleteTx = useCallback(async (deleteCf: boolean): Promise<void> => {
     if (!deleteTxTarget || !selectedDeskId) return;
     setIsDeleting(true);
     try {
-      const result = await deleteCashDeskTransaction(selectedDeskId, deleteTxTarget.id);
+      const result = await deleteCashDeskTransaction(selectedDeskId, deleteTxTarget.id, deleteCf);
       if ("error" in result) {
         toast.error(t("transaction.deleteFailed"));
         return;
       }
-      toast.success(t("transaction.deleted"));
+      toast.success(deleteCf ? t("transaction.deleted") : t("transaction.unlinked"));
       void mutateDesk();
       void mutateTransactions();
       void mutateSummary();
+      void mutateBreakdown();
     } catch {
       toast.error(t("transaction.deleteFailed"));
     } finally {
       setIsDeleting(false);
       setDeleteTxTarget(null);
     }
-  }, [deleteTxTarget, selectedDeskId, mutateDesk, mutateTransactions, mutateSummary, t]);
+  }, [deleteTxTarget, selectedDeskId, mutateDesk, mutateTransactions, mutateSummary, mutateBreakdown, t]);
 
   const summary: CashDeskDailySummary | null =
     summaryData && !isSummaryError(summaryData) ? summaryData : null;
@@ -209,15 +219,53 @@ export function CashDeskView(): React.ReactNode {
       {/* Balance card */}
       {currentDesk && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("view.balance")}
             </CardTitle>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {currentDesk.shopName && (
+                <span>{currentDesk.shopName}</span>
+              )}
+              <Badge variant={currentDesk.isActive ? "default" : "secondary"}>
+                {currentDesk.isActive ? t("status.active") : t("status.inactive")}
+              </Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <p className="text-4xl font-bold">
               {formatCurrency(currentDesk.currentBalance)} Kč
             </p>
+            {breakdown && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                {Number(breakdown.openingBalance) !== 0 && (
+                  <span>
+                    {t("view.openingBalance")}:{" "}
+                    <span className="font-medium text-foreground">
+                      {formatCurrency(breakdown.openingBalance)} Kč
+                    </span>
+                  </span>
+                )}
+                <span>
+                  {t("view.totalIncome")}:{" "}
+                  <span className="font-medium text-green-600">
+                    +{formatCurrency(breakdown.totalIncome)} Kč
+                  </span>
+                </span>
+                <span>
+                  {t("view.totalExpense")}:{" "}
+                  <span className="font-medium text-red-600">
+                    -{formatCurrency(breakdown.totalExpense)} Kč
+                  </span>
+                </span>
+                <span>
+                  {t("view.transactionCount")}:{" "}
+                  <span className="font-medium text-foreground">
+                    {breakdown.transactionCount}
+                  </span>
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -401,25 +449,32 @@ export function CashDeskView(): React.ReactNode {
       {/* Delete transaction confirmation */}
       <AlertDialog
         open={deleteTxTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTxTarget(null); }}
+        onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTxTarget(null); }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("transaction.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("transaction.deleteDescription")}
+              {t("transaction.deleteCfQuestion")}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
             <AlertDialogCancel disabled={isDeleting}>
               {t("transaction.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteTxConfirm}
+              onClick={() => { void handleDeleteTx(false); }}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="outline"
             >
-              {t("transaction.deleteConfirm")}
+              {t("transaction.unlinkOnly")}
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => { void handleDeleteTx(true); }}
+              disabled={isDeleting}
+              variant="destructive"
+            >
+              {t("transaction.deleteWithCf")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,9 @@ export function DetailView({
   cancelLabel,
 }: DetailViewProps): React.ReactElement {
   const t = useTranslations("common");
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
+  const resolvedBackHref = fromParam ?? backHref;
 
   if (isLoading) {
     return <DetailViewSkeleton />;
@@ -83,7 +87,7 @@ export function DetailView({
       {/* Sticky header with back, title, save/cancel, and actions */}
       <div className="bg-background sticky top-0 z-10 flex items-center gap-4 border-b pb-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href={backHref} aria-label={backLabel ?? t("back")}>
+          <Link href={resolvedBackHref} aria-label={backLabel ?? t("back")}>
             <ArrowLeft className="size-4" />
           </Link>
         </Button>

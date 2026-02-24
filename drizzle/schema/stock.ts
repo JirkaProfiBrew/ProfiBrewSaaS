@@ -42,6 +42,7 @@ export const stockIssues = pgTable(
       .references(() => warehouses.id),
     partnerId: uuid("partner_id").references(() => partners.id),
     orderId: uuid("order_id"), // NO FK — Sprint 4
+    cashflowId: uuid("cashflow_id"), // NO FK — link to generated CF
     batchId: uuid("batch_id").references(() => batches.id),
     season: text("season"),
     additionalCost: decimal("additional_cost").default("0"),

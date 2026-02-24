@@ -16,6 +16,8 @@ import { useShop } from "../hooks";
 import { createShop, updateShop, deleteShop } from "../actions";
 import type { ShopAddress, ShopSettings } from "../types";
 import { getWarehouses } from "@/modules/warehouses/actions";
+import { getCategoryOptions } from "@/modules/cashflows/actions";
+import type { CategoryOption } from "@/modules/cashflows/types";
 
 // ── Props ─────────────────────────────────────────────────────
 
@@ -85,6 +87,9 @@ function getDefaultSettingsValues(): Record<string, unknown> {
     overhead_pct: "20",
     overhead_czk: "0",
     brew_cost_czk: "0",
+    auto_cf_from_receipt: false,
+    auto_cf_category_id: "__none__",
+    auto_cf_status: "pending",
   };
 }
 
@@ -104,13 +109,20 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
   const [settingsValues, setSettingsValues] = useState<Record<string, unknown>>(getDefaultSettingsValues());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
+  const [expenseCategoryOptions, setExpenseCategoryOptions] = useState<{ value: string; label: string }[]>([]);
 
-  // Load warehouse options for settings selects
+  // Load warehouse + category options for settings selects
   useEffect(() => {
     void getWarehouses({ isActive: true }).then((whs) =>
       setWarehouseOptions([
         { value: "__none__", label: "\u2014" },
         ...whs.map((w) => ({ value: w.id, label: `${w.code} \u2014 ${w.name}` })),
+      ])
+    );
+    void getCategoryOptions("expense").then((cats: CategoryOption[]) =>
+      setExpenseCategoryOptions([
+        { value: "__none__", label: "\u2014" },
+        ...cats.map((c) => ({ value: c.value, label: c.label })),
       ])
     );
   }, []);
@@ -130,6 +142,9 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
         overhead_pct: String(s.overhead_pct ?? 20),
         overhead_czk: String(s.overhead_czk ?? 0),
         brew_cost_czk: String(s.brew_cost_czk ?? 0),
+        auto_cf_from_receipt: s.auto_cf_from_receipt ?? false,
+        auto_cf_category_id: s.auto_cf_category_id ?? "__none__",
+        auto_cf_status: s.auto_cf_status ?? "pending",
       });
     }
   }, [shop]);
@@ -279,6 +294,34 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
     ],
   }), [t]);
 
+  const autoCfSection: FormSectionDef = useMemo(() => ({
+    title: t("settings.autoCf.title"),
+    columns: 2,
+    fields: [
+      {
+        key: "auto_cf_category_id",
+        label: t("settings.autoCf.category"),
+        type: "select",
+        options: expenseCategoryOptions,
+      },
+      {
+        key: "auto_cf_status",
+        label: t("settings.autoCf.status"),
+        type: "select",
+        options: [
+          { value: "planned", label: t("settings.autoCf.statusPlanned") },
+          { value: "pending", label: t("settings.autoCf.statusPending") },
+        ],
+      },
+      {
+        key: "auto_cf_from_receipt",
+        label: t("settings.autoCf.enabled"),
+        type: "checkbox",
+        gridSpan: 2,
+      },
+    ],
+  }), [t, expenseCategoryOptions]);
+
   // ── Handlers ─────────────────────────────────────────────────
 
   const handleChange = useCallback((key: string, value: unknown): void => {
@@ -332,6 +375,13 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
         overhead_pct: parseFloat(String(settingsValues.overhead_pct)) || 20,
         overhead_czk: parseFloat(String(settingsValues.overhead_czk)) || 0,
         brew_cost_czk: parseFloat(String(settingsValues.brew_cost_czk)) || 0,
+        auto_cf_from_receipt: settingsValues.auto_cf_from_receipt === true,
+        auto_cf_category_id:
+          String(settingsValues.auto_cf_category_id) !== "__none__"
+            ? String(settingsValues.auto_cf_category_id)
+            : undefined,
+        auto_cf_status:
+          (settingsValues.auto_cf_status as ShopSettings["auto_cf_status"]) ?? "pending",
       };
 
       const shopData = {
@@ -456,6 +506,13 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
                 />
                 <FormSection
                   section={calcInputsSection}
+                  values={settingsValues}
+                  errors={{}}
+                  mode={mode}
+                  onChange={handleSettingsChange}
+                />
+                <FormSection
+                  section={autoCfSection}
                   values={settingsValues}
                   errors={{}}
                   mode={mode}

@@ -4,7 +4,7 @@ import { withTenant } from "@/lib/db/with-tenant";
 import { db } from "@/lib/db";
 import { cashDesks, cashflows, cashflowCategories } from "@/../drizzle/schema/cashflows";
 import { shops } from "@/../drizzle/schema/shops";
-import { eq, and, sql, desc, asc } from "drizzle-orm";
+import { eq, ne, and, sql, desc, asc } from "drizzle-orm";
 import { getNextNumber } from "@/lib/db/counters";
 import type {
   CashDesk,
@@ -12,6 +12,7 @@ import type {
   UpdateCashDeskInput,
   CashDeskTransactionInput,
   CashDeskDailySummary,
+  CashDeskBalanceBreakdown,
 } from "./types";
 import type { CashFlow } from "@/modules/cashflows/types";
 
@@ -54,6 +55,7 @@ function mapCashFlowRow(
     description: string | null;
     notes: string | null;
     isCash: boolean | null;
+    cashDeskId: string | null;
     createdBy: string | null;
     createdAt: Date | null;
     updatedAt: Date | null;
@@ -79,11 +81,13 @@ function mapCashFlowRow(
     description: row.description ?? null,
     notes: row.notes ?? null,
     isCash: row.isCash ?? false,
+    cashDeskId: row.cashDeskId ?? null,
     createdBy: row.createdBy ?? null,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
     categoryName: joined?.categoryName ?? null,
     partnerName: null,
+    cashDeskName: null,
   };
 }
 
@@ -233,7 +237,6 @@ export async function deleteCashDesk(
         .select({
           id: cashDesks.id,
           currentBalance: cashDesks.currentBalance,
-          shopId: cashDesks.shopId,
         })
         .from(cashDesks)
         .where(and(eq(cashDesks.id, id), eq(cashDesks.tenantId, tenantId)))
@@ -242,15 +245,14 @@ export async function deleteCashDesk(
       const desk = rows[0];
       if (!desk) return { error: "NOT_FOUND" };
 
-      // Check if any cashflow transactions exist for this shop (isCash = true)
+      // Check if any cashflow transactions exist for this cash desk
       const txRows = await db
         .select({ cnt: sql<number>`COUNT(*)::int` })
         .from(cashflows)
         .where(
           and(
             eq(cashflows.tenantId, tenantId),
-            eq(cashflows.shopId, desk.shopId),
-            eq(cashflows.isCash, true)
+            eq(cashflows.cashDeskId, id)
           )
         );
 
@@ -329,6 +331,7 @@ export async function createCashDeskTransaction(
             description: data.description,
             notes: null,
             isCash: true,
+            cashDeskId: cashDeskId,
           })
           .returning();
 
@@ -367,18 +370,6 @@ export async function getCashDeskTransactions(
   date?: string
 ): Promise<CashFlow[]> {
   return withTenant(async (tenantId) => {
-    // Load cash desk to get shopId
-    const deskRows = await db
-      .select({ shopId: cashDesks.shopId })
-      .from(cashDesks)
-      .where(
-        and(eq(cashDesks.id, cashDeskId), eq(cashDesks.tenantId, tenantId))
-      )
-      .limit(1);
-
-    const desk = deskRows[0];
-    if (!desk) return [];
-
     const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
     const rows = await db
@@ -401,6 +392,7 @@ export async function getCashDeskTransactions(
         description: cashflows.description,
         notes: cashflows.notes,
         isCash: cashflows.isCash,
+        cashDeskId: cashflows.cashDeskId,
         createdBy: cashflows.createdBy,
         createdAt: cashflows.createdAt,
         updatedAt: cashflows.updatedAt,
@@ -414,9 +406,9 @@ export async function getCashDeskTransactions(
       .where(
         and(
           eq(cashflows.tenantId, tenantId),
-          eq(cashflows.isCash, true),
-          eq(cashflows.shopId, desk.shopId),
-          eq(cashflows.date, targetDate)
+          eq(cashflows.cashDeskId, cashDeskId),
+          eq(cashflows.date, targetDate),
+          ne(cashflows.status, "cancelled")
         )
       )
       .orderBy(desc(cashflows.createdAt));
@@ -435,18 +427,6 @@ export async function getCashDeskDailySummary(
 ): Promise<CashDeskDailySummary | { error: string }> {
   try {
     return await withTenant(async (tenantId) => {
-      // Load cash desk to get shopId
-      const deskRows = await db
-        .select({ shopId: cashDesks.shopId })
-        .from(cashDesks)
-        .where(
-          and(eq(cashDesks.id, cashDeskId), eq(cashDesks.tenantId, tenantId))
-        )
-        .limit(1);
-
-      const desk = deskRows[0];
-      if (!desk) return { error: "CASH_DESK_NOT_FOUND" };
-
       const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
       const rows = await db
@@ -459,9 +439,9 @@ export async function getCashDeskDailySummary(
         .where(
           and(
             eq(cashflows.tenantId, tenantId),
-            eq(cashflows.isCash, true),
-            eq(cashflows.shopId, desk.shopId),
-            eq(cashflows.date, targetDate)
+            eq(cashflows.cashDeskId, cashDeskId),
+            eq(cashflows.date, targetDate),
+            ne(cashflows.status, "cancelled")
           )
         )
         .groupBy(cashflows.cashflowType);
@@ -492,6 +472,69 @@ export async function getCashDeskDailySummary(
   } catch (err: unknown) {
     console.error("[cash-desks] getCashDeskDailySummary error:", err);
     return { error: "SUMMARY_FAILED" };
+  }
+}
+
+// -- getCashDeskBalanceBreakdown -----------------------------------------------
+
+export async function getCashDeskBalanceBreakdown(
+  cashDeskId: string
+): Promise<CashDeskBalanceBreakdown | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      // Fetch current balance from cash desk
+      const deskRow = await db
+        .select({ currentBalance: cashDesks.currentBalance })
+        .from(cashDesks)
+        .where(and(eq(cashDesks.id, cashDeskId), eq(cashDesks.tenantId, tenantId)))
+        .limit(1);
+
+      const currentBalance = parseFloat(deskRow[0]?.currentBalance ?? "0");
+
+      // Sum non-cancelled transactions linked to this desk
+      const rows = await db
+        .select({
+          cashflowType: cashflows.cashflowType,
+          totalAmount: sql<string>`COALESCE(SUM(${cashflows.amount}), 0)::text`,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(cashflows)
+        .where(
+          and(
+            eq(cashflows.tenantId, tenantId),
+            eq(cashflows.cashDeskId, cashDeskId),
+            ne(cashflows.status, "cancelled")
+          )
+        )
+        .groupBy(cashflows.cashflowType);
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+      let transactionCount = 0;
+
+      for (const row of rows) {
+        const amount = parseFloat(row.totalAmount ?? "0");
+        transactionCount += row.count ?? 0;
+        if (row.cashflowType === "income") {
+          totalIncome += amount;
+        } else {
+          totalExpense += amount;
+        }
+      }
+
+      // Opening balance = currentBalance - (income - expense)
+      const openingBalance = currentBalance - (totalIncome - totalExpense);
+
+      return {
+        totalIncome: totalIncome.toFixed(2),
+        totalExpense: totalExpense.toFixed(2),
+        transactionCount,
+        openingBalance: openingBalance.toFixed(2),
+      };
+    });
+  } catch (err: unknown) {
+    console.error("[cash-desks] getCashDeskBalanceBreakdown error:", err);
+    return { error: "BREAKDOWN_FAILED" };
   }
 }
 
@@ -565,7 +608,8 @@ export async function updateCashDeskTransaction(
 
 export async function deleteCashDeskTransaction(
   cashDeskId: string,
-  cashflowId: string
+  cashflowId: string,
+  deleteCf: boolean = true
 ): Promise<{ success: true } | { error: string }> {
   try {
     return await withTenant(async (tenantId) => {
@@ -585,17 +629,26 @@ export async function deleteCashDeskTransaction(
       if (!record) return { error: "NOT_FOUND" };
       if (!record.isCash) return { error: "NOT_CASH_TRANSACTION" };
 
+      // Reverse balance: income → subtract, expense → add
+      const reversal = record.cashflowType === "income"
+        ? `-${record.amount}`
+        : record.amount;
+
       await db.transaction(async (tx) => {
-        // Delete cashflow record
-        await tx
-          .delete(cashflows)
-          .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)));
+        if (deleteCf) {
+          // Hard delete cashflow record
+          await tx
+            .delete(cashflows)
+            .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)));
+        } else {
+          // Unlink from cash desk — keep CF record
+          await tx
+            .update(cashflows)
+            .set({ cashDeskId: null, isCash: false, updatedAt: sql`now()` })
+            .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)));
+        }
 
-        // Reverse balance: income → subtract, expense → add
-        const reversal = record.cashflowType === "income"
-          ? `-${record.amount}`
-          : record.amount;
-
+        // Reverse cash desk balance
         await tx
           .update(cashDesks)
           .set({

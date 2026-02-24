@@ -63,7 +63,10 @@
     "isCash": "Cash Desk Operation",
     "cashDesk": "Cash Desk",
     "cashDeskPlaceholder": "Select cash desk",
-    "cashDeskRequired": "Cash desk is required"
+    "cashDeskRequired": "Cash desk is required",
+    "receipt": "Receipt",
+    "receiptPlaceholder": "Select receipt",
+    "noReceipt": "— no receipt —"
   },
   "summary": {
     "title": "Period Summary",
@@ -93,14 +96,17 @@
     "cancelled": "Record cancelled",
     "statusFailed": "Failed to change status",
     "onlyPlanned": "This action can only be performed on planned records",
-    "notEditable": "This record cannot be edited"
+    "notEditable": "This record cannot be edited",
+    "hasCashDesk": "Record is linked to a cash desk — edit and delete via Cash Desk module."
   },
   "crossLinks": {
     "title": "Links",
+    "cashDesk": "Cash desk",
+    "viewCashDesk": "Open cash desk",
     "order": "Order",
-    "stockIssue": "Stock Issue",
+    "stockIssue": "Receipt",
     "viewOrder": "View order",
-    "viewStockIssue": "View stock issue",
+    "viewStockIssue": "View receipt",
     "noLinks": "No links"
   },
   "templates": {

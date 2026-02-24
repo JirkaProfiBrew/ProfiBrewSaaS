@@ -46,3 +46,10 @@ export interface CashDeskDailySummary {
   net: string;
   transactionCount: number;
 }
+
+export interface CashDeskBalanceBreakdown {
+  totalIncome: string;
+  totalExpense: string;
+  transactionCount: number;
+  openingBalance: string;
+}

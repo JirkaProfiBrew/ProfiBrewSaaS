@@ -62,7 +62,18 @@
       "cancel": "Cancel",
       "delete": "Delete",
       "confirm": "Confirm",
-      "cancelDocument": "Cancel Document"
+      "cancelDocument": "Cancel Document",
+      "createCashflow": "Create CF",
+      "openCashflow": "Open CF"
+    },
+    "messages": {
+      "cashflowCreated": "CF record created",
+      "cashflowExists": "CF record already exists",
+      "cashflowFailed": "Failed to create CF"
+    },
+    "crossLinks": {
+      "cashflow": "Cash flow",
+      "openCashflow": "Open"
     }
   },
   "tabs": {
@@ -166,7 +177,9 @@
     "close": "Close",
     "checking": "Checking dependencies…",
     "blocked": "This receipt cannot be cancelled — there are issues that allocated from it:",
-    "blockedHint": "Cancel the blocking issues first."
+    "blockedHint": "Cancel the blocking issues first.",
+    "hasCashflow": "This receipt has a linked expense {cfCode}.",
+    "alsoCancelCf": "Also cancel the linked expense"
   },
   "movementsTab": {
     "date": "Date",

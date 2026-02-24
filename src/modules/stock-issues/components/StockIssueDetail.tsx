@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2, CheckCircle, XCircle, FlaskConical } from "lucide-react";
+import { Trash2, CheckCircle, XCircle, FlaskConical, Banknote, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -36,6 +36,10 @@ import {
   prefillIssueFromBatch,
 } from "@/modules/batches/actions";
 
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { useStockIssueDetail } from "../hooks";
 import {
   createStockIssue,
@@ -46,6 +50,7 @@ import {
   getItemOptions,
   getStockIssueMovements,
 } from "../actions";
+import { createCashFlowFromReceipt } from "@/modules/cashflows/actions";
 import type { MovementType, MovementPurpose } from "../types";
 import { StockIssueLineTable } from "./StockIssueLineTable";
 import { StockIssueConfirmDialog } from "./StockIssueConfirmDialog";
@@ -531,6 +536,21 @@ export function StockIssueDetail({
     mutate();
   }, [mutate]);
 
+  const handleCreateCashFlow = useCallback(async (): Promise<void> => {
+    if (!issueDetail) return;
+    const result = await createCashFlowFromReceipt(issueDetail.id);
+    if ("error" in result) {
+      if (result.error === "RECEIPT_CASHFLOW_EXISTS") {
+        toast.error(t("detail.messages.cashflowExists"));
+      } else {
+        toast.error(t("detail.messages.cashflowFailed"));
+      }
+    } else {
+      toast.success(t("detail.messages.cashflowCreated"));
+      mutate();
+    }
+  }, [issueDetail, t, mutate]);
+
   // ── Actions ─────────────────────────────────────────────────
 
   const actions: DetailViewAction[] = useMemo(() => {
@@ -564,6 +584,28 @@ export function StockIssueDetail({
     }
 
     if (isConfirmed) {
+      if (movementType === "receipt" && !issueDetail?.cashflowId) {
+        result.push({
+          key: "createCashflow",
+          label: t("detail.actions.createCashflow"),
+          icon: Banknote,
+          variant: "default",
+          onClick: () => {
+            void handleCreateCashFlow();
+          },
+        });
+      }
+      if (movementType === "receipt" && issueDetail?.cashflowId) {
+        result.push({
+          key: "openCashflow",
+          label: t("detail.actions.openCashflow"),
+          icon: ExternalLink,
+          variant: "outline",
+          onClick: () => {
+            router.push(`/finance/cashflow/${issueDetail.cashflowId}?from=/stock/movements/${id}`);
+          },
+        });
+      }
       result.push({
         key: "cancelDocument",
         label: t("detail.actions.cancelDocument"),
@@ -576,7 +618,7 @@ export function StockIssueDetail({
     }
 
     return result;
-  }, [isNew, isDraft, isConfirmed, t, handleDelete]);
+  }, [isNew, isDraft, isConfirmed, movementType, issueDetail?.cashflowId, t, handleDelete, handleCreateCashFlow]);
 
   // ── NEW mode ──────────────────────────────────────────────
 
@@ -652,6 +694,21 @@ export function StockIssueDetail({
           </div>
         )}
 
+        {issueDetail?.cashflowId && (
+          <Alert className="mb-4">
+            <Banknote className="size-4" />
+            <AlertDescription className="flex items-center gap-2">
+              {t("detail.crossLinks.cashflow")}: <span className="font-medium">{issueDetail.cashflowCode ?? issueDetail.cashflowId}</span>
+              <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                <Link href={`/finance/cashflow/${issueDetail.cashflowId}?from=/stock/movements/${id}`}>
+                  <ExternalLink className="mr-1 size-3" />
+                  {t("detail.crossLinks.openCashflow")}
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {fromBatch && paramBatchNumber && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
             <FlaskConical className="h-4 w-4 shrink-0" />
@@ -718,6 +775,8 @@ export function StockIssueDetail({
         issueId={id}
         code={issueDetail?.code ?? ""}
         isIssueType={movementType === "issue"}
+        cashflowId={issueDetail?.cashflowId ?? null}
+        cashflowCode={issueDetail?.cashflowCode ?? null}
         onCancelled={handleCancelled}
       />
 

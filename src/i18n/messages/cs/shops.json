@@ -72,6 +72,14 @@
       "overheadPct": "Režie suroviny (%)",
       "overheadCzk": "Režie (CZK)",
       "brewCostCzk": "Náklady var (CZK)"
+    },
+    "autoCf": {
+      "title": "Generování výdaje z příjemky",
+      "enabled": "Automaticky generovat výdaj (CF) z příjemky",
+      "category": "Kategorie výdaje",
+      "status": "Stav výdaje",
+      "statusPlanned": "Plánováno",
+      "statusPending": "K úhradě"
     }
   }
 }

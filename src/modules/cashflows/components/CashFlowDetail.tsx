@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Trash2, ExternalLink, Check, Clock, XCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Trash2, ExternalLink, Check, Clock, XCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -18,12 +18,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 
 import { useCashFlowDetail } from "../hooks";
-import { createCashFlow, updateCashFlow, deleteCashFlow, markCashFlowPaid, cancelCashFlow, getPartnerOptions, getCategoryOptions } from "../actions";
+import { createCashFlow, updateCashFlow, deleteCashFlow, markCashFlowPaid, cancelCashFlow, getPartnerOptions, getCategoryOptions, getReceiptOptionsForCashFlow, getReceiptCfDefaults } from "../actions";
+import type { ReceiptOption } from "../actions";
 import { getCashDesks } from "@/modules/cash-desks";
-import type { CategoryOption, CashFlowType } from "../types";
+import type { CategoryOption, CashFlowType, CashFlowStatus } from "../types";
 import { CashFlowStatusBadge } from "./CashFlowStatusBadge";
 import { CashFlowTypeBadge } from "./CashFlowTypeBadge";
 interface CashFlowDetailProps { id: string; }
@@ -32,20 +34,23 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   const t = useTranslations("cashflows");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backUrl = searchParams.get("from") ?? "/finance/cashflow";
   const isNew = id === "new";
   const { data: cashflowDetail, isLoading, mutate } = useCashFlowDetail(id);
   const [partnerOptions, setPartnerOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [allCategoryOptions, setAllCategoryOptions] = useState<CategoryOption[]>([]);
   const [cashDeskOptions, setCashDeskOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [values, setValues] = useState<Record<string, unknown>>({ cashflowType: "expense", categoryId: null, amount: "", date: new Date().toISOString().slice(0, 10), dueDate: null, paidDate: null, partnerId: null, description: null, notes: null, isCash: false, cashDeskId: null });
+  const [receiptOptions, setReceiptOptions] = useState<ReceiptOption[]>([]);
+  const [values, setValues] = useState<Record<string, unknown>>({ cashflowType: "expense", categoryId: null, amount: "", date: new Date().toISOString().slice(0, 10), dueDate: null, paidDate: null, status: "planned", partnerId: null, description: null, notes: null, isCash: false, cashDeskId: null, stockIssueId: null });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("detail");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPartnerOptions(), getCategoryOptions(), getCashDesks()])
-      .then(([partOpts, catOpts, desks]) => { if (!cancelled) { setPartnerOptions(partOpts); setAllCategoryOptions(catOpts); setCashDeskOptions(desks.filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.name }))); } })
+    Promise.all([getPartnerOptions(), getCategoryOptions(), getCashDesks(), getReceiptOptionsForCashFlow()])
+      .then(([partOpts, catOpts, desks, rcptOpts]) => { if (!cancelled) { setPartnerOptions(partOpts); setAllCategoryOptions(catOpts); setCashDeskOptions(desks.filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.name }))); setReceiptOptions(rcptOpts); } })
       .catch((error: unknown) => { console.error("Failed to load options:", error); });
     return (): void => { cancelled = true; };
   }, []);
@@ -66,8 +71,14 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   const mode: FormMode = isEditable ? "edit" : "readonly";
   const cfTypeOpts = [{ value: "income", label: t("form.typeIncome") }, { value: "expense", label: t("form.typeExpense") }];
 
+  const receiptSelectOptions = useMemo(() => [
+    { value: "__none__", label: t("form.noReceipt") },
+    ...receiptOptions.map((r) => ({ value: r.value, label: `${r.label} — ${Number(r.amount).toLocaleString("cs-CZ")} Kč${r.partnerName ? ` (${r.partnerName})` : ""}` })),
+  ], [receiptOptions, t]);
+
   const createFormSection: FormSectionDef = useMemo(() => ({ title: t("detail.newTitle"), columns: 2, fields: [
     { key: "cashflowType", label: t("form.type"), type: "select", options: cfTypeOpts, required: true },
+    ...(values.cashflowType === "expense" ? [{ key: "stockIssueId", label: t("form.receipt"), type: "select" as const, options: receiptSelectOptions, placeholder: t("form.receiptPlaceholder") }] : []),
     { key: "categoryId", label: t("form.category"), type: "select", options: filteredCategoryOptions, placeholder: t("form.categoryPlaceholder") },
     { key: "amount", label: t("form.amount"), type: "currency", required: true, suffix: "K\u010d" },
     { key: "date", label: t("form.date"), type: "date", required: true },
@@ -77,7 +88,7 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
     { key: "notes", label: t("form.notes"), type: "textarea", gridSpan: 2 },
     { key: "isCash", label: t("form.isCash"), type: "checkbox" },
     ...(values.isCash ? [{ key: "cashDeskId", label: t("form.cashDesk"), type: "select" as const, options: cashDeskOptions, placeholder: t("form.cashDeskPlaceholder"), required: true }] : []),
-  ] }), [t, partnerOptions, filteredCategoryOptions, cashDeskOptions, values.isCash]);
+  ] }), [t, partnerOptions, filteredCategoryOptions, cashDeskOptions, receiptSelectOptions, values.isCash, values.cashflowType]);
 
   const editFormSection: FormSectionDef = useMemo(() => ({ title: t("tabs.detail"), columns: 2, fields: [
     { key: "code", label: t("form.code"), type: "text", disabled: true },
@@ -94,9 +105,38 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   ] }), [t, partnerOptions, filteredCategoryOptions]);
 
   const handleChange = useCallback((key: string, value: unknown): void => {
-    setValues((prev) => { const next = { ...prev, [key]: value }; if (key === "cashflowType") { next.categoryId = null; } if (key === "isCash" && !value) { next.cashDeskId = null; } return next; });
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "cashflowType") { next.categoryId = null; next.stockIssueId = null; }
+      if (key === "isCash" && !value) { next.cashDeskId = null; }
+      if (key === "stockIssueId") {
+        const sid = String(value);
+        if (sid && sid !== "__none__") {
+          const receipt = receiptOptions.find((r) => r.value === sid);
+          if (receipt) {
+            next.amount = receipt.amount;
+            next.partnerId = receipt.partnerId;
+            next.date = receipt.date;
+            next.description = receipt.label;
+          }
+          // Load CF defaults (category, status) from shop settings
+          void getReceiptCfDefaults(sid).then((defaults) => {
+            if (defaults) {
+              setValues((p) => ({
+                ...p,
+                categoryId: defaults.categoryId,
+                status: defaults.status,
+              }));
+            }
+          });
+        } else {
+          next.stockIssueId = null;
+        }
+      }
+      return next;
+    });
     if (errors[key]) { setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; }); }
-  }, [errors]);
+  }, [errors, receiptOptions]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     try {
@@ -107,7 +147,7 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
         if (!values.date) newErrors.date = t("form.date");
         if (values.isCash && !values.cashDeskId) newErrors.cashDeskId = t("form.cashDeskRequired");
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-        const result = await createCashFlow({ cashflowType: String(values.cashflowType) as CashFlowType, categoryId: values.categoryId ? String(values.categoryId) : null, amount: String(values.amount), date: String(values.date), dueDate: values.dueDate ? String(values.dueDate) : null, partnerId: values.partnerId ? String(values.partnerId) : null, description: values.description ? String(values.description) : null, notes: values.notes ? String(values.notes) : null, isCash: Boolean(values.isCash), cashDeskId: values.cashDeskId ? String(values.cashDeskId) : null });
+        const result = await createCashFlow({ cashflowType: String(values.cashflowType) as CashFlowType, categoryId: values.categoryId ? String(values.categoryId) : null, amount: String(values.amount), date: String(values.date), dueDate: values.dueDate ? String(values.dueDate) : null, status: values.status ? (String(values.status) as CashFlowStatus) : undefined, partnerId: values.partnerId ? String(values.partnerId) : null, stockIssueId: values.stockIssueId ? String(values.stockIssueId) : null, description: values.description ? String(values.description) : null, notes: values.notes ? String(values.notes) : null, isCash: Boolean(values.isCash), cashDeskId: values.cashDeskId ? String(values.cashDeskId) : null });
         if ("error" in result) { toast.error(t("messages.saveFailed")); return; }
         toast.success(t("messages.created"));
         router.push("/finance/cashflow/" + result.id);
@@ -120,19 +160,27 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   }, [isNew, id, values, router, t, mutate]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
-    try { const result = await deleteCashFlow(id); if ("error" in result) { toast.error(result.error === "CASHFLOW_NOT_DELETABLE" ? t("messages.onlyPlanned") : t("messages.deleteFailed")); return; } toast.success(t("messages.deleted")); router.push("/finance/cashflow"); }
-    catch (error: unknown) { console.error("Failed to delete cashflow:", error); toast.error(t("messages.deleteFailed")); }
+    try {
+      const result = await deleteCashFlow(id);
+      if ("error" in result) {
+        if (result.error === "HAS_CASH_DESK") { toast.error(t("messages.hasCashDesk")); }
+        else if (result.error === "CASHFLOW_NOT_DELETABLE") { toast.error(t("messages.onlyPlanned")); }
+        else { toast.error(t("messages.deleteFailed")); }
+        return;
+      }
+      toast.success(t("messages.deleted")); router.push(backUrl);
+    } catch (error: unknown) { console.error("Failed to delete cashflow:", error); toast.error(t("messages.deleteFailed")); }
   }, [id, router, t]);
 
   const handleMarkPending = useCallback(async (): Promise<void> => { setIsTransitioning(true); try { const result = await updateCashFlow(id, { status: "pending" }); if (result && typeof result === "object" && "error" in result) { toast.error(t("messages.statusFailed")); } else { toast.success(t("messages.saved")); mutate(); } } catch { toast.error(t("messages.statusFailed")); } finally { setIsTransitioning(false); } }, [id, t, mutate]);
   const handleMarkPaid = useCallback(async (): Promise<void> => { setIsTransitioning(true); try { const result = await markCashFlowPaid(id); if (result && typeof result === "object" && "error" in result) { toast.error(t("messages.statusFailed")); } else { toast.success(t("messages.paid")); mutate(); } } catch { toast.error(t("messages.statusFailed")); } finally { setIsTransitioning(false); } }, [id, t, mutate]);
   const handleCancelCF = useCallback(async (): Promise<void> => { setIsTransitioning(true); try { const result = await cancelCashFlow(id); if (result && typeof result === "object" && "error" in result) { toast.error(t("messages.statusFailed")); } else { toast.success(t("messages.cancelled")); mutate(); } } catch { toast.error(t("messages.statusFailed")); } finally { setIsTransitioning(false); } }, [id, t, mutate]);
-  const handleCancel = useCallback((): void => { router.push("/finance/cashflow"); }, [router]);
+  const handleCancel = useCallback((): void => { router.push(backUrl); }, [router, backUrl]);
 
   const dvActions: DetailViewAction[] = useMemo(() => {
-    if (isNew || cashflowDetail?.status === "cancelled") return [];
+    if (isNew || cashflowDetail?.status === "cancelled" || cashflowDetail?.cashDeskId) return [];
     return [{ key: "delete", label: t("actions.delete"), icon: Trash2, variant: "destructive" as const, confirm: { title: tCommon("confirmDelete"), description: tCommon("confirmDeleteDescription") }, onClick: () => { void handleDelete(); } }];
-  }, [isNew, cashflowDetail?.status, t, tCommon, handleDelete]);
+  }, [isNew, cashflowDetail?.status, cashflowDetail?.cashDeskId, t, tCommon, handleDelete]);
 
   if (isNew) {
     return (
@@ -157,6 +205,17 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
             <CashFlowStatusActionsBar currentStatus={cf.status} isLoading={isTransitioning} onMarkPending={handleMarkPending} onMarkPaid={handleMarkPaid} onCancel={handleCancelCF} />
           </div>
         )}
+        {cf?.cashDeskId && (
+          <Alert className="mb-4">
+            <Info className="size-4" />
+            <AlertDescription className="flex items-center gap-2">
+              {t("messages.hasCashDesk")}
+              <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                <Link href={`/finance/cashdesk?deskId=${cf.cashDeskId}`}>{t("crossLinks.viewCashDesk")}</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList>
             <TabsTrigger value="detail">{t("tabs.detail")}</TabsTrigger>
@@ -169,9 +228,10 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
             <Card>
               <CardHeader><CardTitle className="text-base">{t("crossLinks.title")}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                {cf?.orderId ? (<div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">{t("crossLinks.order")}</p><Button variant="outline" size="sm" asChild><Link href={"/sales/orders/" + cf.orderId}><ExternalLink className="mr-1 size-4" />{t("crossLinks.viewOrder")}</Link></Button></div>) : null}
-                {cf?.stockIssueId ? (<div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">{t("crossLinks.stockIssue")}</p><Button variant="outline" size="sm" asChild><Link href={"/stock/issues/" + cf.stockIssueId}><ExternalLink className="mr-1 size-4" />{t("crossLinks.viewStockIssue")}</Link></Button></div>) : null}
-                {!cf?.orderId && !cf?.stockIssueId && (<p className="text-sm text-muted-foreground">{t("crossLinks.noLinks")}</p>)}
+                {cf?.cashDeskId ? (<div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">{t("crossLinks.cashDesk")}: <span className="font-medium text-foreground">{cf.cashDeskName}</span></p><Button variant="outline" size="sm" asChild><Link href={`/finance/cashdesk?deskId=${cf.cashDeskId}`}><ExternalLink className="mr-1 size-4" />{t("crossLinks.viewCashDesk")}</Link></Button></div>) : null}
+                {cf?.orderId ? (<div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">{t("crossLinks.order")}</p><Button variant="outline" size="sm" asChild><Link href={`/sales/orders/${cf.orderId}?from=/finance/cashflow/${id}`}><ExternalLink className="mr-1 size-4" />{t("crossLinks.viewOrder")}</Link></Button></div>) : null}
+                {cf?.stockIssueId ? (<div className="flex items-center gap-3"><p className="text-sm text-muted-foreground">{t("crossLinks.stockIssue")}</p><Button variant="outline" size="sm" asChild><Link href={`/stock/movements/${cf.stockIssueId}?from=/finance/cashflow/${id}`}><ExternalLink className="mr-1 size-4" />{t("crossLinks.viewStockIssue")}</Link></Button></div>) : null}
+                {!cf?.orderId && !cf?.stockIssueId && !cf?.cashDeskId && (<p className="text-sm text-muted-foreground">{t("crossLinks.noLinks")}</p>)}
               </CardContent>
             </Card>
           </TabsContent>

@@ -63,7 +63,10 @@
     "isCash": "Pokladní operace",
     "cashDesk": "Pokladna",
     "cashDeskPlaceholder": "Vyberte pokladnu",
-    "cashDeskRequired": "Pokladna je povinná"
+    "cashDeskRequired": "Pokladna je povinná",
+    "receipt": "Příjemka",
+    "receiptPlaceholder": "Vyberte příjemku",
+    "noReceipt": "— bez příjemky —"
   },
   "summary": {
     "title": "Přehled za období",
@@ -93,14 +96,17 @@
     "cancelled": "Záznam stornován",
     "statusFailed": "Nepodařilo se změnit stav",
     "onlyPlanned": "Tuto akci lze provést pouze u plánovaných záznamů",
-    "notEditable": "Tento záznam nelze upravit"
+    "notEditable": "Tento záznam nelze upravit",
+    "hasCashDesk": "Záznam je vázán na pokladnu — editace a mazání přes modul Pokladna."
   },
   "crossLinks": {
     "title": "Vazby",
+    "cashDesk": "Pokladna",
+    "viewCashDesk": "Otevřít pokladnu",
     "order": "Objednávka",
-    "stockIssue": "Výdejka",
+    "stockIssue": "Příjemka",
     "viewOrder": "Zobrazit objednávku",
-    "viewStockIssue": "Zobrazit výdejku",
+    "viewStockIssue": "Zobrazit příjemku",
     "noLinks": "Žádné vazby"
   },
   "templates": {

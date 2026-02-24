@@ -1,11 +1,25 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cashflowBrowserConfig } from "../config";
 import { useCashFlowList } from "../hooks";
+import { deleteCashFlow } from "../actions";
 import type { CashFlow } from "../types";
 
 import { CashFlowSummaryPanel } from "./CashFlowSummaryPanel";
@@ -24,6 +38,7 @@ function cashflowToRecord(item: CashFlow): Record<string, unknown> {
     partnerName: item.partnerName ?? "",
     amount: item.amount,
     status: item.status,
+    cashDeskId: item.cashDeskId ?? null,
   };
 }
 
@@ -107,8 +122,16 @@ function sortCashFlows(
 
 export function CashFlowBrowser(): React.ReactNode {
   const t = useTranslations("cashflows");
+  const tCommon = useTranslations("common");
   const { params } = useDataBrowserParams(cashflowBrowserConfig);
-  const { data: cashflowData, isLoading } = useCashFlowList();
+  const { data: cashflowData, isLoading, mutate } = useCashFlowList();
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Badge label maps
   const statusLabels: Record<string, string> = {
@@ -123,21 +146,74 @@ export function CashFlowBrowser(): React.ReactNode {
     expense: t("type.expense"),
   };
 
+  // Delete handler
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteCashFlow(deleteTarget.id);
+      if ("error" in result) {
+        if (result.error === "HAS_CASH_DESK") {
+          toast.error(t("messages.hasCashDesk"));
+        } else {
+          toast.error(t("messages.deleteFailed"));
+        }
+      } else {
+        toast.success(t("messages.deleted"));
+        mutate();
+      }
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, t, mutate]);
+
   // Localized config
   const localizedConfig = useMemo(
     () => ({
       ...cashflowBrowserConfig,
       title: t("title"),
-      columns: cashflowBrowserConfig.columns.map((col) => {
-        let valueLabels: Record<string, string> | undefined;
-        if (col.key === "status") valueLabels = statusLabels;
-        if (col.key === "cashflowType") valueLabels = typeLabels;
-        return {
-          ...col,
-          label: t(`columns.${col.key}` as Parameters<typeof t>[0]),
-          valueLabels,
-        };
-      }),
+      columns: [
+        ...cashflowBrowserConfig.columns.map((col) => {
+          let valueLabels: Record<string, string> | undefined;
+          if (col.key === "status") valueLabels = statusLabels;
+          if (col.key === "cashflowType") valueLabels = typeLabels;
+          return {
+            ...col,
+            label: t(`columns.${col.key}` as Parameters<typeof t>[0]),
+            valueLabels,
+          };
+        }),
+        {
+          key: "_actions",
+          label: "",
+          type: "text" as const,
+          sortable: false,
+          width: 50,
+          render: (_value: unknown, row: Record<string, unknown>) => {
+            const canDelete =
+              !row["cashDeskId"] && row["status"] !== "cancelled";
+            if (!canDelete) return null;
+            return (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 text-muted-foreground hover:text-destructive"
+                title={t("actions.delete")}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  setDeleteTarget({
+                    id: String(row["id"]),
+                    code: String(row["code"] ?? ""),
+                  });
+                }}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            );
+          },
+        },
+      ],
       quickFilters: cashflowBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,
         label: t(`quickFilters.${qf.key}` as Parameters<typeof t>[0]),
@@ -203,6 +279,37 @@ export function CashFlowBrowser(): React.ReactNode {
         isLoading={isLoading}
         onParamsChange={handleParamsChange}
       />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tCommon("confirmDelete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tCommon("confirmDeleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t("actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void handleDeleteConfirm();
+              }}
+              disabled={isDeleting}
+              variant="destructive"
+            >
+              {t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

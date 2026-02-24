@@ -62,7 +62,18 @@
       "cancel": "Storno",
       "delete": "Smazat",
       "confirm": "Potvrdit",
-      "cancelDocument": "Stornovat doklad"
+      "cancelDocument": "Stornovat doklad",
+      "createCashflow": "Vytvořit CF",
+      "openCashflow": "Otevřít CF"
+    },
+    "messages": {
+      "cashflowCreated": "Záznam CF vytvořen",
+      "cashflowExists": "CF záznam již existuje",
+      "cashflowFailed": "Nepodařilo se vytvořit CF"
+    },
+    "crossLinks": {
+      "cashflow": "Cash flow",
+      "openCashflow": "Otevřít"
     }
   },
   "tabs": {
@@ -166,7 +177,9 @@
     "close": "Zavřít",
     "checking": "Kontrola závislostí…",
     "blocked": "Příjemku nelze stornovat — existují výdejky, které z ní čerpají:",
-    "blockedHint": "Nejprve stornujte příslušné výdejky."
+    "blockedHint": "Nejprve stornujte příslušné výdejky.",
+    "hasCashflow": "K příjemce existuje výdaj {cfCode}.",
+    "alsoCancelCf": "Stornovat také navázaný výdaj"
   },
   "movementsTab": {
     "date": "Datum",
