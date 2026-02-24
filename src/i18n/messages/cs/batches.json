@@ -194,21 +194,9 @@
     },
     "actions": {
       "issueMaterials": "Vydat suroviny",
-      "prepareIssue": "Připravit výdejku",
-      "directIssue": "Vydat suroviny",
-      "confirmDirectIssue": "Vydat suroviny pro várku {batchNumber}?",
-      "directIssueSuccess": "Suroviny vydány",
-      "directIssueFailed": "Nepodařilo se vydat suroviny",
-      "cancel": "Zrušit",
-      "confirm": "Potvrdit",
       "issueSuccess": "Výrobní výdejka vytvořena",
       "issueFailed": "Nepodařilo se vytvořit výdejku",
-      "stockWarningTitle": "Nedostatek surovin na skladě",
-      "stockWarningDescription": "Některé suroviny nejsou dostupné v požadovaném množství. Chcete pokračovat s částečným výdejem?",
-      "warningRequested": "požadováno",
-      "warningAvailable": "dostupné",
-      "warningMissing": "chybí",
-      "confirmPartialIssue": "Vydat částečně"
+      "allIssued": "Všechny suroviny již byly vydány"
     },
     "issueStatus": {
       "draft": "Koncept",

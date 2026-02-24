@@ -194,21 +194,9 @@
     },
     "actions": {
       "issueMaterials": "Issue Materials",
-      "prepareIssue": "Prepare Issue",
-      "directIssue": "Issue Materials",
-      "confirmDirectIssue": "Issue materials for batch {batchNumber}?",
-      "directIssueSuccess": "Materials issued",
-      "directIssueFailed": "Failed to issue materials",
-      "cancel": "Cancel",
-      "confirm": "Confirm",
       "issueSuccess": "Production issue created",
       "issueFailed": "Failed to create production issue",
-      "stockWarningTitle": "Insufficient stock",
-      "stockWarningDescription": "Some ingredients are not available in the required quantity. Do you want to proceed with a partial issue?",
-      "warningRequested": "required",
-      "warningAvailable": "available",
-      "warningMissing": "missing",
-      "confirmPartialIssue": "Issue partially"
+      "allIssued": "All ingredients have already been issued"
     },
     "issueStatus": {
       "draft": "Draft",

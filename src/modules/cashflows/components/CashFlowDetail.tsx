@@ -22,6 +22,7 @@ import Link from "next/link";
 
 import { useCashFlowDetail } from "../hooks";
 import { createCashFlow, updateCashFlow, deleteCashFlow, markCashFlowPaid, cancelCashFlow, getPartnerOptions, getCategoryOptions } from "../actions";
+import { getCashDesks } from "@/modules/cash-desks";
 import type { CategoryOption, CashFlowType } from "../types";
 import { CashFlowStatusBadge } from "./CashFlowStatusBadge";
 import { CashFlowTypeBadge } from "./CashFlowTypeBadge";
@@ -35,15 +36,16 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   const { data: cashflowDetail, isLoading, mutate } = useCashFlowDetail(id);
   const [partnerOptions, setPartnerOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [allCategoryOptions, setAllCategoryOptions] = useState<CategoryOption[]>([]);
-  const [values, setValues] = useState<Record<string, unknown>>({ cashflowType: "expense", categoryId: null, amount: "", date: new Date().toISOString().slice(0, 10), dueDate: null, paidDate: null, partnerId: null, description: null, notes: null, isCash: false });
+  const [cashDeskOptions, setCashDeskOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [values, setValues] = useState<Record<string, unknown>>({ cashflowType: "expense", categoryId: null, amount: "", date: new Date().toISOString().slice(0, 10), dueDate: null, paidDate: null, partnerId: null, description: null, notes: null, isCash: false, cashDeskId: null });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("detail");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPartnerOptions(), getCategoryOptions()])
-      .then(([partOpts, catOpts]) => { if (!cancelled) { setPartnerOptions(partOpts); setAllCategoryOptions(catOpts); } })
+    Promise.all([getPartnerOptions(), getCategoryOptions(), getCashDesks()])
+      .then(([partOpts, catOpts, desks]) => { if (!cancelled) { setPartnerOptions(partOpts); setAllCategoryOptions(catOpts); setCashDeskOptions(desks.filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.name }))); } })
       .catch((error: unknown) => { console.error("Failed to load options:", error); });
     return (): void => { cancelled = true; };
   }, []);
@@ -60,7 +62,7 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
     return allCategoryOptions.filter((cat) => cat.type === selectedType);
   }, [allCategoryOptions, values.cashflowType]);
 
-  const isEditable = isNew || cashflowDetail?.status === "planned" || cashflowDetail?.status === "pending";
+  const isEditable = isNew || cashflowDetail?.status === "planned" || cashflowDetail?.status === "pending" || cashflowDetail?.status === "paid";
   const mode: FormMode = isEditable ? "edit" : "readonly";
   const cfTypeOpts = [{ value: "income", label: t("form.typeIncome") }, { value: "expense", label: t("form.typeExpense") }];
 
@@ -74,7 +76,8 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
     { key: "description", label: t("form.description"), type: "text", gridSpan: 2 },
     { key: "notes", label: t("form.notes"), type: "textarea", gridSpan: 2 },
     { key: "isCash", label: t("form.isCash"), type: "checkbox" },
-  ] }), [t, partnerOptions, filteredCategoryOptions]);
+    ...(values.isCash ? [{ key: "cashDeskId", label: t("form.cashDesk"), type: "select" as const, options: cashDeskOptions, placeholder: t("form.cashDeskPlaceholder"), required: true }] : []),
+  ] }), [t, partnerOptions, filteredCategoryOptions, cashDeskOptions, values.isCash]);
 
   const editFormSection: FormSectionDef = useMemo(() => ({ title: t("tabs.detail"), columns: 2, fields: [
     { key: "code", label: t("form.code"), type: "text", disabled: true },
@@ -91,7 +94,7 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   ] }), [t, partnerOptions, filteredCategoryOptions]);
 
   const handleChange = useCallback((key: string, value: unknown): void => {
-    setValues((prev) => { const next = { ...prev, [key]: value }; if (key === "cashflowType") { next.categoryId = null; } return next; });
+    setValues((prev) => { const next = { ...prev, [key]: value }; if (key === "cashflowType") { next.categoryId = null; } if (key === "isCash" && !value) { next.cashDeskId = null; } return next; });
     if (errors[key]) { setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; }); }
   }, [errors]);
 
@@ -102,8 +105,9 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
         if (!values.cashflowType) newErrors.cashflowType = t("form.type");
         if (!values.amount) newErrors.amount = t("form.amount");
         if (!values.date) newErrors.date = t("form.date");
+        if (values.isCash && !values.cashDeskId) newErrors.cashDeskId = t("form.cashDeskRequired");
         if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
-        const result = await createCashFlow({ cashflowType: String(values.cashflowType) as CashFlowType, categoryId: values.categoryId ? String(values.categoryId) : null, amount: String(values.amount), date: String(values.date), dueDate: values.dueDate ? String(values.dueDate) : null, partnerId: values.partnerId ? String(values.partnerId) : null, description: values.description ? String(values.description) : null, notes: values.notes ? String(values.notes) : null, isCash: Boolean(values.isCash) });
+        const result = await createCashFlow({ cashflowType: String(values.cashflowType) as CashFlowType, categoryId: values.categoryId ? String(values.categoryId) : null, amount: String(values.amount), date: String(values.date), dueDate: values.dueDate ? String(values.dueDate) : null, partnerId: values.partnerId ? String(values.partnerId) : null, description: values.description ? String(values.description) : null, notes: values.notes ? String(values.notes) : null, isCash: Boolean(values.isCash), cashDeskId: values.cashDeskId ? String(values.cashDeskId) : null });
         if ("error" in result) { toast.error(t("messages.saveFailed")); return; }
         toast.success(t("messages.created"));
         router.push("/finance/cashflow/" + result.id);
@@ -126,7 +130,7 @@ export function CashFlowDetail({ id }: CashFlowDetailProps): React.ReactNode {
   const handleCancel = useCallback((): void => { router.push("/finance/cashflow"); }, [router]);
 
   const dvActions: DetailViewAction[] = useMemo(() => {
-    if (isNew || cashflowDetail?.status !== "planned") return [];
+    if (isNew || cashflowDetail?.status === "cancelled") return [];
     return [{ key: "delete", label: t("actions.delete"), icon: Trash2, variant: "destructive" as const, confirm: { title: tCommon("confirmDelete"), description: tCommon("confirmDeleteDescription") }, onClick: () => { void handleDelete(); } }];
   }, [isNew, cashflowDetail?.status, t, tCommon, handleDelete]);
 

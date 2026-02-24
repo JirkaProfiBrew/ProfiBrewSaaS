@@ -224,6 +224,26 @@
 
 ---
 
+## [0.4.1] — Sprint 4 Patch
+**Období:** 23.02.2026
+**Status:** 🚧 In Progress
+
+### Změněno
+- [x] Oprava kalkulace receptu: `toKg()` a `RecipeCalculation` — null `toBaseFactor` = již v kg (ne gram)
+- [x] Zrušení scaleFactor: recepturní kopie se používá přímo, bez škálování dle objemu
+- [x] Přidán sloupec "Originál" na tab Suroviny (porovnání kopie vs. originální recept)
+- [x] Klikatelná dlaždice receptu na detail várky (žlutý rámeček, parametry: ABV, IBU, OG, EBC, FG, objem)
+- [x] Snapshot mód RecipeDetail — banner "Kopie receptu pro várku {batchNumber}", Zpět → detail várky
+- [x] Sloučení tlačítek výdeje surovin: smazán `directProductionIssue()`, jedno tlačítko "Vydat suroviny" → draft výdejka → navigace na detail výdejky
+- [x] Vyčištění i18n klíčů (`prepareIssue`, `directIssue`, `confirmDirectIssue`, warning keys)
+
+### Architektonická rozhodnutí
+- Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
+- No scaleFactor: snapshot recipe items are the source of truth, amounts used directly
+- Material issue flow: always draft → review → confirm (no direct confirm)
+
+---
+
 <!--
 
 ## [0.5.0] — Sprint 5: Excise + Dashboard

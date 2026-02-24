@@ -91,7 +91,7 @@ export const cashflowBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Peněžní tok", enabled: true },
+    create: { label: "Peněžní tok", enabled: true },
     bulkDelete: false,
     rowClick: "detail",
   },

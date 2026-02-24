@@ -48,6 +48,7 @@
     "title": "Stock Movement",
     "newReceiptTitle": "New Receipt",
     "newIssueTitle": "New Issue",
+    "batchBanner": "Material issue for batch {batchNumber}",
     "saved": "Movement saved",
     "saveError": "Failed to save movement",
     "deleted": "Movement deleted",

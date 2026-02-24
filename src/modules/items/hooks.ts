@@ -6,7 +6,7 @@ import { getItems, getItemById, getItemsWithStock } from "./actions";
 import type { ItemFilter } from "./actions";
 import type { Item } from "./types";
 
-type ItemWithStock = Item & { totalQty: number; reservedQty: number; demandedQty: number; availableQty: number };
+type ItemWithStock = Item & { totalQty: number; demandedQty: number; availableQty: number };
 
 /**
  * Fetch a list of items with optional server-side filters.

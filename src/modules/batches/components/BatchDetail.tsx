@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,8 +40,11 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   const t = useTranslations("batches");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const isNew = id === "new";
+  const VALID_TABS = ["overview", "steps", "measurements", "ingredients", "bottling", "notes"];
+  const initialTab = searchParams.get("tab");
   const { data: batchDetail, isLoading, mutate } = useBatchDetail(id);
 
   // Options for selects
@@ -82,7 +85,20 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(
+    initialTab && VALID_TABS.includes(initialTab) ? initialTab : "overview"
+  );
+
+  const handleTabChange = useCallback((tab: string): void => {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    if (tab === "overview") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", tab);
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   // Populate form when data loads (edit mode)
   useEffect(() => {
@@ -436,7 +452,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           </Link>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList>
             <TabsTrigger value="overview">{t("tabs.overview")}</TabsTrigger>
             <TabsTrigger value="steps">{t("tabs.steps")}</TabsTrigger>

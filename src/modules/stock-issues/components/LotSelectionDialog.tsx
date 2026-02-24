@@ -136,7 +136,7 @@ export function LotSelectionDialog({
     0
   );
 
-  const isValid = Math.abs(totalAllocated - requiredQty) < 0.0001;
+  const isValid = totalAllocated > 0 && totalAllocated <= requiredQty + 0.0001;
 
   // ── Validate individual allocations don't exceed remaining qty
 

@@ -22,9 +22,17 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-import { createCashDeskTransaction } from "../actions";
+import { createCashDeskTransaction, updateCashDeskTransaction } from "../actions";
 import { getCategoryOptions } from "@/modules/cashflows/actions";
 import type { CategoryOption } from "@/modules/cashflows/types";
+
+export interface EditingTransaction {
+  id: string;
+  cashflowType: "income" | "expense";
+  amount: string;
+  description: string | null;
+  categoryId: string | null;
+}
 
 interface CashDeskTransactionDialogProps {
   cashDeskId: string;
@@ -32,6 +40,7 @@ interface CashDeskTransactionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  editing?: EditingTransaction | null;
 }
 
 export function CashDeskTransactionDialog({
@@ -40,6 +49,7 @@ export function CashDeskTransactionDialog({
   open,
   onOpenChange,
   onCreated,
+  editing = null,
 }: CashDeskTransactionDialogProps): React.ReactNode {
   const t = useTranslations("cashDesks");
   const [amount, setAmount] = useState("");
@@ -48,13 +58,15 @@ export function CashDeskTransactionDialog({
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const effectiveType = editing ? editing.cashflowType : type;
+
   // Load categories when dialog opens or type changes
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     void (async (): Promise<void> => {
       try {
-        const opts = await getCategoryOptions(type);
+        const opts = await getCategoryOptions(effectiveType);
         if (!cancelled) {
           setCategories(opts);
         }
@@ -67,16 +79,22 @@ export function CashDeskTransactionDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, type]);
+  }, [open, effectiveType]);
 
-  // Reset form when dialog opens
+  // Reset / prefill form when dialog opens
   useEffect(() => {
     if (open) {
-      setAmount("");
-      setDescription("");
-      setCategoryId("");
+      if (editing) {
+        setAmount(editing.amount);
+        setDescription(editing.description ?? "");
+        setCategoryId(editing.categoryId ?? "");
+      } else {
+        setAmount("");
+        setDescription("");
+        setCategoryId("");
+      }
     }
-  }, [open]);
+  }, [open, editing]);
 
   const handlePreset = useCallback((preset: string): void => {
     setDescription(preset);
@@ -90,25 +108,38 @@ export function CashDeskTransactionDialog({
 
     setLoading(true);
     try {
-      const result = await createCashDeskTransaction(cashDeskId, {
-        type,
-        amount,
-        description,
-        categoryId: categoryId || null,
-      });
-      if ("error" in result) {
-        toast.error(t("transaction.createFailed"));
-        return;
+      if (editing) {
+        const result = await updateCashDeskTransaction(cashDeskId, editing.id, {
+          amount,
+          description,
+          categoryId: categoryId || null,
+        });
+        if ("error" in result) {
+          toast.error(t("transaction.updateFailed"));
+          return;
+        }
+        toast.success(t("transaction.updated"));
+      } else {
+        const result = await createCashDeskTransaction(cashDeskId, {
+          type,
+          amount,
+          description,
+          categoryId: categoryId || null,
+        });
+        if ("error" in result) {
+          toast.error(t("transaction.createFailed"));
+          return;
+        }
+        toast.success(t("transaction.created"));
       }
-      toast.success(t("transaction.created"));
       onOpenChange(false);
       onCreated();
     } catch {
-      toast.error(t("transaction.createFailed"));
+      toast.error(editing ? t("transaction.updateFailed") : t("transaction.createFailed"));
     } finally {
       setLoading(false);
     }
-  }, [amount, cashDeskId, categoryId, description, onCreated, onOpenChange, t, type]);
+  }, [amount, cashDeskId, categoryId, description, editing, onCreated, onOpenChange, t, type]);
 
   const incomePresets = [
     { key: "beerSale", label: t("transaction.presets.beerSale") },
@@ -122,17 +153,19 @@ export function CashDeskTransactionDialog({
     { key: "other", label: t("transaction.presets.other") },
   ];
 
-  const presets = type === "income" ? incomePresets : expensePresets;
+  const presets = effectiveType === "income" ? incomePresets : expensePresets;
+
+  const dialogTitle = editing
+    ? t("transaction.editTitle")
+    : effectiveType === "income"
+      ? t("transaction.incomeTitle")
+      : t("transaction.expenseTitle");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {type === "income"
-              ? t("transaction.incomeTitle")
-              : t("transaction.expenseTitle")}
-          </DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">

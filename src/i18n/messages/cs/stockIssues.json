@@ -48,6 +48,7 @@
     "title": "Skladový pohyb",
     "newReceiptTitle": "Nová příjemka",
     "newIssueTitle": "Nová výdejka",
+    "batchBanner": "Výdejka surovin pro várku {batchNumber}",
     "saved": "Pohyb uložen",
     "saveError": "Chyba při ukládání pohybu",
     "deleted": "Pohyb smazán",

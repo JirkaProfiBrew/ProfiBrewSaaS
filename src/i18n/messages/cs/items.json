@@ -27,9 +27,8 @@
     "stockCategory": "Kat. skladu",
     "salePrice": "Prodejní cena",
     "totalQty": "Sklad",
-    "reservedQty": "Rezervováno",
-    "demandedQty": "Požadováno",
-    "availableQty": "Dostupné"
+    "demandedQty": "Požadavky",
+    "availableQty": "Disponibilní"
   },
   "materialType": {
     "malt": "Slad",
@@ -122,9 +121,8 @@
     "title": "Stav skladu",
     "warehouse": "Sklad",
     "quantity": "Množství",
-    "reserved": "Rezervováno",
-    "demanded": "Požadováno",
-    "available": "Dostupné",
+    "demanded": "Požadavky",
+    "available": "Disponibilní",
     "noStock": "Žádné skladové zásoby",
     "recentMovements": "Poslední pohyby",
     "date": "Datum",

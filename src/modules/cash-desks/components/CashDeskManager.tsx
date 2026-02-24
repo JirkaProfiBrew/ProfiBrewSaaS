@@ -29,15 +29,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 import {
   getCashDesks,
   createCashDesk,
   updateCashDesk,
+  deleteCashDesk,
   getShopOptions,
 } from "../actions";
 import type { CashDesk, CreateCashDeskInput, UpdateCashDeskInput } from "../types";
@@ -68,6 +79,8 @@ export function CashDeskManager(): React.ReactNode {
   const [editingItem, setEditingItem] = useState<CashDesk | null>(null);
   const [formValues, setFormValues] = useState<DialogFormValues>(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CashDesk | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -169,6 +182,29 @@ export function CashDeskManager(): React.ReactNode {
     [load, t]
   );
 
+  const handleDeleteConfirm = useCallback(async (): Promise<void> => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteCashDesk(deleteTarget.id);
+      if ("error" in result) {
+        toast.error(t("messages.deleteFailed"));
+        return;
+      }
+      if ("deactivated" in result) {
+        toast.info(t("messages.deactivated"));
+      } else {
+        toast.success(t("messages.deleted"));
+      }
+      await load();
+    } catch {
+      toast.error(t("messages.deleteFailed"));
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, load, t]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 p-6">
@@ -227,6 +263,15 @@ export function CashDeskManager(): React.ReactNode {
                   >
                     <Pencil className="mr-1 h-4 w-4" />
                     {t("actions.edit")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(desk)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" />
+                    {t("actions.delete")}
                   </Button>
                 </div>
               </TableCell>
@@ -322,6 +367,33 @@ export function CashDeskManager(): React.ReactNode {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteDialog.description", { name: deleteTarget?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t("dialog.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

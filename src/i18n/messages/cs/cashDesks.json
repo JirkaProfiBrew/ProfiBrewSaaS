@@ -15,7 +15,8 @@
   },
   "actions": {
     "add": "Přidat pokladnu",
-    "edit": "Upravit"
+    "edit": "Upravit",
+    "delete": "Smazat"
   },
   "dialog": {
     "createTitle": "Nová pokladna",
@@ -32,7 +33,14 @@
     "nameRequired": "Název je povinný",
     "shopRequired": "Provozovna je povinná",
     "saved": "Pokladna uložena",
-    "saveFailed": "Nepodařilo se uložit pokladnu"
+    "saveFailed": "Nepodařilo se uložit pokladnu",
+    "deleted": "Pokladna smazána",
+    "deactivated": "Pokladna má navázané záznamy — byla deaktivována",
+    "deleteFailed": "Nepodařilo se smazat pokladnu"
+  },
+  "deleteDialog": {
+    "title": "Smazat pokladnu",
+    "description": "Opravdu chcete smazat pokladnu {name}? Pokud má navázané transakce, bude pouze deaktivována."
   },
   "view": {
     "title": "Pokladna",
@@ -53,12 +61,14 @@
       "type": "Typ",
       "amount": "Částka",
       "description": "Popis",
-      "category": "Kategorie"
+      "category": "Kategorie",
+      "actions": "Akce"
     }
   },
   "transaction": {
     "incomeTitle": "Nový příjem",
     "expenseTitle": "Nový výdej",
+    "editTitle": "Upravit operaci",
     "amount": "Částka",
     "amountPlaceholder": "0.00",
     "description": "Popis",
@@ -70,6 +80,13 @@
     "creating": "Ukládám...",
     "created": "Operace uložena",
     "createFailed": "Nepodařilo se uložit operaci",
+    "updated": "Operace upravena",
+    "updateFailed": "Nepodařilo se upravit operaci",
+    "deleted": "Operace smazána",
+    "deleteFailed": "Nepodařilo se smazat operaci",
+    "deleteTitle": "Smazat operaci",
+    "deleteDescription": "Opravdu chcete smazat tuto operaci? Zůstatek pokladny bude upraven.",
+    "deleteConfirm": "Smazat",
     "presets": {
       "beerSale": "Prodej piva",
       "ciderSale": "Prodej cideru",

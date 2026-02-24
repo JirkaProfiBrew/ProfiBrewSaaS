@@ -22,8 +22,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Settings, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Settings, ArrowDownCircle, ArrowUpCircle, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import {
@@ -32,8 +43,11 @@ import {
   useCashDeskTransactions,
   useCashDeskDailySummary,
 } from "../hooks";
+import { deleteCashDeskTransaction } from "../actions";
 import { CashDeskTransactionDialog } from "./CashDeskTransactionDialog";
+import type { EditingTransaction } from "./CashDeskTransactionDialog";
 import type { CashDeskDailySummary } from "../types";
+import type { CashFlow } from "@/modules/cashflows/types";
 
 function isSummaryError(
   data: CashDeskDailySummary | { error: string } | undefined
@@ -46,6 +60,9 @@ export function CashDeskView(): React.ReactNode {
   const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<"income" | "expense">("income");
+  const [editingTx, setEditingTx] = useState<EditingTransaction | null>(null);
+  const [deleteTxTarget, setDeleteTxTarget] = useState<CashFlow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: desks, isLoading: desksLoading } = useCashDeskList();
   const { data: currentDesk, mutate: mutateDesk } = useCashDeskDetail(selectedDeskId);
@@ -63,11 +80,13 @@ export function CashDeskView(): React.ReactNode {
   }, [desks, selectedDeskId]);
 
   const handleOpenIncome = useCallback((): void => {
+    setEditingTx(null);
     setTransactionType("income");
     setTransactionDialogOpen(true);
   }, []);
 
   const handleOpenExpense = useCallback((): void => {
+    setEditingTx(null);
     setTransactionType("expense");
     setTransactionDialogOpen(true);
   }, []);
@@ -77,6 +96,39 @@ export function CashDeskView(): React.ReactNode {
     void mutateTransactions();
     void mutateSummary();
   }, [mutateDesk, mutateTransactions, mutateSummary]);
+
+  const handleEditTx = useCallback((tx: CashFlow): void => {
+    setEditingTx({
+      id: tx.id,
+      cashflowType: tx.cashflowType as "income" | "expense",
+      amount: tx.amount,
+      description: tx.description,
+      categoryId: tx.categoryId,
+    });
+    setTransactionType(tx.cashflowType as "income" | "expense");
+    setTransactionDialogOpen(true);
+  }, []);
+
+  const handleDeleteTxConfirm = useCallback(async (): Promise<void> => {
+    if (!deleteTxTarget || !selectedDeskId) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteCashDeskTransaction(selectedDeskId, deleteTxTarget.id);
+      if ("error" in result) {
+        toast.error(t("transaction.deleteFailed"));
+        return;
+      }
+      toast.success(t("transaction.deleted"));
+      void mutateDesk();
+      void mutateTransactions();
+      void mutateSummary();
+    } catch {
+      toast.error(t("transaction.deleteFailed"));
+    } finally {
+      setIsDeleting(false);
+      setDeleteTxTarget(null);
+    }
+  }, [deleteTxTarget, selectedDeskId, mutateDesk, mutateTransactions, mutateSummary, t]);
 
   const summary: CashDeskDailySummary | null =
     summaryData && !isSummaryError(summaryData) ? summaryData : null;
@@ -177,6 +229,7 @@ export function CashDeskView(): React.ReactNode {
             size="lg"
             className="h-16 bg-green-600 text-lg hover:bg-green-700"
             onClick={handleOpenIncome}
+            disabled={!currentDesk?.isActive}
           >
             <ArrowDownCircle className="mr-2 h-6 w-6" />
             {t("view.income")}
@@ -186,6 +239,7 @@ export function CashDeskView(): React.ReactNode {
             variant="destructive"
             className="h-16 text-lg"
             onClick={handleOpenExpense}
+            disabled={!currentDesk?.isActive}
           >
             <ArrowUpCircle className="mr-2 h-6 w-6" />
             {t("view.expense")}
@@ -260,6 +314,7 @@ export function CashDeskView(): React.ReactNode {
                 <TableHead>{t("view.transactionColumns.amount")}</TableHead>
                 <TableHead>{t("view.transactionColumns.description")}</TableHead>
                 <TableHead>{t("view.transactionColumns.category")}</TableHead>
+                <TableHead>{t("view.transactionColumns.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -294,12 +349,32 @@ export function CashDeskView(): React.ReactNode {
                   </TableCell>
                   <TableCell>{tx.description ?? "-"}</TableCell>
                   <TableCell>{tx.categoryName ?? "-"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditTx(tx)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTxTarget(tx)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
               {sortedTransactions.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     {t("view.noTransactions")}
@@ -311,7 +386,7 @@ export function CashDeskView(): React.ReactNode {
         </div>
       )}
 
-      {/* Transaction dialog */}
+      {/* Transaction dialog (create / edit) */}
       {selectedDeskId && (
         <CashDeskTransactionDialog
           cashDeskId={selectedDeskId}
@@ -319,8 +394,36 @@ export function CashDeskView(): React.ReactNode {
           open={transactionDialogOpen}
           onOpenChange={setTransactionDialogOpen}
           onCreated={handleTransactionCreated}
+          editing={editingTx}
         />
       )}
+
+      {/* Delete transaction confirmation */}
+      <AlertDialog
+        open={deleteTxTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTxTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("transaction.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("transaction.deleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t("transaction.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTxConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("transaction.deleteConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -309,7 +309,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
 
   const handleCancel = useCallback((): void => {
     if (isSnapshot) {
-      router.push(`/brewery/batches/${batchId}`);
+      router.push(`/brewery/batches/${batchId}?tab=ingredients`);
     } else {
       router.push("/brewery/recipes");
     }
@@ -471,7 +471,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     : undefined;
 
   const backHref = isSnapshot
-    ? `/brewery/batches/${batchId}`
+    ? `/brewery/batches/${batchId}?tab=ingredients`
     : "/brewery/recipes";
 
   return (

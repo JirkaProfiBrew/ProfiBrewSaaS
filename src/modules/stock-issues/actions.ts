@@ -773,10 +773,11 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
                   targetQty
                 );
 
-          // Update line with cost from engine (issuedQty/missingQty computed from movements)
+          // Update line with allocated qty and cost from engine
           await tx
             .update(stockIssueLines)
             .set({
+              issuedQty: String(engineResult.allocated),
               unitPrice: String(engineResult.weightedAvgPrice),
               totalCost: String(engineResult.totalCost),
             })

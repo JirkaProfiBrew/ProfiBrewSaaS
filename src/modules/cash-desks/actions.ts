@@ -221,6 +221,62 @@ export async function updateCashDesk(
   }
 }
 
+// -- deleteCashDesk ---------------------------------------------------------
+
+export async function deleteCashDesk(
+  id: string
+): Promise<{ deleted: true } | { deactivated: true } | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      // Load desk to check balance
+      const rows = await db
+        .select({
+          id: cashDesks.id,
+          currentBalance: cashDesks.currentBalance,
+          shopId: cashDesks.shopId,
+        })
+        .from(cashDesks)
+        .where(and(eq(cashDesks.id, id), eq(cashDesks.tenantId, tenantId)))
+        .limit(1);
+
+      const desk = rows[0];
+      if (!desk) return { error: "NOT_FOUND" };
+
+      // Check if any cashflow transactions exist for this shop (isCash = true)
+      const txRows = await db
+        .select({ cnt: sql<number>`COUNT(*)::int` })
+        .from(cashflows)
+        .where(
+          and(
+            eq(cashflows.tenantId, tenantId),
+            eq(cashflows.shopId, desk.shopId),
+            eq(cashflows.isCash, true)
+          )
+        );
+
+      const hasTransactions = (txRows[0]?.cnt ?? 0) > 0;
+
+      if (hasTransactions) {
+        // Deactivate — records exist
+        await db
+          .update(cashDesks)
+          .set({ isActive: false, updatedAt: sql`now()` })
+          .where(and(eq(cashDesks.id, id), eq(cashDesks.tenantId, tenantId)));
+        return { deactivated: true };
+      }
+
+      // No linked records — hard delete
+      await db
+        .delete(cashDesks)
+        .where(and(eq(cashDesks.id, id), eq(cashDesks.tenantId, tenantId)));
+      return { deleted: true };
+    });
+  } catch (err: unknown) {
+    console.error("[cash-desks] deleteCashDesk error:", err);
+    return { error: "DELETE_FAILED" };
+  }
+}
+
 // -- createCashDeskTransaction ----------------------------------------------
 
 export async function createCashDeskTransaction(
@@ -436,6 +492,124 @@ export async function getCashDeskDailySummary(
   } catch (err: unknown) {
     console.error("[cash-desks] getCashDeskDailySummary error:", err);
     return { error: "SUMMARY_FAILED" };
+  }
+}
+
+// -- updateCashDeskTransaction ------------------------------------------------
+
+export async function updateCashDeskTransaction(
+  cashDeskId: string,
+  cashflowId: string,
+  data: { amount?: string; description?: string; categoryId?: string | null }
+): Promise<{ success: true } | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      // Load existing cashflow
+      const existing = await db
+        .select({
+          id: cashflows.id,
+          amount: cashflows.amount,
+          cashflowType: cashflows.cashflowType,
+          isCash: cashflows.isCash,
+        })
+        .from(cashflows)
+        .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)))
+        .limit(1);
+
+      const record = existing[0];
+      if (!record) return { error: "NOT_FOUND" };
+      if (!record.isCash) return { error: "NOT_CASH_TRANSACTION" };
+
+      const oldAmount = Number(record.amount);
+      const newAmount = data.amount !== undefined ? Number(data.amount) : oldAmount;
+      const amountDelta = newAmount - oldAmount;
+
+      await db.transaction(async (tx) => {
+        // Update cashflow record
+        await tx
+          .update(cashflows)
+          .set({
+            ...(data.amount !== undefined && { amount: data.amount }),
+            ...(data.description !== undefined && { description: data.description }),
+            ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)));
+
+        // Adjust cash desk balance if amount changed
+        if (Math.abs(amountDelta) > 0.001) {
+          // Income adds to balance, expense subtracts
+          const balanceDelta = record.cashflowType === "income"
+            ? amountDelta
+            : -amountDelta;
+
+          await tx
+            .update(cashDesks)
+            .set({
+              currentBalance: sql`COALESCE(current_balance, 0) + ${String(balanceDelta)}::decimal`,
+              updatedAt: sql`now()`,
+            })
+            .where(and(eq(cashDesks.id, cashDeskId), eq(cashDesks.tenantId, tenantId)));
+        }
+      });
+
+      return { success: true };
+    });
+  } catch (err: unknown) {
+    console.error("[cash-desks] updateCashDeskTransaction error:", err);
+    return { error: "UPDATE_FAILED" };
+  }
+}
+
+// -- deleteCashDeskTransaction ------------------------------------------------
+
+export async function deleteCashDeskTransaction(
+  cashDeskId: string,
+  cashflowId: string
+): Promise<{ success: true } | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      // Load existing cashflow
+      const existing = await db
+        .select({
+          id: cashflows.id,
+          amount: cashflows.amount,
+          cashflowType: cashflows.cashflowType,
+          isCash: cashflows.isCash,
+        })
+        .from(cashflows)
+        .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)))
+        .limit(1);
+
+      const record = existing[0];
+      if (!record) return { error: "NOT_FOUND" };
+      if (!record.isCash) return { error: "NOT_CASH_TRANSACTION" };
+
+      await db.transaction(async (tx) => {
+        // Delete cashflow record
+        await tx
+          .delete(cashflows)
+          .where(and(eq(cashflows.id, cashflowId), eq(cashflows.tenantId, tenantId)));
+
+        // Reverse balance: income → subtract, expense → add
+        const reversal = record.cashflowType === "income"
+          ? `-${record.amount}`
+          : record.amount;
+
+        await tx
+          .update(cashDesks)
+          .set({
+            currentBalance: sql`COALESCE(current_balance, 0) + ${reversal}::decimal`,
+            updatedAt: sql`now()`,
+          })
+          .where(and(eq(cashDesks.id, cashDeskId), eq(cashDesks.tenantId, tenantId)));
+      });
+
+      return { success: true };
+    });
+  } catch (err: unknown) {
+    console.error("[cash-desks] deleteCashDeskTransaction error:", err);
+    return { error: "DELETE_FAILED" };
   }
 }
 

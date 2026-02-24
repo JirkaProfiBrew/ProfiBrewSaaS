@@ -37,7 +37,6 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
       warehouseId: string;
       warehouseName: string;
       quantity: number;
-      reservedQty: number;
       demandedQty: number;
       availableQty: number;
     }>
@@ -117,9 +116,6 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
                   {t("stockTab.quantity")}
                 </TableHead>
                 <TableHead className="text-right">
-                  {t("stockTab.reserved")}
-                </TableHead>
-                <TableHead className="text-right">
                   {t("stockTab.demanded")}
                 </TableHead>
                 <TableHead className="text-right">
@@ -135,14 +131,11 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
                     {row.quantity.toLocaleString("cs-CZ")}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {row.reservedQty.toLocaleString("cs-CZ")}
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-mono${row.demandedQty > 0 ? " text-red-600 font-semibold" : ""}`}
-                  >
                     {row.demandedQty.toLocaleString("cs-CZ")}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell
+                    className={`text-right font-mono${row.availableQty < 0 ? " text-red-600 font-semibold" : ""}`}
+                  >
                     {row.availableQty.toLocaleString("cs-CZ")}
                   </TableCell>
                 </TableRow>

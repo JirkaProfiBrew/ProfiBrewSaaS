@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/db/with-tenant";
 import { db } from "@/lib/db";
-import { cashflows, cashflowCategories, cashflowTemplates } from "@/../drizzle/schema/cashflows";
+import { cashflows, cashflowCategories, cashflowTemplates, cashDesks } from "@/../drizzle/schema/cashflows";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
 import { eq, and, sql, desc, asc, ilike, or, gte, lte } from "drizzle-orm";
@@ -162,7 +162,72 @@ export async function createCashFlow(
 ): Promise<CashFlow | { error: string }> {
   try {
     return await withTenant(async (tenantId) => {
+      // Generate cashflow code OUTSIDE transaction (counter uses its own tx)
       const code = await getNextNumber(tenantId, "cashflow");
+
+      // Cash desk path — insert CF + update desk balance atomically
+      if (data.isCash && data.cashDeskId) {
+        const today = new Date().toISOString().slice(0, 10);
+
+        const result = await db.transaction(async (tx) => {
+          // 1. Verify cash desk exists and is active
+          const deskRows = await tx
+            .select({
+              id: cashDesks.id,
+              shopId: cashDesks.shopId,
+              isActive: cashDesks.isActive,
+            })
+            .from(cashDesks)
+            .where(and(eq(cashDesks.id, data.cashDeskId!), eq(cashDesks.tenantId, tenantId)))
+            .limit(1);
+
+          const desk = deskRows[0];
+          if (!desk) return { error: "CASH_DESK_NOT_FOUND" } as const;
+          if (!desk.isActive) return { error: "CASH_DESK_INACTIVE" } as const;
+
+          // 2. Insert cashflow — auto-paid, linked to desk's shop
+          const inserted = await tx
+            .insert(cashflows)
+            .values({
+              tenantId, code,
+              cashflowType: data.cashflowType,
+              categoryId:   data.categoryId   ?? null,
+              amount:       data.amount,
+              currency:     data.currency     ?? "CZK",
+              date:         data.date,
+              dueDate:      null,
+              paidDate:     today,
+              status:       "paid",
+              partnerId:    data.partnerId    ?? null,
+              orderId:      null,
+              stockIssueId: null,
+              shopId:       desk.shopId,
+              description:  data.description  ?? null,
+              notes:        data.notes        ?? null,
+              isCash:       true,
+            })
+            .returning();
+
+          const cfRow = inserted[0];
+          if (!cfRow) return { error: "INSERT_FAILED" } as const;
+
+          // 3. Update cash desk balance atomically
+          const delta = data.cashflowType === "income" ? data.amount : `-${data.amount}`;
+          await tx
+            .update(cashDesks)
+            .set({
+              currentBalance: sql`COALESCE(current_balance, 0) + ${delta}::decimal`,
+              updatedAt: sql`now()`,
+            })
+            .where(and(eq(cashDesks.id, data.cashDeskId!), eq(cashDesks.tenantId, tenantId)));
+
+          return mapCashFlowRow(cfRow);
+        });
+
+        return result;
+      }
+
+      // Standard (non-cash) path
       const inserted = await db
         .insert(cashflows)
         .values({
@@ -207,7 +272,7 @@ export async function updateCashFlow(
         .limit(1);
       const record = existing[0];
       if (!record) return { error: "NOT_FOUND" };
-      if (record.status === "paid" || record.status === "cancelled") {
+      if (record.status === "cancelled") {
         return { error: "CASHFLOW_NOT_EDITABLE" };
       }
       const updated = await db
@@ -251,7 +316,7 @@ export async function deleteCashFlow(
         .limit(1);
       const record = existing[0];
       if (!record) return { error: "NOT_FOUND" };
-      if (record.status !== "planned") return { error: "CASHFLOW_NOT_DELETABLE" };
+      if (record.status === "cancelled") return { error: "CASHFLOW_NOT_DELETABLE" };
       await db
         .update(cashflows)
         .set({ status: "cancelled", updatedAt: sql`now()` })

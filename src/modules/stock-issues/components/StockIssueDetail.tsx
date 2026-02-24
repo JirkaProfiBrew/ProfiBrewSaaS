@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Trash2, CheckCircle, XCircle, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -130,6 +130,9 @@ export function StockIssueDetail({
   const newType = (searchParams.get("type") ?? "receipt") as MovementType;
   const paramPurpose = searchParams.get("purpose") as MovementPurpose | null;
   const paramBatchId = searchParams.get("batchId");
+  const paramBatchNumber = searchParams.get("batchNumber");
+  const fromBatch = Boolean(paramBatchId && paramBatchNumber);
+  const batchBackHref = fromBatch ? `/brewery/batches/${paramBatchId}?tab=ingredients` : null;
 
   const { data: issueDetail, isLoading, error: loadError, mutate } = useStockIssueDetail(
     isNew ? "" : id
@@ -507,16 +510,16 @@ export function StockIssueDetail({
     try {
       await deleteStockIssue(id);
       toast.success(t("detail.deleted"));
-      router.push("/stock/movements");
+      router.push(batchBackHref ?? "/stock/movements");
     } catch (error) {
       console.error("Failed to delete stock issue:", error);
       toast.error(t("detail.deleteError"));
     }
-  }, [id, router, t]);
+  }, [id, router, t, batchBackHref]);
 
   const handleCancel = useCallback((): void => {
-    router.push("/stock/movements");
-  }, [router]);
+    router.push(batchBackHref ?? "/stock/movements");
+  }, [router, batchBackHref]);
 
   const handleConfirmed = useCallback((): void => {
     mutate();
@@ -587,7 +590,7 @@ export function StockIssueDetail({
       <div className="flex flex-col gap-6 p-6">
         <DetailView
           title={newTitle}
-          backHref="/stock/movements"
+          backHref={batchBackHref ?? "/stock/movements"}
           isLoading={false}
           onSave={() => {
             void handleSave();
@@ -599,6 +602,12 @@ export function StockIssueDetail({
           <div className="mb-4">
             <MovementTypeBadge type={newType} t={t} />
           </div>
+          {fromBatch && paramBatchNumber && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
+              <FlaskConical className="h-4 w-4 shrink-0" />
+              {t("detail.batchBanner", { batchNumber: paramBatchNumber })}
+            </div>
+          )}
           <FormSection
             section={headerSection}
             values={values}
@@ -621,7 +630,7 @@ export function StockIssueDetail({
     <div className="flex flex-col gap-6 p-6">
       <DetailView
         title={title}
-        backHref="/stock/movements"
+        backHref={batchBackHref ?? "/stock/movements"}
         actions={actions}
         isLoading={isLoading}
         onSave={
@@ -640,6 +649,13 @@ export function StockIssueDetail({
           <div className="flex items-center gap-3 mb-4">
             <MovementTypeBadge type={issueDetail.movementType} t={t} />
             <StatusBadge status={issueDetail.status} t={t} />
+          </div>
+        )}
+
+        {fromBatch && paramBatchNumber && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
+            <FlaskConical className="h-4 w-4 shrink-0" />
+            {t("detail.batchBanner", { batchNumber: paramBatchNumber })}
           </div>
         )}
 

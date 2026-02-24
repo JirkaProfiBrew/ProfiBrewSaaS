@@ -253,7 +253,7 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Přehled: číslo várky, recept, pivo (item), stav, datum vaření, tank, sládek
 - Kroky vaření: tabulka kroků z receptury, u každého plánovaný vs skutečný start/konec, teploty. Krok se "odškrtává" v průběhu vaření.
 - Měření: seznam měření (typ, hodnota, °P, SG, teplota, timestamp). Graf vývoje.
-- Suroviny: spotřebované suroviny s lot tracking vazbou
+- Suroviny: spotřebované suroviny s lot tracking vazbou. Tlačítko "Vydat suroviny" → vytvoří draft výdejku z receptury → naviguje na detail výdejky (sládek zkontroluje, upraví, vybere šarže, potvrdí).
 - Stáčení: kolik sudů/lahví/plechovek se nastáčelo (bottling_items)
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži

@@ -60,7 +60,10 @@
     "partnerPlaceholder": "Vyberte partnera",
     "description": "Popis",
     "notes": "Poznámka",
-    "isCash": "Pokladní operace"
+    "isCash": "Pokladní operace",
+    "cashDesk": "Pokladna",
+    "cashDeskPlaceholder": "Vyberte pokladnu",
+    "cashDeskRequired": "Pokladna je povinná"
   },
   "summary": {
     "title": "Přehled za období",

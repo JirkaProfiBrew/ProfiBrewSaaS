@@ -16,7 +16,6 @@ import type { Item } from "../types";
 
 type ItemWithStock = Item & {
   totalQty: number;
-  reservedQty: number;
   demandedQty: number;
   availableQty: number;
 };
@@ -35,7 +34,6 @@ function itemToRecord(item: ItemWithStock): Record<string, unknown> {
     materialType: item.materialType,
     stockCategory: item.stockCategory,
     totalQty: item.totalQty,
-    reservedQty: item.reservedQty,
     demandedQty: item.demandedQty,
     availableQty: item.availableQty,
     costPrice: item.costPrice,

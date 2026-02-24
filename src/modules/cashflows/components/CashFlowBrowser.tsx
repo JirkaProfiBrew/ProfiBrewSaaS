@@ -2,13 +2,8 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
-
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
-import { Button } from "@/components/ui/button";
-
 import { cashflowBrowserConfig } from "../config";
 import { useCashFlowList } from "../hooks";
 import type { CashFlow } from "../types";
@@ -112,7 +107,6 @@ function sortCashFlows(
 
 export function CashFlowBrowser(): React.ReactNode {
   const t = useTranslations("cashflows");
-  const router = useRouter();
   const { params } = useDataBrowserParams(cashflowBrowserConfig);
   const { data: cashflowData, isLoading } = useCashFlowList();
 
@@ -198,18 +192,7 @@ export function CashFlowBrowser(): React.ReactNode {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <Button
-          size="sm"
-          onClick={() => {
-            router.push("/finance/cashflow/new");
-          }}
-        >
-          <Plus className="mr-1 size-4" />
-          {t("createCashFlow")}
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
 
       <CashFlowSummaryPanel />
 

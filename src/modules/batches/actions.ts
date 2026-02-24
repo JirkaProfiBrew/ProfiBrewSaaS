@@ -1315,15 +1315,17 @@ export async function createProductionIssue(
     // b. Check recipe
     if (!batch.recipeId) return { error: "NO_RECIPE" };
 
-    // c. Load recipe items
+    // c. Load recipe items with unit conversion factor
     const recipeItemRows = await db
       .select({
         id: recipeItems.id,
         itemId: recipeItems.itemId,
         amountG: recipeItems.amountG,
         sortOrder: recipeItems.sortOrder,
+        toBaseFactor: units.toBaseFactor,
       })
       .from(recipeItems)
+      .leftJoin(units, eq(recipeItems.unitId, units.id))
       .where(
         and(
           eq(recipeItems.tenantId, tenantId),
@@ -1333,6 +1335,29 @@ export async function createProductionIssue(
       .orderBy(asc(recipeItems.sortOrder));
 
     if (recipeItemRows.length === 0) return { error: "NO_INGREDIENTS" };
+
+    // d2. Query already-issued quantities for this batch (from confirmed issues)
+    const recipeItemIds = recipeItemRows.map((r) => r.id);
+    const issuedRows = recipeItemIds.length > 0 ? await db
+      .select({
+        recipeItemId: stockIssueLines.recipeItemId,
+        totalIssued: sql<string>`COALESCE(SUM(${stockIssueLines.issuedQty}::decimal), 0)`,
+      })
+      .from(stockIssueLines)
+      .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+      .where(and(
+        eq(stockIssues.tenantId, tenantId),
+        eq(stockIssues.batchId, batchId),
+        eq(stockIssues.movementPurpose, "production_out"),
+        eq(stockIssues.status, "confirmed"),
+        inArray(stockIssueLines.recipeItemId, recipeItemIds)
+      ))
+      .groupBy(stockIssueLines.recipeItemId) : [];
+
+    const issuedMap = new Map<string, number>();
+    for (const row of issuedRows) {
+      if (row.recipeItemId) issuedMap.set(row.recipeItemId, Number(row.totalIssued));
+    }
 
     // e. Find the first active warehouse
     const warehouseRows = await db
@@ -1349,6 +1374,31 @@ export async function createProductionIssue(
 
     const warehouse = warehouseRows[0];
     if (!warehouse) return { error: "NO_WAREHOUSE" };
+
+    // f. Pre-compute remaining amounts (recipe - already issued)
+    const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
+    for (let i = 0; i < recipeItemRows.length; i++) {
+      const ri = recipeItemRows[i]!;
+      const factor = ri.toBaseFactor ? Number(ri.toBaseFactor) : null;
+      const rawAmount = Number(ri.amountG);
+      const baseAmount = factor != null && factor !== 0
+        ? rawAmount * factor
+        : rawAmount; // null = already in base unit
+
+      const alreadyIssued = issuedMap.get(ri.id) ?? 0;
+      const remainingAmount = baseAmount - alreadyIssued;
+
+      if (remainingAmount <= 0.0001) continue;
+
+      linesToCreate.push({
+        itemId: ri.itemId,
+        requestedQty: String(remainingAmount),
+        recipeItemId: ri.id,
+        sortOrder: ri.sortOrder ?? i,
+      });
+    }
+
+    if (linesToCreate.length === 0) return { error: "ALL_ISSUED" };
 
     const today = new Date().toISOString().split("T")[0]!;
 
@@ -1375,17 +1425,16 @@ export async function createProductionIssue(
       const issue = issueRows[0];
       if (!issue) throw new Error("Failed to create production issue");
 
-      // i. Create lines
-      for (let i = 0; i < recipeItemRows.length; i++) {
-        const ri = recipeItemRows[i]!;
+      for (let i = 0; i < linesToCreate.length; i++) {
+        const line = linesToCreate[i]!;
         await tx.insert(stockIssueLines).values({
           tenantId,
           stockIssueId: issue.id,
-          itemId: ri.itemId,
+          itemId: line.itemId,
           lineNo: i + 1,
-          requestedQty: ri.amountG,
-          recipeItemId: ri.id,
-          sortOrder: ri.sortOrder ?? i,
+          requestedQty: line.requestedQty,
+          recipeItemId: line.recipeItemId,
+          sortOrder: line.sortOrder,
         });
       }
 
@@ -1394,57 +1443,6 @@ export async function createProductionIssue(
 
     return { stockIssueId: result };
   });
-}
-
-/**
- * Create a production issue and immediately confirm it (direct issue).
- * If stock is insufficient, returns warnings so the UI can ask the user before confirming.
- */
-export async function directProductionIssue(
-  batchId: string,
-  forceConfirm?: boolean
-): Promise<
-  | { stockIssueId: string }
-  | { stockIssueId: string; warnings: Array<{ itemName: string; unit: string; requested: number; available: number; willIssue: number; missing: number }> }
-  | { error: string }
-> {
-  // Step 1: Create the draft production issue
-  const createResult = await createProductionIssue(batchId);
-  if ("error" in createResult) return createResult;
-
-  const issueId = createResult.stockIssueId;
-
-  // Step 2: Prevalidate stock availability
-  const { prevalidateIssue, confirmStockIssue } = await import("@/modules/stock-issues/actions");
-
-  if (!forceConfirm) {
-    const validation = await prevalidateIssue(issueId);
-    if (validation.hasWarnings) {
-      return { stockIssueId: issueId, warnings: validation.warnings };
-    }
-  }
-
-  // Step 3: Confirm
-  const confirmResult = await confirmStockIssue(issueId);
-  if (confirmResult && typeof confirmResult === "object" && "error" in confirmResult) {
-    return { error: (confirmResult as { error: string }).error };
-  }
-
-  return { stockIssueId: issueId };
-}
-
-/**
- * Confirm an existing draft production issue (used after user approves warnings).
- */
-export async function confirmDirectProductionIssue(
-  issueId: string
-): Promise<{ stockIssueId: string } | { error: string }> {
-  const { confirmStockIssue } = await import("@/modules/stock-issues/actions");
-  const confirmResult = await confirmStockIssue(issueId);
-  if (confirmResult && typeof confirmResult === "object" && "error" in confirmResult) {
-    return { error: (confirmResult as { error: string }).error };
-  }
-  return { stockIssueId: issueId };
 }
 
 /**
@@ -1487,8 +1485,10 @@ export async function prefillIssueFromBatch(
           itemId: recipeItems.itemId,
           amountG: recipeItems.amountG,
           sortOrder: recipeItems.sortOrder,
+          toBaseFactor: units.toBaseFactor,
         })
         .from(recipeItems)
+        .leftJoin(units, eq(recipeItems.unitId, units.id))
         .where(
           and(
             eq(recipeItems.tenantId, tenantId),
@@ -1499,7 +1499,55 @@ export async function prefillIssueFromBatch(
 
       if (recipeItemRows.length === 0) return { error: "NO_INGREDIENTS" };
 
-      // c. Delete existing lines + update batchId in transaction
+      // c2. Query already-issued quantities for this batch (confirmed issues only)
+      const recipeItemIds = recipeItemRows.map((r) => r.id);
+      const issuedRows = recipeItemIds.length > 0 ? await db
+        .select({
+          recipeItemId: stockIssueLines.recipeItemId,
+          totalIssued: sql<string>`COALESCE(SUM(${stockIssueLines.issuedQty}::decimal), 0)`,
+        })
+        .from(stockIssueLines)
+        .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+        .where(and(
+          eq(stockIssues.tenantId, tenantId),
+          eq(stockIssues.batchId, batchId),
+          eq(stockIssues.movementPurpose, "production_out"),
+          eq(stockIssues.status, "confirmed"),
+          inArray(stockIssueLines.recipeItemId, recipeItemIds)
+        ))
+        .groupBy(stockIssueLines.recipeItemId) : [];
+
+      const issuedMap = new Map<string, number>();
+      for (const row of issuedRows) {
+        if (row.recipeItemId) issuedMap.set(row.recipeItemId, Number(row.totalIssued));
+      }
+
+      // c3. Pre-compute remaining amounts
+      const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
+      for (let i = 0; i < recipeItemRows.length; i++) {
+        const ri = recipeItemRows[i]!;
+        const factor = ri.toBaseFactor ? Number(ri.toBaseFactor) : null;
+        const rawAmount = Number(ri.amountG);
+        const baseAmount = factor != null && factor !== 0
+          ? rawAmount * factor
+          : rawAmount;
+
+        const alreadyIssued = issuedMap.get(ri.id) ?? 0;
+        const remainingAmount = baseAmount - alreadyIssued;
+
+        if (remainingAmount <= 0.0001) continue;
+
+        linesToCreate.push({
+          itemId: ri.itemId,
+          requestedQty: String(remainingAmount),
+          recipeItemId: ri.id,
+          sortOrder: ri.sortOrder ?? i,
+        });
+      }
+
+      if (linesToCreate.length === 0) return { error: "ALL_ISSUED" };
+
+      // d. Delete existing lines + insert remaining lines in transaction
       await db.transaction(async (tx) => {
         // Delete existing lines
         await tx
@@ -1511,18 +1559,17 @@ export async function prefillIssueFromBatch(
             )
           );
 
-        // Insert new lines from recipe (direct amounts, no scaling)
-        for (let i = 0; i < recipeItemRows.length; i++) {
-          const ri = recipeItemRows[i]!;
-
+        // Insert lines with remaining amounts
+        for (let i = 0; i < linesToCreate.length; i++) {
+          const line = linesToCreate[i]!;
           await tx.insert(stockIssueLines).values({
             tenantId,
             stockIssueId: issueId,
-            itemId: ri.itemId,
+            itemId: line.itemId,
             lineNo: i + 1,
-            requestedQty: ri.amountG,
-            recipeItemId: ri.id,
-            sortOrder: ri.sortOrder ?? i,
+            requestedQty: line.requestedQty,
+            recipeItemId: line.recipeItemId,
+            sortOrder: line.sortOrder,
           });
         }
 
@@ -1637,13 +1684,14 @@ export async function getBatchIngredients(
       }
     }
 
-    // d. Load recipe items with item names
+    // d. Load recipe items with item names and unit conversion factor
     const riRows = await db
       .select({
         recipeItem: recipeItems,
         itemName: items.name,
         itemCode: items.code,
         unitSymbol: units.symbol,
+        toBaseFactor: units.toBaseFactor,
       })
       .from(recipeItems)
       .leftJoin(items, eq(recipeItems.itemId, items.id))
@@ -1658,13 +1706,14 @@ export async function getBatchIngredients(
 
     if (riRows.length === 0) return [];
 
-    // e. Load issued quantities from confirmed production issues
+    // e. Load issued quantities from confirmed production issue lines
+    //    (issuedQty is persisted on stock_issue_lines during confirmation)
     const recipeItemIds = riRows.map((r) => r.recipeItem.id);
 
-    const issuedRows = await db
+    const issuedRows = recipeItemIds.length > 0 ? await db
       .select({
         recipeItemId: stockIssueLines.recipeItemId,
-        totalIssued: sql<string>`COALESCE(SUM(ABS(${stockIssueLines.issuedQty}::decimal)), 0)`,
+        totalIssued: sql<string>`COALESCE(SUM(${stockIssueLines.issuedQty}::decimal), 0)`,
       })
       .from(stockIssueLines)
       .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
@@ -1677,13 +1726,13 @@ export async function getBatchIngredients(
           inArray(stockIssueLines.recipeItemId, recipeItemIds)
         )
       )
-      .groupBy(stockIssueLines.recipeItemId);
+      .groupBy(stockIssueLines.recipeItemId) : [];
 
-    // Build a map of recipeItemId -> issued qty
-    const issuedMap = new Map<string, number>();
+    // Build a map of recipeItemId -> issued qty (in base units: kg/l)
+    const issuedBaseMap = new Map<string, number>();
     for (const row of issuedRows) {
       if (row.recipeItemId) {
-        issuedMap.set(row.recipeItemId, Number(row.totalIssued));
+        issuedBaseMap.set(row.recipeItemId, Number(row.totalIssued));
       }
     }
 
@@ -1726,11 +1775,26 @@ export async function getBatchIngredients(
       });
     }
 
-    // f. Build result rows (direct amounts from snapshot recipe, no scaling)
+    // f. Build result rows — convert base-unit issued/lot quantities back to recipe units
     return riRows.map((row): BatchIngredientRow => {
+      const factor = row.toBaseFactor ? Number(row.toBaseFactor) : null;
       const recipeQty = Number(row.recipeItem.amountG);
-      const issuedQty = issuedMap.get(row.recipeItem.id) ?? 0;
+
+      // Convert issued qty from base units (kg) to recipe units (g)
+      const issuedBase = issuedBaseMap.get(row.recipeItem.id) ?? 0;
+      const issuedQty = factor != null && factor !== 0
+        ? issuedBase / factor   // e.g. 0.05 kg / 0.001 = 50 g
+        : issuedBase;           // null = already in base unit
       const missingQty = Math.max(0, recipeQty - issuedQty);
+
+      // Convert lot quantities from base units to recipe units
+      const rawLots = lotsMap.get(row.recipeItem.id) ?? [];
+      const lots = rawLots.map((lot) => ({
+        ...lot,
+        quantity: factor != null && factor !== 0
+          ? lot.quantity / factor
+          : lot.quantity,
+      }));
 
       return {
         recipeItemId: row.recipeItem.id,
@@ -1744,7 +1808,7 @@ export async function getBatchIngredients(
         useStage: row.recipeItem.useStage,
         issuedQty: String(issuedQty),
         missingQty: String(missingQty),
-        lots: lotsMap.get(row.recipeItem.id) ?? [],
+        lots,
       };
     });
   });

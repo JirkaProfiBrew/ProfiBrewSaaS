@@ -60,7 +60,10 @@
     "partnerPlaceholder": "Select partner",
     "description": "Description",
     "notes": "Notes",
-    "isCash": "Cash Desk Operation"
+    "isCash": "Cash Desk Operation",
+    "cashDesk": "Cash Desk",
+    "cashDeskPlaceholder": "Select cash desk",
+    "cashDeskRequired": "Cash desk is required"
   },
   "summary": {
     "title": "Period Summary",

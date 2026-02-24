@@ -15,7 +15,8 @@
   },
   "actions": {
     "add": "Add Cash Desk",
-    "edit": "Edit"
+    "edit": "Edit",
+    "delete": "Delete"
   },
   "dialog": {
     "createTitle": "New Cash Desk",
@@ -32,7 +33,14 @@
     "nameRequired": "Name is required",
     "shopRequired": "Location is required",
     "saved": "Cash desk saved",
-    "saveFailed": "Failed to save cash desk"
+    "saveFailed": "Failed to save cash desk",
+    "deleted": "Cash desk deleted",
+    "deactivated": "Cash desk has linked records — it was deactivated",
+    "deleteFailed": "Failed to delete cash desk"
+  },
+  "deleteDialog": {
+    "title": "Delete cash desk",
+    "description": "Are you sure you want to delete cash desk {name}? If it has linked transactions, it will be deactivated instead."
   },
   "view": {
     "title": "Cash Desk",
@@ -53,12 +61,14 @@
       "type": "Type",
       "amount": "Amount",
       "description": "Description",
-      "category": "Category"
+      "category": "Category",
+      "actions": "Actions"
     }
   },
   "transaction": {
     "incomeTitle": "New Income",
     "expenseTitle": "New Expense",
+    "editTitle": "Edit Transaction",
     "amount": "Amount",
     "amountPlaceholder": "0.00",
     "description": "Description",
@@ -70,6 +80,13 @@
     "creating": "Saving...",
     "created": "Operation saved",
     "createFailed": "Failed to save operation",
+    "updated": "Transaction updated",
+    "updateFailed": "Failed to update transaction",
+    "deleted": "Transaction deleted",
+    "deleteFailed": "Failed to delete transaction",
+    "deleteTitle": "Delete transaction",
+    "deleteDescription": "Are you sure you want to delete this transaction? The cash desk balance will be adjusted.",
+    "deleteConfirm": "Delete",
     "presets": {
       "beerSale": "Beer sale",
       "ciderSale": "Cider sale",

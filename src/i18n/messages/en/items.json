@@ -27,8 +27,7 @@
     "stockCategory": "Stock Category",
     "salePrice": "Sale Price",
     "totalQty": "Stock",
-    "reservedQty": "Reserved",
-    "demandedQty": "Demanded",
+    "demandedQty": "Demands",
     "availableQty": "Available"
   },
   "materialType": {
@@ -122,8 +121,7 @@
     "title": "Stock Status",
     "warehouse": "Warehouse",
     "quantity": "Quantity",
-    "reserved": "Reserved",
-    "demanded": "Demanded",
+    "demanded": "Demands",
     "available": "Available",
     "noStock": "No stock levels",
     "recentMovements": "Recent Movements",

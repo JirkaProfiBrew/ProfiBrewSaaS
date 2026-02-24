@@ -95,6 +95,7 @@ export interface CreateCashFlowInput {
   description?: string | null;
   notes?: string | null;
   isCash?: boolean;
+  cashDeskId?: string | null;
 }
 
 export interface UpdateCashFlowInput {
