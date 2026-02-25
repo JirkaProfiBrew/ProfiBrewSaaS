@@ -301,7 +301,7 @@ export function RecipeCalculation({
                   </TableCell>
                   <TableCell className="text-right font-semibold">
                     {calcSnapshot
-                      ? calcSnapshot.ingredientsCost.toFixed(2)
+                      ? (calcSnapshot.ingredientsCost ?? calcSnapshot.costPrice ?? totalCost).toFixed(2)
                       : totalCost.toFixed(2)}
                   </TableCell>
                 </TableRow>
