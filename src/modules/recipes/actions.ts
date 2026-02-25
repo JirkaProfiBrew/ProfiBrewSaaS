@@ -835,6 +835,7 @@ export async function calculateAndSaveRecipe(
         itemCostPrice: items.costPrice,
         unitToBaseFactor: units.toBaseFactor,
         stockUnitToBaseFactor: stockUnit.toBaseFactor,
+        stockUnitSymbol: stockUnit.symbol,
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
@@ -869,9 +870,11 @@ export async function calculateAndSaveRecipe(
         unitToBaseFactor: row.unitToBaseFactor
           ? parseFloat(row.unitToBaseFactor)
           : null,
+        // Stock unit exists (join returned a row) → NULL factor = base unit = 1
+        // No stock unit → null (calculateCost falls back to recipe unit factor)
         stockUnitToBaseFactor: row.stockUnitToBaseFactor
           ? parseFloat(row.stockUnitToBaseFactor)
-          : null,
+          : (row.stockUnitSymbol != null ? 1 : null),
         alpha: row.itemAlpha ? parseFloat(row.itemAlpha) : null,
         ebc: row.itemEbc ? parseFloat(row.itemEbc) : null,
         extractPercent: row.itemExtractPercent

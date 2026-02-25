@@ -1404,6 +1404,7 @@ export async function createProductionIssue(
         sortOrder: recipeItems.sortOrder,
         toBaseFactor: units.toBaseFactor,
         stockUnitToBaseFactor: stockUnit.toBaseFactor,
+        stockUnitSymbol: stockUnit.symbol,
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
@@ -1463,12 +1464,16 @@ export async function createProductionIssue(
     for (let i = 0; i < recipeItemRows.length; i++) {
       const ri = recipeItemRows[i]!;
       const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
-      // If item has no stock unit defined, assume same as recipe unit (no conversion)
-      const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : recipeUnitFactor;
+      // Stock unit exists (join returned a row) → use its factor (NULL = base unit = 1)
+      // No stock unit (item.unitId is null) → assume same as recipe unit
+      const hasStockUnit = ri.stockUnitSymbol != null;
+      const stockUnitFactor = hasStockUnit
+        ? (ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1)
+        : recipeUnitFactor;
       const rawAmount = Number(ri.amountG);
       // Convert recipe-unit amount → item's stock unit via base unit
-      // e.g. 350 g (factor 0.001) → kg → g (factor 0.001) = 350
-      // When recipe unit = stock unit: 500 * 0.001 / 0.001 = 500 (no change)
+      // e.g. hops: 350 g (0.001) → kg (1) = 350 * 0.001 / 1 = 0.35
+      // e.g. yeast: 500 g (0.001) → g (0.001) = 500 * 0.001 / 0.001 = 500
       const stockAmount = stockUnitFactor !== 0
         ? rawAmount * recipeUnitFactor / stockUnitFactor
         : rawAmount;
@@ -1576,6 +1581,7 @@ export async function prefillIssueFromBatch(
           sortOrder: recipeItems.sortOrder,
           toBaseFactor: units.toBaseFactor,
           stockUnitToBaseFactor: stockUnit2.toBaseFactor,
+          stockUnitSymbol: stockUnit2.symbol,
         })
         .from(recipeItems)
         .innerJoin(items, eq(recipeItems.itemId, items.id))
@@ -1619,8 +1625,10 @@ export async function prefillIssueFromBatch(
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
         const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
-        // If item has no stock unit defined, assume same as recipe unit (no conversion)
-        const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : recipeUnitFactor;
+        const hasStockUnit = ri.stockUnitSymbol != null;
+        const stockUnitFactor = hasStockUnit
+          ? (ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1)
+          : recipeUnitFactor;
         const rawAmount = Number(ri.amountG);
         // Convert recipe-unit amount → item's stock unit via base unit
         const stockAmount = stockUnitFactor !== 0
@@ -1789,6 +1797,7 @@ export async function getBatchIngredients(
         unitSymbol: units.symbol,
         toBaseFactor: units.toBaseFactor,
         stockUnitToBaseFactor: stockUnit3.toBaseFactor,
+        stockUnitSymbol: stockUnit3.symbol,
       })
       .from(recipeItems)
       .leftJoin(items, eq(recipeItems.itemId, items.id))
@@ -1873,29 +1882,35 @@ export async function getBatchIngredients(
       });
     }
 
-    // f. Build result rows — convert stock-unit issued/lot quantities back to recipe units
+    // f. Build result rows — all quantities in item's STOCK unit
     return riRows.map((row): BatchIngredientRow => {
       const recipeUnitFactor = row.toBaseFactor ? Number(row.toBaseFactor) : 1;
-      // If item has no stock unit defined, assume same as recipe unit (no conversion)
-      const stockUnitFactor = row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : recipeUnitFactor;
-      const recipeQty = Number(row.recipeItem.amountG);
+      const hasStockUnit = row.stockUnitSymbol != null;
+      const stockUnitFactor = hasStockUnit
+        ? (row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : 1)
+        : recipeUnitFactor;
 
-      // Convert issued qty from item's stock unit to recipe unit
-      // recipeQty = stockQty * stockUnitFactor / recipeUnitFactor
+      // Conversion ratio: recipe unit → stock unit
+      // hops: g→kg = 0.001/1 = 0.001; yeast g→g = 0.001/0.001 = 1; malt kg→kg = 1/1 = 1
+      const toStockRatio = stockUnitFactor !== 0
+        ? recipeUnitFactor / stockUnitFactor
+        : 1;
+
+      const recipeQtyRaw = Number(row.recipeItem.amountG);
+      const recipeQtyStock = recipeQtyRaw * toStockRatio;
+
+      // Issued qty is already in stock units (stored that way on stock issue lines)
       const issuedStock = issuedStockMap.get(row.recipeItem.id) ?? 0;
-      const issuedQty = recipeUnitFactor !== 0
-        ? issuedStock * stockUnitFactor / recipeUnitFactor
-        : issuedStock;
-      const missingQty = Math.max(0, recipeQty - issuedQty);
+      const missingQty = Math.max(0, recipeQtyStock - issuedStock);
 
-      // Convert lot quantities from stock unit to recipe unit
-      const rawLots = lotsMap.get(row.recipeItem.id) ?? [];
-      const lots = rawLots.map((lot) => ({
-        ...lot,
-        quantity: recipeUnitFactor !== 0
-          ? lot.quantity * stockUnitFactor / recipeUnitFactor
-          : lot.quantity,
-      }));
+      // Lot quantities are also in stock units
+      const lots = lotsMap.get(row.recipeItem.id) ?? [];
+
+      // Convert originalQty (from source recipe, in recipe units) to stock units
+      const origRaw = originalQtyMap?.get(row.recipeItem.itemId);
+      const originalQtyStock = origRaw != null
+        ? String(Number(origRaw) * toStockRatio)
+        : null;
 
       return {
         recipeItemId: row.recipeItem.id,
@@ -1903,11 +1918,11 @@ export async function getBatchIngredients(
         itemName: row.itemName ?? "",
         itemCode: row.itemCode ?? null,
         category: row.recipeItem.category,
-        originalQty: originalQtyMap?.get(row.recipeItem.itemId) ?? null,
-        recipeQty: row.recipeItem.amountG,
-        unitSymbol: row.unitSymbol ?? null,
+        originalQty: originalQtyStock,
+        recipeQty: String(recipeQtyStock),
+        unitSymbol: hasStockUnit ? row.stockUnitSymbol : (row.unitSymbol ?? null),
         useStage: row.recipeItem.useStage,
-        issuedQty: String(issuedQty),
+        issuedQty: String(issuedStock),
         missingQty: String(missingQty),
         lots,
       };
