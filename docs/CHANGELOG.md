@@ -327,6 +327,18 @@
 - [x] Graceful fallback pro staré snapshoty bez overhead dat
 - [x] i18n: `calculation.ingredientsCost`, `calculation.ingredientOverhead`, `calculation.brewCost`, `calculation.overheadCost`, `calculation.totalProductionCost`, `calculation.productionCostPerLiter`, `calculation.pricingSource`, `calculation.pricingModes.*` (cs + en)
 
+### Přidáno — Cenotvorba balených položek (packaging_cost + filling_cost)
+- [x] DB schema: nové sloupce `packaging_cost` a `filling_cost` na tabulce `items`
+- [x] Item detail: nová pole "Náklady na obal" a "Náklady na stočení" (viditelná pouze pro prodejní položky s base_item)
+- [x] Item detail: kalkulovaná cena balené položky = `(výrobní_cena_za_litr × objem) + obal + stočení`
+- [x] `getProductionItemOptions()` — rozšířen o `costPrice` pro výpočet v UI
+- [x] `BottlingLineData` — rozšířen o `packagingCost`, `fillingCost` (z items tabulky)
+- [x] `getBottlingLines()` — packaged mód předává packaging/filling náklady na řádky
+- [x] Tab Stáčení (packaged): rozšířené sloupce — Pivo, Obal, Stočení, Cena/ks, Celkem
+- [x] Tab Stáčení (packaged): "Celková hodnota" v sumáři a patičce tabulky
+- [x] `createProductionReceipt()` — packaged mód: `unitPrice = beer×baseQty + pkg + fill` (per-item pricing)
+- [x] i18n: `bottling.beerCost`, `bottling.packagingCost`, `bottling.fillingCost`, `bottling.unitCost`, `bottling.totalCost`, `bottling.totalValue`, `detail.fields.packagingCost`, `detail.fields.fillingCost`, `detail.fields.calculatedCost*` (cs + en)
+
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
 - No scaleFactor: snapshot recipe items are the source of truth, amounts used directly

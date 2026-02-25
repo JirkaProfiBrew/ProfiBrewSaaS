@@ -198,6 +198,9 @@ export function BatchBottlingTab({
   }, [batchId, loadData, onMutate, t]);
 
   // Summary calculations
+  const beerCostPerLiter = productionPrice ? Number(productionPrice) : 0;
+  const isPackagedMode = mode === "packaged";
+
   const summary = useMemo(() => {
     const totalBottled = lines.reduce(
       (sum, l) => sum + l.quantity * l.baseItemQuantity,
@@ -211,8 +214,19 @@ export function BatchBottlingTab({
 
     const nonZeroCount = lines.filter((l) => l.quantity > 0).length;
 
-    return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe, nonZeroCount };
-  }, [lines, actualVolumeL, recipeBatchSizeL]);
+    // Total value for packaged mode
+    let totalValue = 0;
+    if (isPackagedMode) {
+      for (const l of lines) {
+        const beerCost = beerCostPerLiter * l.baseItemQuantity;
+        const unitCost = beerCost + l.packagingCost + l.fillingCost;
+        totalValue += unitCost * l.quantity;
+      }
+      totalValue = Math.round(totalValue * 100) / 100;
+    }
+
+    return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe, nonZeroCount, totalValue };
+  }, [lines, actualVolumeL, recipeBatchSizeL, beerCostPerLiter, isPackagedMode]);
 
   // Compute expiry date from bottledDate + shelfLifeDays
   const expiryDate = useMemo((): string | null => {
@@ -334,11 +348,29 @@ export function BatchBottlingTab({
             <TableHead className="w-[120px] text-right">
               {t("bottling.lineTotal")}
             </TableHead>
+            {isPackagedMode && (
+              <>
+                <TableHead className="w-[100px] text-right">{t("bottling.beerCost")}</TableHead>
+                <TableHead className="w-[90px] text-right">{t("bottling.packagingCost")}</TableHead>
+                <TableHead className="w-[90px] text-right">{t("bottling.fillingCost")}</TableHead>
+                <TableHead className="w-[100px] text-right">{t("bottling.unitCost")}</TableHead>
+                <TableHead className="w-[110px] text-right">{t("bottling.totalCost")}</TableHead>
+              </>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
           {lines.map((line) => {
             const lineTotal = line.quantity * line.baseItemQuantity;
+            const beerCostLine = isPackagedMode
+              ? Math.round(beerCostPerLiter * line.baseItemQuantity * 100) / 100
+              : 0;
+            const unitCost = isPackagedMode
+              ? Math.round((beerCostLine + line.packagingCost + line.fillingCost) * 100) / 100
+              : 0;
+            const lineTotalCost = isPackagedMode
+              ? Math.round(unitCost * line.quantity * 100) / 100
+              : 0;
             return (
               <TableRow key={line.itemId}>
                 <TableCell className="font-medium">
@@ -372,18 +404,47 @@ export function BatchBottlingTab({
                 <TableCell className="text-right tabular-nums font-medium">
                   {lineTotal > 0 ? lineTotal.toFixed(1) : "-"}
                 </TableCell>
+                {isPackagedMode && (
+                  <>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {beerCostLine > 0 ? beerCostLine.toFixed(2) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {line.packagingCost > 0 ? line.packagingCost.toFixed(2) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {line.fillingCost > 0 ? line.fillingCost.toFixed(2) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {unitCost > 0 ? unitCost.toFixed(2) : "-"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {lineTotalCost > 0 ? lineTotalCost.toFixed(2) : "-"}
+                    </TableCell>
+                  </>
+                )}
               </TableRow>
             );
           })}
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={3} className="text-right font-semibold">
+            <TableCell colSpan={isPackagedMode ? 3 : 3} className="text-right font-semibold">
               {t("bottling.summary.totalBottled")}
             </TableCell>
             <TableCell className="text-right font-semibold tabular-nums">
               {summary.totalBottled.toFixed(1)} L
             </TableCell>
+            {isPackagedMode && (
+              <>
+                <TableCell colSpan={4} className="text-right font-semibold">
+                  {t("bottling.totalValue")}
+                </TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">
+                  {summary.totalValue > 0 ? `${summary.totalValue.toFixed(2)} Kč` : "-"}
+                </TableCell>
+              </>
+            )}
           </TableRow>
         </TableFooter>
       </Table>
@@ -420,6 +481,13 @@ export function BatchBottlingTab({
             label={t("bottling.summary.diffTank")}
             value={formatDiff(summary.diffTank, t)}
             className={diffColor(summary.diffTank)}
+            bold
+          />
+        )}
+        {isPackagedMode && summary.totalValue > 0 && (
+          <SummaryRow
+            label={t("bottling.totalValue")}
+            value={`${summary.totalValue.toFixed(2)} Kč`}
             bold
           />
         )}

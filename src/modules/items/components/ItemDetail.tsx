@@ -10,6 +10,7 @@ import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
 import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewAction } from "@/components/detail-view";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { useItem } from "../hooks";
 import {
@@ -78,6 +79,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     salePrice: null,
     overheadManual: false,
     overheadPrice: null,
+    packagingCost: null,
+    fillingCost: null,
     posAvailable: false,
     webAvailable: false,
     color: null,
@@ -87,12 +90,12 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [productionItemOptions, setProductionItemOptions] = useState<{ value: string; label: string; unitSymbol: string | null }[]>([]);
+  const [productionItemOptions, setProductionItemOptions] = useState<{ value: string; label: string; unitSymbol: string | null; costPrice: string | null }[]>([]);
 
   // Load production items for base-item select
   useEffect(() => {
     void getProductionItemOptions().then((opts) =>
-      setProductionItemOptions([{ value: "__none__", label: "\u2014", unitSymbol: null }, ...opts])
+      setProductionItemOptions([{ value: "__none__", label: "\u2014", unitSymbol: null, costPrice: null }, ...opts])
     );
   }, []);
 
@@ -129,6 +132,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         salePrice: item.salePrice,
         overheadManual: item.overheadManual,
         overheadPrice: item.overheadPrice,
+        packagingCost: item.packagingCost,
+        fillingCost: item.fillingCost,
         posAvailable: item.posAvailable,
         webAvailable: item.webAvailable,
         color: item.color,
@@ -248,6 +253,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           salePrice: (values.salePrice as string | null) ?? null,
           overheadManual: (values.overheadManual as boolean) ?? false,
           overheadPrice: (values.overheadPrice as string | null) ?? null,
+          packagingCost: (values.packagingCost as string | null) ?? null,
+          fillingCost: (values.fillingCost as string | null) ?? null,
           posAvailable: (values.posAvailable as boolean) ?? false,
           webAvailable: (values.webAvailable as boolean) ?? false,
           color: (values.color as string | null) ?? null,
@@ -284,6 +291,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           salePrice: (values.salePrice as string | null) ?? null,
           overheadManual: (values.overheadManual as boolean) ?? false,
           overheadPrice: (values.overheadPrice as string | null) ?? null,
+          packagingCost: (values.packagingCost as string | null) ?? null,
+          fillingCost: (values.fillingCost as string | null) ?? null,
           posAvailable: (values.posAvailable as boolean) ?? false,
           webAvailable: (values.webAvailable as boolean) ?? false,
           color: (values.color as string | null) ?? null,
@@ -352,6 +361,24 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     }
     return t("detail.fields.baseItemQuantity");
   }, [values.baseItemId, productionItemOptions, t]);
+
+  // Computed packaged item cost
+  const calculatedPackagedCost = useMemo(() => {
+    const baseItemId = values.baseItemId as string | null;
+    const baseQty = parseFloat(String(values.baseItemQuantity ?? "")) || 0;
+    const pkgCost = parseFloat(String(values.packagingCost ?? "")) || 0;
+    const fillCost = parseFloat(String(values.fillingCost ?? "")) || 0;
+
+    if (!baseItemId || baseItemId === "__none__" || baseQty <= 0) return null;
+
+    const baseItem = productionItemOptions.find((o) => o.value === baseItemId);
+    const beerCostPerUnit = baseItem?.costPrice ? parseFloat(baseItem.costPrice) : 0;
+
+    const beerCost = Math.round(beerCostPerUnit * baseQty * 100) / 100;
+    const total = Math.round((beerCost + pkgCost + fillCost) * 100) / 100;
+
+    return { beerCostPerUnit, baseQty, beerCost, pkgCost, fillCost, total };
+  }, [values.baseItemId, values.baseItemQuantity, values.packagingCost, values.fillingCost, productionItemOptions]);
 
   // ── Form Sections ──────────────────────────────────────────
 
@@ -601,6 +628,22 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             disabled: true,
           },
           {
+            key: "packagingCost",
+            label: t("detail.fields.packagingCost"),
+            type: "currency",
+            suffix: "CZK",
+            visible: (v: Record<string, unknown>) =>
+              v.isSaleItem === true && v.baseItemId != null && v.baseItemId !== "__none__",
+          },
+          {
+            key: "fillingCost",
+            label: t("detail.fields.fillingCost"),
+            type: "currency",
+            suffix: "CZK",
+            visible: (v: Record<string, unknown>) =>
+              v.isSaleItem === true && v.baseItemId != null && v.baseItemId !== "__none__",
+          },
+          {
             key: "salePrice",
             label: t("detail.fields.salePrice"),
             type: "currency",
@@ -743,6 +786,19 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
                 />
               );
             })}
+            {calculatedPackagedCost && (
+              <Alert>
+                <AlertDescription>
+                  <span className="font-medium">{t("detail.fields.calculatedCost")}:</span>{" "}
+                  {t("detail.fields.calculatedCostFormula", {
+                    beerCost: calculatedPackagedCost.beerCost.toFixed(2),
+                    pkgCost: calculatedPackagedCost.pkgCost.toFixed(2),
+                    fillCost: calculatedPackagedCost.fillCost.toFixed(2),
+                    total: calculatedPackagedCost.total.toFixed(2),
+                  })}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         ) : (
           <Tabs defaultValue="detail" className="w-full">
@@ -782,6 +838,19 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
                     />
                   );
                 })}
+                {calculatedPackagedCost && (
+                  <Alert>
+                    <AlertDescription>
+                      <span className="font-medium">{t("detail.fields.calculatedCost")}:</span>{" "}
+                      {t("detail.fields.calculatedCostFormula", {
+                        beerCost: calculatedPackagedCost.beerCost.toFixed(2),
+                        pkgCost: calculatedPackagedCost.pkgCost.toFixed(2),
+                        fillCost: calculatedPackagedCost.fillCost.toFixed(2),
+                        total: calculatedPackagedCost.total.toFixed(2),
+                      })}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </TabsContent>
             {values.isProductionItem === true && (

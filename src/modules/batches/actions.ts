@@ -1263,21 +1263,44 @@ export async function createProductionReceipt(
 
         // 7. Create lines + movements
         let totalCost = 0;
+        const isPackaged = settings.stock_mode === "packaged";
 
         for (let i = 0; i < bottlingRows.length; i++) {
           const bi = bottlingRows[i]!;
-          const qty = Number(bi.baseUnits ?? bi.quantity);
+          // Packaged mode: use quantity (pieces); Bulk: use baseUnits (liters)
+          const qty = isPackaged ? Number(bi.quantity) : Number(bi.baseUnits ?? bi.quantity);
           if (qty <= 0) continue;
 
-          // Load item cost price
-          const itemRow = await tx
-            .select({ costPrice: items.costPrice })
-            .from(items)
-            .where(eq(items.id, bi.itemId))
-            .limit(1);
+          let lineUnitPrice: string;
+          if (isPackaged) {
+            // Per-piece cost: beer cost per unit + packaging + filling
+            const childItemRow = await tx
+              .select({
+                packagingCost: items.packagingCost,
+                fillingCost: items.fillingCost,
+                baseItemQuantity: items.baseItemQuantity,
+              })
+              .from(items)
+              .where(eq(items.id, bi.itemId))
+              .limit(1);
 
-          const unitPrice = itemRow[0]?.costPrice ?? "0";
-          const lineUnitPrice = productionUnitPrice ?? unitPrice;
+            const child = childItemRow[0];
+            const baseQty = Number(child?.baseItemQuantity ?? "0");
+            const beerCostPerUnit = Number(productionUnitPrice ?? "0") * baseQty;
+            const pkgCost = Number(child?.packagingCost ?? "0");
+            const fillCost = Number(child?.fillingCost ?? "0");
+            lineUnitPrice = String(Math.round((beerCostPerUnit + pkgCost + fillCost) * 100) / 100);
+          } else {
+            // Bulk: use production unit price (per liter) or item cost
+            const itemRow = await tx
+              .select({ costPrice: items.costPrice })
+              .from(items)
+              .where(eq(items.id, bi.itemId))
+              .limit(1);
+            const unitPrice = itemRow[0]?.costPrice ?? "0";
+            lineUnitPrice = productionUnitPrice ?? unitPrice;
+          }
+
           const lineTotalCost = qty * Number(lineUnitPrice);
           totalCost += lineTotalCost;
 
@@ -2165,6 +2188,8 @@ export interface BottlingLineData {
   baseItemQuantity: number;
   quantity: number;
   isBulk: boolean;
+  packagingCost: number;
+  fillingCost: number;
 }
 
 export interface BottlingLinesResult {
@@ -2279,6 +2304,8 @@ export async function getBottlingLines(
           baseItemQuantity: 1,
           quantity: defaultQty,
           isBulk: true,
+          packagingCost: 0,
+          fillingCost: 0,
         }],
         receiptInfo,
         bottledDate: batch.bottledDate,
@@ -2295,6 +2322,8 @@ export async function getBottlingLines(
         name: items.name,
         code: items.code,
         baseItemQuantity: items.baseItemQuantity,
+        packagingCost: items.packagingCost,
+        fillingCost: items.fillingCost,
       })
       .from(items)
       .where(
@@ -2315,6 +2344,8 @@ export async function getBottlingLines(
         baseItemQuantity: item.baseItemQuantity ? Number(item.baseItemQuantity) : 0,
         quantity: existingMap.get(item.id) ?? 0,
         isBulk: false,
+        packagingCost: item.packagingCost ? Number(item.packagingCost) : 0,
+        fillingCost: item.fillingCost ? Number(item.fillingCost) : 0,
       })),
       receiptInfo,
       bottledDate: batch.bottledDate,

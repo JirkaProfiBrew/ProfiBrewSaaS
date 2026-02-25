@@ -64,6 +64,10 @@ export const items = pgTable(
     overheadManual: boolean("overhead_manual").default(false),
     overheadPrice: decimal("overhead_price"),
 
+    // === PACKAGING COSTS (for packaged/sale items with base_item) ===
+    packagingCost: decimal("packaging_cost"),
+    fillingCost: decimal("filling_cost"),
+
     // === POS / WEB ===
     posAvailable: boolean("pos_available").default(false),
     webAvailable: boolean("web_available").default(false),

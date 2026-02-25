@@ -29,6 +29,8 @@ export const itemCreateSchema = z.object({
   salePrice: z.string().nullable().optional(),
   overheadManual: z.boolean().optional().default(false),
   overheadPrice: z.string().nullable().optional(),
+  packagingCost: z.string().nullable().optional(),
+  fillingCost: z.string().nullable().optional(),
   posAvailable: z.boolean().optional().default(false),
   webAvailable: z.boolean().optional().default(false),
   color: z.string().nullable().optional(),

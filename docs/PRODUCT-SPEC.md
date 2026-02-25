@@ -203,6 +203,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Měrná jednotka receptury (MJ receptury): viditelné pouze pro chmel — odlišná MJ pro skladovou evidenci (kg) vs recepturu (g)
 - Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, adjunct→kg)
 - Cenotvorba: kalkulační cena, průměrná skladová, prodejní cena, režie
+- Cenotvorba balených položek (viditelná pouze pro sale item s base_item): náklady na obal (`packaging_cost`), náklady na stočení (`filling_cost`), kalkulovaná cena = `(výrobní_cena_za_litr × objem) + obal + stočení`
 - POS: zpřístupnit na pokladně, nabízet na webu
 - Barva položky, kategorie, poznámka
 - Tab přílohy: obrázky, datasheets
@@ -266,14 +267,14 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Suroviny: spotřebované suroviny s lot tracking vazbou. Tlačítko "Vydat suroviny" → vytvoří draft výdejku z receptury → naviguje na detail výdejky (sládek zkontroluje, upraví, vybere šarže, potvrdí).
 - Stáčení: řízeno `stock_mode` z nastavení provozovny (shop settings).
   - **bulk**: 1 řádek = výrobní položka (batch.item_id), MJ=L, decimal input, předvyplněný z actual_volume_l
-  - **packaged**: N řádků = child items (`base_item_id = batch.item_id`), integer input (ks), objem dopočten
+  - **packaged**: N řádků = child items (`base_item_id = batch.item_id`), integer input (ks), objem dopočten. Rozšířené sloupce: Pivo (beer×objem), Obal (packaging_cost), Stočení (filling_cost), Cena/ks, Celkem. Celková hodnota v sumáři.
   - **none**: hláška "Naskladnění vypnuto" s odkazem na nastavení provozovny, žádné řádky
   - Datum stáčení (date picker, default: dnes). Ukládá se na batch.bottled_date; propaguje se do příjemky jako datum dokladu.
   - Výrobní cena: readonly zobrazení Kč/L + pricing mode (kalkulační cena / z receptury). Zdroj: shop settings `beer_pricing_mode` (fixed → items.costPrice, recipe_calc → recipe.costPrice/batchSizeL).
   - Datum expirace: computed (bottledDate + recipe.shelfLifeDays), readonly zobrazení.
   - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit stáčení" → atomicky uloží bottling_items + bottled_date + vypočte `packaging_loss_l`.
   - Tlačítko "Naskladnit" → confirm dialog → `createProductionReceipt()` → příjemka vytvořena + potvrzena. Info box s kódem příjemky a odkazem.
-  - Příjemka obsahuje na řádcích: lot_number (z batch), expiry_date (bottledDate + shelfLifeDays), unit_price (dle pricing mode).
+  - Příjemka obsahuje na řádcích: lot_number (z batch), expiry_date (bottledDate + shelfLifeDays), unit_price (dle pricing mode). Pro packaged: unit_price = `beer_cost_per_liter × base_item_quantity + packaging_cost + filling_cost` (per-item pricing).
   - Po naskladnění: "Uložit" disabled (tooltip: "Stornujte příjemku"), "Naskladnit" skryté, místo něj info box.
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži

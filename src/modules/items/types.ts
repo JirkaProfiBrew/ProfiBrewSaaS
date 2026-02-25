@@ -35,6 +35,8 @@ export interface Item {
   salePrice: string | null;
   overheadManual: boolean;
   overheadPrice: string | null;
+  packagingCost: string | null;
+  fillingCost: string | null;
   posAvailable: boolean;
   webAvailable: boolean;
   color: string | null;

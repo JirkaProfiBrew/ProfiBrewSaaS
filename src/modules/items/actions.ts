@@ -43,6 +43,8 @@ function mapRow(row: typeof items.$inferSelect): Item {
     salePrice: row.salePrice,
     overheadManual: row.overheadManual ?? false,
     overheadPrice: row.overheadPrice,
+    packagingCost: row.packagingCost,
+    fillingCost: row.fillingCost,
     posAvailable: row.posAvailable ?? false,
     webAvailable: row.webAvailable ?? false,
     color: row.color,
@@ -164,6 +166,8 @@ export async function createItem(
         salePrice: data.salePrice,
         overheadManual: data.overheadManual ?? false,
         overheadPrice: data.overheadPrice,
+        packagingCost: data.packagingCost,
+        fillingCost: data.fillingCost,
         posAvailable: data.posAvailable ?? false,
         webAvailable: data.webAvailable ?? false,
         color: data.color,
@@ -798,7 +802,7 @@ export async function getItemRecentMovements(
 
 /** Get production items for base-item select (isProductionItem = true). */
 export async function getProductionItemOptions(): Promise<
-  { value: string; label: string; unitSymbol: string | null }[]
+  { value: string; label: string; unitSymbol: string | null; costPrice: string | null }[]
 > {
   return withTenant(async (tenantId) => {
     const { units } = await import("@/../drizzle/schema/system");
@@ -809,6 +813,7 @@ export async function getProductionItemOptions(): Promise<
         name: items.name,
         code: items.code,
         unitSymbol: units.symbol,
+        costPrice: items.costPrice,
       })
       .from(items)
       .leftJoin(units, eq(items.unitId, units.id))
@@ -825,6 +830,7 @@ export async function getProductionItemOptions(): Promise<
       value: r.id,
       label: `${r.code} — ${r.name}`,
       unitSymbol: r.unitSymbol,
+      costPrice: r.costPrice,
     }));
   });
 }
