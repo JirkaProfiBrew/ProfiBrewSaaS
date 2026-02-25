@@ -17,7 +17,8 @@ export interface IngredientInput {
   category: string;
   amountG: number;                 // amount in the recipe unit (legacy name, now unit-agnostic)
   unitToBaseFactor?: number | null; // factor to convert recipe unit → base unit (kg); null = already base unit; 0.001 = g→kg
-  stockUnitToBaseFactor?: number | null; // factor to convert stock unit → base unit (kg); null = stock unit IS base unit
+  stockUnitToBaseFactor?: number | null; // factor to convert stock unit → base unit (kg); 1 = stock unit IS base unit; null = no stock unit
+  stockUnitSymbol?: string | null; // stock unit symbol (e.g. "kg" for hops, "g" for yeast); null = use recipe unit
   alpha?: number | null;           // hop alpha acid %
   ebc?: number | null;             // malt color EBC
   extractPercent?: number | null;  // malt extract %
@@ -212,31 +213,40 @@ export function calculateABV(ogPlato: number, fgPlato: number): number {
 
 /**
  * Calculate total and per-item cost.
- * Cost = sum(amount_g / 1000 * cost_per_kg)
+ * Quantities and prices are taken 1:1 in stock units.
+ * Only hops need conversion (recipe unit g → stock unit kg).
  *
- * @param ingredients - list with amountG and costPrice (per kg)
+ * @param ingredients - list with amountG and costPrice (per stock unit)
  * @returns total cost and breakdown per item
  */
 export function calculateCost(
   ingredients: IngredientInput[]
-): { total: number; perItem: { itemId: string; recipeItemId?: string; name: string; amount: number; cost: number; costPerUnit: number }[] } {
+): { total: number; perItem: { itemId: string; recipeItemId?: string; name: string; amount: number; cost: number; costPerUnit: number; unitSymbol?: string }[] } {
   const perItem = ingredients.map((ing) => {
-    const weightBaseUnit = toKg(ing); // amount converted to base unit (kg)
-    // costPrice is per STOCK unit. Convert to per base unit (kg):
-    // If stock unit = g (factor 0.001), costPrice 4 CZK/g → 4 / 0.001 = 4000 CZK/kg
-    // If stock unit = kg (factor null/1), costPrice 20 CZK/kg → 20 / 1 = 20 CZK/kg
-    // If item has no stock unit, assume same as recipe unit (no conversion)
-    const stockFactor = ing.stockUnitToBaseFactor ?? (ing.unitToBaseFactor ?? 1);
     const rawCostPrice = ing.costPrice ?? 0;
-    const costPerBaseUnit = stockFactor > 0 ? rawCostPrice / stockFactor : rawCostPrice;
-    const cost = weightBaseUnit * costPerBaseUnit;
+
+    // Hops: recipe unit (g) ≠ stock unit (kg) — convert amount to stock unit
+    // Everything else: 1:1 (recipe unit = stock unit), no conversion
+    let stockAmount: number;
+    if (ing.category === "hop" && ing.stockUnitToBaseFactor != null) {
+      const recipeUnitFactor = ing.unitToBaseFactor ?? 1;
+      const stockUnitFactor = ing.stockUnitToBaseFactor;
+      stockAmount = stockUnitFactor !== 0
+        ? ing.amountG * recipeUnitFactor / stockUnitFactor
+        : ing.amountG;
+    } else {
+      stockAmount = ing.amountG;
+    }
+
+    const cost = stockAmount * rawCostPrice;
     return {
       itemId: ing.itemId,
       recipeItemId: ing.recipeItemId,
       name: ing.name,
-      amount: ing.amountG,
+      amount: stockAmount,
       cost: Math.round(cost * 100) / 100,
-      costPerUnit: Math.round(costPerBaseUnit * 100) / 100,
+      costPerUnit: Math.round(rawCostPrice * 100) / 100,
+      unitSymbol: ing.stockUnitSymbol ?? undefined,
     };
   });
 

@@ -881,6 +881,7 @@ export async function calculateAndSaveRecipe(
           ? parseFloat(row.itemExtractPercent)
           : null,
         costPrice: resolved?.price ?? fallbackPrice,
+        stockUnitSymbol: row.stockUnitSymbol ?? null,
         useTimeMin: row.recipeItem.useTimeMin,
         itemId: row.recipeItem.itemId,
         recipeItemId: row.recipeItem.id,

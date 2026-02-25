@@ -144,7 +144,7 @@ export function RecipeCalculation({
     // Build a lookup by recipeItemId (unique per recipe line)
     const snapshotMap = new Map<
       string,
-      { cost: number; costPerUnit: number; priceSource: string }
+      { cost: number; costPerUnit: number; unitSymbol?: string; amount: number; priceSource: string }
     >();
     if (calcSnapshot?.ingredients) {
       for (const ing of calcSnapshot.ingredients) {
@@ -152,6 +152,8 @@ export function RecipeCalculation({
           snapshotMap.set(ing.recipeItemId, {
             cost: ing.cost,
             costPerUnit: ing.costPerUnit,
+            unitSymbol: ing.unitSymbol,
+            amount: ing.amount,
             priceSource: ing.priceSource,
           });
         }
@@ -159,39 +161,38 @@ export function RecipeCalculation({
     }
 
     return items.map((item) => {
-      const amount = parseFloat(item.amountG) || 0;
-      const toBaseFactor = item.unitToBaseFactor;
+      const recipeAmount = parseFloat(item.amountG) || 0;
       const unitSymbol = item.unitSymbol ?? "g";
-      // Convert recipe-unit amount to kg (null = already base unit i.e. kg)
-      const weightKg =
-        toBaseFactor != null && toBaseFactor !== 0
-          ? amount * toBaseFactor
-          : amount; // null = already in base unit (kg)
 
       // Match snapshot by recipe item ID (unique, safe for duplicate items)
       const snapshotIng = snapshotMap.get(item.id);
 
-      // Use snapshot costPerUnit if available, else fallback to items.costPrice
-      let costPerKg: number;
+      // Use snapshot data directly — amounts already in stock units, costs per stock unit
+      let displayAmount: number;
+      let costPerUnit: number;
       let totalCost: number;
-      if (snapshotIng?.costPerUnit != null) {
-        costPerKg = snapshotIng.costPerUnit;
-        totalCost = Math.round(weightKg * costPerKg * 100) / 100;
-      } else if (snapshotIng) {
-        // Old snapshot without costPerUnit — derive from total cost
+      let displayUnitSymbol: string;
+
+      if (snapshotIng) {
+        // Snapshot has amount in stock units and cost per stock unit
+        displayAmount = snapshotIng.amount;
+        costPerUnit = snapshotIng.costPerUnit;
         totalCost = Math.round(snapshotIng.cost * 100) / 100;
-        costPerKg = weightKg > 0 ? totalCost / weightKg : 0;
+        displayUnitSymbol = snapshotIng.unitSymbol ?? unitSymbol;
       } else {
-        costPerKg = item.itemCostPrice ? parseFloat(item.itemCostPrice) : 0;
-        totalCost = Math.round(weightKg * costPerKg * 100) / 100;
+        // No snapshot — fallback to client-side data (recipe units, 1:1)
+        displayAmount = recipeAmount;
+        costPerUnit = item.itemCostPrice ? parseFloat(item.itemCostPrice) : 0;
+        totalCost = Math.round(displayAmount * costPerUnit * 100) / 100;
+        displayUnitSymbol = unitSymbol;
       }
 
       return {
         id: item.id,
         name: item.itemName ?? item.itemId,
-        amount,
-        unitSymbol,
-        costPerKg: Math.round(costPerKg * 100) / 100,
+        amount: displayAmount,
+        unitSymbol: displayUnitSymbol,
+        costPerUnit: Math.round(costPerUnit * 100) / 100,
         totalCost,
       };
     });
@@ -317,8 +318,8 @@ export function RecipeCalculation({
                       {`${row.amount % 1 === 0 ? row.amount : row.amount.toFixed(2)} ${row.unitSymbol}`}
                     </TableCell>
                     <TableCell className="text-right">
-                      {row.costPerKg > 0
-                        ? `${row.costPerKg.toFixed(2)} / kg`
+                      {row.costPerUnit > 0
+                        ? `${row.costPerUnit.toFixed(2)} / ${row.unitSymbol}`
                         : "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
