@@ -428,7 +428,7 @@ export function BatchBottlingTab({
             </Badge>
           </div>
           <Link
-            href={`/stock/issues/${receiptInfo.id}`}
+            href={`/stock/movements/${receiptInfo.id}`}
             className="text-sm flex items-center gap-1 hover:underline text-primary"
           >
             {t("bottling.receipt.open")}
