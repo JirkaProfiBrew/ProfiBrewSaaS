@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql } from "drizzle-orm";
+import { eq, and, ilike, or, sql, arrayContains } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -33,6 +33,7 @@ export interface WarehouseFilter {
   isActive?: boolean;
   isExciseRelevant?: boolean;
   shopId?: string;
+  category?: string;
   search?: string;
 }
 
@@ -53,6 +54,9 @@ export async function getWarehouses(
     }
     if (filter?.shopId !== undefined) {
       conditions.push(eq(warehouses.shopId, filter.shopId));
+    }
+    if (filter?.category) {
+      conditions.push(arrayContains(warehouses.categories, [filter.category]));
     }
     if (filter?.search) {
       conditions.push(

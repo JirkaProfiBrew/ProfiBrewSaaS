@@ -38,7 +38,8 @@
       "isDefault": "Default Warehouse",
       "isActive": "Active",
       "codeReadonly": "Code cannot be changed after creation",
-      "codeDuplicate": "Warehouse with this code already exists"
+      "codeDuplicate": "Warehouse with this code already exists",
+      "shopRequired": "Shop is required"
     },
     "actions": {
       "save": "Save",

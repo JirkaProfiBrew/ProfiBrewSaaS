@@ -146,6 +146,7 @@ export function WarehouseDetail({
           key: "shopId",
           label: t("detail.fields.shopId"),
           type: "select",
+          required: true,
           options: shopOptions,
         },
         {
@@ -204,6 +205,9 @@ export function WarehouseDetail({
       (typeof values.name === "string" && values.name.trim() === "")
     ) {
       newErrors.name = tCommon("validation.required");
+    }
+    if (!values.shopId || String(values.shopId) === "__none__") {
+      newErrors.shopId = t("detail.fields.shopRequired");
     }
 
     if (Object.keys(newErrors).length > 0) {

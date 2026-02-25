@@ -108,17 +108,26 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
   const [values, setValues] = useState<Record<string, unknown>>(getDefaultValues());
   const [settingsValues, setSettingsValues] = useState<Record<string, unknown>>(getDefaultSettingsValues());
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
+  const [rawWarehouseOptions, setRawWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
+  const [beerWarehouseOptions, setBeerWarehouseOptions] = useState<{ value: string; label: string }[]>([]);
   const [expenseCategoryOptions, setExpenseCategoryOptions] = useState<{ value: string; label: string }[]>([]);
 
   // Load warehouse + category options for settings selects
   useEffect(() => {
-    void getWarehouses({ isActive: true }).then((whs) =>
-      setWarehouseOptions([
-        { value: "__none__", label: "\u2014" },
-        ...whs.map((w) => ({ value: w.id, label: `${w.code} \u2014 ${w.name}` })),
-      ])
-    );
+    if (!isNew) {
+      void getWarehouses({ isActive: true, shopId: id, category: "suroviny" }).then((whs) =>
+        setRawWarehouseOptions([
+          { value: "__none__", label: "\u2014" },
+          ...whs.map((w) => ({ value: w.id, label: `${w.code} \u2014 ${w.name}` })),
+        ])
+      );
+      void getWarehouses({ isActive: true, shopId: id, category: "pivo" }).then((whs) =>
+        setBeerWarehouseOptions([
+          { value: "__none__", label: "\u2014" },
+          ...whs.map((w) => ({ value: w.id, label: `${w.code} \u2014 ${w.name}` })),
+        ])
+      );
+    }
     void getCategoryOptions("expense").then((cats: CategoryOption[]) =>
       setExpenseCategoryOptions([
         { value: "__none__", label: "\u2014" },
@@ -224,16 +233,16 @@ export function ShopDetail({ id }: ShopDetailProps): React.ReactNode {
         key: "default_warehouse_raw_id",
         label: t("settings.defaultWarehouseRaw"),
         type: "select",
-        options: warehouseOptions,
+        options: rawWarehouseOptions,
       },
       {
         key: "default_warehouse_beer_id",
         label: t("settings.defaultWarehouseBeer"),
         type: "select",
-        options: warehouseOptions,
+        options: beerWarehouseOptions,
       },
     ],
-  }), [t, warehouseOptions]);
+  }), [t, rawWarehouseOptions, beerWarehouseOptions]);
 
   const ingredientPricingSection: FormSectionDef = useMemo(() => ({
     title: t("settings.ingredientPricing.title"),

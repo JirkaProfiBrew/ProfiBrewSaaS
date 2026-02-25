@@ -38,7 +38,8 @@
       "isDefault": "Výchozí sklad",
       "isActive": "Aktivní",
       "codeReadonly": "Kód nelze změnit po vytvoření",
-      "codeDuplicate": "Sklad s tímto kódem již existuje"
+      "codeDuplicate": "Sklad s tímto kódem již existuje",
+      "shopRequired": "Provozovna je povinná"
     },
     "actions": {
       "save": "Uložit",
