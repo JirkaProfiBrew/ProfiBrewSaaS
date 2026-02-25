@@ -102,6 +102,7 @@ export interface RecipeCalculationResult {
   pricingMode: string;
   ingredients: {
     itemId: string;
+    recipeItemId?: string;
     name: string;
     amount: number;
     cost: number;

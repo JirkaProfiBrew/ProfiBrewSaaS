@@ -873,6 +873,7 @@ export async function calculateAndSaveRecipe(
         costPrice: resolved?.price ?? fallbackPrice,
         useTimeMin: row.recipeItem.useTimeMin,
         itemId: row.recipeItem.itemId,
+        recipeItemId: row.recipeItem.id,
         name: row.itemName,
       };
     });

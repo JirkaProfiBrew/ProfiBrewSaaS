@@ -138,12 +138,27 @@ export function RecipeCalculation({
 
   // Cost breakdown from ingredient data
   // When a calcSnapshot exists, use its resolved per-ingredient prices (avg_stock / last_purchase).
-  // Snapshot ingredients include costPerUnit — safe for duplicate items.
+  // Snapshot ingredients include recipeItemId + costPerUnit — safe for duplicate items.
   // Otherwise, fall back to client-side items.costPrice.
   const costBreakdown = useMemo(() => {
-    const snapshotIngredients = calcSnapshot?.ingredients ?? [];
+    // Build a lookup by recipeItemId (unique per recipe line)
+    const snapshotMap = new Map<
+      string,
+      { cost: number; costPerUnit: number; priceSource: string }
+    >();
+    if (calcSnapshot?.ingredients) {
+      for (const ing of calcSnapshot.ingredients) {
+        if (ing.recipeItemId) {
+          snapshotMap.set(ing.recipeItemId, {
+            cost: ing.cost,
+            costPerUnit: ing.costPerUnit,
+            priceSource: ing.priceSource,
+          });
+        }
+      }
+    }
 
-    return items.map((item, idx) => {
+    return items.map((item) => {
       const amount = parseFloat(item.amountG) || 0;
       const toBaseFactor = item.unitToBaseFactor;
       const unitSymbol = item.unitSymbol ?? "g";
@@ -153,8 +168,8 @@ export function RecipeCalculation({
           ? amount * toBaseFactor
           : amount; // null = already in base unit (kg)
 
-      // Match snapshot by index (same order as server-side ingredientInputs)
-      const snapshotIng = snapshotIngredients[idx];
+      // Match snapshot by recipe item ID (unique, safe for duplicate items)
+      const snapshotIng = snapshotMap.get(item.id);
 
       // Use snapshot costPerUnit if available, else fallback to items.costPrice
       let costPerKg: number;

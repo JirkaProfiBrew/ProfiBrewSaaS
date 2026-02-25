@@ -23,6 +23,7 @@ export interface IngredientInput {
   costPrice?: number | null;       // cost per kg (always per base stock unit)
   useTimeMin?: number | null;      // boil time (for hops)
   itemId: string;
+  recipeItemId?: string;           // unique recipe_items.id — for matching snapshot ↔ UI
   name: string;
 }
 
@@ -217,13 +218,14 @@ export function calculateABV(ogPlato: number, fgPlato: number): number {
  */
 export function calculateCost(
   ingredients: IngredientInput[]
-): { total: number; perItem: { itemId: string; name: string; amount: number; cost: number; costPerUnit: number }[] } {
+): { total: number; perItem: { itemId: string; recipeItemId?: string; name: string; amount: number; cost: number; costPerUnit: number }[] } {
   const perItem = ingredients.map((ing) => {
     const weightKg = toKg(ing);
     const costPerKg = ing.costPrice ?? 0;
     const cost = weightKg * costPerKg;
     return {
       itemId: ing.itemId,
+      recipeItemId: ing.recipeItemId,
       name: ing.name,
       amount: ing.amountG,
       cost: Math.round(cost * 100) / 100,
