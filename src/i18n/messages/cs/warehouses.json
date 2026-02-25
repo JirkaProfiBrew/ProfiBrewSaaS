@@ -41,7 +41,10 @@
       "codeDuplicate": "Sklad s tímto kódem již existuje",
       "shopRequired": "Provozovna je povinná"
     },
-    "deleteDeactivated": "K tomuto skladu existují související záznamy, sklad nelze smazat. Byl nastaven jako neaktivní.",
+    "deleteBlockedTitle": "Sklad nelze smazat",
+    "deleteBlockedDescription": "K tomuto skladu existují související záznamy (příjemky, výdejky nebo parametry provozovny), proto ho nelze smazat. Chcete ho nastavit jako neaktivní?",
+    "deactivateAction": "Nastavit jako neaktivní",
+    "deactivated": "Sklad byl nastaven jako neaktivní",
     "actions": {
       "save": "Uložit",
       "delete": "Smazat",

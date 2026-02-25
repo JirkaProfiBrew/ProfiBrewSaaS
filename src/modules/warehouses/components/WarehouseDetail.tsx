@@ -10,12 +10,23 @@ import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
 import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewAction } from "@/components/detail-view";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { useWarehouseItem } from "../hooks";
 import {
   createWarehouse,
   updateWarehouse,
   deleteWarehouse,
+  deactivateWarehouse,
 } from "../actions";
 import { useShops } from "@/modules/shops/hooks";
 import { WAREHOUSE_CATEGORIES } from "../types";
@@ -83,6 +94,7 @@ export function WarehouseDetail({
   const [values, setValues] =
     useState<Record<string, unknown>>(getDefaultValues());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
 
   // Populate form when warehouse data loads
   useEffect(() => {
@@ -255,14 +267,25 @@ export function WarehouseDetail({
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
       const { result } = await deleteWarehouse(id);
-      if (result === "deactivated") {
-        toast.warning(t("detail.deleteDeactivated"), { duration: 6000 });
-      } else {
-        toast.success(tCommon("deleted"));
+      if (result === "HAS_REFERENCES") {
+        setDeactivateDialogOpen(true);
+        return;
       }
+      toast.success(tCommon("deleted"));
       router.push("/settings/warehouses");
     } catch (error) {
       console.error("Failed to delete warehouse:", error);
+      toast.error(tCommon("deleteFailed"));
+    }
+  }, [id, router, tCommon]);
+
+  const handleDeactivate = useCallback(async (): Promise<void> => {
+    try {
+      await deactivateWarehouse(id);
+      toast.success(t("detail.deactivated"));
+      router.push("/settings/warehouses");
+    } catch (error) {
+      console.error("Failed to deactivate warehouse:", error);
       toast.error(tCommon("deleteFailed"));
     }
   }, [id, router, t, tCommon]);
@@ -317,6 +340,28 @@ export function WarehouseDetail({
           onChange={handleChange}
         />
       </DetailView>
+
+      <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("detail.deleteBlockedTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("detail.deleteBlockedDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeactivate();
+              }}
+            >
+              {t("detail.deactivateAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

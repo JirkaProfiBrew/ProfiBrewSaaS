@@ -41,7 +41,10 @@
       "codeDuplicate": "Warehouse with this code already exists",
       "shopRequired": "Shop is required"
     },
-    "deleteDeactivated": "This warehouse has linked records and cannot be deleted. It has been set as inactive.",
+    "deleteBlockedTitle": "Cannot delete warehouse",
+    "deleteBlockedDescription": "This warehouse has linked records (receipts, dispatches, or shop settings) and cannot be deleted. Would you like to deactivate it instead?",
+    "deactivateAction": "Deactivate",
+    "deactivated": "Warehouse has been deactivated",
     "actions": {
       "save": "Save",
       "delete": "Delete",

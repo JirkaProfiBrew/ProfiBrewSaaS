@@ -216,51 +216,50 @@ export async function updateWarehouse(
   });
 }
 
-/** Hard delete a warehouse if no linked records exist; soft-deactivate otherwise. */
-export async function deleteWarehouse(
+/** Check if a warehouse has any linked records. */
+async function hasWarehouseReferences(
+  tenantId: string,
   id: string
-): Promise<{ result: "deleted" } | { result: "deactivated" }> {
-  return withTenant(async (tenantId) => {
-    // Check for any linked records
-    const hasIssues = await db
-      .select({ id: stockIssues.id })
-      .from(stockIssues)
-      .where(and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.warehouseId, id)))
-      .limit(1);
+): Promise<boolean> {
+  const hasIssues = await db
+    .select({ id: stockIssues.id })
+    .from(stockIssues)
+    .where(and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.warehouseId, id)))
+    .limit(1);
+  if (hasIssues.length > 0) return true;
 
-    const hasOrders = await db
-      .select({ id: orders.id })
-      .from(orders)
-      .where(and(eq(orders.tenantId, tenantId), eq(orders.warehouseId, id)))
-      .limit(1);
+  const hasLinkedOrders = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.tenantId, tenantId), eq(orders.warehouseId, id)))
+    .limit(1);
+  if (hasLinkedOrders.length > 0) return true;
 
-    const hasShopSettings = await db
-      .select({ id: shops.id })
-      .from(shops)
-      .where(
-        and(
-          eq(shops.tenantId, tenantId),
-          or(
-            sql`${shops.settings}->>'default_warehouse_raw_id' = ${id}`,
-            sql`${shops.settings}->>'default_warehouse_beer_id' = ${id}`
-          )
+  const hasShopSettings = await db
+    .select({ id: shops.id })
+    .from(shops)
+    .where(
+      and(
+        eq(shops.tenantId, tenantId),
+        or(
+          sql`${shops.settings}->>'default_warehouse_raw_id' = ${id}`,
+          sql`${shops.settings}->>'default_warehouse_beer_id' = ${id}`
         )
       )
-      .limit(1);
+    )
+    .limit(1);
+  return hasShopSettings.length > 0;
+}
 
-    const hasReferences =
-      hasIssues.length > 0 || hasOrders.length > 0 || hasShopSettings.length > 0;
-
-    if (hasReferences) {
-      // Soft-deactivate
-      await db
-        .update(warehouses)
-        .set({ isActive: false, updatedAt: sql`now()` })
-        .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
-      return { result: "deactivated" as const };
+/** Hard delete a warehouse. Returns HAS_REFERENCES if linked records exist. */
+export async function deleteWarehouse(
+  id: string
+): Promise<{ result: "deleted" } | { result: "HAS_REFERENCES" }> {
+  return withTenant(async (tenantId) => {
+    if (await hasWarehouseReferences(tenantId, id)) {
+      return { result: "HAS_REFERENCES" as const };
     }
 
-    // No references — hard delete counters + warehouse
     await db
       .delete(counters)
       .where(and(eq(counters.tenantId, tenantId), eq(counters.warehouseId, id)));
@@ -270,5 +269,15 @@ export async function deleteWarehouse(
       .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
 
     return { result: "deleted" as const };
+  });
+}
+
+/** Soft-deactivate a warehouse (set isActive=false). */
+export async function deactivateWarehouse(id: string): Promise<void> {
+  return withTenant(async (tenantId) => {
+    await db
+      .update(warehouses)
+      .set({ isActive: false, updatedAt: sql`now()` })
+      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
   });
 }
