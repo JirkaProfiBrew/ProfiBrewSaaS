@@ -225,7 +225,8 @@ export function calculateCost(
     // costPrice is per STOCK unit. Convert to per base unit (kg):
     // If stock unit = g (factor 0.001), costPrice 4 CZK/g → 4 / 0.001 = 4000 CZK/kg
     // If stock unit = kg (factor null/1), costPrice 20 CZK/kg → 20 / 1 = 20 CZK/kg
-    const stockFactor = ing.stockUnitToBaseFactor ?? 1;
+    // If item has no stock unit, assume same as recipe unit (no conversion)
+    const stockFactor = ing.stockUnitToBaseFactor ?? (ing.unitToBaseFactor ?? 1);
     const rawCostPrice = ing.costPrice ?? 0;
     const costPerBaseUnit = stockFactor > 0 ? rawCostPrice / stockFactor : rawCostPrice;
     const cost = weightBaseUnit * costPerBaseUnit;

@@ -1463,10 +1463,12 @@ export async function createProductionIssue(
     for (let i = 0; i < recipeItemRows.length; i++) {
       const ri = recipeItemRows[i]!;
       const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
-      const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1;
+      // If item has no stock unit defined, assume same as recipe unit (no conversion)
+      const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : recipeUnitFactor;
       const rawAmount = Number(ri.amountG);
       // Convert recipe-unit amount → item's stock unit via base unit
       // e.g. 350 g (factor 0.001) → kg → g (factor 0.001) = 350
+      // When recipe unit = stock unit: 500 * 0.001 / 0.001 = 500 (no change)
       const stockAmount = stockUnitFactor !== 0
         ? rawAmount * recipeUnitFactor / stockUnitFactor
         : rawAmount;
@@ -1617,7 +1619,8 @@ export async function prefillIssueFromBatch(
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
         const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
-        const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1;
+        // If item has no stock unit defined, assume same as recipe unit (no conversion)
+        const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : recipeUnitFactor;
         const rawAmount = Number(ri.amountG);
         // Convert recipe-unit amount → item's stock unit via base unit
         const stockAmount = stockUnitFactor !== 0
@@ -1873,7 +1876,8 @@ export async function getBatchIngredients(
     // f. Build result rows — convert stock-unit issued/lot quantities back to recipe units
     return riRows.map((row): BatchIngredientRow => {
       const recipeUnitFactor = row.toBaseFactor ? Number(row.toBaseFactor) : 1;
-      const stockUnitFactor = row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : 1;
+      // If item has no stock unit defined, assume same as recipe unit (no conversion)
+      const stockUnitFactor = row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : recipeUnitFactor;
       const recipeQty = Number(row.recipeItem.amountG);
 
       // Convert issued qty from item's stock unit to recipe unit
