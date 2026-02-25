@@ -1394,7 +1394,8 @@ export async function createProductionIssue(
     // b. Check recipe
     if (!batch.recipeId) return { error: "NO_RECIPE" };
 
-    // c. Load recipe items with unit conversion factor
+    // c. Load recipe items with unit conversion factor + item stock unit factor
+    const stockUnit = aliasedTable(units, "stock_unit");
     const recipeItemRows = await db
       .select({
         id: recipeItems.id,
@@ -1402,9 +1403,12 @@ export async function createProductionIssue(
         amountG: recipeItems.amountG,
         sortOrder: recipeItems.sortOrder,
         toBaseFactor: units.toBaseFactor,
+        stockUnitToBaseFactor: stockUnit.toBaseFactor,
       })
       .from(recipeItems)
+      .innerJoin(items, eq(recipeItems.itemId, items.id))
       .leftJoin(units, eq(recipeItems.unitId, units.id))
+      .leftJoin(stockUnit, eq(items.unitId, stockUnit.id))
       .where(
         and(
           eq(recipeItems.tenantId, tenantId),
@@ -1454,18 +1458,21 @@ export async function createProductionIssue(
     const warehouse = warehouseRows[0];
     if (!warehouse) return { error: "NO_WAREHOUSE" };
 
-    // f. Pre-compute remaining amounts (recipe - already issued)
+    // f. Pre-compute remaining amounts in item's stock unit (recipe - already issued)
     const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
     for (let i = 0; i < recipeItemRows.length; i++) {
       const ri = recipeItemRows[i]!;
-      const factor = ri.toBaseFactor ? Number(ri.toBaseFactor) : null;
+      const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
+      const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1;
       const rawAmount = Number(ri.amountG);
-      const baseAmount = factor != null && factor !== 0
-        ? rawAmount * factor
-        : rawAmount; // null = already in base unit
+      // Convert recipe-unit amount → item's stock unit via base unit
+      // e.g. 350 g (factor 0.001) → kg → g (factor 0.001) = 350
+      const stockAmount = stockUnitFactor !== 0
+        ? rawAmount * recipeUnitFactor / stockUnitFactor
+        : rawAmount;
 
       const alreadyIssued = issuedMap.get(ri.id) ?? 0;
-      const remainingAmount = baseAmount - alreadyIssued;
+      const remainingAmount = stockAmount - alreadyIssued;
 
       if (remainingAmount <= 0.0001) continue;
 
@@ -1558,6 +1565,7 @@ export async function prefillIssueFromBatch(
       if (!batch) return { error: "BATCH_NOT_FOUND" };
       if (!batch.recipeId) return { error: "NO_RECIPE" };
 
+      const stockUnit2 = aliasedTable(units, "stock_unit");
       const recipeItemRows = await db
         .select({
           id: recipeItems.id,
@@ -1565,9 +1573,12 @@ export async function prefillIssueFromBatch(
           amountG: recipeItems.amountG,
           sortOrder: recipeItems.sortOrder,
           toBaseFactor: units.toBaseFactor,
+          stockUnitToBaseFactor: stockUnit2.toBaseFactor,
         })
         .from(recipeItems)
+        .innerJoin(items, eq(recipeItems.itemId, items.id))
         .leftJoin(units, eq(recipeItems.unitId, units.id))
+        .leftJoin(stockUnit2, eq(items.unitId, stockUnit2.id))
         .where(
           and(
             eq(recipeItems.tenantId, tenantId),
@@ -1601,18 +1612,20 @@ export async function prefillIssueFromBatch(
         if (row.recipeItemId) issuedMap.set(row.recipeItemId, Number(row.totalIssued));
       }
 
-      // c3. Pre-compute remaining amounts
+      // c3. Pre-compute remaining amounts in item's stock unit
       const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
-        const factor = ri.toBaseFactor ? Number(ri.toBaseFactor) : null;
+        const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
+        const stockUnitFactor = ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1;
         const rawAmount = Number(ri.amountG);
-        const baseAmount = factor != null && factor !== 0
-          ? rawAmount * factor
+        // Convert recipe-unit amount → item's stock unit via base unit
+        const stockAmount = stockUnitFactor !== 0
+          ? rawAmount * recipeUnitFactor / stockUnitFactor
           : rawAmount;
 
         const alreadyIssued = issuedMap.get(ri.id) ?? 0;
-        const remainingAmount = baseAmount - alreadyIssued;
+        const remainingAmount = stockAmount - alreadyIssued;
 
         if (remainingAmount <= 0.0001) continue;
 
@@ -1763,7 +1776,8 @@ export async function getBatchIngredients(
       }
     }
 
-    // d. Load recipe items with item names and unit conversion factor
+    // d. Load recipe items with item names and unit conversion factors (recipe + stock)
+    const stockUnit3 = aliasedTable(units, "stock_unit");
     const riRows = await db
       .select({
         recipeItem: recipeItems,
@@ -1771,10 +1785,12 @@ export async function getBatchIngredients(
         itemCode: items.code,
         unitSymbol: units.symbol,
         toBaseFactor: units.toBaseFactor,
+        stockUnitToBaseFactor: stockUnit3.toBaseFactor,
       })
       .from(recipeItems)
       .leftJoin(items, eq(recipeItems.itemId, items.id))
       .leftJoin(units, eq(recipeItems.unitId, units.id))
+      .leftJoin(stockUnit3, eq(items.unitId, stockUnit3.id))
       .where(
         and(
           eq(recipeItems.tenantId, tenantId),
@@ -1807,11 +1823,11 @@ export async function getBatchIngredients(
       )
       .groupBy(stockIssueLines.recipeItemId) : [];
 
-    // Build a map of recipeItemId -> issued qty (in base units: kg/l)
-    const issuedBaseMap = new Map<string, number>();
+    // Build a map of recipeItemId -> issued qty (in item's stock unit)
+    const issuedStockMap = new Map<string, number>();
     for (const row of issuedRows) {
       if (row.recipeItemId) {
-        issuedBaseMap.set(row.recipeItemId, Number(row.totalIssued));
+        issuedStockMap.set(row.recipeItemId, Number(row.totalIssued));
       }
     }
 
@@ -1854,24 +1870,26 @@ export async function getBatchIngredients(
       });
     }
 
-    // f. Build result rows — convert base-unit issued/lot quantities back to recipe units
+    // f. Build result rows — convert stock-unit issued/lot quantities back to recipe units
     return riRows.map((row): BatchIngredientRow => {
-      const factor = row.toBaseFactor ? Number(row.toBaseFactor) : null;
+      const recipeUnitFactor = row.toBaseFactor ? Number(row.toBaseFactor) : 1;
+      const stockUnitFactor = row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : 1;
       const recipeQty = Number(row.recipeItem.amountG);
 
-      // Convert issued qty from base units (kg) to recipe units (g)
-      const issuedBase = issuedBaseMap.get(row.recipeItem.id) ?? 0;
-      const issuedQty = factor != null && factor !== 0
-        ? issuedBase / factor   // e.g. 0.05 kg / 0.001 = 50 g
-        : issuedBase;           // null = already in base unit
+      // Convert issued qty from item's stock unit to recipe unit
+      // recipeQty = stockQty * stockUnitFactor / recipeUnitFactor
+      const issuedStock = issuedStockMap.get(row.recipeItem.id) ?? 0;
+      const issuedQty = recipeUnitFactor !== 0
+        ? issuedStock * stockUnitFactor / recipeUnitFactor
+        : issuedStock;
       const missingQty = Math.max(0, recipeQty - issuedQty);
 
-      // Convert lot quantities from base units to recipe units
+      // Convert lot quantities from stock unit to recipe unit
       const rawLots = lotsMap.get(row.recipeItem.id) ?? [];
       const lots = rawLots.map((lot) => ({
         ...lot,
-        quantity: factor != null && factor !== 0
-          ? lot.quantity / factor
+        quantity: recipeUnitFactor !== 0
+          ? lot.quantity * stockUnitFactor / recipeUnitFactor
           : lot.quantity,
       }));
 
