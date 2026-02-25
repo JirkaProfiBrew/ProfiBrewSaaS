@@ -147,6 +147,7 @@
     "quantity": "Quantity",
     "demanded": "Demands",
     "available": "Available",
+    "avgPrice": "Avg. price",
     "noStock": "No stock levels",
     "recentMovements": "Recent Movements",
     "date": "Date",

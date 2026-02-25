@@ -17,8 +17,9 @@ import {
 import {
   getItemStockByWarehouse,
   getItemRecentMovements,
+  getItemAvgPricesByWarehouse,
 } from "../actions";
-import type { DemandBreakdownRow } from "../actions";
+import type { DemandBreakdownRow, WarehouseAvgPrice } from "../actions";
 
 // ── Props ───────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
     []
   );
 
+  const [avgPrices, setAvgPrices] = useState<WarehouseAvgPrice[]>([]);
+
   const [movements, setMovements] = useState<
     Array<{
       id: string;
@@ -71,12 +74,14 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
     Promise.all([
       getItemStockByWarehouse(itemId),
       getItemRecentMovements(itemId),
+      getItemAvgPricesByWarehouse(itemId),
     ])
-      .then(([stockResult, mvts]) => {
+      .then(([stockResult, mvts, avgPriceRows]) => {
         if (!cancelled) {
           setStockRows(stockResult.warehouses);
           setDemandBreakdown(stockResult.demandBreakdown);
           setMovements(mvts);
+          setAvgPrices(avgPriceRows);
           setIsLoading(false);
         }
       })
@@ -121,25 +126,36 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
                 <TableHead className="text-right">
                   {t("stockTab.available")}
                 </TableHead>
+                <TableHead className="text-right">
+                  {t("stockTab.avgPrice")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {stockRows.map((row) => (
-                <TableRow key={row.warehouseId}>
-                  <TableCell>{row.warehouseName}</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {row.quantity.toLocaleString("cs-CZ")}
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {row.demandedQty.toLocaleString("cs-CZ")}
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-mono${row.availableQty < 0 ? " text-red-600 font-semibold" : ""}`}
-                  >
-                    {row.availableQty.toLocaleString("cs-CZ")}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {stockRows.map((row) => {
+                const wp = avgPrices.find(
+                  (a) => a.warehouseId === row.warehouseId
+                );
+                return (
+                  <TableRow key={row.warehouseId}>
+                    <TableCell>{row.warehouseName}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {row.quantity.toLocaleString("cs-CZ")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {row.demandedQty.toLocaleString("cs-CZ")}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono${row.availableQty < 0 ? " text-red-600 font-semibold" : ""}`}
+                    >
+                      {row.availableQty.toLocaleString("cs-CZ")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {wp ? wp.avgPrice.toFixed(2) : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

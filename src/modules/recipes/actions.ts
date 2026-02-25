@@ -783,7 +783,9 @@ export async function calculateAndSaveRecipe(
 
     // Resolve ingredient prices based on pricing mode
     const itemIds = itemRows.map((r) => r.recipeItem.itemId);
-    const priceMap = await resolveIngredientPrices(tenantId, itemIds, pricingMode);
+    const priceMap = await resolveIngredientPrices(tenantId, itemIds, pricingMode, {
+      warehouseId: shopSettings?.default_warehouse_raw_id,
+    });
 
     // Build IngredientInput[] — use resolved price with fallback to items.costPrice
     const ingredientInputs: IngredientInput[] = itemRows.map((row) => {

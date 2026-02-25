@@ -147,6 +147,7 @@
     "quantity": "Množství",
     "demanded": "Požadavky",
     "available": "Disponibilní",
+    "avgPrice": "Prům. cena",
     "noStock": "Žádné skladové zásoby",
     "recentMovements": "Poslední pohyby",
     "date": "Datum",

@@ -620,13 +620,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             type: "currency",
             suffix: "CZK",
           },
-          {
-            key: "avgPrice",
-            label: t("detail.fields.avgPrice"),
-            type: "currency",
-            suffix: "CZK",
-            disabled: true,
-          },
+          // avgPrice removed — shown per-warehouse on Stock tab
           {
             key: "packagingCost",
             label: t("detail.fields.packagingCost"),

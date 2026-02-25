@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, ilike, or, sql, desc, gt, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -556,6 +556,67 @@ export async function getItemStockByWarehouse(
       }),
       demandBreakdown: demand.rows,
     };
+  });
+}
+
+// ── Avg price per warehouse ──────────────────────────────────────
+
+export interface WarehouseAvgPrice {
+  warehouseId: string;
+  warehouseName: string;
+  avgPrice: number;
+}
+
+/**
+ * Compute weighted average price per warehouse for an item.
+ * Weighted by remaining_qty on confirmed receipt lines (still in stock).
+ * Uses full_unit_price (incl. overhead) or fallback to unit_price.
+ */
+export async function getItemAvgPricesByWarehouse(
+  itemId: string
+): Promise<WarehouseAvgPrice[]> {
+  return withTenant(async (tenantId) => {
+    const { stockIssues, stockIssueLines } = await import(
+      "@/../drizzle/schema/stock"
+    );
+    const { warehouses } = await import("@/../drizzle/schema/warehouses");
+
+    const rows = await db
+      .select({
+        warehouseId: stockIssues.warehouseId,
+        warehouseName: warehouses.name,
+        avgPrice: sql<string>`
+          CASE WHEN SUM(${stockIssueLines.remainingQty}::numeric) > 0
+          THEN SUM(${stockIssueLines.remainingQty}::numeric * COALESCE(${stockIssueLines.fullUnitPrice}, ${stockIssueLines.unitPrice}, 0)::numeric)
+               / SUM(${stockIssueLines.remainingQty}::numeric)
+          ELSE NULL END
+        `.as("avg_price"),
+      })
+      .from(stockIssueLines)
+      .innerJoin(
+        stockIssues,
+        eq(stockIssueLines.stockIssueId, stockIssues.id)
+      )
+      .innerJoin(warehouses, eq(stockIssues.warehouseId, warehouses.id))
+      .where(
+        and(
+          eq(stockIssueLines.tenantId, tenantId),
+          eq(stockIssueLines.itemId, itemId),
+          eq(stockIssues.status, "confirmed"),
+          eq(stockIssues.movementType, "receipt"),
+          gt(stockIssueLines.remainingQty, "0")
+        )
+      )
+      .groupBy(stockIssues.warehouseId, warehouses.name)
+      .orderBy(warehouses.name);
+
+    return rows
+      .filter((r) => r.avgPrice != null)
+      .map((r) => ({
+        warehouseId: r.warehouseId!,
+        warehouseName: r.warehouseName,
+        avgPrice: Math.round(parseFloat(r.avgPrice) * 100) / 100,
+      }));
   });
 }
 

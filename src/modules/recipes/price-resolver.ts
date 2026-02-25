@@ -6,11 +6,11 @@
  *
  * Modes:
  * - calc_price (default): items.cost_price
- * - avg_stock: items.avg_price (falls back to cost_price in caller)
+ * - avg_stock: weighted average from confirmed receipt lines with remaining_qty > 0
  * - last_purchase: last confirmed receipt line unit_price per item
  */
 
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, gt, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { items } from "@/../drizzle/schema/items";
@@ -23,6 +23,11 @@ export interface ResolvedItemPrice {
   source: string;
 }
 
+export interface ResolveOptions {
+  /** Optional warehouse filter for avg_stock mode (shop settings default_warehouse_raw_id). */
+  warehouseId?: string;
+}
+
 /**
  * Resolve ingredient prices for the given items based on pricing mode.
  * Returns a Map keyed by itemId.
@@ -30,7 +35,8 @@ export interface ResolvedItemPrice {
 export async function resolveIngredientPrices(
   tenantId: string,
   itemIds: string[],
-  mode: ShopSettings["ingredient_pricing_mode"]
+  mode: ShopSettings["ingredient_pricing_mode"],
+  options?: ResolveOptions
 ): Promise<Map<string, ResolvedItemPrice>> {
   const result = new Map<string, ResolvedItemPrice>();
   if (itemIds.length === 0) return result;
@@ -54,17 +60,48 @@ export async function resolveIngredientPrices(
   }
 
   if (effectiveMode === "avg_stock") {
+    // Weighted average from confirmed receipt lines with remaining stock
+    // avg = SUM(remaining_qty * full_unit_price) / SUM(remaining_qty)
+    const warehouseCondition = options?.warehouseId
+      ? eq(stockIssues.warehouseId, options.warehouseId)
+      : undefined;
+
+    const conditions = [
+      eq(stockIssueLines.tenantId, tenantId),
+      inArray(stockIssueLines.itemId, itemIds),
+      eq(stockIssues.status, "confirmed"),
+      eq(stockIssues.movementType, "receipt"),
+      gt(stockIssueLines.remainingQty, "0"),
+      ...(warehouseCondition ? [warehouseCondition] : []),
+    ];
+
     const rows = await db
-      .select({ id: items.id, avgPrice: items.avgPrice })
-      .from(items)
-      .where(and(eq(items.tenantId, tenantId), inArray(items.id, itemIds)));
+      .select({
+        itemId: stockIssueLines.itemId,
+        avgPrice: sql<string>`
+          CASE WHEN SUM(${stockIssueLines.remainingQty}::numeric) > 0
+          THEN SUM(${stockIssueLines.remainingQty}::numeric * COALESCE(${stockIssueLines.fullUnitPrice}, ${stockIssueLines.unitPrice}, 0)::numeric)
+               / SUM(${stockIssueLines.remainingQty}::numeric)
+          ELSE NULL END
+        `.as("avg_price"),
+      })
+      .from(stockIssueLines)
+      .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
+      .where(and(...conditions))
+      .groupBy(stockIssueLines.itemId);
 
     for (const row of rows) {
-      result.set(row.id, {
-        itemId: row.id,
+      result.set(row.itemId, {
+        itemId: row.itemId,
         price: row.avgPrice ? parseFloat(row.avgPrice) : null,
         source: "avg_stock",
       });
+    }
+    // Fill missing items (no stock) with null
+    for (const itemId of itemIds) {
+      if (!result.has(itemId)) {
+        result.set(itemId, { itemId, price: null, source: "avg_stock" });
+      }
     }
     return result;
   }
