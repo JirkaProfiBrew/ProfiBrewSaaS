@@ -6,6 +6,9 @@ import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { counters } from "@/../drizzle/schema/system";
+import { stockIssues } from "@/../drizzle/schema/stock";
+import { orders } from "@/../drizzle/schema/orders";
+import { shops } from "@/../drizzle/schema/shops";
 import type { Warehouse } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -213,20 +216,59 @@ export async function updateWarehouse(
   });
 }
 
-/** Soft delete a warehouse (set isActive=false). */
-export async function deleteWarehouse(id: string): Promise<Warehouse> {
+/** Hard delete a warehouse if no linked records exist. */
+export async function deleteWarehouse(
+  id: string
+): Promise<{ success: true } | { error: "HAS_STOCK_ISSUES" | "HAS_ORDERS" | "HAS_SHOP_SETTINGS" }> {
   return withTenant(async (tenantId) => {
-    const rows = await db
-      .update(warehouses)
-      .set({
-        isActive: false,
-        updatedAt: sql`now()`,
-      })
-      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)))
-      .returning();
+    // Check stock issues
+    const issues = await db
+      .select({ id: stockIssues.id })
+      .from(stockIssues)
+      .where(and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.warehouseId, id)))
+      .limit(1);
+    if (issues.length > 0) {
+      return { error: "HAS_STOCK_ISSUES" as const };
+    }
 
-    const row = rows[0];
-    if (!row) throw new Error("Warehouse not found");
-    return mapRow(row);
+    // Check orders
+    const linkedOrders = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.tenantId, tenantId), eq(orders.warehouseId, id)))
+      .limit(1);
+    if (linkedOrders.length > 0) {
+      return { error: "HAS_ORDERS" as const };
+    }
+
+    // Check shop settings JSONB references
+    const linkedShops = await db
+      .select({ id: shops.id })
+      .from(shops)
+      .where(
+        and(
+          eq(shops.tenantId, tenantId),
+          or(
+            sql`${shops.settings}->>'default_warehouse_raw_id' = ${id}`,
+            sql`${shops.settings}->>'default_warehouse_beer_id' = ${id}`
+          )
+        )
+      )
+      .limit(1);
+    if (linkedShops.length > 0) {
+      return { error: "HAS_SHOP_SETTINGS" as const };
+    }
+
+    // Delete counters for this warehouse
+    await db
+      .delete(counters)
+      .where(and(eq(counters.tenantId, tenantId), eq(counters.warehouseId, id)));
+
+    // Hard delete
+    await db
+      .delete(warehouses)
+      .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
+
+    return { success: true as const };
   });
 }

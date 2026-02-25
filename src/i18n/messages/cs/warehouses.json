@@ -39,7 +39,10 @@
       "isActive": "Aktivní",
       "codeReadonly": "Kód nelze změnit po vytvoření",
       "codeDuplicate": "Sklad s tímto kódem již existuje",
-      "shopRequired": "Provozovna je povinná"
+      "shopRequired": "Provozovna je povinná",
+      "deleteHasStockIssues": "Sklad nelze smazat — existují příjemky nebo výdejky",
+      "deleteHasOrders": "Sklad nelze smazat — existují objednávky",
+      "deleteHasShopSettings": "Sklad nelze smazat — je nastaven jako výchozí v parametrech provozovny"
     },
     "actions": {
       "save": "Uložit",
