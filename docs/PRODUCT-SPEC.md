@@ -258,19 +258,22 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Stáčení: řízeno `stock_mode` z nastavení provozovny (shop settings).
   - **bulk**: 1 řádek = výrobní položka (batch.item_id), MJ=L, decimal input, předvyplněný z actual_volume_l
   - **packaged**: N řádků = child items (`base_item_id = batch.item_id`), integer input (ks), objem dopočten
-  - **none**: hláška "Naskladnění vypnuto v nastavení provozovny", žádné řádky
-  - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit" → atomicky uloží bottling_items + vypočte `packaging_loss_l`.
+  - **none**: hláška "Naskladnění vypnuto" s odkazem na nastavení provozovny, žádné řádky
+  - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit stáčení" → atomicky uloží bottling_items + vypočte `packaging_loss_l`.
+  - Tlačítko "Naskladnit" → confirm dialog → `createProductionReceipt()` → příjemka vytvořena + potvrzena. Info box s kódem příjemky a odkazem.
+  - Po naskladnění: "Uložit" disabled (tooltip: "Stornujte příjemku"), "Naskladnit" skryté, místo něj info box.
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži
 
 **Byznys pravidla:**
 - Číslo várky z číslovací řady (V-2026-001)
 - Šarže vždy patří k jednomu tanku/zařízení (equipment)
-- Při dokončení várky → auto-receipt z bottling_items: bulk (1 řádek) i packaged (N řádků) čtou z bottling_items
+- Naskladnění piva je **explicitní akce** — sládek klikne "Naskladnit" na tabu Stáčení. NENÍ automatické při dokončení várky.
+- `createProductionReceipt()` čte z bottling_items, vytváří příjemku (receipt, production_in) a rovnou potvrzuje.
 - Warehouse pro příjemku: `shop.settings.default_warehouse_beer_id` → fallback na první aktivní
 - Při spotřebě surovin se vytvoří skladový výdej
 - Excise: objem se eviduje v hl, systém sleduje status nahlášení
-- Validace completion: packaged → bottling data povinná (BOTTLING_REQUIRED), bulk → volitelná (fallback z actual_volume_l), none → žádná příjemka
+- Dokončení várky: warning pokud příjemka neexistuje (non-blocking confirm dialog), user může dokončit i bez naskladnění
 - `packaging_loss_l` = actual_volume_l − SUM(qty × base_item_quantity); kladné = ztráta, záporné = přebytek
 
 ### 4.6 Zařízení ✅

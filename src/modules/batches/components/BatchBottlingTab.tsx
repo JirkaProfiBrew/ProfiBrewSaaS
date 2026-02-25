@@ -2,11 +2,13 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Save } from "lucide-react";
+import { Save, Factory, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -16,10 +18,30 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { getBottlingLines, saveBottlingData } from "../actions";
-import type { BottlingLineData } from "../actions";
+import {
+  getBottlingLines,
+  saveBottlingData,
+  createProductionReceipt,
+} from "../actions";
+import type { BottlingLineData, ReceiptInfo } from "../actions";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -48,35 +70,39 @@ export function BatchBottlingTab({
 
   const [mode, setMode] = useState<"none" | "bulk" | "packaged" | null>(null);
   const [lines, setLines] = useState<ProductLine[]>([]);
+  const [receiptInfo, setReceiptInfo] = useState<ReceiptInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [stocking, setStocking] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [savedOnce, setSavedOnce] = useState(false);
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
 
   // Load bottling lines from server (auto-generated based on stock_mode)
-  useEffect(() => {
-    let cancelled = false;
+  const loadData = useCallback((): void => {
     setLoading(true);
-
     getBottlingLines(batchId)
       .then((result) => {
-        if (cancelled) return;
         setMode(result.mode);
         setLines(result.lines);
+        setReceiptInfo(result.receiptInfo);
         setDirty(false);
+        // If there are existing bottling items with non-zero qty → consider saved
+        if (result.lines.some((l) => l.quantity > 0)) {
+          setSavedOnce(true);
+        }
         setLoading(false);
       })
       .catch((err: unknown) => {
         console.error("Failed to load bottling lines:", err);
-        if (!cancelled) {
-          setMode("none");
-          setLoading(false);
-        }
+        setMode("none");
+        setLoading(false);
       });
-
-    return (): void => {
-      cancelled = true;
-    };
   }, [batchId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Update quantity for a product line
   const handleQtyChange = useCallback(
@@ -98,7 +124,7 @@ export function BatchBottlingTab({
   const handleSave = useCallback(async (): Promise<void> => {
     setSaving(true);
     try {
-      await saveBottlingData(
+      const result = await saveBottlingData(
         batchId,
         lines.map((l) => ({
           itemId: l.itemId,
@@ -106,8 +132,17 @@ export function BatchBottlingTab({
           baseItemQuantity: l.baseItemQuantity,
         }))
       );
+      if ("error" in result && result.error) {
+        if (result.error === "RECEIPT_EXISTS") {
+          toast.error(t("bottling.saveError"));
+        } else {
+          toast.error(t("bottling.saveError"));
+        }
+        return;
+      }
       toast.success(t("bottling.saved"));
       setDirty(false);
+      setSavedOnce(true);
       onMutate();
     } catch (err: unknown) {
       console.error("Failed to save bottling:", err);
@@ -116,6 +151,36 @@ export function BatchBottlingTab({
       setSaving(false);
     }
   }, [batchId, lines, onMutate, t]);
+
+  // Stock handler — called from confirm dialog
+  const handleStock = useCallback(async (): Promise<void> => {
+    setStocking(true);
+    try {
+      const result = await createProductionReceipt(batchId);
+      if ("error" in result) {
+        const errorKey = ({
+          NO_BOTTLING_DATA: "stock.errorNoBottling",
+          NO_WAREHOUSE: "stock.errorNoWarehouse",
+          RECEIPT_ALREADY_EXISTS: "stock.errorAlreadyExists",
+          NO_PRODUCTION_ITEM: "stock.errorNoProductionItem",
+        } as Record<string, string>)[result.error] ?? "stock.error";
+        toast.error(t(`bottling.${errorKey}` as Parameters<typeof t>[0]));
+        return;
+      }
+      toast.success(
+        t("bottling.stock.success", { code: result.receiptCode })
+      );
+      // Reload data to show receipt info
+      loadData();
+      onMutate();
+    } catch (err: unknown) {
+      console.error("Failed to stock beer:", err);
+      toast.error(t("bottling.stock.error"));
+    } finally {
+      setStocking(false);
+      setStockDialogOpen(false);
+    }
+  }, [batchId, loadData, onMutate, t]);
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -129,8 +194,19 @@ export function BatchBottlingTab({
     const diffTank = tankVolume !== null ? totalBottled - tankVolume : null;
     const diffRecipe = recipeVolume !== null ? totalBottled - recipeVolume : null;
 
-    return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe };
+    const nonZeroCount = lines.filter((l) => l.quantity > 0).length;
+
+    return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe, nonZeroCount };
   }, [lines, actualVolumeL, recipeBatchSizeL]);
+
+  const isReceiptConfirmed = receiptInfo?.status === "confirmed";
+  const canSave = !isReceiptConfirmed && dirty && !saving;
+  const canStock =
+    !receiptInfo &&
+    !dirty &&
+    savedOnce &&
+    summary.nonZeroCount > 0 &&
+    !stocking;
 
   // ── Loading ──
   if (loading) {
@@ -144,8 +220,13 @@ export function BatchBottlingTab({
   // ── Mode: none ──
   if (mode === "none") {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground">
-        {t("bottling.modeNone")}
+      <div className="text-muted-foreground text-center py-8">
+        <p>{t("bottling.modeNone")}</p>
+        <p className="text-sm mt-1">
+          <Link href="/settings/shops" className="underline hover:text-foreground">
+            {t("bottling.modeNoneHint")}
+          </Link>
+        </p>
       </div>
     );
   }
@@ -223,6 +304,7 @@ export function BatchBottlingTab({
                       handleQtyChange(line.itemId, e.target.value, line.isBulk)
                     }
                     placeholder="0"
+                    disabled={isReceiptConfirmed}
                   />
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium">
@@ -281,13 +363,109 @@ export function BatchBottlingTab({
         )}
       </div>
 
-      {/* Save button */}
-      <div className="flex justify-end">
-        <Button onClick={() => void handleSave()} disabled={saving || !dirty}>
-          <Save className="mr-1 size-4" />
-          {t("bottling.save")}
-        </Button>
+      {/* Buttons row */}
+      <div className="flex items-center justify-between">
+        {/* Save button */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={!canSave}
+                >
+                  <Save className="mr-1 size-4" />
+                  {t("bottling.save")}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {isReceiptConfirmed && receiptInfo && (
+              <TooltipContent>
+                {t("bottling.saveDisabledReceipt", { code: receiptInfo.code })}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Stock button — hidden if receipt exists */}
+        {!receiptInfo && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="default"
+                    onClick={() => setStockDialogOpen(true)}
+                    disabled={!canStock}
+                  >
+                    <Factory className="mr-1 size-4" />
+                    {t("bottling.stock.button")}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canStock && !stocking && (
+                <TooltipContent>
+                  {summary.nonZeroCount === 0 || !savedOnce
+                    ? t("bottling.stock.buttonDisabledEmpty")
+                    : dirty
+                      ? t("bottling.stock.buttonDisabledUnsaved")
+                      : null}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
+
+      {/* Receipt info box */}
+      {receiptInfo && (
+        <div className="rounded-lg border p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("bottling.receipt.title")}:</span>
+            <span className="font-medium">{receiptInfo.code}</span>
+            <Badge variant={receiptInfo.status === "confirmed" ? "default" : "secondary"}>
+              {receiptInfo.status}
+            </Badge>
+          </div>
+          <Link
+            href={`/stock/issues/${receiptInfo.id}`}
+            className="text-sm flex items-center gap-1 hover:underline text-primary"
+          >
+            {t("bottling.receipt.open")}
+            <ExternalLink className="size-3" />
+          </Link>
+        </div>
+      )}
+
+      {/* Stock confirm dialog */}
+      <AlertDialog open={stockDialogOpen} onOpenChange={setStockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("bottling.stock.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-1">
+              <span>{t("bottling.stock.confirmDescription")}</span>
+              <br />
+              <span>{t("bottling.stock.confirmLines", { count: summary.nonZeroCount })}</span>
+              <br />
+              <span>{t("bottling.stock.confirmVolume", { volume: summary.totalBottled.toFixed(1) })}</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={stocking}>
+              {t("bottling.stock.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={stocking}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleStock();
+              }}
+            >
+              {t("bottling.stock.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

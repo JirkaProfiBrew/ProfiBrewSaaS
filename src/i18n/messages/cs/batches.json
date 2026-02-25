@@ -63,7 +63,9 @@
     "dumpReasonLabel": "Důvod likvidace",
     "dumpReasonPlaceholder": "Popište důvod likvidace...",
     "confirmDump": "Zlikvidovat",
-    "bottlingRequired": "Před ukončením vyplňte stáčení (tab Stáčení)"
+    "noReceiptTitle": "Várka nemá naskladněné pivo",
+    "noReceiptDescription": "Pivo nebylo naskladněno na sklad. Chcete přesto ukončit várku?",
+    "completeAnyway": "Ukončit přesto"
   },
   "steps": {
     "start": "Zahájit",
@@ -215,7 +217,8 @@
   "bottling": {
     "empty": "Várka nemá přiřazenou výrobní položku",
     "noProducts": "Výrobní položka nemá žádné přiřazené produkty",
-    "modeNone": "Naskladnění piva je vypnuto v nastavení provozovny.",
+    "modeNone": "Naskladnění piva je vypnuto.",
+    "modeNoneHint": "Změňte režim v Nastavení → Provozovny → Parametry",
     "modeBulk": "Naskladnění vcelku — zadejte objem v litrech",
     "modePackaged": "Naskladnění do obalů — zadejte kusy",
     "product": "Produkt",
@@ -224,9 +227,10 @@
     "amount": "Množství (L)",
     "quantity": "Ks",
     "lineTotal": "Celkem (L)",
-    "save": "Uložit",
+    "save": "Uložit stáčení",
     "saved": "Stáčení uloženo",
     "saveError": "Chyba při ukládání stáčení",
+    "saveDisabledReceipt": "Pro úpravu stornujte příjemku {code}",
     "summary": {
       "totalBottled": "Stočeno celkem",
       "recipeVolume": "Objem z receptury",
@@ -236,6 +240,28 @@
       "surplus": "Přebytek",
       "loss": "Ztráta",
       "exact": "Beze zbytku"
+    },
+    "stock": {
+      "button": "Naskladnit",
+      "buttonDisabledEmpty": "Nejdříve vyplňte a uložte stáčení",
+      "buttonDisabledUnsaved": "Nejdříve uložte stáčení",
+      "confirmTitle": "Naskladnit pivo?",
+      "confirmDescription": "Vytvoří potvrzenou příjemku na sklad.",
+      "confirmLines": "Řádků: {count}",
+      "confirmVolume": "Celkový objem: {volume} L",
+      "confirm": "Naskladnit",
+      "cancel": "Zrušit",
+      "success": "Pivo naskladněno — {code}",
+      "error": "Chyba při naskladnění",
+      "errorNoBottling": "Nejdříve vyplňte stáčení",
+      "errorNoWarehouse": "Není nastaven sklad pro pivo",
+      "errorAlreadyExists": "Příjemka už existuje",
+      "errorNoProductionItem": "Várka nemá výrobní položku"
+    },
+    "receipt": {
+      "title": "Příjemka",
+      "open": "Otevřít",
+      "none": "Příjemka zatím nevytvořena"
     }
   },
   "notes": {

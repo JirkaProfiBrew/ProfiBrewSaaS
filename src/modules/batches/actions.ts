@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql, desc, asc, aliasedTable, inArray } from "drizzle-orm";
+import { eq, ne, and, ilike, or, sql, desc, asc, aliasedTable, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -810,29 +810,8 @@ export async function transitionBatchStatus(
         });
       }
 
-      // 8. Auto-receipt on completion
+      // 8. Post-completion hook (now a no-op — stocking is explicit)
       if (newStatus === "completed") {
-        // Resolve shop settings for stock_mode-aware validation
-        const shopSettings = await resolveShopSettings(tx, tenantId);
-
-        // Packaged mode: MUST have bottling data
-        if (shopSettings.stock_mode === "packaged" && updated.itemId) {
-          const bottlingCount = await tx
-            .select({ count: sql<number>`count(*)::int` })
-            .from(bottlingItems)
-            .where(
-              and(
-                eq(bottlingItems.tenantId, tenantId),
-                eq(bottlingItems.batchId, batchId)
-              )
-            );
-          if ((bottlingCount[0]?.count ?? 0) === 0) {
-            throw new Error("BOTTLING_REQUIRED");
-          }
-        }
-        // Bulk mode: bottling data optional (fallback in onBatchCompleted)
-        // None mode: no validation needed
-
         await onBatchCompleted(tx, tenantId, batchId, updated);
       }
 
@@ -1171,193 +1150,177 @@ export async function getProductionItemOptions(): Promise<
 
 // ── Production Stock Integration ───────────────────────────────
 
-/** Transaction type alias for onBatchCompleted. */
-type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
 /**
- * Auto-receipt on batch completion.
- * Creates a confirmed stock issue receipt from bottling_items data.
- * Supports both bulk (1 line = production item) and packaged (N lines = child items).
- * Runs within transitionBatchStatus's transaction.
+ * Hook after batch transitions to 'completed'.
+ * Previously: auto-created production receipt.
+ * Now: no-op. Stocking is explicit via createProductionReceipt().
  */
 async function onBatchCompleted(
-  tx: TxType,
-  tenantId: string,
-  batchId: string,
-  batch: typeof batches.$inferSelect
+  _tx: TxType,
+  _tenantId: string,
+  _batchId: string,
+  _batch: typeof batches.$inferSelect
 ): Promise<void> {
-  // 1. Resolve shop settings
-  const settings = await resolveShopSettings(tx, tenantId);
+  // Naskladnění se provádí explicitně z tabu Stáčení tlačítkem "Naskladnit".
+  // Equipment release je řešen v transitionBatchStatus() výše.
+}
 
-  // 2. stock_mode 'none' → no receipt
-  if (settings.stock_mode === "none") return;
+/**
+ * Explicit production receipt — called from Bottling tab UI.
+ * Creates a confirmed stock issue receipt from bottling_items data.
+ */
+export async function createProductionReceipt(
+  batchId: string
+): Promise<{ receiptId: string; receiptCode: string } | { error: string }> {
+  return withTenant(async (tenantId) => {
+    try {
+      return await db.transaction(async (tx) => {
+        // 1. Load batch
+        const batchRows = await tx
+          .select()
+          .from(batches)
+          .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+          .limit(1);
 
-  // 3. No production item → skip
-  if (!batch.itemId) return;
+        const batch = batchRows[0];
+        if (!batch) return { error: "BATCH_NOT_FOUND" };
+        if (!batch.itemId) return { error: "NO_PRODUCTION_ITEM" };
 
-  // 4. Load bottling_items
-  const bottlingRows = await tx
-    .select()
-    .from(bottlingItems)
-    .where(
-      and(
-        eq(bottlingItems.tenantId, tenantId),
-        eq(bottlingItems.batchId, batchId)
-      )
-    );
+        // 2. Duplicate check — no active receipt
+        const existingReceipt = await getProductionReceiptForBatch(batchId, tenantId, tx);
+        if (existingReceipt) {
+          return { error: "RECEIPT_ALREADY_EXISTS" };
+        }
 
-  // 5. Build receipt lines from bottling data
-  interface ReceiptLine {
-    itemId: string;
-    quantity: number;
-  }
+        // 3. Load bottling_items — MUST exist
+        const bottlingRows = await tx
+          .select()
+          .from(bottlingItems)
+          .where(
+            and(
+              eq(bottlingItems.tenantId, tenantId),
+              eq(bottlingItems.batchId, batchId)
+            )
+          );
 
-  let receiptLines: ReceiptLine[] = [];
+        if (bottlingRows.length === 0) {
+          return { error: "NO_BOTTLING_DATA" };
+        }
 
-  if (bottlingRows.length > 0) {
-    // Use bottling data
-    receiptLines = bottlingRows
-      .filter((row) => Number(row.quantity) > 0)
-      .map((row) => ({
-        itemId: row.itemId,
-        quantity: Number(row.baseUnits ?? row.quantity),
-      }));
-  } else if (settings.stock_mode === "bulk") {
-    // Fallback for bulk mode: use actual_volume_l
-    const fallbackQty = batch.actualVolumeL ?? "0";
-    if (Number(fallbackQty) > 0) {
-      receiptLines = [{ itemId: batch.itemId, quantity: Number(fallbackQty) }];
+        // 4. Resolve warehouse from shop settings
+        const settings = await getShopSettingsForBatch(tenantId, tx);
+        const warehouseId =
+          settings.default_warehouse_beer_id ??
+          (await getFirstActiveWarehouseId(tenantId, tx));
+
+        if (!warehouseId) return { error: "NO_WAREHOUSE" };
+
+        // 5. Generate document code
+        const code = await getNextNumber(tenantId, "stock_issue_receipt", warehouseId);
+        const today = new Date().toISOString().split("T")[0]!;
+
+        // 6. Create stock issue (receipt, production_in)
+        const issueRows = await tx
+          .insert(stockIssues)
+          .values({
+            tenantId,
+            code,
+            movementType: "receipt",
+            movementPurpose: "production_in",
+            date: today,
+            status: "draft",
+            warehouseId,
+            batchId,
+            notes: `Naskladnění z várky ${batch.batchNumber}`,
+          })
+          .returning();
+
+        const issue = issueRows[0];
+        if (!issue) return { error: "CREATE_FAILED" };
+
+        // 7. Create lines + movements
+        let totalCost = 0;
+
+        for (let i = 0; i < bottlingRows.length; i++) {
+          const bi = bottlingRows[i]!;
+          const qty = Number(bi.baseUnits ?? bi.quantity);
+          if (qty <= 0) continue;
+
+          // Load item cost price
+          const itemRow = await tx
+            .select({ costPrice: items.costPrice })
+            .from(items)
+            .where(eq(items.id, bi.itemId))
+            .limit(1);
+
+          const unitPrice = itemRow[0]?.costPrice ?? "0";
+          const unitPriceNum = Number(unitPrice);
+          const lineTotalCost = qty * unitPriceNum;
+          totalCost += lineTotalCost;
+
+          // Insert stock issue line
+          const lineRows = await tx
+            .insert(stockIssueLines)
+            .values({
+              tenantId,
+              stockIssueId: issue.id,
+              itemId: bi.itemId,
+              lineNo: i + 1,
+              requestedQty: String(qty),
+              unitPrice,
+              sortOrder: i,
+            })
+            .returning();
+
+          const line = lineRows[0];
+          if (!line) continue;
+
+          // Create "in" movement
+          await tx.insert(stockMovements).values({
+            tenantId,
+            itemId: bi.itemId,
+            warehouseId,
+            movementType: "in",
+            quantity: String(qty),
+            unitPrice,
+            stockIssueId: issue.id,
+            stockIssueLineId: line.id,
+            batchId,
+            isClosed: false,
+            date: today,
+          });
+
+          // Update line with issued data
+          await tx
+            .update(stockIssueLines)
+            .set({
+              issuedQty: String(qty),
+              totalCost: String(lineTotalCost),
+              remainingQty: String(qty),
+            })
+            .where(eq(stockIssueLines.id, line.id));
+
+          // Update stock_status
+          await updateStockStatusRow(tx, tenantId, bi.itemId, warehouseId, qty);
+        }
+
+        // 8. Confirm issue
+        await tx
+          .update(stockIssues)
+          .set({
+            status: "confirmed",
+            totalCost: String(totalCost),
+            updatedAt: sql`now()`,
+          })
+          .where(eq(stockIssues.id, issue.id));
+
+        return { receiptId: issue.id, receiptCode: code };
+      });
+    } catch (err) {
+      console.error("[batches] createProductionReceipt failed:", err);
+      return { error: "RECEIPT_FAILED" };
     }
-  }
-  // Packaged without bottling data → skip (validation should catch earlier)
-
-  if (receiptLines.length === 0) return;
-
-  // 6. Resolve warehouse: shop settings → fallback to first active
-  let warehouseId = settings.default_warehouse_beer_id ?? null;
-
-  if (!warehouseId) {
-    const whRows = await tx
-      .select({ id: warehouses.id })
-      .from(warehouses)
-      .where(
-        and(
-          eq(warehouses.tenantId, tenantId),
-          eq(warehouses.isActive, true)
-        )
-      )
-      .orderBy(asc(warehouses.createdAt))
-      .limit(1);
-    warehouseId = whRows[0]?.id ?? null;
-  }
-
-  if (!warehouseId) return; // No warehouse — skip
-
-  // 7. Load warehouse for code generation
-  const warehouseRows = await tx
-    .select()
-    .from(warehouses)
-    .where(eq(warehouses.id, warehouseId))
-    .limit(1);
-
-  if (!warehouseRows[0]) return;
-
-  const today = new Date().toISOString().split("T")[0]!;
-  const code = await getNextNumber(tenantId, "stock_issue_receipt", warehouseId);
-
-  // 8. Create the stock issue (receipt, production_in)
-  const issueRows = await tx
-    .insert(stockIssues)
-    .values({
-      tenantId,
-      code,
-      movementType: "receipt",
-      movementPurpose: "production_in",
-      date: today,
-      status: "draft",
-      warehouseId,
-      batchId,
-      notes: `Auto-receipt for batch ${batch.batchNumber}`,
-    })
-    .returning();
-
-  const issue = issueRows[0];
-  if (!issue) return;
-
-  // 9. Create lines + movements
-  let totalCost = 0;
-
-  for (let i = 0; i < receiptLines.length; i++) {
-    const rl = receiptLines[i]!;
-    if (rl.quantity <= 0) continue;
-
-    // Load item cost price
-    const itemRow = await tx
-      .select({ costPrice: items.costPrice })
-      .from(items)
-      .where(eq(items.id, rl.itemId))
-      .limit(1);
-
-    const unitPrice = itemRow[0]?.costPrice ?? "0";
-    const unitPriceNum = Number(unitPrice);
-    const lineTotalCost = rl.quantity * unitPriceNum;
-    totalCost += lineTotalCost;
-
-    // Insert stock issue line
-    const lineRows = await tx
-      .insert(stockIssueLines)
-      .values({
-        tenantId,
-        stockIssueId: issue.id,
-        itemId: rl.itemId,
-        lineNo: i + 1,
-        requestedQty: String(rl.quantity),
-        unitPrice,
-        sortOrder: i,
-      })
-      .returning();
-
-    const line = lineRows[0];
-    if (!line) continue;
-
-    // Create "in" movement
-    await tx.insert(stockMovements).values({
-      tenantId,
-      itemId: rl.itemId,
-      warehouseId,
-      movementType: "in",
-      quantity: String(rl.quantity),
-      unitPrice,
-      stockIssueId: issue.id,
-      stockIssueLineId: line.id,
-      batchId,
-      isClosed: false,
-      date: today,
-    });
-
-    // Update line with issued data
-    await tx
-      .update(stockIssueLines)
-      .set({
-        issuedQty: String(rl.quantity),
-        totalCost: String(lineTotalCost),
-        remainingQty: String(rl.quantity),
-      })
-      .where(eq(stockIssueLines.id, line.id));
-
-    // Update stock_status
-    await updateStockStatusRow(tx, tenantId, rl.itemId, warehouseId, rl.quantity);
-  }
-
-  // 10. Confirm issue
-  await tx
-    .update(stockIssues)
-    .set({
-      status: "confirmed",
-      totalCost: String(totalCost),
-      updatedAt: sql`now()`,
-    })
-    .where(eq(stockIssues.id, issue.id));
+  });
 }
 
 /**
@@ -1948,7 +1911,7 @@ export async function getProductsByBaseItem(
 export async function saveBottlingData(
   batchId: string,
   lines: Array<{ itemId: string; quantity: number; baseItemQuantity: number }>
-): Promise<void> {
+): Promise<{ success: boolean; error?: string }> {
   return withTenant(async (tenantId) => {
     // Verify batch belongs to tenant
     const batchRows = await db
@@ -1958,7 +1921,13 @@ export async function saveBottlingData(
       .limit(1);
 
     const batch = batchRows[0];
-    if (!batch) throw new Error("Batch not found");
+    if (!batch) return { success: false, error: "BATCH_NOT_FOUND" };
+
+    // Lock check: cannot modify bottling if confirmed receipt exists
+    const receipt = await getProductionReceiptForBatch(batchId, tenantId);
+    if (receipt && receipt.status === "confirmed") {
+      return { success: false, error: "RECEIPT_EXISTS" };
+    }
 
     await db.transaction(async (tx) => {
       // 1. Delete all existing bottling items for this batch
@@ -2002,6 +1971,8 @@ export async function saveBottlingData(
         })
         .where(eq(batches.id, batchId));
     });
+
+    return { success: true };
   });
 }
 
@@ -2012,12 +1983,15 @@ interface ResolvedShopSettings {
   default_warehouse_beer_id?: string;
 }
 
+type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** Resolve shop settings for a batch — uses default/first active shop for the tenant. */
-async function resolveShopSettings(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db,
-  tenantId: string
+export async function getShopSettingsForBatch(
+  tenantId: string,
+  txOrDb?: TxType | typeof db
 ): Promise<ResolvedShopSettings> {
-  const shopRows = await tx
+  const executor = txOrDb ?? db;
+  const shopRows = await executor
     .select({ settings: shops.settings })
     .from(shops)
     .where(
@@ -2040,6 +2014,67 @@ async function resolveShopSettings(
   };
 }
 
+// ── Production Receipt Helpers ───────────────────────────────────
+
+export interface ReceiptInfo {
+  id: string;
+  code: string;
+  status: string;
+  date: string;
+}
+
+/** Check if a production receipt already exists for this batch. */
+async function getProductionReceiptForBatch(
+  batchId: string,
+  tenantId: string,
+  txOrDb?: TxType | typeof db
+): Promise<ReceiptInfo | null> {
+  const executor = txOrDb ?? db;
+  const rows = await executor
+    .select({
+      id: stockIssues.id,
+      code: stockIssues.code,
+      status: stockIssues.status,
+      date: stockIssues.date,
+    })
+    .from(stockIssues)
+    .where(
+      and(
+        eq(stockIssues.tenantId, tenantId),
+        eq(stockIssues.batchId, batchId),
+        eq(stockIssues.movementType, "receipt"),
+        eq(stockIssues.movementPurpose, "production_in"),
+        ne(stockIssues.status, "cancelled")
+      )
+    )
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  return { ...row, status: row.status ?? "draft" };
+}
+
+/** Get first active warehouse for the tenant (fallback). */
+async function getFirstActiveWarehouseId(
+  tenantId: string,
+  txOrDb?: TxType | typeof db
+): Promise<string | null> {
+  const executor = txOrDb ?? db;
+  const rows = await executor
+    .select({ id: warehouses.id })
+    .from(warehouses)
+    .where(
+      and(
+        eq(warehouses.tenantId, tenantId),
+        eq(warehouses.isActive, true)
+      )
+    )
+    .orderBy(asc(warehouses.createdAt))
+    .limit(1);
+
+  return rows[0]?.id ?? null;
+}
+
 // ── Bottling Lines (auto-generated for tab UI) ──────────────────
 
 export interface BottlingLineData {
@@ -2054,6 +2089,7 @@ export interface BottlingLineData {
 export interface BottlingLinesResult {
   mode: "none" | "bulk" | "packaged";
   lines: BottlingLineData[];
+  receiptInfo: ReceiptInfo | null;
 }
 
 /** Get auto-generated bottling lines for a batch based on stock_mode. */
@@ -2073,18 +2109,21 @@ export async function getBottlingLines(
       .limit(1);
 
     const batch = batchRows[0];
-    if (!batch) return { mode: "none" as const, lines: [] };
+    if (!batch) return { mode: "none" as const, lines: [], receiptInfo: null };
 
     // Resolve shop settings
-    const settings = await resolveShopSettings(db, tenantId);
+    const settings = await getShopSettingsForBatch(tenantId);
 
     if (settings.stock_mode === "none") {
-      return { mode: "none" as const, lines: [] };
+      return { mode: "none" as const, lines: [], receiptInfo: null };
     }
 
     if (!batch.itemId) {
-      return { mode: settings.stock_mode, lines: [] };
+      return { mode: settings.stock_mode, lines: [], receiptInfo: null };
     }
+
+    // Check for existing production receipt
+    const receiptInfo = await getProductionReceiptForBatch(batchId, tenantId);
 
     // Load existing bottling items for pre-fill
     const existingRows = await db
@@ -2114,7 +2153,7 @@ export async function getBottlingLines(
         .limit(1);
 
       const item = itemRows[0];
-      if (!item) return { mode: "bulk" as const, lines: [] };
+      if (!item) return { mode: "bulk" as const, lines: [], receiptInfo };
 
       // Fallback volume: existing → actual → recipe
       let defaultQty = existingMap.get(item.id) ?? 0;
@@ -2140,6 +2179,7 @@ export async function getBottlingLines(
           quantity: defaultQty,
           isBulk: true,
         }],
+        receiptInfo,
       };
     }
 
@@ -2171,6 +2211,7 @@ export async function getBottlingLines(
         quantity: existingMap.get(item.id) ?? 0,
         isBulk: false,
       })),
+      receiptInfo,
     };
   });
 }

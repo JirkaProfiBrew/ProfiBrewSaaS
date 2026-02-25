@@ -63,7 +63,9 @@
     "dumpReasonLabel": "Dump Reason",
     "dumpReasonPlaceholder": "Describe the reason...",
     "confirmDump": "Dump",
-    "bottlingRequired": "Complete the bottling tab before finishing the batch"
+    "noReceiptTitle": "Batch has no stocked beer",
+    "noReceiptDescription": "Beer has not been stocked to warehouse. Do you still want to complete the batch?",
+    "completeAnyway": "Complete anyway"
   },
   "steps": {
     "start": "Start",
@@ -215,7 +217,8 @@
   "bottling": {
     "empty": "Batch has no assigned production item",
     "noProducts": "Production item has no assigned products",
-    "modeNone": "Beer stocking is disabled in shop settings.",
+    "modeNone": "Beer stocking is disabled.",
+    "modeNoneHint": "Change the mode in Settings → Shops → Parameters",
     "modeBulk": "Bulk stocking — enter volume in liters",
     "modePackaged": "Packaged stocking — enter piece count",
     "product": "Product",
@@ -224,9 +227,10 @@
     "amount": "Amount (L)",
     "quantity": "Pcs",
     "lineTotal": "Total (L)",
-    "save": "Save",
+    "save": "Save bottling",
     "saved": "Bottling saved",
     "saveError": "Failed to save bottling",
+    "saveDisabledReceipt": "Cancel the receipt {code} to edit bottling",
     "summary": {
       "totalBottled": "Total Bottled",
       "recipeVolume": "Recipe Volume",
@@ -236,6 +240,28 @@
       "surplus": "Surplus",
       "loss": "Loss",
       "exact": "Exact"
+    },
+    "stock": {
+      "button": "Stock Beer",
+      "buttonDisabledEmpty": "Fill in and save bottling first",
+      "buttonDisabledUnsaved": "Save bottling first",
+      "confirmTitle": "Stock beer?",
+      "confirmDescription": "This will create a confirmed receipt.",
+      "confirmLines": "Lines: {count}",
+      "confirmVolume": "Total volume: {volume} L",
+      "confirm": "Stock Beer",
+      "cancel": "Cancel",
+      "success": "Beer stocked — {code}",
+      "error": "Failed to stock beer",
+      "errorNoBottling": "Fill in bottling first",
+      "errorNoWarehouse": "No warehouse configured for beer",
+      "errorAlreadyExists": "Receipt already exists",
+      "errorNoProductionItem": "Batch has no production item"
+    },
+    "receipt": {
+      "title": "Receipt",
+      "open": "Open",
+      "none": "No receipt created yet"
     }
   },
   "notes": {

@@ -282,14 +282,22 @@
 
 ### Přidáno — Sjednocení naskladnění piva (bulk + packaged)
 - [x] DB: `bottling_items.quantity` změněn z `integer` na `decimal` (podpora objemu v L pro bulk mód)
-- [x] `resolveShopSettings()` — resolve funkce: najde default/první aktivní shop, vrací `stock_mode` + `default_warehouse_beer_id`
+- [x] `resolveShopSettings()` → `getShopSettingsForBatch()` — resolve funkce: najde default/první aktivní shop, vrací `stock_mode` + `default_warehouse_beer_id`
 - [x] `getBottlingLines()` — auto-generování řádků dle stock_mode: bulk = 1 řádek (výrobní položka, MJ=L), packaged = N řádků (child items), none = prázdné
 - [x] Tab Stáčení: podpora tří módů (bulk/packaged/none) — popisek módu, adaptive input (decimal pro bulk, integer pro packaged)
-- [x] Přepis `onBatchCompleted()` — čte z bottling_items, N řádků příjemky, warehouse z shop settings
-- [x] Bulk fallback: pokud bottling data chybí → příjemka z actual_volume_l (zpětná kompatibilita)
-- [x] Validace batch completion: stock_mode-aware — packaged VYŽADUJE bottling data, bulk volitelné, none skip
-- [x] Error handling: BOTTLING_REQUIRED → toast + přepnutí na tab Stáčení
-- [x] i18n: `bottling.modeNone`, `bottling.modeBulk`, `bottling.modePackaged`, `bottling.unit`, `bottling.amount`, `statusTransition.bottlingRequired` (cs + en)
+- [x] i18n: `bottling.modeNone`, `bottling.modeBulk`, `bottling.modePackaged`, `bottling.unit`, `bottling.amount` (cs + en)
+
+### Přidáno — Explicitní naskladnění piva (tlačítko "Naskladnit")
+- [x] `createProductionReceipt()` — nový server action: explicitní tvorba příjemky z bottling dat
+- [x] `getProductionReceiptForBatch()` — helper: kontrola existující příjemky pro batch
+- [x] `onBatchCompleted()` vyprázdněn — naskladnění již není automatické při dokončení várky
+- [x] `transitionBatchStatus()` — odstraněna BOTTLING_REQUIRED validace, batch completion neblokuje
+- [x] Tab Stáčení: tlačítko "Naskladnit" s confirm dialogem → createProductionReceipt()
+- [x] Tab Stáčení: info box s odkazem na příjemku (kód, status, link)
+- [x] Tab Stáčení: "Uložit" disabled pokud příjemka potvrzena (tooltip s odkazem na storno)
+- [x] `saveBottlingData()` — receipt lock: nelze upravit stáčení pokud existuje potvrzená příjemka
+- [x] Batch completion: non-blocking warning pokud příjemka neexistuje (confirm dialog)
+- [x] i18n: `bottling.stock.*`, `bottling.receipt.*`, `statusTransition.noReceipt*`, `statusTransition.completeAnyway` (cs + en)
 
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
@@ -300,8 +308,9 @@
 - VPN: `fullUnitPrice` jde do movements → FIFO alokační engine nepotřebuje žádné změny
 - CF z příjemky: automatické generování řízeno nastavením provozovny (shop parameters JSONB)
 - Stáčení: auto-generované řádky z prodejních položek — sládek zadává pouze ks, systém dopočítá objem
-- Sjednocení naskladnění: bulk i packaged čtou z bottling_items; onBatchCompleted tvoří příjemku z N řádků
-- Bottling validation: stock_mode-aware — packaged VYŽADUJE bottling data, bulk má fallback na actual_volume_l
+- Sjednocení naskladnění: bulk i packaged čtou z bottling_items; createProductionReceipt tvoří příjemku z N řádků
+- Naskladnění je explicitní akce (tlačítko "Naskladnit"), NE automatický side-effect batch completion
+- Batch completion: warning (non-blocking) pokud příjemka neexistuje; user může dokončit i bez naskladnění
 - `packaging_loss_l` = actual_volume_l − SUM(bottling ks × base_item_quantity); kladné = ztráta, záporné = přebytek
 - Shop settings resolution: default/first active shop → stock_mode + default_warehouse_beer_id
 

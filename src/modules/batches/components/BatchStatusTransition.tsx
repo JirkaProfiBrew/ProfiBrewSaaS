@@ -13,10 +13,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-import { transitionBatchStatus } from "../actions";
+import { transitionBatchStatus, getBottlingLines } from "../actions";
 import type { BatchStatus } from "../types";
 import { BATCH_STATUS_TRANSITIONS } from "../types";
 
@@ -25,7 +35,7 @@ import { BATCH_STATUS_TRANSITIONS } from "../types";
 interface BatchStatusTransitionProps {
   batchId: string;
   currentStatus: string;
-  onTransition: (error?: string) => void;
+  onTransition: () => void;
 }
 
 export function BatchStatusTransition({
@@ -39,6 +49,8 @@ export function BatchStatusTransition({
   const [dumpDialogOpen, setDumpDialogOpen] = useState(false);
   const [dumpReason, setDumpReason] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [noReceiptWarningOpen, setNoReceiptWarningOpen] = useState(false);
+  const [pendingTransition, setPendingTransition] = useState<BatchStatus | null>(null);
 
   const allowedTransitions =
     BATCH_STATUS_TRANSITIONS[currentStatus as BatchStatus] ?? [];
@@ -46,7 +58,7 @@ export function BatchStatusTransition({
   const canDump =
     currentStatus !== "completed" && currentStatus !== "dumped";
 
-  const handleTransition = useCallback(
+  const doTransition = useCallback(
     async (newStatus: BatchStatus): Promise<void> => {
       setIsTransitioning(true);
       try {
@@ -54,20 +66,44 @@ export function BatchStatusTransition({
         toast.success(t("statusTransition.success"));
         onTransition();
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : "";
-        if (msg.includes("BOTTLING_REQUIRED")) {
-          toast.error(t("statusTransition.bottlingRequired"));
-          onTransition("BOTTLING_REQUIRED");
-        } else {
-          console.error("Failed to transition batch status:", error);
-          toast.error(t("statusTransition.error"));
-        }
+        console.error("Failed to transition batch status:", error);
+        toast.error(t("statusTransition.error"));
       } finally {
         setIsTransitioning(false);
       }
     },
     [batchId, onTransition, t]
   );
+
+  const handleTransition = useCallback(
+    async (newStatus: BatchStatus): Promise<void> => {
+      // Check for no-receipt warning on completion
+      if (newStatus === "completed") {
+        try {
+          const { mode, receiptInfo } = await getBottlingLines(batchId);
+          if (mode !== "none" && !receiptInfo) {
+            // Show warning — non-blocking
+            setPendingTransition(newStatus);
+            setNoReceiptWarningOpen(true);
+            return;
+          }
+        } catch {
+          // If check fails, proceed anyway
+        }
+      }
+
+      await doTransition(newStatus);
+    },
+    [batchId, doTransition]
+  );
+
+  const handleConfirmNoReceipt = useCallback(async (): Promise<void> => {
+    setNoReceiptWarningOpen(false);
+    if (pendingTransition) {
+      await doTransition(pendingTransition);
+      setPendingTransition(null);
+    }
+  }, [doTransition, pendingTransition]);
 
   const handleDump = useCallback(async (): Promise<void> => {
     if (!dumpReason.trim()) return;
@@ -159,6 +195,35 @@ export function BatchStatusTransition({
           </Dialog>
         </>
       )}
+
+      {/* No-receipt warning dialog on completion */}
+      <AlertDialog open={noReceiptWarningOpen} onOpenChange={setNoReceiptWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("statusTransition.noReceiptTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("statusTransition.noReceiptDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setPendingTransition(null);
+              }}
+            >
+              {tCommon("cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmNoReceipt();
+              }}
+            >
+              {t("statusTransition.completeAnyway")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
