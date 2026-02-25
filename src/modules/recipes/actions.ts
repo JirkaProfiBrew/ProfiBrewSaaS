@@ -15,11 +15,14 @@ import { beerStyles, beerStyleGroups } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
 import { units } from "@/../drizzle/schema/system";
 import { batches } from "@/../drizzle/schema/batches";
+import { equipment } from "@/../drizzle/schema/equipment";
+import { shops } from "@/../drizzle/schema/shops";
 import { recipeCreateSchema, recipeItemCreateSchema, recipeStepCreateSchema } from "./schema";
 import { calculateAll } from "./utils";
 import type { IngredientInput, OverheadInputs } from "./utils";
 import { resolveIngredientPrices } from "./price-resolver";
 import { getDefaultShopSettings } from "@/modules/shops/actions";
+import type { ShopSettings } from "@/modules/shops/types";
 import type {
   Recipe,
   RecipeItem,
@@ -744,6 +747,66 @@ export async function applyMashProfile(
 
 // ── Calculation ─────────────────────────────────────────────────
 
+/**
+ * Resolve ShopSettings for a given recipe.
+ *
+ * For snapshot recipes (linked to a batch via batches.recipe_id):
+ *   batch → equipment → shop → shop.settings
+ *
+ * For standalone recipes (no batch link):
+ *   default (or first active) shop for the tenant.
+ */
+async function getShopSettingsForRecipe(
+  tenantId: string,
+  recipeId: string
+): Promise<ShopSettings | null> {
+  // Try to find a batch that references this recipe, then traverse equipment → shop
+  const batchRow = await db
+    .select({
+      equipmentId: batches.equipmentId,
+    })
+    .from(batches)
+    .where(
+      and(eq(batches.tenantId, tenantId), eq(batches.recipeId, recipeId))
+    )
+    .limit(1);
+
+  if (batchRow[0]?.equipmentId) {
+    const equipRow = await db
+      .select({ shopId: equipment.shopId })
+      .from(equipment)
+      .where(eq(equipment.id, batchRow[0].equipmentId))
+      .limit(1);
+
+    if (equipRow[0]?.shopId) {
+      const shopRow = await db
+        .select({ settings: shops.settings })
+        .from(shops)
+        .where(
+          and(
+            eq(shops.tenantId, tenantId),
+            eq(shops.id, equipRow[0].shopId),
+            eq(shops.isActive, true)
+          )
+        )
+        .limit(1);
+
+      if (shopRow[0]) {
+        const parsed =
+          shopRow[0].settings &&
+          typeof shopRow[0].settings === "object" &&
+          !Array.isArray(shopRow[0].settings)
+            ? (shopRow[0].settings as ShopSettings)
+            : ({} as ShopSettings);
+        return parsed;
+      }
+    }
+  }
+
+  // Fallback: default shop for the tenant
+  return getDefaultShopSettings(tenantId);
+}
+
 /** Calculate recipe parameters, save snapshot, and update recipe fields. */
 export async function calculateAndSaveRecipe(
   recipeId: string
@@ -777,11 +840,16 @@ export async function calculateAndSaveRecipe(
         and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.recipeId, recipeId))
       );
 
-    // Resolve shop settings for pricing mode + overhead
-    const shopSettings = await getDefaultShopSettings(tenantId);
+    // Resolve shop settings via batch→equipment→shop chain (or default shop fallback)
+    const shopSettings = await getShopSettingsForRecipe(tenantId, recipeId);
     const pricingMode = shopSettings?.ingredient_pricing_mode ?? "calc_price";
 
+    console.log(
+      `[calculateAndSaveRecipe] recipeId=${recipeId}, pricingMode=${pricingMode}, warehouseRawId=${shopSettings?.default_warehouse_raw_id ?? "none"}`
+    );
+
     // Resolve ingredient prices based on pricing mode
+    // For avg_stock: filter by default_warehouse_raw_id if configured
     const itemIds = itemRows.map((r) => r.recipeItem.itemId);
     const priceMap = await resolveIngredientPrices(tenantId, itemIds, pricingMode, {
       warehouseId: shopSettings?.default_warehouse_raw_id,

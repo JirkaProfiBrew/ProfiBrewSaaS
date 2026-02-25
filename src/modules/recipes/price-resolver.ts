@@ -10,7 +10,7 @@
  * - last_purchase: last confirmed receipt line unit_price per item
  */
 
-import { eq, and, desc, gt, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { items } from "@/../drizzle/schema/items";
@@ -43,6 +43,11 @@ export async function resolveIngredientPrices(
 
   const effectiveMode = mode ?? "calc_price";
 
+  // Debug: log the effective pricing mode
+  console.log(
+    `[price-resolver] mode=${effectiveMode}, warehouseId=${options?.warehouseId ?? "none"}, items=${itemIds.length}`
+  );
+
   if (effectiveMode === "calc_price") {
     const rows = await db
       .select({ id: items.id, costPrice: items.costPrice })
@@ -62,6 +67,7 @@ export async function resolveIngredientPrices(
   if (effectiveMode === "avg_stock") {
     // Weighted average from confirmed receipt lines with remaining stock
     // avg = SUM(remaining_qty * full_unit_price) / SUM(remaining_qty)
+    // Uses raw SQL for remaining_qty > 0 to handle NULL safely (NULL::decimal > 0 = false)
     const warehouseCondition = options?.warehouseId
       ? eq(stockIssues.warehouseId, options.warehouseId)
       : undefined;
@@ -71,7 +77,7 @@ export async function resolveIngredientPrices(
       inArray(stockIssueLines.itemId, itemIds),
       eq(stockIssues.status, "confirmed"),
       eq(stockIssues.movementType, "receipt"),
-      gt(stockIssueLines.remainingQty, "0"),
+      sql`COALESCE(${stockIssueLines.remainingQty}::numeric, 0) > 0`,
       ...(warehouseCondition ? [warehouseCondition] : []),
     ];
 
@@ -79,9 +85,9 @@ export async function resolveIngredientPrices(
       .select({
         itemId: stockIssueLines.itemId,
         avgPrice: sql<string>`
-          CASE WHEN SUM(${stockIssueLines.remainingQty}::numeric) > 0
-          THEN SUM(${stockIssueLines.remainingQty}::numeric * COALESCE(${stockIssueLines.fullUnitPrice}, ${stockIssueLines.unitPrice}, 0)::numeric)
-               / SUM(${stockIssueLines.remainingQty}::numeric)
+          CASE WHEN SUM(COALESCE(${stockIssueLines.remainingQty}, 0)::numeric) > 0
+          THEN SUM(COALESCE(${stockIssueLines.remainingQty}, 0)::numeric * COALESCE(${stockIssueLines.fullUnitPrice}, ${stockIssueLines.unitPrice}, 0)::numeric)
+               / SUM(COALESCE(${stockIssueLines.remainingQty}, 0)::numeric)
           ELSE NULL END
         `.as("avg_price"),
       })
@@ -90,16 +96,27 @@ export async function resolveIngredientPrices(
       .where(and(...conditions))
       .groupBy(stockIssueLines.itemId);
 
+    console.log(
+      `[price-resolver] avg_stock query returned ${rows.length} rows for ${itemIds.length} items`
+    );
+
     for (const row of rows) {
+      const price = row.avgPrice ? parseFloat(row.avgPrice) : null;
+      console.log(
+        `[price-resolver] avg_stock item=${row.itemId} avgPrice=${price}`
+      );
       result.set(row.itemId, {
         itemId: row.itemId,
-        price: row.avgPrice ? parseFloat(row.avgPrice) : null,
+        price,
         source: "avg_stock",
       });
     }
-    // Fill missing items (no stock) with null
+    // Fill missing items (no stock) with null — will fallback to costPrice in caller
     for (const itemId of itemIds) {
       if (!result.has(itemId)) {
+        console.log(
+          `[price-resolver] avg_stock item=${itemId} NO STOCK — will fallback to costPrice`
+        );
         result.set(itemId, { itemId, price: null, source: "avg_stock" });
       }
     }
@@ -110,7 +127,10 @@ export async function resolveIngredientPrices(
   if (effectiveMode === "last_purchase") {
     for (const itemId of itemIds) {
       const rows = await db
-        .select({ unitPrice: stockIssueLines.unitPrice })
+        .select({
+          unitPrice: stockIssueLines.unitPrice,
+          fullUnitPrice: stockIssueLines.fullUnitPrice,
+        })
         .from(stockIssueLines)
         .innerJoin(stockIssues, eq(stockIssueLines.stockIssueId, stockIssues.id))
         .where(
@@ -125,9 +145,14 @@ export async function resolveIngredientPrices(
         .limit(1);
 
       const row = rows[0];
+      const price = row?.fullUnitPrice
+        ? parseFloat(row.fullUnitPrice)
+        : row?.unitPrice
+          ? parseFloat(row.unitPrice)
+          : null;
       result.set(itemId, {
         itemId,
-        price: row?.unitPrice ? parseFloat(row.unitPrice) : null,
+        price,
         source: "last_purchase",
       });
     }

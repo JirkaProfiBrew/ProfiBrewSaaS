@@ -137,7 +137,23 @@ export function RecipeCalculation({
   }, [recipe, matchedStyle]);
 
   // Cost breakdown from ingredient data
+  // When a calcSnapshot exists, use its resolved per-ingredient prices (avg_stock / last_purchase).
+  // Otherwise, fall back to client-side items.costPrice.
   const costBreakdown = useMemo(() => {
+    // Build a lookup from snapshot ingredients for resolved prices
+    const snapshotMap = new Map<
+      string,
+      { cost: number; priceSource: string }
+    >();
+    if (calcSnapshot?.ingredients) {
+      for (const ing of calcSnapshot.ingredients) {
+        snapshotMap.set(ing.itemId, {
+          cost: ing.cost,
+          priceSource: ing.priceSource,
+        });
+      }
+    }
+
     return items.map((item) => {
       const amount = parseFloat(item.amountG) || 0;
       const toBaseFactor = item.unitToBaseFactor;
@@ -147,18 +163,31 @@ export function RecipeCalculation({
         toBaseFactor != null && toBaseFactor !== 0
           ? amount * toBaseFactor
           : amount; // null = already in base unit (kg)
-      const costPerKg = item.itemCostPrice ? parseFloat(item.itemCostPrice) : 0;
-      const totalCost = weightKg * costPerKg;
+
+      const snapshotIng = snapshotMap.get(item.itemId);
+
+      // Use snapshot-resolved price if available, else fallback to items.costPrice
+      let costPerKg: number;
+      let totalCost: number;
+      if (snapshotIng) {
+        // Snapshot has the total cost for this ingredient already computed
+        totalCost = Math.round(snapshotIng.cost * 100) / 100;
+        costPerKg = weightKg > 0 ? totalCost / weightKg : 0;
+      } else {
+        costPerKg = item.itemCostPrice ? parseFloat(item.itemCostPrice) : 0;
+        totalCost = Math.round(weightKg * costPerKg * 100) / 100;
+      }
+
       return {
         id: item.id,
         name: item.itemName ?? item.itemId,
         amount,
         unitSymbol,
-        costPerKg,
-        totalCost: Math.round(totalCost * 100) / 100,
+        costPerKg: Math.round(costPerKg * 100) / 100,
+        totalCost,
       };
     });
-  }, [items]);
+  }, [items, calcSnapshot]);
 
   const totalCost = useMemo(
     () => costBreakdown.reduce((sum, item) => sum + item.totalCost, 0),
