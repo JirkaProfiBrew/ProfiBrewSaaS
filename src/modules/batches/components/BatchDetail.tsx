@@ -503,6 +503,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           <TabsContent value="bottling" className="mt-4">
             <BatchBottlingTab
               batchId={id}
+              batchNumber={batch?.batchNumber ?? ""}
               itemId={batch?.itemId ?? null}
               actualVolumeL={batch?.actualVolumeL ?? null}
               recipeBatchSizeL={batch?.recipeBatchSizeL ?? null}

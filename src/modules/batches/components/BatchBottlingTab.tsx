@@ -51,6 +51,7 @@ interface ProductLine extends BottlingLineData {
 
 interface BatchBottlingTabProps {
   batchId: string;
+  batchNumber: string;
   itemId: string | null;
   actualVolumeL: string | null;
   recipeBatchSizeL: string | null;
@@ -61,6 +62,7 @@ interface BatchBottlingTabProps {
 
 export function BatchBottlingTab({
   batchId,
+  batchNumber,
   itemId,
   actualVolumeL,
   recipeBatchSizeL,
@@ -428,7 +430,7 @@ export function BatchBottlingTab({
             </Badge>
           </div>
           <Link
-            href={`/stock/movements/${receiptInfo.id}`}
+            href={`/stock/movements/${receiptInfo.id}?batchId=${batchId}&batchNumber=${encodeURIComponent(batchNumber)}&tab=bottling`}
             className="text-sm flex items-center gap-1 hover:underline text-primary"
           >
             {t("bottling.receipt.open")}
