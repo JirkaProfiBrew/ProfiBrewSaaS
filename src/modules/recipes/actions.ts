@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, ilike, or, sql, desc, asc, inArray, isNull, max } from "drizzle-orm";
+import { eq, and, ilike, or, sql, desc, asc, inArray, isNull, max, aliasedTable } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
@@ -823,6 +823,8 @@ export async function calculateAndSaveRecipe(
     if (!recipe) throw new Error("Recipe not found");
 
     // Load items with joined item + unit data
+    // Two unit joins: recipe unit (recipeItems.unitId) and stock unit (items.unitId)
+    const stockUnit = aliasedTable(units, "stock_unit");
     const itemRows = await db
       .select({
         recipeItem: recipeItems,
@@ -832,10 +834,12 @@ export async function calculateAndSaveRecipe(
         itemExtractPercent: items.extractPercent,
         itemCostPrice: items.costPrice,
         unitToBaseFactor: units.toBaseFactor,
+        stockUnitToBaseFactor: stockUnit.toBaseFactor,
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
       .leftJoin(units, eq(recipeItems.unitId, units.id))
+      .leftJoin(stockUnit, eq(items.unitId, stockUnit.id))
       .where(
         and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.recipeId, recipeId))
       );
@@ -864,6 +868,9 @@ export async function calculateAndSaveRecipe(
         amountG: parseFloat(row.recipeItem.amountG) || 0,
         unitToBaseFactor: row.unitToBaseFactor
           ? parseFloat(row.unitToBaseFactor)
+          : null,
+        stockUnitToBaseFactor: row.stockUnitToBaseFactor
+          ? parseFloat(row.stockUnitToBaseFactor)
           : null,
         alpha: row.itemAlpha ? parseFloat(row.itemAlpha) : null,
         ebc: row.itemEbc ? parseFloat(row.itemEbc) : null,

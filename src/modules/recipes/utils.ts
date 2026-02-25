@@ -16,11 +16,12 @@ import type { RecipeCalculationResult } from "./types";
 export interface IngredientInput {
   category: string;
   amountG: number;                 // amount in the recipe unit (legacy name, now unit-agnostic)
-  unitToBaseFactor?: number | null; // factor to convert amountG to base unit (kg for weight); null/1 = already base unit; 0.001 = grams→kg
+  unitToBaseFactor?: number | null; // factor to convert recipe unit → base unit (kg); null = already base unit; 0.001 = g→kg
+  stockUnitToBaseFactor?: number | null; // factor to convert stock unit → base unit (kg); null = stock unit IS base unit
   alpha?: number | null;           // hop alpha acid %
   ebc?: number | null;             // malt color EBC
   extractPercent?: number | null;  // malt extract %
-  costPrice?: number | null;       // cost per kg (always per base stock unit)
+  costPrice?: number | null;       // cost per stock unit (NOT per kg — e.g. yeast: 4 CZK/g)
   useTimeMin?: number | null;      // boil time (for hops)
   itemId: string;
   recipeItemId?: string;           // unique recipe_items.id — for matching snapshot ↔ UI
@@ -220,16 +221,21 @@ export function calculateCost(
   ingredients: IngredientInput[]
 ): { total: number; perItem: { itemId: string; recipeItemId?: string; name: string; amount: number; cost: number; costPerUnit: number }[] } {
   const perItem = ingredients.map((ing) => {
-    const weightKg = toKg(ing);
-    const costPerKg = ing.costPrice ?? 0;
-    const cost = weightKg * costPerKg;
+    const weightBaseUnit = toKg(ing); // amount converted to base unit (kg)
+    // costPrice is per STOCK unit. Convert to per base unit (kg):
+    // If stock unit = g (factor 0.001), costPrice 4 CZK/g → 4 / 0.001 = 4000 CZK/kg
+    // If stock unit = kg (factor null/1), costPrice 20 CZK/kg → 20 / 1 = 20 CZK/kg
+    const stockFactor = ing.stockUnitToBaseFactor ?? 1;
+    const rawCostPrice = ing.costPrice ?? 0;
+    const costPerBaseUnit = stockFactor > 0 ? rawCostPrice / stockFactor : rawCostPrice;
+    const cost = weightBaseUnit * costPerBaseUnit;
     return {
       itemId: ing.itemId,
       recipeItemId: ing.recipeItemId,
       name: ing.name,
       amount: ing.amountG,
       cost: Math.round(cost * 100) / 100,
-      costPerUnit: Math.round(costPerKg * 100) / 100,
+      costPerUnit: Math.round(costPerBaseUnit * 100) / 100,
     };
   });
 
