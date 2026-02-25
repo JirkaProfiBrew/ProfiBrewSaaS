@@ -309,38 +309,32 @@ export function RecipeCalculation({
                 {/* Overhead rows — only if snapshot has overhead data */}
                 {calcSnapshot?.ingredientOverheadCost !== undefined && (
                   <>
-                    {calcSnapshot.ingredientOverheadCost > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground">
-                          {t("calculation.ingredientOverhead", {
-                            pct: calcSnapshot.ingredientOverheadPct,
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {calcSnapshot.ingredientOverheadCost.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {calcSnapshot.brewCost > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground">
-                          {t("calculation.brewCost")}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {calcSnapshot.brewCost.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {calcSnapshot.overheadCost > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-muted-foreground">
-                          {t("calculation.overheadCost")}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {calcSnapshot.overheadCost.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.ingredientOverhead", {
+                          pct: calcSnapshot.ingredientOverheadPct ?? 0,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {(calcSnapshot.ingredientOverheadCost ?? 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.brewCost")}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {(calcSnapshot.brewCost ?? 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.overheadCost")}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {(calcSnapshot.overheadCost ?? 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
                     <TableRow>
                       <TableCell colSpan={3} className="font-bold">
                         {t("calculation.totalProductionCost")}
@@ -371,18 +365,42 @@ export function RecipeCalculation({
                 {calcSnapshot?.ingredientOverheadCost === undefined && (
                   <>
                     <TableRow>
-                      <TableCell colSpan={3} className="font-semibold">
-                        {t("calculation.totalCost")}
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.ingredientOverhead", { pct: 0 })}
                       </TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="text-right text-muted-foreground">
+                        0.00
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.brewCost")}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        0.00
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground">
+                        {t("calculation.overheadCost")}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        0.00
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-bold">
+                        {t("calculation.totalProductionCost")}
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
                         {totalCost.toFixed(2)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={3} className="font-semibold">
-                        {t("calculation.costPerLiter")}
+                      <TableCell colSpan={3} className="font-bold">
+                        {t("calculation.productionCostPerLiter")}
                       </TableCell>
-                      <TableCell className="text-right font-semibold">
+                      <TableCell className="text-right font-bold">
                         {costPerLiter.toFixed(2)}
                       </TableCell>
                     </TableRow>
