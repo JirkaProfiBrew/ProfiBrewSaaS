@@ -17,6 +17,9 @@ import { units } from "@/../drizzle/schema/system";
 import { batches } from "@/../drizzle/schema/batches";
 import { recipeCreateSchema, recipeItemCreateSchema, recipeStepCreateSchema } from "./schema";
 import { calculateAll } from "./utils";
+import type { IngredientInput, OverheadInputs } from "./utils";
+import { resolveIngredientPrices } from "./price-resolver";
+import { getDefaultShopSettings } from "@/modules/shops/actions";
 import type {
   Recipe,
   RecipeItem,
@@ -26,7 +29,6 @@ import type {
   MashingProfile,
   RecipeCalculationResult,
 } from "./types";
-import type { IngredientInput } from "./utils";
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -775,28 +777,56 @@ export async function calculateAndSaveRecipe(
         and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.recipeId, recipeId))
       );
 
-    // Build IngredientInput[]
-    const ingredientInputs: IngredientInput[] = itemRows.map((row) => ({
-      category: row.recipeItem.category,
-      amountG: parseFloat(row.recipeItem.amountG) || 0,
-      unitToBaseFactor: row.unitToBaseFactor
-        ? parseFloat(row.unitToBaseFactor)
-        : null,
-      alpha: row.itemAlpha ? parseFloat(row.itemAlpha) : null,
-      ebc: row.itemEbc ? parseFloat(row.itemEbc) : null,
-      extractPercent: row.itemExtractPercent
-        ? parseFloat(row.itemExtractPercent)
-        : null,
-      costPrice: row.itemCostPrice ? parseFloat(row.itemCostPrice) : null,
-      useTimeMin: row.recipeItem.useTimeMin,
-      itemId: row.recipeItem.itemId,
-      name: row.itemName,
-    }));
+    // Resolve shop settings for pricing mode + overhead
+    const shopSettings = await getDefaultShopSettings(tenantId);
+    const pricingMode = shopSettings?.ingredient_pricing_mode ?? "calc_price";
+
+    // Resolve ingredient prices based on pricing mode
+    const itemIds = itemRows.map((r) => r.recipeItem.itemId);
+    const priceMap = await resolveIngredientPrices(tenantId, itemIds, pricingMode);
+
+    // Build IngredientInput[] — use resolved price with fallback to items.costPrice
+    const ingredientInputs: IngredientInput[] = itemRows.map((row) => {
+      const resolved = priceMap.get(row.recipeItem.itemId);
+      const fallbackPrice = row.itemCostPrice ? parseFloat(row.itemCostPrice) : null;
+      return {
+        category: row.recipeItem.category,
+        amountG: parseFloat(row.recipeItem.amountG) || 0,
+        unitToBaseFactor: row.unitToBaseFactor
+          ? parseFloat(row.unitToBaseFactor)
+          : null,
+        alpha: row.itemAlpha ? parseFloat(row.itemAlpha) : null,
+        ebc: row.itemEbc ? parseFloat(row.itemEbc) : null,
+        extractPercent: row.itemExtractPercent
+          ? parseFloat(row.itemExtractPercent)
+          : null,
+        costPrice: resolved?.price ?? fallbackPrice,
+        useTimeMin: row.recipeItem.useTimeMin,
+        itemId: row.recipeItem.itemId,
+        name: row.itemName,
+      };
+    });
 
     const volumeL = recipe.batchSizeL ? parseFloat(recipe.batchSizeL) : 0;
     const fgPlato = recipe.fg ? parseFloat(recipe.fg) : undefined;
 
-    const result = calculateAll(ingredientInputs, volumeL, fgPlato);
+    // Build overhead inputs from shop settings
+    const overhead: OverheadInputs = {
+      overheadPct: shopSettings?.overhead_pct ?? 0,
+      overheadCzk: shopSettings?.overhead_czk ?? 0,
+      brewCostCzk: shopSettings?.brew_cost_czk ?? 0,
+    };
+
+    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead);
+
+    // Enrich result with pricing mode + per-ingredient price source
+    result.pricingMode = pricingMode;
+    for (const ing of result.ingredients) {
+      const resolved = priceMap.get(ing.itemId);
+      if (resolved) {
+        ing.priceSource = resolved.source;
+      }
+    }
 
     // Save calculation snapshot
     await db.insert(recipeCalculations).values({
@@ -805,7 +835,7 @@ export async function calculateAndSaveRecipe(
       data: result,
     });
 
-    // Update recipe with calculated values
+    // Update recipe with calculated values — costPrice = totalProductionCost
     await db
       .update(recipes)
       .set({
@@ -814,12 +844,37 @@ export async function calculateAndSaveRecipe(
         abv: String(result.abv),
         ibu: String(result.ibu),
         ebc: String(result.ebc),
-        costPrice: String(result.costPrice),
+        costPrice: String(result.totalProductionCost),
         updatedAt: sql`now()`,
       })
       .where(and(eq(recipes.tenantId, tenantId), eq(recipes.id, recipeId)));
 
     return result;
+  });
+}
+
+/** Get the latest recipe calculation snapshot (for UI display). */
+export async function getLatestRecipeCalculation(
+  recipeId: string
+): Promise<RecipeCalculationResult | null> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ data: recipeCalculations.data })
+      .from(recipeCalculations)
+      .where(
+        and(
+          eq(recipeCalculations.tenantId, tenantId),
+          eq(recipeCalculations.recipeId, recipeId)
+        )
+      )
+      .orderBy(desc(recipeCalculations.calculatedAt))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row?.data) return null;
+
+    // Safe cast — data is JSONB stored from RecipeCalculationResult
+    return row.data as unknown as RecipeCalculationResult;
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -19,9 +19,9 @@ import {
 } from "@/components/ui/table";
 
 import { cn } from "@/lib/utils";
-import type { Recipe, RecipeItem } from "../types";
+import type { Recipe, RecipeItem, RecipeCalculationResult } from "../types";
 import { useBeerStyles } from "../hooks";
-import { calculateAndSaveRecipe } from "../actions";
+import { calculateAndSaveRecipe, getLatestRecipeCalculation } from "../actions";
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -70,6 +70,12 @@ export function RecipeCalculation({
 
   const { data: beerStyles } = useBeerStyles();
   const [isCalculating, setIsCalculating] = useState(false);
+  const [calcSnapshot, setCalcSnapshot] = useState<RecipeCalculationResult | null>(null);
+
+  // Load latest calculation snapshot on mount
+  useEffect(() => {
+    void getLatestRecipeCalculation(recipeId).then(setCalcSnapshot);
+  }, [recipeId]);
 
   // Find the matching beer style for comparison
   const matchedStyle = useMemo(() => {
@@ -80,7 +86,8 @@ export function RecipeCalculation({
   const handleRecalculate = useCallback(async (): Promise<void> => {
     setIsCalculating(true);
     try {
-      await calculateAndSaveRecipe(recipeId);
+      const result = await calculateAndSaveRecipe(recipeId);
+      setCalcSnapshot(result);
       toast.success(t("calculation.recalculated"));
       onMutate();
     } catch (error: unknown) {
@@ -290,20 +297,97 @@ export function RecipeCalculation({
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={3} className="font-semibold">
-                    {t("calculation.totalCost")}
+                    {t("calculation.ingredientsCost")}
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {totalCost.toFixed(2)}
+                    {calcSnapshot
+                      ? calcSnapshot.ingredientsCost.toFixed(2)
+                      : totalCost.toFixed(2)}
                   </TableCell>
                 </TableRow>
-                <TableRow>
-                  <TableCell colSpan={3} className="font-semibold">
-                    {t("calculation.costPerLiter")}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {costPerLiter.toFixed(2)}
-                  </TableCell>
-                </TableRow>
+
+                {/* Overhead rows — only if snapshot has overhead data */}
+                {calcSnapshot?.ingredientOverheadCost !== undefined && (
+                  <>
+                    {calcSnapshot.ingredientOverheadCost > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-muted-foreground">
+                          {t("calculation.ingredientOverhead", {
+                            pct: calcSnapshot.ingredientOverheadPct,
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {calcSnapshot.ingredientOverheadCost.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {calcSnapshot.brewCost > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-muted-foreground">
+                          {t("calculation.brewCost")}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {calcSnapshot.brewCost.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {calcSnapshot.overheadCost > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-muted-foreground">
+                          {t("calculation.overheadCost")}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {calcSnapshot.overheadCost.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-bold">
+                        {t("calculation.totalProductionCost")}
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {calcSnapshot.totalProductionCost.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-bold">
+                        {t("calculation.productionCostPerLiter")}
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {calcSnapshot.costPerLiter.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                    {calcSnapshot.pricingMode && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-xs text-muted-foreground">
+                          {t("calculation.pricingSource")}: {t(`calculation.pricingModes.${calcSnapshot.pricingMode}`)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                )}
+
+                {/* Fallback for old snapshots without overhead data */}
+                {calcSnapshot?.ingredientOverheadCost === undefined && (
+                  <>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-semibold">
+                        {t("calculation.totalCost")}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {totalCost.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-semibold">
+                        {t("calculation.costPerLiter")}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {costPerLiter.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
               </TableFooter>
             )}
           </Table>

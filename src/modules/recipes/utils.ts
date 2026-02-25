@@ -26,6 +26,12 @@ export interface IngredientInput {
   name: string;
 }
 
+export interface OverheadInputs {
+  overheadPct: number;
+  overheadCzk: number;
+  brewCostCzk: number;
+}
+
 /**
  * Convert ingredient amount to kg using the unit's toBaseFactor.
  * - factor present (e.g. 0.001 for grams): amountG * factor → kg
@@ -240,12 +246,14 @@ export function calculateCost(
  * @param ingredients - all recipe ingredients with parsed numeric values
  * @param volumeL - batch volume in liters
  * @param fgPlato - Final gravity in Plato (optional, defaults to 25% of OG for estimate)
+ * @param overhead - optional overhead inputs (pct, fixed costs)
  * @returns RecipeCalculationResult with all calculated values
  */
 export function calculateAll(
   ingredients: IngredientInput[],
   volumeL: number,
-  fgPlato?: number
+  fgPlato?: number,
+  overhead?: OverheadInputs
 ): RecipeCalculationResult {
   const og = calculateOG(ingredients, volumeL);
 
@@ -255,10 +263,20 @@ export function calculateAll(
   const abv = calculateABV(og, fg);
   const ibu = calculateIBU(ingredients, volumeL, og);
   const ebc = calculateEBC(ingredients, volumeL);
-  const { total: costPrice, perItem } = calculateCost(ingredients);
+  const { total: ingredientsCost, perItem } = calculateCost(ingredients);
 
+  // Overhead computation
+  const oh = overhead ?? { overheadPct: 0, overheadCzk: 0, brewCostCzk: 0 };
+  const ingredientOverheadCost =
+    Math.round(ingredientsCost * oh.overheadPct) / 100;
+  const totalProductionCost =
+    Math.round(
+      (ingredientsCost + ingredientOverheadCost + oh.brewCostCzk + oh.overheadCzk) * 100
+    ) / 100;
   const costPerLiter =
-    volumeL > 0 ? Math.round((costPrice / volumeL) * 100) / 100 : 0;
+    volumeL > 0
+      ? Math.round((totalProductionCost / volumeL) * 100) / 100
+      : 0;
 
   return {
     og,
@@ -266,8 +284,15 @@ export function calculateAll(
     abv,
     ibu,
     ebc,
-    costPrice,
+    ingredientsCost,
+    ingredientOverheadPct: oh.overheadPct,
+    ingredientOverheadCost,
+    brewCost: oh.brewCostCzk,
+    overheadCost: oh.overheadCzk,
+    totalProductionCost,
     costPerLiter,
-    ingredients: perItem,
+    pricingMode: "calc_price",
+    ingredients: perItem.map((i) => ({ ...i, priceSource: "calc_price" })),
+    costPrice: totalProductionCost,
   };
 }

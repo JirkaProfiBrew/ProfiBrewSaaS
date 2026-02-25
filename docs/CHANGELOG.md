@@ -315,6 +315,18 @@
 - [x] Přejmenování "Kalkulační cena" → "Výrobní cena" / "Cost Price" → "Production Cost" v items agendě
 - [x] i18n: `form.lotNumber`, `bottling.bottledDate`, `bottling.productionPrice`, `bottling.expiryDate`, `bottling.priceSource.*`, `form.shelfLifeDays` (cs + en)
 
+### Přidáno — Režie v kalkulaci receptury + cenové režimy surovin
+- [x] `RecipeCalculationResult` — rozšířen o overhead: `ingredientsCost`, `ingredientOverheadPct`, `ingredientOverheadCost`, `brewCost`, `overheadCost`, `totalProductionCost`, `costPerLiter`, `pricingMode`, `priceSource` per ingredient
+- [x] `OverheadInputs` — nový interface v utils.ts (overheadPct, overheadCzk, brewCostCzk)
+- [x] `calculateAll()` — rozšířen o volitelný 4. parametr `overhead?: OverheadInputs`, bez parametru = nulová režie (backward compat)
+- [x] `getDefaultShopSettings()` — nový server action ve shops/actions.ts, vrací ShopSettings z výchozí/první aktivní provozovny
+- [x] `resolveIngredientPrices()` — nový modul `price-resolver.ts`: resolves per-item prices dle `ingredient_pricing_mode` (calc_price / avg_stock / last_purchase)
+- [x] `calculateAndSaveRecipe()` — rozšířen: načte shop settings, resolve ceny dle pricing mode, předá overhead do calculateAll(), `recipes.costPrice = totalProductionCost`
+- [x] `getLatestRecipeCalculation()` — nový server action: vrací poslední snapshot kalkulace
+- [x] RecipeCalculation UI — rozšíření: načítá calcSnapshot, zobrazuje overhead breakdown (suroviny, režie %, náklady var, režie, výrobní cena, cena/L, zdroj cen)
+- [x] Graceful fallback pro staré snapshoty bez overhead dat
+- [x] i18n: `calculation.ingredientsCost`, `calculation.ingredientOverhead`, `calculation.brewCost`, `calculation.overheadCost`, `calculation.totalProductionCost`, `calculation.productionCostPerLiter`, `calculation.pricingSource`, `calculation.pricingModes.*` (cs + en)
+
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
 - No scaleFactor: snapshot recipe items are the source of truth, amounts used directly
@@ -324,6 +336,8 @@
 - VPN: `fullUnitPrice` jde do movements → FIFO alokační engine nepotřebuje žádné změny
 - CF z příjemky: automatické generování řízeno nastavením provozovny (shop parameters JSONB)
 - Stáčení: auto-generované řádky z prodejních položek — sládek zadává pouze ks, systém dopočítá objem
+- Recipe overhead: `recipes.costPrice` = totalProductionCost (ingredients + overhead), not just ingredients — bottling pricing via `beer_pricing_mode=recipe_calc` automatically includes overhead
+- Price resolver: 3 modes (calc_price, avg_stock, last_purchase) — resolved before calculation, fallback to items.costPrice if resolved price is null
 - Sjednocení naskladnění: bulk i packaged čtou z bottling_items; createProductionReceipt tvoří příjemku z N řádků
 - Naskladnění je explicitní akce (tlačítko "Naskladnit"), NE automatický side-effect batch completion
 - Batch completion: warning (non-blocking) pokud příjemka neexistuje; user může dokončit i bez naskladnění

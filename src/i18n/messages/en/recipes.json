@@ -129,7 +129,19 @@
     "itemName": "Ingredient",
     "itemAmount": "Amount",
     "itemUnitCost": "Unit Cost",
-    "itemTotalCost": "Total"
+    "itemTotalCost": "Total",
+    "ingredientsCost": "Total Ingredients",
+    "ingredientOverhead": "Ingredient Overhead ({pct} %)",
+    "brewCost": "Brew Cost",
+    "overheadCost": "Overhead",
+    "totalProductionCost": "Total Production Cost",
+    "productionCostPerLiter": "Production Cost per Liter",
+    "pricingSource": "Ingredient price source",
+    "pricingModes": {
+      "calc_price": "Calculation Price",
+      "avg_stock": "Average Stock Price",
+      "last_purchase": "Last Purchase Price"
+    }
   },
   "detail": {
     "title": "Recipe Detail",

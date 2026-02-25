@@ -91,9 +91,24 @@ export interface RecipeCalculationResult {
   abv: number;
   ibu: number;
   ebc: number;
-  costPrice: number;
+  // Cost breakdown
+  ingredientsCost: number;
+  ingredientOverheadPct: number;
+  ingredientOverheadCost: number;
+  brewCost: number;
+  overheadCost: number;
+  totalProductionCost: number;
   costPerLiter: number;
-  ingredients: { itemId: string; name: string; amount: number; cost: number }[];
+  pricingMode: string;
+  ingredients: {
+    itemId: string;
+    name: string;
+    amount: number;
+    cost: number;
+    priceSource: string;
+  }[];
+  /** @deprecated Alias for totalProductionCost (backward compat). */
+  costPrice: number;
 }
 
 export interface BeerStyle {

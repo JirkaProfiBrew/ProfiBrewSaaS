@@ -1,11 +1,11 @@
 "use server";
 
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
 import { shops } from "@/../drizzle/schema/shops";
-import type { Shop, ShopAddress } from "./types";
+import type { Shop, ShopAddress, ShopSettings } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -167,4 +167,24 @@ export async function deleteShop(id: string): Promise<Shop> {
     if (!row) throw new Error("Shop not found");
     return mapRow(row);
   });
+}
+
+/**
+ * Get the ShopSettings JSONB from the default (or first active) shop for the tenant.
+ * Used by recipe calculation to resolve pricing mode and overhead values.
+ */
+export async function getDefaultShopSettings(
+  tenantId: string
+): Promise<ShopSettings | null> {
+  const rows = await db
+    .select({ settings: shops.settings })
+    .from(shops)
+    .where(and(eq(shops.tenantId, tenantId), eq(shops.isActive, true)))
+    .orderBy(desc(shops.isDefault))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  const parsed = parseSettings(row.settings);
+  return parsed as ShopSettings;
 }

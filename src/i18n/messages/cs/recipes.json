@@ -129,7 +129,19 @@
     "itemName": "Surovina",
     "itemAmount": "Množství",
     "itemUnitCost": "Jedn. cena",
-    "itemTotalCost": "Celkem"
+    "itemTotalCost": "Celkem",
+    "ingredientsCost": "Suroviny celkem",
+    "ingredientOverhead": "Režie suroviny ({pct} %)",
+    "brewCost": "Náklady var",
+    "overheadCost": "Režie",
+    "totalProductionCost": "Výrobní cena várky",
+    "productionCostPerLiter": "Výrobní cena za litr",
+    "pricingSource": "Zdroj cen surovin",
+    "pricingModes": {
+      "calc_price": "Kalkulační cena",
+      "avg_stock": "Průměrná skladová cena",
+      "last_purchase": "Poslední nákupní cena"
+    }
   },
   "detail": {
     "title": "Detail receptury",

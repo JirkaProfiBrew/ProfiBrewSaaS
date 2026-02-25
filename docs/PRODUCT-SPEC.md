@@ -224,8 +224,17 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Základní info: název, kód, pivní styl (z BJCP číselníku), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
 - Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
 - Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona).
-- Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace (součet cen surovin + režie)
+- Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace s overhead breakdown
 - Poznámky
+
+**Kalkulace — overhead a cenotvorba surovin:**
+- Zdroj cen surovin dle `ingredient_pricing_mode` z nastavení provozovny: `calc_price` (kalkulační cena z items), `avg_stock` (průměrná skladová z items.avgPrice), `last_purchase` (poslední nákupní cena z potvrzených příjemek)
+- Fallback: pokud resolved cena je null → items.costPrice
+- Overhead z nastavení provozovny: režie suroviny (%), náklady var (CZK), režie (CZK)
+- Výpočet: `totalProductionCost = ingredientsCost + ingredientsCost×overheadPct/100 + brewCostCzk + overheadCzk`
+- `recipes.costPrice` = totalProductionCost (celková výrobní cena, ne jen suroviny)
+- UI: tabulka surovin + footer s breakdown (suroviny celkem, režie %, náklady var, režie, výrobní cena, cena/L, zdroj cen)
+- Graceful fallback: staré snapshoty bez overhead dat zobrazí pouze celkovou cenu (bez breakdown)
 
 **Byznys pravidla:**
 - Receptura se dá duplikovat (nová kopie, status=draft, včetně `item_id`)
