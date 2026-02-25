@@ -105,6 +105,7 @@ export interface RecipeCalculationResult {
     name: string;
     amount: number;
     cost: number;
+    costPerUnit: number;
     priceSource: string;
   }[];
   /** @deprecated Alias for totalProductionCost (backward compat). */

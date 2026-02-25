@@ -217,7 +217,7 @@ export function calculateABV(ogPlato: number, fgPlato: number): number {
  */
 export function calculateCost(
   ingredients: IngredientInput[]
-): { total: number; perItem: { itemId: string; name: string; amount: number; cost: number }[] } {
+): { total: number; perItem: { itemId: string; name: string; amount: number; cost: number; costPerUnit: number }[] } {
   const perItem = ingredients.map((ing) => {
     const weightKg = toKg(ing);
     const costPerKg = ing.costPrice ?? 0;
@@ -227,6 +227,7 @@ export function calculateCost(
       name: ing.name,
       amount: ing.amountG,
       cost: Math.round(cost * 100) / 100,
+      costPerUnit: Math.round(costPerKg * 100) / 100,
     };
   });
 

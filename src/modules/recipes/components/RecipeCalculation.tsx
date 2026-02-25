@@ -138,23 +138,12 @@ export function RecipeCalculation({
 
   // Cost breakdown from ingredient data
   // When a calcSnapshot exists, use its resolved per-ingredient prices (avg_stock / last_purchase).
+  // Snapshot ingredients include costPerUnit — safe for duplicate items.
   // Otherwise, fall back to client-side items.costPrice.
   const costBreakdown = useMemo(() => {
-    // Build a lookup from snapshot ingredients for resolved prices
-    const snapshotMap = new Map<
-      string,
-      { cost: number; priceSource: string }
-    >();
-    if (calcSnapshot?.ingredients) {
-      for (const ing of calcSnapshot.ingredients) {
-        snapshotMap.set(ing.itemId, {
-          cost: ing.cost,
-          priceSource: ing.priceSource,
-        });
-      }
-    }
+    const snapshotIngredients = calcSnapshot?.ingredients ?? [];
 
-    return items.map((item) => {
+    return items.map((item, idx) => {
       const amount = parseFloat(item.amountG) || 0;
       const toBaseFactor = item.unitToBaseFactor;
       const unitSymbol = item.unitSymbol ?? "g";
@@ -164,13 +153,17 @@ export function RecipeCalculation({
           ? amount * toBaseFactor
           : amount; // null = already in base unit (kg)
 
-      const snapshotIng = snapshotMap.get(item.itemId);
+      // Match snapshot by index (same order as server-side ingredientInputs)
+      const snapshotIng = snapshotIngredients[idx];
 
-      // Use snapshot-resolved price if available, else fallback to items.costPrice
+      // Use snapshot costPerUnit if available, else fallback to items.costPrice
       let costPerKg: number;
       let totalCost: number;
-      if (snapshotIng) {
-        // Snapshot has the total cost for this ingredient already computed
+      if (snapshotIng?.costPerUnit != null) {
+        costPerKg = snapshotIng.costPerUnit;
+        totalCost = Math.round(weightKg * costPerKg * 100) / 100;
+      } else if (snapshotIng) {
+        // Old snapshot without costPerUnit — derive from total cost
         totalCost = Math.round(snapshotIng.cost * 100) / 100;
         costPerKg = weightKg > 0 ? totalCost / weightKg : 0;
       } else {
