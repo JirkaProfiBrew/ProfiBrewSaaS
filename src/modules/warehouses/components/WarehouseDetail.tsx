@@ -254,17 +254,12 @@ export function WarehouseDetail({
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
-      const result = await deleteWarehouse(id);
-      if ("error" in result) {
-        const errorKey = ({
-          HAS_STOCK_ISSUES: "deleteHasStockIssues",
-          HAS_ORDERS: "deleteHasOrders",
-          HAS_SHOP_SETTINGS: "deleteHasShopSettings",
-        } as Record<string, string>)[result.error] ?? "deleteFailed";
-        toast.error(t(`detail.fields.${errorKey}` as Parameters<typeof t>[0]));
-        return;
+      const { result } = await deleteWarehouse(id);
+      if (result === "deactivated") {
+        toast.info(t("detail.deleteDeactivated"));
+      } else {
+        toast.success(tCommon("deleted"));
       }
-      toast.success(tCommon("deleted"));
       router.push("/settings/warehouses");
     } catch (error) {
       console.error("Failed to delete warehouse:", error);

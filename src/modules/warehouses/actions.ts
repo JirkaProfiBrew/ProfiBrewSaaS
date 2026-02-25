@@ -216,33 +216,25 @@ export async function updateWarehouse(
   });
 }
 
-/** Hard delete a warehouse if no linked records exist. */
+/** Hard delete a warehouse if no linked records exist; soft-deactivate otherwise. */
 export async function deleteWarehouse(
   id: string
-): Promise<{ success: true } | { error: "HAS_STOCK_ISSUES" | "HAS_ORDERS" | "HAS_SHOP_SETTINGS" }> {
+): Promise<{ result: "deleted" } | { result: "deactivated" }> {
   return withTenant(async (tenantId) => {
-    // Check stock issues
-    const issues = await db
+    // Check for any linked records
+    const hasIssues = await db
       .select({ id: stockIssues.id })
       .from(stockIssues)
       .where(and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.warehouseId, id)))
       .limit(1);
-    if (issues.length > 0) {
-      return { error: "HAS_STOCK_ISSUES" as const };
-    }
 
-    // Check orders
-    const linkedOrders = await db
+    const hasOrders = await db
       .select({ id: orders.id })
       .from(orders)
       .where(and(eq(orders.tenantId, tenantId), eq(orders.warehouseId, id)))
       .limit(1);
-    if (linkedOrders.length > 0) {
-      return { error: "HAS_ORDERS" as const };
-    }
 
-    // Check shop settings JSONB references
-    const linkedShops = await db
+    const hasShopSettings = await db
       .select({ id: shops.id })
       .from(shops)
       .where(
@@ -255,20 +247,28 @@ export async function deleteWarehouse(
         )
       )
       .limit(1);
-    if (linkedShops.length > 0) {
-      return { error: "HAS_SHOP_SETTINGS" as const };
+
+    const hasReferences =
+      hasIssues.length > 0 || hasOrders.length > 0 || hasShopSettings.length > 0;
+
+    if (hasReferences) {
+      // Soft-deactivate
+      await db
+        .update(warehouses)
+        .set({ isActive: false, updatedAt: sql`now()` })
+        .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
+      return { result: "deactivated" as const };
     }
 
-    // Delete counters for this warehouse
+    // No references — hard delete counters + warehouse
     await db
       .delete(counters)
       .where(and(eq(counters.tenantId, tenantId), eq(counters.warehouseId, id)));
 
-    // Hard delete
     await db
       .delete(warehouses)
       .where(and(eq(warehouses.tenantId, tenantId), eq(warehouses.id, id)));
 
-    return { success: true as const };
+    return { result: "deleted" as const };
   });
 }

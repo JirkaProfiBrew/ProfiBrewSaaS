@@ -39,11 +39,9 @@
       "isActive": "Active",
       "codeReadonly": "Code cannot be changed after creation",
       "codeDuplicate": "Warehouse with this code already exists",
-      "shopRequired": "Shop is required",
-      "deleteHasStockIssues": "Cannot delete — warehouse has stock receipts or dispatches",
-      "deleteHasOrders": "Cannot delete — warehouse has linked orders",
-      "deleteHasShopSettings": "Cannot delete — warehouse is set as default in shop parameters"
+      "shopRequired": "Shop is required"
     },
+    "deleteDeactivated": "This warehouse has linked records and cannot be deleted. It has been set as inactive.",
     "actions": {
       "save": "Save",
       "delete": "Delete",
