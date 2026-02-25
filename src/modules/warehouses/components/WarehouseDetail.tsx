@@ -256,7 +256,7 @@ export function WarehouseDetail({
     try {
       const { result } = await deleteWarehouse(id);
       if (result === "deactivated") {
-        toast.info(t("detail.deleteDeactivated"));
+        toast.warning(t("detail.deleteDeactivated"), { duration: 6000 });
       } else {
         toast.success(tCommon("deleted"));
       }
