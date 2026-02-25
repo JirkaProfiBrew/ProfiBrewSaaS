@@ -15,6 +15,7 @@ export const recipeCreateSchema = z.object({
   boilTimeMin: z.number().int().min(0).nullable().optional(),
   durationFermentationDays: z.number().int().min(0).nullable().optional(),
   durationConditioningDays: z.number().int().min(0).nullable().optional(),
+  shelfLifeDays: z.number().int().min(0).nullable().optional(),
   notes: z.string().nullable().optional(),
   itemId: z.string().uuid().nullable().optional(),
 });

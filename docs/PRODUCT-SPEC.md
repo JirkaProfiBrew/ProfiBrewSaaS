@@ -221,7 +221,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Status: draft → active → archived
 
 **Detail receptury:**
-- Základní info: název, kód, pivní styl (z BJCP číselníku), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování
+- Základní info: název, kód, pivní styl (z BJCP číselníku), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
 - Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
 - Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona).
 - Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace (součet cen surovin + režie)
@@ -259,17 +259,23 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
   - **bulk**: 1 řádek = výrobní položka (batch.item_id), MJ=L, decimal input, předvyplněný z actual_volume_l
   - **packaged**: N řádků = child items (`base_item_id = batch.item_id`), integer input (ks), objem dopočten
   - **none**: hláška "Naskladnění vypnuto" s odkazem na nastavení provozovny, žádné řádky
-  - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit stáčení" → atomicky uloží bottling_items + vypočte `packaging_loss_l`.
+  - Datum stáčení (date picker, default: dnes). Ukládá se na batch.bottled_date; propaguje se do příjemky jako datum dokladu.
+  - Výrobní cena: readonly zobrazení Kč/L + pricing mode (kalkulační cena / z receptury). Zdroj: shop settings `beer_pricing_mode` (fixed → items.costPrice, recipe_calc → recipe.costPrice/batchSizeL).
+  - Datum expirace: computed (bottledDate + recipe.shelfLifeDays), readonly zobrazení.
+  - Sumář: stočeno celkem, objem z receptury, objem z tanku, rozdíl (barevně). Tlačítko "Uložit stáčení" → atomicky uloží bottling_items + bottled_date + vypočte `packaging_loss_l`.
   - Tlačítko "Naskladnit" → confirm dialog → `createProductionReceipt()` → příjemka vytvořena + potvrzena. Info box s kódem příjemky a odkazem.
+  - Příjemka obsahuje na řádcích: lot_number (z batch), expiry_date (bottledDate + shelfLifeDays), unit_price (dle pricing mode).
   - Po naskladnění: "Uložit" disabled (tooltip: "Stornujte příjemku"), "Naskladnit" skryté, místo něj info box.
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži
 
 **Byznys pravidla:**
 - Číslo várky z číslovací řady (V-2026-001)
+- Číslo šarže (lot_number): auto-generováno z batch_number bez pomlček, editovatelné na overview tabu
 - Šarže vždy patří k jednomu tanku/zařízení (equipment)
 - Naskladnění piva je **explicitní akce** — sládek klikne "Naskladnit" na tabu Stáčení. NENÍ automatické při dokončení várky.
 - `createProductionReceipt()` čte z bottling_items, vytváří příjemku (receipt, production_in) a rovnou potvrzuje.
+- Příjemka z výroby: lot_number z batch, expiry_date = bottled_date + shelf_life_days, unit_price dle beer_pricing_mode
 - Warehouse pro příjemku: `shop.settings.default_warehouse_beer_id` → fallback na první aktivní
 - Při spotřebě surovin se vytvoří skladový výdej
 - Excise: objem se eviduje v hl, systém sleduje status nahlášení

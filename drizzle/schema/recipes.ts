@@ -52,6 +52,7 @@ export const recipes = pgTable(
     costPrice: decimal("cost_price"),
     durationFermentationDays: integer("duration_fermentation_days"),
     durationConditioningDays: integer("duration_conditioning_days"),
+    shelfLifeDays: integer("shelf_life_days"),
     notes: text("notes"),
     itemId: uuid("item_id").references(() => items.id),
     isFromLibrary: boolean("is_from_library").default(false),

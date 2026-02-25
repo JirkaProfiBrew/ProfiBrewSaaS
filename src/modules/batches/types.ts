@@ -54,6 +54,8 @@ export interface Batch {
   fgActual: string | null;
   abvActual: string | null;
   packagingLossL: string | null;
+  lotNumber: string | null;
+  bottledDate: string | null;
   equipmentId: string | null;
   primaryBatchId: string | null;
   isPaused: boolean;

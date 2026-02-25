@@ -51,7 +51,8 @@
     "abvActual": "ABV (%)",
     "notes": "Poznámky",
     "recipePlaceholder": "Vyberte recepturu",
-    "equipmentPlaceholder": "Vyberte tank"
+    "equipmentPlaceholder": "Vyberte tank",
+    "lotNumber": "Číslo šarže"
   },
   "statusTransition": {
     "dump": "Zlikvidovat",
@@ -262,6 +263,14 @@
       "title": "Příjemka",
       "open": "Otevřít",
       "none": "Příjemka zatím nevytvořena"
+    },
+    "bottledDate": "Datum stáčení",
+    "productionPrice": "Výrobní cena",
+    "expiryDate": "Datum expirace",
+    "priceSource": {
+      "fixed": "kalkulační cena",
+      "recipe_calc": "z receptury",
+      "actual_costs": "skutečné náklady"
     }
   },
   "notes": {

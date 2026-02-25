@@ -26,6 +26,8 @@ export const batchUpdateSchema = z.object({
   ogActual: z.string().nullable().optional(),
   fgActual: z.string().nullable().optional(),
   packagingLossL: z.string().nullable().optional(),
+  lotNumber: z.string().nullable().optional(),
+  bottledDate: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 

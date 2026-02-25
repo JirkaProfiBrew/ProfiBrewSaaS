@@ -31,6 +31,7 @@ export interface Recipe {
   costPrice: string | null;
   durationFermentationDays: number | null;
   durationConditioningDays: number | null;
+  shelfLifeDays: number | null;
   notes: string | null;
   itemId: string | null;
   isFromLibrary: boolean;

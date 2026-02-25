@@ -54,6 +54,7 @@ function mapRecipeRow(
     costPrice: row.costPrice,
     durationFermentationDays: row.durationFermentationDays,
     durationConditioningDays: row.durationConditioningDays,
+    shelfLifeDays: row.shelfLifeDays,
     notes: row.notes,
     itemId: row.itemId,
     isFromLibrary: row.isFromLibrary ?? false,
@@ -294,6 +295,7 @@ export async function createRecipe(
         boilTimeMin: parsed.boilTimeMin ?? null,
         durationFermentationDays: parsed.durationFermentationDays ?? null,
         durationConditioningDays: parsed.durationConditioningDays ?? null,
+        shelfLifeDays: parsed.shelfLifeDays ?? null,
         notes: parsed.notes ?? null,
         itemId: parsed.itemId ?? null,
       })
@@ -407,6 +409,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           costPrice: orig.costPrice,
           durationFermentationDays: orig.durationFermentationDays,
           durationConditioningDays: orig.durationConditioningDays,
+          shelfLifeDays: orig.shelfLifeDays,
           notes: orig.notes,
           itemId: orig.itemId,
         })

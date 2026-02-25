@@ -59,6 +59,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     boilTimeMin: null,
     durationFermentationDays: null,
     durationConditioningDays: null,
+    shelfLifeDays: null,
     notes: null,
   });
 
@@ -81,6 +82,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         boilTimeMin: r.boilTimeMin,
         durationFermentationDays: r.durationFermentationDays,
         durationConditioningDays: r.durationConditioningDays,
+        shelfLifeDays: r.shelfLifeDays,
         notes: r.notes,
       });
     }
@@ -197,6 +199,13 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
           placeholder: "0",
         },
         {
+          key: "shelfLifeDays",
+          label: t("form.shelfLifeDays"),
+          type: "number",
+          suffix: "d",
+          placeholder: "0",
+        },
+        {
           key: "notes",
           label: t("form.notes"),
           type: "textarea",
@@ -257,6 +266,9 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
           durationConditioningDays: values.durationConditioningDays
             ? Number(values.durationConditioningDays)
             : null,
+          shelfLifeDays: values.shelfLifeDays
+            ? Number(values.shelfLifeDays)
+            : null,
           notes: values.notes ? String(values.notes) : null,
         });
 
@@ -284,6 +296,9 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
             : null,
           durationConditioningDays: values.durationConditioningDays
             ? Number(values.durationConditioningDays)
+            : null,
+          shelfLifeDays: values.shelfLifeDays
+            ? Number(values.shelfLifeDays)
             : null,
           notes: values.notes ? String(values.notes) : null,
         });

@@ -51,7 +51,8 @@
     "abvActual": "ABV (%)",
     "notes": "Notes",
     "recipePlaceholder": "Select recipe",
-    "equipmentPlaceholder": "Select tank"
+    "equipmentPlaceholder": "Select tank",
+    "lotNumber": "Lot Number"
   },
   "statusTransition": {
     "dump": "Dump",
@@ -262,6 +263,14 @@
       "title": "Receipt",
       "open": "Open",
       "none": "No receipt created yet"
+    },
+    "bottledDate": "Bottled Date",
+    "productionPrice": "Production Price",
+    "expiryDate": "Expiry Date",
+    "priceSource": {
+      "fixed": "cost price",
+      "recipe_calc": "from recipe",
+      "actual_costs": "actual costs"
     }
   },
   "notes": {

@@ -73,6 +73,12 @@ export function BatchBottlingTab({
   const [mode, setMode] = useState<"none" | "bulk" | "packaged" | null>(null);
   const [lines, setLines] = useState<ProductLine[]>([]);
   const [receiptInfo, setReceiptInfo] = useState<ReceiptInfo | null>(null);
+  const [bottledDate, setBottledDate] = useState<string>(
+    new Date().toISOString().split("T")[0]!
+  );
+  const [shelfLifeDays, setShelfLifeDays] = useState<number | null>(null);
+  const [productionPrice, setProductionPrice] = useState<string | null>(null);
+  const [pricingMode, setPricingMode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stocking, setStocking] = useState(false);
@@ -88,6 +94,12 @@ export function BatchBottlingTab({
         setMode(result.mode);
         setLines(result.lines);
         setReceiptInfo(result.receiptInfo);
+        setShelfLifeDays(result.shelfLifeDays);
+        setProductionPrice(result.productionPrice);
+        setPricingMode(result.pricingMode);
+        if (result.bottledDate) {
+          setBottledDate(result.bottledDate);
+        }
         setDirty(false);
         // If there are existing bottling items with non-zero qty → consider saved
         if (result.lines.some((l) => l.quantity > 0)) {
@@ -132,7 +144,8 @@ export function BatchBottlingTab({
           itemId: l.itemId,
           quantity: l.quantity,
           baseItemQuantity: l.baseItemQuantity,
-        }))
+        })),
+        bottledDate
       );
       if ("error" in result && result.error) {
         if (result.error === "RECEIPT_EXISTS") {
@@ -152,7 +165,7 @@ export function BatchBottlingTab({
     } finally {
       setSaving(false);
     }
-  }, [batchId, lines, onMutate, t]);
+  }, [batchId, lines, bottledDate, onMutate, t]);
 
   // Stock handler — called from confirm dialog
   const handleStock = useCallback(async (): Promise<void> => {
@@ -200,6 +213,21 @@ export function BatchBottlingTab({
 
     return { totalBottled, tankVolume, recipeVolume, diffTank, diffRecipe, nonZeroCount };
   }, [lines, actualVolumeL, recipeBatchSizeL]);
+
+  // Compute expiry date from bottledDate + shelfLifeDays
+  const expiryDate = useMemo((): string | null => {
+    if (!bottledDate || !shelfLifeDays) return null;
+    const d = new Date(bottledDate);
+    d.setDate(d.getDate() + shelfLifeDays);
+    return d.toISOString().split("T")[0]!;
+  }, [bottledDate, shelfLifeDays]);
+
+  // Pricing mode label
+  const pricingModeLabel = useMemo((): string => {
+    if (pricingMode === "recipe_calc") return t("bottling.priceSource.recipe_calc");
+    if (pricingMode === "actual_costs") return t("bottling.priceSource.actual_costs");
+    return t("bottling.priceSource.fixed");
+  }, [pricingMode, t]);
 
   const isReceiptConfirmed = receiptInfo?.status === "confirmed";
   const canSave = !isReceiptConfirmed && dirty && !saving;
@@ -259,6 +287,38 @@ export function BatchBottlingTab({
       <p className="text-sm text-muted-foreground">
         {isBulkMode ? t("bottling.modeBulk") : t("bottling.modePackaged")}
       </p>
+
+      {/* Bottled date + production price row */}
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium">{t("bottling.bottledDate")}</label>
+          <Input
+            type="date"
+            className="w-44 h-9"
+            value={bottledDate}
+            onChange={(e) => {
+              setBottledDate(e.target.value);
+              setDirty(true);
+            }}
+            disabled={isReceiptConfirmed}
+          />
+        </div>
+        {productionPrice !== null && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">{t("bottling.productionPrice")}</label>
+            <div className="text-sm tabular-nums">
+              {Number(productionPrice).toFixed(2)} Kč/L
+              <span className="ml-2 text-muted-foreground">({pricingModeLabel})</span>
+            </div>
+          </div>
+        )}
+        {expiryDate && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">{t("bottling.expiryDate")}</label>
+            <div className="text-sm tabular-nums">{expiryDate}</div>
+          </div>
+        )}
+      </div>
 
       {/* Table */}
       <Table>

@@ -97,6 +97,8 @@ function mapBatchRow(
     fgActual: row.fgActual,
     abvActual: row.abvActual,
     packagingLossL: row.packagingLossL,
+    lotNumber: row.lotNumber,
+    bottledDate: row.bottledDate,
     equipmentId: row.equipmentId,
     primaryBatchId: row.primaryBatchId,
     isPaused: row.isPaused ?? false,
@@ -421,6 +423,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
             costPrice: orig.costPrice,
             durationFermentationDays: orig.durationFermentationDays,
             durationConditioningDays: orig.durationConditioningDays,
+            shelfLifeDays: orig.shelfLifeDays,
             notes: orig.notes,
             itemId: orig.itemId,
           })
@@ -512,6 +515,7 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
         .values({
           tenantId,
           batchNumber,
+          lotNumber: batchNumber.replace(/-/g, ""),
           recipeId: snapshotRecipeId ?? null,
           itemId: data.itemId ?? recipeItemId,
           status: "planned",
@@ -632,6 +636,8 @@ export async function updateBatch(
             : {}),
           ...(data.ogActual !== undefined ? { ogActual: data.ogActual } : {}),
           ...(data.fgActual !== undefined ? { fgActual: data.fgActual } : {}),
+          ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber } : {}),
+          ...(data.bottledDate !== undefined ? { bottledDate: data.bottledDate } : {}),
           ...(data.notes !== undefined ? { notes: data.notes } : {}),
           updatedAt: sql`now()`,
         })
@@ -1209,6 +1215,7 @@ export async function createProductionReceipt(
 
         // 4. Resolve warehouse from shop settings
         const settings = await getShopSettingsForBatch(tenantId, tx);
+        const productionUnitPrice = await getProductionUnitPrice(tenantId, batchId, settings, tx);
         const warehouseId =
           settings.default_warehouse_beer_id ??
           (await getFirstActiveWarehouseId(tenantId, tx));
@@ -1217,7 +1224,23 @@ export async function createProductionReceipt(
 
         // 5. Generate document code
         const code = await getNextNumber(tenantId, "stock_issue_receipt", warehouseId);
-        const today = new Date().toISOString().split("T")[0]!;
+        const receiptDate = batch.bottledDate ?? new Date().toISOString().split("T")[0]!;
+
+        // Compute expiry date from bottledDate + recipe shelfLifeDays
+        let expiryDate: string | null = null;
+        if (batch.bottledDate && batch.recipeId) {
+          const recipeRows = await tx
+            .select({ shelfLifeDays: recipes.shelfLifeDays })
+            .from(recipes)
+            .where(eq(recipes.id, batch.recipeId))
+            .limit(1);
+          const shelfDays = recipeRows[0]?.shelfLifeDays;
+          if (shelfDays) {
+            const d = new Date(batch.bottledDate);
+            d.setDate(d.getDate() + shelfDays);
+            expiryDate = d.toISOString().split("T")[0]!;
+          }
+        }
 
         // 6. Create stock issue (receipt, production_in)
         const issueRows = await tx
@@ -1227,7 +1250,7 @@ export async function createProductionReceipt(
             code,
             movementType: "receipt",
             movementPurpose: "production_in",
-            date: today,
+            date: receiptDate,
             status: "draft",
             warehouseId,
             batchId,
@@ -1254,8 +1277,8 @@ export async function createProductionReceipt(
             .limit(1);
 
           const unitPrice = itemRow[0]?.costPrice ?? "0";
-          const unitPriceNum = Number(unitPrice);
-          const lineTotalCost = qty * unitPriceNum;
+          const lineUnitPrice = productionUnitPrice ?? unitPrice;
+          const lineTotalCost = qty * Number(lineUnitPrice);
           totalCost += lineTotalCost;
 
           // Insert stock issue line
@@ -1267,7 +1290,9 @@ export async function createProductionReceipt(
               itemId: bi.itemId,
               lineNo: i + 1,
               requestedQty: String(qty),
-              unitPrice,
+              unitPrice: lineUnitPrice,
+              lotNumber: batch.lotNumber,
+              expiryDate,
               sortOrder: i,
             })
             .returning();
@@ -1282,12 +1307,12 @@ export async function createProductionReceipt(
             warehouseId,
             movementType: "in",
             quantity: String(qty),
-            unitPrice,
+            unitPrice: lineUnitPrice,
             stockIssueId: issue.id,
             stockIssueLineId: line.id,
             batchId,
             isClosed: false,
-            date: today,
+            date: receiptDate,
           });
 
           // Update line with issued data
@@ -1910,7 +1935,8 @@ export async function getProductsByBaseItem(
 /** Atomic save of all bottling data — delete existing, insert non-zero, update packaging_loss_l. */
 export async function saveBottlingData(
   batchId: string,
-  lines: Array<{ itemId: string; quantity: number; baseItemQuantity: number }>
+  lines: Array<{ itemId: string; quantity: number; baseItemQuantity: number }>,
+  bottledDate?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   return withTenant(async (tenantId) => {
     // Verify batch belongs to tenant
@@ -1967,6 +1993,7 @@ export async function saveBottlingData(
         .update(batches)
         .set({
           packagingLossL: loss !== null ? String(loss) : null,
+          ...(bottledDate !== undefined ? { bottledDate } : {}),
           updatedAt: sql`now()`,
         })
         .where(eq(batches.id, batchId));
@@ -1981,6 +2008,7 @@ export async function saveBottlingData(
 interface ResolvedShopSettings {
   stock_mode: "none" | "bulk" | "packaged";
   default_warehouse_beer_id?: string;
+  beer_pricing_mode?: "fixed" | "recipe_calc" | "actual_costs";
 }
 
 type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -2011,7 +2039,60 @@ export async function getShopSettingsForBatch(
   return {
     stock_mode: (raw?.stock_mode as ResolvedShopSettings["stock_mode"]) ?? "packaged",
     default_warehouse_beer_id: raw?.default_warehouse_beer_id as string | undefined,
+    beer_pricing_mode: (raw?.beer_pricing_mode as ResolvedShopSettings["beer_pricing_mode"]) ?? "fixed",
   };
+}
+
+/** Compute per-liter production price based on shop pricing mode. */
+async function getProductionUnitPrice(
+  tenantId: string,
+  batchId: string,
+  settings: ResolvedShopSettings,
+  txOrDb?: TxType | typeof db
+): Promise<string | null> {
+  const executor = txOrDb ?? db;
+  const mode = settings.beer_pricing_mode ?? "fixed";
+
+  // Load batch with recipe reference
+  const batchRows = await executor
+    .select({
+      itemId: batches.itemId,
+      recipeId: batches.recipeId,
+    })
+    .from(batches)
+    .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+    .limit(1);
+
+  const batch = batchRows[0];
+  if (!batch) return null;
+
+  if (mode === "fixed") {
+    // Use items.costPrice of the production item
+    if (!batch.itemId) return null;
+    const itemRows = await executor
+      .select({ costPrice: items.costPrice })
+      .from(items)
+      .where(eq(items.id, batch.itemId))
+      .limit(1);
+    return itemRows[0]?.costPrice ?? null;
+  }
+
+  if (mode === "recipe_calc") {
+    // Use recipe.costPrice / recipe.batchSizeL
+    if (!batch.recipeId) return null;
+    const recipeRows = await executor
+      .select({ costPrice: recipes.costPrice, batchSizeL: recipes.batchSizeL })
+      .from(recipes)
+      .where(eq(recipes.id, batch.recipeId))
+      .limit(1);
+    const recipe = recipeRows[0];
+    if (!recipe?.costPrice || !recipe?.batchSizeL) return null;
+    const pricePerL = Number(recipe.costPrice) / Number(recipe.batchSizeL);
+    return isFinite(pricePerL) ? String(pricePerL) : null;
+  }
+
+  // "actual_costs" — not implemented yet
+  return null;
 }
 
 // ── Production Receipt Helpers ───────────────────────────────────
@@ -2090,6 +2171,10 @@ export interface BottlingLinesResult {
   mode: "none" | "bulk" | "packaged";
   lines: BottlingLineData[];
   receiptInfo: ReceiptInfo | null;
+  bottledDate: string | null;
+  shelfLifeDays: number | null;
+  productionPrice: string | null;
+  pricingMode: string | null;
 }
 
 /** Get auto-generated bottling lines for a batch based on stock_mode. */
@@ -2103,23 +2188,39 @@ export async function getBottlingLines(
         itemId: batches.itemId,
         actualVolumeL: batches.actualVolumeL,
         recipeId: batches.recipeId,
+        bottledDate: batches.bottledDate,
       })
       .from(batches)
       .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
       .limit(1);
 
     const batch = batchRows[0];
-    if (!batch) return { mode: "none" as const, lines: [], receiptInfo: null };
+    if (!batch) return { mode: "none" as const, lines: [], receiptInfo: null, bottledDate: null, shelfLifeDays: null, productionPrice: null, pricingMode: null };
 
     // Resolve shop settings
     const settings = await getShopSettingsForBatch(tenantId);
 
     if (settings.stock_mode === "none") {
-      return { mode: "none" as const, lines: [], receiptInfo: null };
+      return { mode: "none" as const, lines: [], receiptInfo: null, bottledDate: null, shelfLifeDays: null, productionPrice: null, pricingMode: null };
     }
 
+    // Load recipe shelf_life_days
+    let shelfLifeDays: number | null = null;
+    if (batch.recipeId) {
+      const recipeRows = await db
+        .select({ shelfLifeDays: recipes.shelfLifeDays })
+        .from(recipes)
+        .where(eq(recipes.id, batch.recipeId))
+        .limit(1);
+      shelfLifeDays = recipeRows[0]?.shelfLifeDays ?? null;
+    }
+
+    // Compute production price
+    const productionPrice = await getProductionUnitPrice(tenantId, batchId, settings);
+    const pricingMode = settings.beer_pricing_mode ?? "fixed";
+
     if (!batch.itemId) {
-      return { mode: settings.stock_mode, lines: [], receiptInfo: null };
+      return { mode: settings.stock_mode, lines: [], receiptInfo: null, bottledDate: batch.bottledDate, shelfLifeDays, productionPrice, pricingMode };
     }
 
     // Check for existing production receipt
@@ -2153,7 +2254,7 @@ export async function getBottlingLines(
         .limit(1);
 
       const item = itemRows[0];
-      if (!item) return { mode: "bulk" as const, lines: [], receiptInfo };
+      if (!item) return { mode: "bulk" as const, lines: [], receiptInfo, bottledDate: batch.bottledDate, shelfLifeDays, productionPrice, pricingMode };
 
       // Fallback volume: existing → actual → recipe
       let defaultQty = existingMap.get(item.id) ?? 0;
@@ -2180,6 +2281,10 @@ export async function getBottlingLines(
           isBulk: true,
         }],
         receiptInfo,
+        bottledDate: batch.bottledDate,
+        shelfLifeDays,
+        productionPrice,
+        pricingMode,
       };
     }
 
@@ -2212,6 +2317,10 @@ export async function getBottlingLines(
         isBulk: false,
       })),
       receiptInfo,
+      bottledDate: batch.bottledDate,
+      shelfLifeDays,
+      productionPrice,
+      pricingMode,
     };
   });
 }

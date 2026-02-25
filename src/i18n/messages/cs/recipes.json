@@ -43,7 +43,8 @@
     "conditioningDays": "Dokvašování (dní)",
     "notes": "Poznámky",
     "itemId": "Výrobní položka",
-    "itemIdPlaceholder": "Vyberte výrobní položku"
+    "itemIdPlaceholder": "Vyberte výrobní položku",
+    "shelfLifeDays": "Trvanlivost"
   },
   "ingredients": {
     "add": "Surovina",

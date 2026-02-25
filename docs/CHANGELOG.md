@@ -299,6 +299,22 @@
 - [x] Batch completion: non-blocking warning pokud příjemka neexistuje (confirm dialog)
 - [x] i18n: `bottling.stock.*`, `bottling.receipt.*`, `statusTransition.noReceipt*`, `statusTransition.completeAnyway` (cs + en)
 
+### Přidáno — Číslo šarže, expirace a výrobní cena
+- [x] DB schema: `batches.lot_number` (text), `batches.bottled_date` (date), `recipes.shelf_life_days` (integer)
+- [x] Migrace: backfill `lot_number` = `batch_number` bez pomlček pro existující várky
+- [x] `createBatch()` — automatické generování `lotNumber = batchNumber.replace(/-/g, '')`
+- [x] `updateBatch()` — podpora editace `lotNumber` a `bottledDate`
+- [x] Batch detail: nové pole "Číslo šarže" (editovatelné) na overview tabu
+- [x] Recept: nové pole "Trvanlivost" (shelf_life_days) — kopíruje se při duplikaci i do batch snapshotu
+- [x] `getProductionUnitPrice()` — výpočet výrobní ceny dle pricing mode: fixed (items.costPrice), recipe_calc (recipe.costPrice/batchSizeL)
+- [x] `ResolvedShopSettings` — nové pole `beer_pricing_mode` (fixed/recipe_calc/actual_costs)
+- [x] `getBottlingLines()` — vrací metadata: bottledDate, shelfLifeDays, productionPrice, pricingMode
+- [x] `saveBottlingData()` — ukládá `bottledDate` na batch záznam
+- [x] `createProductionReceipt()` — nastavuje na řádcích: lotNumber, expiryDate (bottledDate + shelfLifeDays), unitPrice z getProductionUnitPrice(); date příjemky = bottledDate
+- [x] Tab Stáčení: date picker pro datum stáčení, readonly zobrazení výrobní ceny + pricing mode, computed datum expirace
+- [x] Přejmenování "Kalkulační cena" → "Výrobní cena" / "Cost Price" → "Production Cost" v items agendě
+- [x] i18n: `form.lotNumber`, `bottling.bottledDate`, `bottling.productionPrice`, `bottling.expiryDate`, `bottling.priceSource.*`, `form.shelfLifeDays` (cs + en)
+
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
 - No scaleFactor: snapshot recipe items are the source of truth, amounts used directly

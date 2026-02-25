@@ -106,6 +106,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
       const b = batchDetail.batch;
       setValues({
         batchNumber: b.batchNumber,
+        lotNumber: b.lotNumber,
         recipeId: b.recipeId,
         recipeName: b.recipeName,
         itemId: b.itemId,
@@ -176,6 +177,11 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           label: t("form.batchNumber"),
           type: "text",
           disabled: true,
+        },
+        {
+          key: "lotNumber",
+          label: t("form.lotNumber"),
+          type: "text",
         },
         {
           key: "recipeName",
@@ -277,6 +283,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
             : null,
           ogActual: values.ogActual ? String(values.ogActual) : null,
           fgActual: values.fgActual ? String(values.fgActual) : null,
+          lotNumber: values.lotNumber ? String(values.lotNumber) : null,
           notes: values.notes ? String(values.notes) : null,
         });
         toast.success(tCommon("saved"));
