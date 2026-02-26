@@ -1,28 +1,14 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
-import { toast } from "sonner";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 import { monthlyReportBrowserConfig } from "../config";
 import { useMonthlyReports } from "../hooks";
-import { generateMonthlyReport } from "../actions";
 import type { ExciseMonthlyReport } from "../types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -129,15 +115,7 @@ export function MonthlyReportBrowser(): React.ReactNode {
   const t = useTranslations("excise");
   const router = useRouter();
   const { params } = useDataBrowserParams(monthlyReportBrowserConfig);
-  const { data: reportData, isLoading, mutate } = useMonthlyReports();
-
-  // Generate dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [period, setPeriod] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const [generating, setGenerating] = useState(false);
+  const { data: reportData, isLoading } = useMonthlyReports();
 
   // Badge label maps
   const statusLabels: Record<string, string> = {
@@ -168,7 +146,7 @@ export function MonthlyReportBrowser(): React.ReactNode {
           `reports.quickFilters.${qf.key}` as Parameters<typeof t>[0]
         ),
       })),
-      actions: { create: { label: "", enabled: false }, bulkDelete: false, rowClick: "detail" as const },
+      actions: { ...monthlyReportBrowserConfig.actions, create: { label: t("reports.generate"), enabled: true } },
       filters: monthlyReportBrowserConfig.filters?.map((f) => ({
         ...f,
         label: t(`reports.columns.${f.key}` as Parameters<typeof t>[0]),
@@ -213,70 +191,11 @@ export function MonthlyReportBrowser(): React.ReactNode {
     []
   );
 
-  const handleGenerate = useCallback(async (): Promise<void> => {
-    setGenerating(true);
-    try {
-      const report = await generateMonthlyReport(period);
-      toast.success(t("reports.generate"));
-      setDialogOpen(false);
-      mutate();
-      router.push(`/stock/monthly-report/${report.id}`);
-    } catch (error) {
-      console.error("Failed to generate report:", error);
-      toast.error(String(error));
-    } finally {
-      setGenerating(false);
-    }
-  }, [period, t, mutate, router]);
-
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("reports.title")}
-        </h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="size-4" />
-              {t("reports.generate")}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {t("reports.generateDialog.title")}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2">
-              <Label>{t("reports.generateDialog.selectPeriod")}</Label>
-              <Input
-                type="month"
-                value={period}
-                onChange={(e) => {
-                  setPeriod(e.target.value);
-                }}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                }}
-              >
-                {t("reports.generateDialog.cancel")}
-              </Button>
-              <Button
-                onClick={() => void handleGenerate()}
-                disabled={generating || !period}
-              >
-                {t("reports.generateDialog.confirm")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">
+        {t("reports.title")}
+      </h1>
       <DataBrowser
         config={localizedConfig}
         data={pageData}

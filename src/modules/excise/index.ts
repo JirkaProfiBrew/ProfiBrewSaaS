@@ -32,3 +32,4 @@ export { MonthlyReportBrowser } from "./components/MonthlyReportBrowser";
 export { MonthlyReportDetail } from "./components/MonthlyReportDetail";
 export { ExciseSettingsForm } from "./components/ExciseSettingsForm";
 export { ExciseBatchCard } from "./components/ExciseBatchCard";
+export { MonthlyReportNew } from "./components/MonthlyReportNew";
