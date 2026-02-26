@@ -29,6 +29,7 @@ import { BatchMeasurementsTab } from "./BatchMeasurementsTab";
 import { BatchIngredientsTab } from "./BatchIngredientsTab";
 import { BatchBottlingTab } from "./BatchBottlingTab";
 import { BatchNotesTab } from "./BatchNotesTab";
+import { ExciseBatchCard } from "@/modules/excise/components/ExciseBatchCard";
 
 // ── Component ──────────────────────────────────────────────────
 
@@ -481,6 +482,15 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
               mode={mode}
               onChange={handleChange}
             />
+            {batch && (
+              <div className="mt-4">
+                <ExciseBatchCard
+                  exciseRelevantHl={batch.exciseRelevantHl}
+                  exciseStatus={batch.exciseStatus}
+                  plato={batch.ogActual}
+                />
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="steps" className="mt-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -25,7 +25,9 @@ function movementToRecord(item: ExciseMovement): Record<string, unknown> {
     volumeHl: item.volumeHl,
     plato: item.plato,
     taxAmount: item.taxAmount,
+    batchId: item.batchId ?? "",
     batchNumber: item.batchNumber ?? "",
+    stockIssueId: item.stockIssueId ?? "",
     stockIssueCode: item.stockIssueCode ?? "",
     warehouseName: item.warehouseName ?? "",
     status: item.status,
@@ -170,12 +172,51 @@ export function ExciseMovementBrowser(): React.ReactNode {
         if (col.key === "movementType") valueLabels = movementTypeLabels;
         if (col.key === "direction") valueLabels = directionLabels;
         if (col.key === "status") valueLabels = statusLabels;
+
+        // Clickable link renderers for batch and stock issue
+        let render: ((value: unknown, row: Record<string, unknown>) => React.ReactNode) | undefined;
+        if (col.key === "batchNumber") {
+          render = (value: unknown, row: Record<string, unknown>) => {
+            const batchId = row.batchId as string;
+            if (!batchId || !value) return String(value ?? "");
+            return React.createElement(
+              "span",
+              {
+                className: "text-primary underline cursor-pointer",
+                onClick: (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  router.push(`/brewery/batches/${batchId}`);
+                },
+              },
+              String(value)
+            );
+          };
+        }
+        if (col.key === "stockIssueCode") {
+          render = (value: unknown, row: Record<string, unknown>) => {
+            const stockIssueId = row.stockIssueId as string;
+            if (!stockIssueId || !value) return String(value ?? "");
+            return React.createElement(
+              "span",
+              {
+                className: "text-primary underline cursor-pointer",
+                onClick: (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  router.push(`/stock/movements/${stockIssueId}`);
+                },
+              },
+              String(value)
+            );
+          };
+        }
+
         return {
           ...col,
           label: t(
             `movements.columns.${col.key}` as Parameters<typeof t>[0]
           ),
           valueLabels,
+          ...(render ? { render } : {}),
         };
       }),
       quickFilters: [

@@ -97,6 +97,9 @@ function mapBatchRow(
     fgActual: row.fgActual,
     abvActual: row.abvActual,
     packagingLossL: row.packagingLossL,
+    exciseRelevantHl: row.exciseRelevantHl,
+    exciseReportedHl: row.exciseReportedHl,
+    exciseStatus: row.exciseStatus,
     lotNumber: row.lotNumber,
     bottledDate: row.bottledDate,
     equipmentId: row.equipmentId,
@@ -2058,6 +2061,16 @@ export async function saveBottlingData(
         })
         .where(eq(batches.id, batchId));
     });
+
+    // Auto-generate excise loss movement for packaging loss
+    try {
+      const { createExciseLossFromPackaging } = await import(
+        "@/modules/excise/actions"
+      );
+      await createExciseLossFromPackaging(batchId, tenantId);
+    } catch (err: unknown) {
+      console.error("[batches] excise packaging loss generation failed:", err);
+    }
 
     return { success: true };
   });
