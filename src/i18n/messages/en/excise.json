@@ -13,6 +13,7 @@
       "batchNumber": "Batch",
       "stockIssueCode": "Document",
       "warehouseName": "Warehouse",
+      "warehouseId": "Warehouse",
       "status": "Status"
     },
     "movementType": {

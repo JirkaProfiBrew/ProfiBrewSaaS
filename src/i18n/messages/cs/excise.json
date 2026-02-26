@@ -13,6 +13,7 @@
       "batchNumber": "Várka",
       "stockIssueCode": "Doklad",
       "warehouseName": "Sklad",
+      "warehouseId": "Sklad",
       "status": "Stav"
     },
     "movementType": {
