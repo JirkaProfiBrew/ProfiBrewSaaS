@@ -165,11 +165,10 @@ export function MonthlyReportBrowser(): React.ReactNode {
       quickFilters: monthlyReportBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,
         label: t(
-          `reports.status.${qf.key}` === `reports.status.${qf.key}`
-            ? (`reports.status.${qf.key}` as Parameters<typeof t>[0])
-            : (`reports.status.${qf.key}` as Parameters<typeof t>[0])
+          `reports.quickFilters.${qf.key}` as Parameters<typeof t>[0]
         ),
       })),
+      actions: { create: { label: "", enabled: false }, bulkDelete: false, rowClick: "detail" as const },
       filters: monthlyReportBrowserConfig.filters?.map((f) => ({
         ...f,
         label: t(`reports.columns.${f.key}` as Parameters<typeof t>[0]),

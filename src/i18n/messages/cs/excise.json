@@ -94,6 +94,12 @@
       "submitted": "Odesláno",
       "accepted": "Přijato"
     },
+    "quickFilters": {
+      "all": "Vše",
+      "draft": "Koncepty",
+      "submitted": "Odeslané",
+      "accepted": "Schválené"
+    },
     "detail": {
       "title": "Měsíční podání",
       "balance": {

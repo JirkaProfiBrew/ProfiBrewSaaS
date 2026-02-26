@@ -246,6 +246,7 @@ export function ExciseMovementBrowser(): React.ReactNode {
           };
         }),
       })),
+      actions: { create: { label: "", enabled: false }, bulkDelete: false, rowClick: "detail" as const },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, currentPeriod, previousPeriod]

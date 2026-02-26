@@ -94,6 +94,12 @@
       "submitted": "Submitted",
       "accepted": "Accepted"
     },
+    "quickFilters": {
+      "all": "All",
+      "draft": "Drafts",
+      "submitted": "Submitted",
+      "accepted": "Accepted"
+    },
     "detail": {
       "title": "Monthly Report",
       "balance": {
