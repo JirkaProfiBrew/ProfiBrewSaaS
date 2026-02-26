@@ -187,6 +187,33 @@
 
 ---
 
+## [0.5.0] — Sprint 5: Daňový sklad (Spotřební daň)
+**Období:** T12 (26.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB schema: `excise_rates`, `excise_movements`, `excise_monthly_reports` + RLS policies
+- [x] Excise rates — sazby dle kategorie pivovaru A–E (seed CZ 2024: 16/19.2/22.4/25.6/32 Kč/°P/hl)
+- [x] Excise settings — konfigurace per tenant v settings JSONB (enabled, kategorie, daňový bod, zdroj °P, norma ztrát)
+- [x] Automatické generování excise pohybů z confirmStockIssue() — příjemka na excise sklad = production, výdejka = release/destruction/transfer
+- [x] Automatické storno excise pohybu při cancelStockIssue() — protipohyb (adjustment)
+- [x] Packaging loss → excise loss (technologická ztráta při stáčení)
+- [x] Resolve stupňovitost: priorita batch ogActual → recipe OG → manuální
+- [x] Výpočet daně: volume_hl × plato × rate (pouze pro release)
+- [x] ExciseMovementBrowser — DataBrowser s quick filtry (vše/příjmy/výdeje/tento měsíc/minulý měsíc)
+- [x] ExciseMovementDetail — formulář s auto-computed direction, readonly poli pro auto-generated pohyby
+- [x] Ruční pohyb (adjustment) — plně editovatelný formulář + smazání draft pohybů
+- [x] MonthlyReportBrowser — přehled měsíčních podání s generováním
+- [x] MonthlyReportDetail — bilance (opening → closing), rozpad daně dle °P, seznam pohybů
+- [x] Status workflow reportu: draft → submitted (→ draft zpět)
+- [x] Přegenerování draft reportu (aktualizace z potvrzených pohybů)
+- [x] ExciseSettingsForm — konfigurace v Settings, readonly tabulka aktuálních sazeb
+- [x] ExciseBatchCard — karta na batch detailu (objem hl, °P, stav evidence)
+- [x] Navigace: /stock/excise, /stock/monthly-report (přesunuto z /finance/), /settings/excise
+- [x] i18n: kompletní cs + en (movements, reports, settings, batch)
+
+---
+
 ## [0.4.0] — Sprint 4: Obchod + Finance
 **Období:** T10-T11 (20.02.2026)
 **Status:** ✅ Done

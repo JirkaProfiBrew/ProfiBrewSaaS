@@ -32,6 +32,8 @@
     "warehouses": "Warehouses",
     "deposits": "Deposits",
     "cashflowCategories": "CF Categories",
-    "cashDesks": "Cash Desks"
+    "cashDesks": "Cash Desks",
+    "exciseSettings": "Excise Tax",
+    "monthlyReport": "Monthly Reports"
   }
 }

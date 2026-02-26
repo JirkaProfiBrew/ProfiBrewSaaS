@@ -1175,6 +1175,23 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
       }
     }
 
+    // Auto-generate excise movement if warehouse is excise-relevant
+    try {
+      const { createExciseMovementFromStockIssue } = await import("@/modules/excise/actions");
+      await createExciseMovementFromStockIssue(
+        id,
+        result.isReceipt ? "receipt" : "issue",
+        result.movementPurpose,
+        result.warehouseId,
+        result.issueRow.batchId,
+        result.issueRow.date,
+        tenantId
+      );
+    } catch (err: unknown) {
+      // Non-critical — stock issue is confirmed, excise tracking failed silently
+      console.error("[stock-issues] excise movement generation failed:", err);
+    }
+
     return mapIssueRow(result.issueRow);
   });
 }
@@ -1412,6 +1429,15 @@ export async function cancelStockIssue(id: string): Promise<StockIssue> {
       if (!updated) throw new Error("Failed to update stock issue");
       return mapIssueRow(updated);
     });
+
+    // Cancel related excise movement if any
+    try {
+      const { cancelExciseMovementForStockIssue } = await import("@/modules/excise/actions");
+      await cancelExciseMovementForStockIssue(id, tenantId);
+    } catch (err: unknown) {
+      // Non-critical — stock issue is cancelled, excise reversal failed silently
+      console.error("[stock-issues] excise movement cancellation failed:", err);
+    }
 
     return result;
   });

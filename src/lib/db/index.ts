@@ -16,6 +16,7 @@ import * as stockSchema from "@/../drizzle/schema/stock";
 import * as depositsSchema from "@/../drizzle/schema/deposits";
 import * as ordersSchema from "@/../drizzle/schema/orders";
 import * as cashflowsSchema from "@/../drizzle/schema/cashflows";
+import * as exciseSchema from "@/../drizzle/schema/excise";
 
 const client = postgres(process.env.DATABASE_URL!);
 
@@ -37,5 +38,6 @@ export const db = drizzle(client, {
     ...depositsSchema,
     ...ordersSchema,
     ...cashflowsSchema,
+    ...exciseSchema,
   },
 });

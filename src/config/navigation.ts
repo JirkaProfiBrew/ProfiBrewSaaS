@@ -74,6 +74,8 @@ export const modules: ModuleConfig[] = [
       { slug: "items", icon: Boxes, labelKey: "items", path: "items" },
       { slug: "movements", icon: ArrowLeftRight, labelKey: "movements", path: "movements" },
       { slug: "tracking", icon: Search, labelKey: "tracking", path: "tracking" },
+      { slug: "excise", icon: FileText, labelKey: "excise", path: "excise" },
+      { slug: "monthlyReport", icon: ClipboardList, labelKey: "monthlyReport", path: "monthly-report" },
     ],
   },
   {
@@ -93,8 +95,6 @@ export const modules: ModuleConfig[] = [
     basePath: "finance",
     agendas: [
       { slug: "overview", icon: LayoutDashboard, labelKey: "overview", path: "overview" },
-      { slug: "excise", icon: FileText, labelKey: "excise", path: "excise" },
-      { slug: "monthlyReport", icon: FileText, labelKey: "monthlyReport", path: "monthly-report" },
       { slug: "cashflow", icon: Banknote, labelKey: "cashflow", path: "cashflow" },
       { slug: "cashflowTemplates", icon: Repeat, labelKey: "cashflowTemplates", path: "cashflow/templates" },
       { slug: "cashdesk", icon: Landmark, labelKey: "cashdesk", path: "cashdesk" },
@@ -128,4 +128,5 @@ export const settingsSubAgendas: AgendaConfig[] = [
   { slug: "deposits", icon: Package, labelKey: "deposits", path: "settings/deposits" },
   { slug: "cashflowCategories", icon: Banknote, labelKey: "cashflowCategories", path: "settings/cashflow-categories" },
   { slug: "cashDesks", icon: Landmark, labelKey: "cashDesks", path: "settings/cash-desks" },
+  { slug: "exciseSettings", icon: FileText, labelKey: "exciseSettings", path: "settings/excise" },
 ];

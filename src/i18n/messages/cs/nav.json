@@ -32,6 +32,8 @@
     "warehouses": "Sklady",
     "deposits": "Zálohy",
     "cashflowCategories": "Kategorie CF",
-    "cashDesks": "Pokladny"
+    "cashDesks": "Pokladny",
+    "exciseSettings": "Spotřební daň",
+    "monthlyReport": "Měsíční podání"
   }
 }

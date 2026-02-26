@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 4 Patch
+### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 5
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -423,31 +423,64 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Detail šarže: readonly — header, atributy šarže, historie výdejů (alokací)
 - Traceability: z hotového piva zpět k šarži surovin (přes batch_material_lots, Sprint 4)
 
-### 5.5 Spotřební daň 📋
+### 5.5 Spotřební daň ✅
 
-**Co to je:** Zákonná povinnost — evidence piva podléhajícího spotřební dani.
+**Co to je:** Zákonná povinnost — evidence piva podléhajícího spotřební dani v daňovém skladu.
 
-**Konfigurace (per tenant):**
-- excise_enabled: zapnout/vypnout (default: zapnuto)
-- excise_tax_point_mode: "production" (daňový bod = výroba) nebo "release" (daňový bod = propuštění ze skladu)
-- excise_default_plato_source: "recipe" (stupňovitost z receptury) nebo "measurement" (z měření)
+**Konfigurace (per tenant, v settings JSONB):**
+- `excise_enabled`: zapnout/vypnout (default: true)
+- `excise_brewery_category`: A–E dle ročního výstavu (default: A = do 10 000 hl)
+- `excise_tax_point`: "production" | "release" (default: production)
+- `excise_plato_source`: "batch_measurement" | "recipe" | "manual" (default: batch_measurement)
+- `excise_loss_norm_pct`: norma technologických ztrát v % (default: 1.5)
+- UI: Settings → Spotřební daň (`/settings/excise`)
+
+**Sazby (excise_rates):**
+- Tabulka sazeb: kategorie × sazba Kč/°P/hl × platnost od/do
+- Systémové sazby (tenant_id = NULL): CZ 2024 — A: 16, B: 19.20, C: 22.40, D: 25.60, E: 32 Kč
+- Tenant-specific sazby mají přednost před systémovými
+- Sazba se snapshotuje na každém pohybu (neměnit zpětně)
 
 **Daňové pohyby (excise_movements):**
-- Typy: výroba, propuštění, export, zničení, úprava
-- Objem v hl, stupňovitost, vypočtená daň
-- Období (rok-měsíc)
+- Typy: production (příjem z výroby), release (propuštění do volného oběhu), loss (technologická ztráta), destruction (zničení), transfer_in/out (převod mezi sklady), adjustment (ruční korekce)
+- Atributy: objem v hl, direction (in/out), stupňovitost °P, sazba, daň, období (YYYY-MM)
 - Status: draft → confirmed → reported
+- Vazby: batch, stock_issue, warehouse
+- **Automatické generování:** z `confirmStockIssue()` na excise-relevant skladech
+  - Příjemka (production_in) → production, direction=in
+  - Výdejka (sale) → release, direction=out (s výpočtem daně)
+  - Výdejka (waste) → destruction, direction=out
+  - Výdejka (transfer) → transfer_out, direction=out
+- **Automatické storno:** z `cancelStockIssue()` → adjustment s opačným direction
+- **Packaging loss:** z `saveBottlingData()` pokud packaging_loss_l > 0 → loss, direction=out
+- **Výpočet daně:** volume_hl × plato × rate_per_plato_hl (pouze pro release)
+- **Resolve stupňovitost:** batch.ogActual → recipe.og → manuální (dle settings)
+- Ruční pohyby (adjustment): plně editovatelné v draft stavu, smazatelné
+- Auto-generated pohyby: omezená editace (plato, notes), nelze smazat
+- UI: `/stock/excise` (browser), `/stock/excise/[id]` (detail)
 
-**Měsíční podání:**
-- Přehled za měsíc: celkový objem, celková daň
-- Status: draft → submitted → accepted
-- Export pro celní správu (formát TBD)
+**Měsíční podání (excise_monthly_reports):**
+- Bilance: opening_balance + production + transfer_in − release − transfer_out − loss − destruction ± adjustment = closing_balance
+- Opening balance = closing balance předchozího měsíce (nebo 0 pro první měsíc)
+- Rozpad daně dle stupňovitosti: [{plato, volume_hl, tax}]
+- Status: draft → submitted → (draft zpět pro opravu)
+- Generování: vybrat období → sumarizace confirmed pohybů → upsert report
+- Přegenerování: draft report lze aktualizovat
+- Submit: pohyby v období → status "reported", batche → excise_status "reported"
+- UI: `/stock/monthly-report` (browser), `/stock/monthly-report/[id]` (detail s bilancí, rozpadem daně, seznamem pohybů)
+
+**Batch integrace:**
+- ExciseBatchCard na batch detailu (pokud excise_enabled): objem hl, °P, stav (none/recorded/reported)
+- `batches.excise_relevant_hl`, `batches.excise_status` se plní automaticky z excise hooks
 
 **Byznys pravidla:**
 - Daň se počítá ze stupňovitosti (°P) a kategorie pivovaru (dle ročního výstavu)
-- Pivovar do 10 000 hl/rok má sníženou sazbu
-- Sazby se mění zákonem — uloženy v konfiguraci, ne hardcoded
-- Pivo pod 0.5% ABV nepodléhá dani
+- Pivovar do 10 000 hl/rok = kategorie A (50 % ze základní sazby = 16 Kč/°P/hl)
+- Sazby se mění zákonem — uloženy v excise_rates, ne hardcoded
+- Pivo pod 0.5 % ABV nepodléhá dani
+- Technologické ztráty (do normy) = bez daně (v MVP neřešíme dodanění nad normu)
+- Pohyby na ne-excise-relevant skladech NEvytvářejí excise movements
+- Položky s is_excise_relevant=false se nezapočítávají do excise objemu
 
 ---
 
