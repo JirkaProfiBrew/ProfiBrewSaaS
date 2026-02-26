@@ -142,7 +142,44 @@
     "nameRequired": "Name is required",
     "amountRequired": "Amount must be a number",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "tabs": {
+      "settings": "Settings",
+      "generated": "Generated",
+      "pending": "Pending"
+    },
+    "generated": {
+      "empty": "No payments generated yet",
+      "code": "Code",
+      "date": "Date",
+      "amount": "Amount",
+      "status": "Status"
+    },
+    "pending": {
+      "empty": "All payments are up to date",
+      "templateName": "Template",
+      "date": "Date",
+      "amount": "Amount",
+      "type": "Type"
+    },
+    "generateFromTemplate": "Generate",
+    "autoGenerate": "Auto-generate",
+    "autoGenerateHelp": "Records are automatically created every morning",
+    "autoBadge": "Auto",
+    "autoNote": "Auto-generated",
+    "bulkGenerate": {
+      "title": "Generate Payments from Templates",
+      "pendingCount": "To generate: {count} records",
+      "nothingToGenerate": "All templates are up to date",
+      "total": "Total",
+      "confirm": "Generate {count} records",
+      "resultTitle": "Generated {count} records",
+      "close": "Close"
+    }
+  },
+  "autoGenerate": {
+    "todayTitle": "{count} records auto-generated today",
+    "badge": "Auto"
   },
   "frequency": {
     "weekly": "Weekly",

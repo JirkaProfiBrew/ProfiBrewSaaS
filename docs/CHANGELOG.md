@@ -339,6 +339,23 @@
 - [x] `createProductionReceipt()` — packaged mód: `unitPrice = beer×baseQty + pkg + fill` (per-item pricing)
 - [x] i18n: `bottling.beerCost`, `bottling.packagingCost`, `bottling.fillingCost`, `bottling.unitCost`, `bottling.totalCost`, `bottling.totalValue`, `detail.fields.packagingCost`, `detail.fields.fillingCost`, `detail.fields.calculatedCost*` (cs + en)
 
+### Přidáno — Šablony CF: UX overhaul + automatické generování
+- [x] DB schema: `template_id` (UUID FK) a `is_recurring` (BOOLEAN) na tabulce `cashflows` — vazba CF ↔ šablona
+- [x] DB schema: `auto_generate` (BOOLEAN) na tabulce `cashflow_templates` — flag pro automatické generování
+- [x] DB schema: nová tabulka `cf_auto_generation_log` (tenant_id, run_date, generated_count, details JSONB) — log automatických generování
+- [x] TemplateManager UX přepis: detail šablony v Sheet (read-only) s taby Nastavení / Vygenerované / K vygenerování
+- [x] TemplateManager: edit/create dialog oddělen od prohlížení
+- [x] TemplateManager: bulk generování s preview dialogem (pendingItems), auto šablony zobrazeny s opacity + badge
+- [x] Odstraněno pole "Den v měsíci" — nepoužívalo se, generování řízeno polem `nextDate` + `advanceDate()`
+- [x] Auto-generate toggle na šabloně: Switch + helptext "Doklady se automaticky vytvoří každý den ráno"
+- [x] Auto badge u šablon s `autoGenerate=true` v browseru i sheet detailu
+- [x] `autoGenerateForAllTenants()` — server action: iteruje tenanty s aktivními auto šablonami, generuje CF, upsert do logu
+- [x] `getTodayAutoGenerationInfo()` — server action: čte dnešní log pro dashboard notifikaci
+- [x] `generateFromTemplates()` filtruje `autoGenerate=false` — bulk generování pouze manuálních šablon
+- [x] API route `/api/cron/generate-cf` — POST/GET endpoint pro cron, autorizace přes CRON_SECRET
+- [x] Dashboard: `AutoCfNotification` komponenta — Alert s počtem automaticky vygenerovaných dokladů dnes
+- [x] i18n: `templates.autoGenerate`, `templates.autoGenerateHelp`, `templates.autoBadge`, `templates.autoNote`, `autoGenerate.todayTitle`, `autoGenerate.badge` (cs + en)
+
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"
 - No scaleFactor: snapshot recipe items are the source of truth, amounts used directly

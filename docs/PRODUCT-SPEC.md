@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 24.02.2026 | Poslední sprint: Sprint 4 Patch
+### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 4 Patch
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -506,18 +506,39 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 
 ### 7.2 Šablony a recurring ✅
 
-**Co to je:** Šablony pro opakované příjmy/výdaje.
+**Co to je:** Šablony pro opakované příjmy/výdaje s manuálním i automatickým generováním.
 
 **Jak to funguje:**
-- Definice šablony: název, typ (příjem/výdaj), kategorie, částka, frekvence, den v měsíci, partner
+- Definice šablony: název, typ (příjem/výdaj), kategorie, částka, frekvence, partner, popis
 - Frekvence: týdně | měsíčně | čtvrtletně | ročně
-- Systém automaticky generuje záznamy (cron job): kontroluje next_date, vytvoří cashflow, posune next_date
+- Pole `nextDate` řídí, kdy se další záznam vygeneruje; po generování se automaticky posune (`advanceDate()`)
 - Šablona má start_date a volitelně end_date
+- Dva režimy generování: **manuální** (bulk dialog) a **automatický** (cron)
+
+**UI — TemplateManager:**
+- Browse: tabulka šablon s badge "Auto" u automatických
+- Detail šablony: Sheet (pravý panel) s taby:
+  - **Nastavení** — read-only přehled parametrů šablony
+  - **Vygenerované** — seznam již vytvořených CF záznamů
+  - **K vygenerování** — preview budoucích generování
+- Edit/Create: dialog (ne přímo v Sheet) — formulář se všemi poli vč. auto-generate toggle
+- Bulk generování: tlačítko "Generovat platby" → preview dialog se seznamem pending items (pouze manuální šablony). Auto šablony zobrazeny s opacity + badge jako info.
+
+**Automatické generování (auto-generate):**
+- Na šabloně toggle `autoGenerate` + helptext "Doklady se automaticky vytvoří každý den ráno"
+- API endpoint `/api/cron/generate-cf` (POST/GET, autorizace CRON_SECRET)
+- `autoGenerateForAllTenants()`: iteruje všechny tenanty s aktivními auto_generate šablonami, generuje CF, loguje do `cf_auto_generation_log` (upsert per tenant+den)
+- Dashboard: `AutoCfNotification` — Alert s ikonou Banknote, zobrazí počet a detail auto-vygenerovaných dokladů dnes
+- Manuální bulk generování (`generateFromTemplates()`) filtruje pouze šablony s `autoGenerate=false`
+
+**CF ↔ šablona vazba:**
+- Tabulka cashflows: `template_id` (UUID FK → cashflow_templates), `is_recurring` (BOOLEAN)
+- Generované CF záznamy mají vazbu na šablonu pro zpětnou dohledatelnost
 
 **Příklady:**
-- Nájem provozovny: 25 000 Kč/měsíc, výdaj, k 1. dni měsíce
-- Pojistka: 48 000 Kč/rok, výdaj, k 1.1.
-- Paušální odběr restaurace: 15 000 Kč/měsíc, příjem, k 15. dni
+- Nájem provozovny: 25 000 Kč/měsíc, výdaj, auto-generate ✓
+- Pojistka: 48 000 Kč/rok, výdaj, auto-generate ✓
+- Paušální odběr restaurace: 15 000 Kč/měsíc, příjem, manuální generování
 
 ### 7.3 Pokladna ✅
 

@@ -32,6 +32,8 @@ export interface CashFlow {
   notes: string | null;
   isCash: boolean;
   cashDeskId: string | null;
+  templateId: string | null;
+  isRecurring: boolean;
   createdBy: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -72,6 +74,7 @@ export interface CashFlowTemplate {
   endDate: string | null;
   nextDate: string;
   isActive: boolean;
+  autoGenerate: boolean;
   lastGenerated: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
@@ -125,6 +128,7 @@ export interface CreateTemplateInput {
   startDate: string;
   endDate?: string | null;
   nextDate: string;
+  autoGenerate?: boolean;
 }
 
 export interface UpdateTemplateInput {
@@ -138,6 +142,7 @@ export interface UpdateTemplateInput {
   endDate?: string | null;
   nextDate?: string;
   isActive?: boolean;
+  autoGenerate?: boolean;
 }
 
 // -- Filter types --------------------------------------------------------------

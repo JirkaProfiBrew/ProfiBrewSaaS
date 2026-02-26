@@ -142,7 +142,44 @@
     "nameRequired": "Název je povinný",
     "amountRequired": "Částka musí být číslo",
     "cancel": "Zrušit",
-    "save": "Uložit"
+    "save": "Uložit",
+    "tabs": {
+      "settings": "Nastavení",
+      "generated": "Vygenerované",
+      "pending": "K vygenerování"
+    },
+    "generated": {
+      "empty": "Zatím nebyly vygenerovány žádné doklady",
+      "code": "Kód",
+      "date": "Datum",
+      "amount": "Částka",
+      "status": "Status"
+    },
+    "pending": {
+      "empty": "Všechny doklady jsou aktuální",
+      "templateName": "Šablona",
+      "date": "Datum",
+      "amount": "Částka",
+      "type": "Typ"
+    },
+    "generateFromTemplate": "Vygenerovat",
+    "autoGenerate": "Generovat automaticky",
+    "autoGenerateHelp": "Doklady se automaticky vytvoří každý den ráno",
+    "autoBadge": "Auto",
+    "autoNote": "Generuje se automaticky",
+    "bulkGenerate": {
+      "title": "Generování plateb ze šablon",
+      "pendingCount": "K vygenerování: {count} dokladů",
+      "nothingToGenerate": "Všechny šablony jsou aktuální",
+      "total": "Celkem",
+      "confirm": "Vygenerovat {count} dokladů",
+      "resultTitle": "Vygenerováno {count} dokladů",
+      "close": "Zavřít"
+    }
+  },
+  "autoGenerate": {
+    "todayTitle": "Automaticky vygenerováno {count} dokladů",
+    "badge": "Auto"
   },
   "frequency": {
     "weekly": "Týdně",

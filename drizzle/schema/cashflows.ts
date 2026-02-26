@@ -8,6 +8,8 @@ import {
   date,
   timestamp,
   index,
+  jsonb,
+  unique,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 import { partners } from "./partners";
@@ -66,6 +68,8 @@ export const cashflows = pgTable(
     notes: text("notes"),
     isCash: boolean("is_cash").default(false),
     cashDeskId: uuid("cash_desk_id").references(() => cashDesks.id),
+    templateId: uuid("template_id").references(() => cashflowTemplates.id),
+    isRecurring: boolean("is_recurring").default(false),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
@@ -76,6 +80,7 @@ export const cashflows = pgTable(
     index("idx_cashflows_status").on(table.tenantId, table.status),
     index("idx_cashflows_date").on(table.tenantId, table.date),
     index("idx_cashflows_partner").on(table.partnerId),
+    index("idx_cashflows_template").on(table.templateId),
   ]
 );
 
@@ -101,12 +106,34 @@ export const cashflowTemplates = pgTable(
     endDate: date("end_date"),
     nextDate: date("next_date").notNull(),
     isActive: boolean("is_active").default(true),
+    autoGenerate: boolean("auto_generate").default(false),
     lastGenerated: date("last_generated"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
     index("idx_cf_templates_tenant").on(table.tenantId),
+  ]
+);
+
+// ============================================================
+// CF AUTO-GENERATION LOG (one row per tenant per day)
+// ============================================================
+export const cfAutoGenerationLog = pgTable(
+  "cf_auto_generation_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    runDate: date("run_date").notNull(),
+    generated: integer("generated").notNull().default(0),
+    details: jsonb("details").default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    unique("uq_cf_auto_gen_tenant_date").on(table.tenantId, table.runDate),
+    index("idx_cf_auto_gen_tenant_date").on(table.tenantId, table.runDate),
   ]
 );
 

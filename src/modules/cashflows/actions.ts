@@ -2,7 +2,7 @@
 
 import { withTenant } from "@/lib/db/with-tenant";
 import { db } from "@/lib/db";
-import { cashflows, cashflowCategories, cashflowTemplates, cashDesks } from "@/../drizzle/schema/cashflows";
+import { cashflows, cashflowCategories, cashflowTemplates, cashDesks, cfAutoGenerationLog } from "@/../drizzle/schema/cashflows";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
 import { stockIssues } from "@/../drizzle/schema/stock";
@@ -38,6 +38,8 @@ function mapCashFlowRow(
     notes: row.notes ?? null,
     isCash: row.isCash ?? false,
     cashDeskId: row.cashDeskId ?? null,
+    templateId: row.templateId ?? null,
+    isRecurring: row.isRecurring ?? false,
     createdBy: row.createdBy ?? null,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
@@ -66,6 +68,7 @@ function mapTemplateRow(
     endDate: row.endDate ?? null,
     nextDate: row.nextDate,
     isActive: row.isActive ?? true,
+    autoGenerate: row.autoGenerate ?? false,
     lastGenerated: row.lastGenerated ?? null,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,
@@ -100,7 +103,9 @@ export async function getCashFlows(
         partnerId: cashflows.partnerId, orderId: cashflows.orderId,
         stockIssueId: cashflows.stockIssueId, shopId: cashflows.shopId,
         description: cashflows.description, notes: cashflows.notes,
-        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId, createdBy: cashflows.createdBy,
+        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId,
+        templateId: cashflows.templateId, isRecurring: cashflows.isRecurring,
+        createdBy: cashflows.createdBy,
         createdAt: cashflows.createdAt, updatedAt: cashflows.updatedAt,
         categoryName: cashflowCategories.name,
         partnerName: partners.name,
@@ -146,7 +151,9 @@ export async function getCashFlow(id: string): Promise<CashFlow | null> {
         partnerId: cashflows.partnerId, orderId: cashflows.orderId,
         stockIssueId: cashflows.stockIssueId, shopId: cashflows.shopId,
         description: cashflows.description, notes: cashflows.notes,
-        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId, createdBy: cashflows.createdBy,
+        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId,
+        templateId: cashflows.templateId, isRecurring: cashflows.isRecurring,
+        createdBy: cashflows.createdBy,
         createdAt: cashflows.createdAt, updatedAt: cashflows.updatedAt,
         categoryName: cashflowCategories.name,
         partnerName: partners.name,
@@ -478,6 +485,7 @@ export async function getTemplates(): Promise<CashFlowTemplate[]> {
         frequency: cashflowTemplates.frequency, dayOfMonth: cashflowTemplates.dayOfMonth,
         startDate: cashflowTemplates.startDate, endDate: cashflowTemplates.endDate,
         nextDate: cashflowTemplates.nextDate, isActive: cashflowTemplates.isActive,
+        autoGenerate: cashflowTemplates.autoGenerate,
         lastGenerated: cashflowTemplates.lastGenerated,
         createdAt: cashflowTemplates.createdAt, updatedAt: cashflowTemplates.updatedAt,
         categoryName: cashflowCategories.name, partnerName: partners.name,
@@ -506,6 +514,7 @@ export async function getTemplate(id: string): Promise<CashFlowTemplate | null> 
         frequency: cashflowTemplates.frequency, dayOfMonth: cashflowTemplates.dayOfMonth,
         startDate: cashflowTemplates.startDate, endDate: cashflowTemplates.endDate,
         nextDate: cashflowTemplates.nextDate, isActive: cashflowTemplates.isActive,
+        autoGenerate: cashflowTemplates.autoGenerate,
         lastGenerated: cashflowTemplates.lastGenerated,
         createdAt: cashflowTemplates.createdAt, updatedAt: cashflowTemplates.updatedAt,
         categoryName: cashflowCategories.name, partnerName: partners.name,
@@ -543,6 +552,7 @@ export async function createTemplate(
           endDate: data.endDate ?? null,
           nextDate: data.nextDate,
           isActive: true,
+          autoGenerate: data.autoGenerate ?? false,
         })
         .returning();
       const row = inserted[0];
@@ -582,6 +592,7 @@ export async function updateTemplate(
           ...(data.endDate     !== undefined && { endDate:     data.endDate }),
           ...(data.nextDate    !== undefined && { nextDate:    data.nextDate }),
           ...(data.isActive    !== undefined && { isActive:    data.isActive }),
+          ...(data.autoGenerate !== undefined && { autoGenerate: data.autoGenerate }),
           updatedAt: sql`now()`,
         })
         .where(and(eq(cashflowTemplates.id, id), eq(cashflowTemplates.tenantId, tenantId)))
@@ -620,10 +631,33 @@ export async function deleteTemplate(
     return { error: "DELETE_TEMPLATE_FAILED" };
   }
 }
-// -- generateFromTemplates ----------------------------------------------
+// -- Generated CF item type ---------------------------------------------
+
+export interface GeneratedCfItem {
+  id: string;
+  code: string;
+  date: string;
+  amount: string;
+  cashflowType: string;
+  templateName: string;
+}
+
+// -- Pending CF item type (preview) -------------------------------------
+
+export interface PendingCfItem {
+  templateId: string;
+  templateName: string;
+  date: string;
+  amount: string;
+  cashflowType: string;
+  categoryId: string | null;
+  autoGenerate: boolean;
+}
+
+// -- generateFromTemplates (bulk) ---------------------------------------
 
 export async function generateFromTemplates(): Promise<
-  { generated: number } | { error: string }
+  { generated: number; items: GeneratedCfItem[] } | { error: string }
 > {
   try {
     return await withTenant(async (tenantId) => {
@@ -631,15 +665,19 @@ export async function generateFromTemplates(): Promise<
       const templates = await db
         .select()
         .from(cashflowTemplates)
-        .where(and(eq(cashflowTemplates.tenantId, tenantId), eq(cashflowTemplates.isActive, true)));
+        .where(and(
+          eq(cashflowTemplates.tenantId, tenantId),
+          eq(cashflowTemplates.isActive, true),
+          eq(cashflowTemplates.autoGenerate, false),
+        ));
 
-      let generated = 0;
+      const items: GeneratedCfItem[] = [];
       for (const template of templates) {
         let nextDate = template.nextDate;
         while (nextDate <= today) {
           if (template.endDate && nextDate > template.endDate) break;
           const code = await getNextNumber(tenantId, "cashflow");
-          await db.insert(cashflows).values({
+          const inserted = await db.insert(cashflows).values({
             tenantId, code,
             cashflowType: template.cashflowType,
             categoryId:   template.categoryId  ?? null,
@@ -650,8 +688,19 @@ export async function generateFromTemplates(): Promise<
             partnerId:    template.partnerId   ?? null,
             description:  template.description ?? null,
             isCash:       false,
-          });
-          generated += 1;
+            templateId:   template.id,
+            isRecurring:  true,
+          }).returning();
+          if (inserted[0]) {
+            items.push({
+              id: inserted[0].id,
+              code: inserted[0].code ?? "",
+              date: nextDate,
+              amount: template.amount,
+              cashflowType: template.cashflowType,
+              templateName: template.name,
+            });
+          }
           nextDate = advanceDate(nextDate, template.frequency);
         }
         await db
@@ -659,12 +708,158 @@ export async function generateFromTemplates(): Promise<
           .set({ nextDate, lastGenerated: today, updatedAt: sql`now()` })
           .where(and(eq(cashflowTemplates.id, template.id), eq(cashflowTemplates.tenantId, tenantId)));
       }
-      return { generated };
+      return { generated: items.length, items };
     });
   } catch (err: unknown) {
     console.error("[cashflows] generateFromTemplates error:", err);
     return { error: "GENERATE_FAILED" };
   }
+}
+
+// -- generateFromTemplate (per-template) --------------------------------
+
+export async function generateFromTemplate(
+  templateId: string
+): Promise<{ generated: GeneratedCfItem[] } | { error: string }> {
+  try {
+    return await withTenant(async (tenantId) => {
+      const rows = await db
+        .select()
+        .from(cashflowTemplates)
+        .where(and(
+          eq(cashflowTemplates.id, templateId),
+          eq(cashflowTemplates.tenantId, tenantId)
+        ))
+        .limit(1);
+
+      if (!rows[0]) return { error: "TEMPLATE_NOT_FOUND" };
+      if (!rows[0].isActive) return { error: "TEMPLATE_INACTIVE" };
+
+      const tpl = rows[0];
+      const today = new Date().toISOString().slice(0, 10);
+      const generated: GeneratedCfItem[] = [];
+      let nextDate = tpl.nextDate;
+
+      while (nextDate <= today) {
+        if (tpl.endDate && nextDate > tpl.endDate) break;
+        const code = await getNextNumber(tenantId, "cashflow");
+        const inserted = await db.insert(cashflows).values({
+          tenantId, code,
+          cashflowType: tpl.cashflowType,
+          categoryId:   tpl.categoryId ?? null,
+          amount:       tpl.amount,
+          currency:     "CZK",
+          date:         nextDate,
+          status:       "planned",
+          partnerId:    tpl.partnerId ?? null,
+          description:  tpl.description ?? null,
+          isCash:       false,
+          templateId:   tpl.id,
+          isRecurring:  true,
+        }).returning();
+
+        if (inserted[0]) {
+          generated.push({
+            id: inserted[0].id,
+            code: inserted[0].code ?? "",
+            date: nextDate,
+            amount: tpl.amount,
+            cashflowType: tpl.cashflowType,
+            templateName: tpl.name,
+          });
+        }
+        nextDate = advanceDate(nextDate, tpl.frequency);
+      }
+
+      await db.update(cashflowTemplates).set({
+        nextDate,
+        lastGenerated: today,
+        updatedAt: sql`now()`,
+      }).where(and(
+        eq(cashflowTemplates.id, templateId),
+        eq(cashflowTemplates.tenantId, tenantId)
+      ));
+
+      return { generated };
+    });
+  } catch (err: unknown) {
+    console.error("[cashflows] generateFromTemplate error:", err);
+    return { error: "GENERATE_FAILED" };
+  }
+}
+
+// -- previewGeneration (dry-run) ----------------------------------------
+
+export async function previewGeneration(
+  templateId?: string
+): Promise<PendingCfItem[]> {
+  return withTenant(async (tenantId) => {
+    const whereClause = templateId
+      ? and(eq(cashflowTemplates.id, templateId), eq(cashflowTemplates.tenantId, tenantId), eq(cashflowTemplates.isActive, true))
+      : and(eq(cashflowTemplates.tenantId, tenantId), eq(cashflowTemplates.isActive, true));
+
+    const templates = await db.select().from(cashflowTemplates).where(whereClause);
+    const today = new Date().toISOString().slice(0, 10);
+    const pending: PendingCfItem[] = [];
+
+    for (const tpl of templates) {
+      let nextDate = tpl.nextDate;
+      while (nextDate <= today) {
+        if (tpl.endDate && nextDate > tpl.endDate) break;
+        pending.push({
+          templateId: tpl.id,
+          templateName: tpl.name,
+          date: nextDate,
+          amount: tpl.amount,
+          cashflowType: tpl.cashflowType,
+          categoryId: tpl.categoryId,
+          autoGenerate: tpl.autoGenerate ?? false,
+        });
+        nextDate = advanceDate(nextDate, tpl.frequency);
+      }
+    }
+
+    return pending;
+  });
+}
+
+// -- getGeneratedCashFlows (from a template) ----------------------------
+
+export async function getGeneratedCashFlows(
+  templateId: string
+): Promise<CashFlow[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: cashflows.id, tenantId: cashflows.tenantId, code: cashflows.code,
+        cashflowType: cashflows.cashflowType, categoryId: cashflows.categoryId,
+        amount: cashflows.amount, currency: cashflows.currency, date: cashflows.date,
+        dueDate: cashflows.dueDate, paidDate: cashflows.paidDate, status: cashflows.status,
+        partnerId: cashflows.partnerId, orderId: cashflows.orderId,
+        stockIssueId: cashflows.stockIssueId, shopId: cashflows.shopId,
+        description: cashflows.description, notes: cashflows.notes,
+        isCash: cashflows.isCash, cashDeskId: cashflows.cashDeskId,
+        templateId: cashflows.templateId, isRecurring: cashflows.isRecurring,
+        createdBy: cashflows.createdBy,
+        createdAt: cashflows.createdAt, updatedAt: cashflows.updatedAt,
+        categoryName: cashflowCategories.name,
+        partnerName: partners.name,
+        cashDeskName: cashDesks.name,
+      })
+      .from(cashflows)
+      .leftJoin(cashflowCategories, eq(cashflows.categoryId, cashflowCategories.id))
+      .leftJoin(partners, eq(cashflows.partnerId, partners.id))
+      .leftJoin(cashDesks, eq(cashflows.cashDeskId, cashDesks.id))
+      .where(and(
+        eq(cashflows.tenantId, tenantId),
+        eq(cashflows.templateId, templateId)
+      ))
+      .orderBy(desc(cashflows.date));
+
+    return rows.map((row) =>
+      mapCashFlowRow(row, { categoryName: row.categoryName, partnerName: row.partnerName, cashDeskName: row.cashDeskName })
+    );
+  });
 }
 
 // -- createCashFlowFromOrder --------------------------------------------
@@ -973,5 +1168,139 @@ export async function getCategoryOptions(
       type:     row.type as CashFlowType,
       parentId: row.parentId,
     }));
+  });
+}
+
+// -- autoGenerateForAllTenants (cron) ------------------------------------
+
+/**
+ * Automatic CF generation from templates for ALL tenants.
+ * Called from API cron route. Does NOT use withTenant() — iterates tenants directly.
+ */
+export async function autoGenerateForAllTenants(): Promise<{
+  tenantsProcessed: number;
+  totalGenerated: number;
+}> {
+  const tenantIds = await db
+    .selectDistinct({ tenantId: cashflowTemplates.tenantId })
+    .from(cashflowTemplates)
+    .where(
+      and(
+        eq(cashflowTemplates.isActive, true),
+        eq(cashflowTemplates.autoGenerate, true),
+      )
+    );
+
+  const today = new Date().toISOString().slice(0, 10);
+  let totalGenerated = 0;
+
+  for (const { tenantId } of tenantIds) {
+    const templates = await db
+      .select()
+      .from(cashflowTemplates)
+      .where(
+        and(
+          eq(cashflowTemplates.tenantId, tenantId),
+          eq(cashflowTemplates.isActive, true),
+          eq(cashflowTemplates.autoGenerate, true),
+        )
+      );
+
+    const generatedItems: Array<{
+      templateName: string;
+      code: string;
+      date: string;
+      amount: string;
+    }> = [];
+
+    for (const tpl of templates) {
+      let nextDate = tpl.nextDate;
+      while (nextDate <= today) {
+        if (tpl.endDate && nextDate > tpl.endDate) break;
+
+        const code = await getNextNumber(tenantId, "cashflow");
+        await db.insert(cashflows).values({
+          tenantId,
+          code,
+          cashflowType: tpl.cashflowType,
+          categoryId: tpl.categoryId ?? null,
+          amount: tpl.amount,
+          currency: "CZK",
+          date: nextDate,
+          status: "planned",
+          partnerId: tpl.partnerId ?? null,
+          description: tpl.description ?? null,
+          isCash: false,
+          templateId: tpl.id,
+          isRecurring: true,
+        });
+
+        generatedItems.push({
+          templateName: tpl.name,
+          code,
+          date: nextDate,
+          amount: tpl.amount,
+        });
+
+        nextDate = advanceDate(nextDate, tpl.frequency);
+      }
+
+      await db
+        .update(cashflowTemplates)
+        .set({ nextDate, lastGenerated: today, updatedAt: sql`now()` })
+        .where(eq(cashflowTemplates.id, tpl.id));
+    }
+
+    if (generatedItems.length > 0) {
+      await db
+        .insert(cfAutoGenerationLog)
+        .values({
+          tenantId,
+          runDate: today,
+          generated: generatedItems.length,
+          details: generatedItems,
+        })
+        .onConflictDoUpdate({
+          target: [cfAutoGenerationLog.tenantId, cfAutoGenerationLog.runDate],
+          set: {
+            generated: sql`excluded.generated`,
+            details: sql`excluded.details`,
+          },
+        });
+    }
+
+    totalGenerated += generatedItems.length;
+  }
+
+  return { tenantsProcessed: tenantIds.length, totalGenerated };
+}
+
+// -- getTodayAutoGenerationInfo (dashboard) ------------------------------
+
+export interface AutoGenerationInfo {
+  generated: number;
+  details: Array<{ templateName: string; code: string; date: string; amount: string }>;
+}
+
+export async function getTodayAutoGenerationInfo(): Promise<AutoGenerationInfo | null> {
+  return withTenant(async (tenantId) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await db
+      .select()
+      .from(cfAutoGenerationLog)
+      .where(
+        and(
+          eq(cfAutoGenerationLog.tenantId, tenantId),
+          eq(cfAutoGenerationLog.runDate, today),
+        )
+      )
+      .limit(1);
+
+    if (!rows[0] || rows[0].generated === 0) return null;
+
+    return {
+      generated: rows[0].generated,
+      details: rows[0].details as AutoGenerationInfo["details"],
+    };
   });
 }
