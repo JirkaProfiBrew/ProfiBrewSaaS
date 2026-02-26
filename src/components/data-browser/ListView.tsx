@@ -89,10 +89,14 @@ function renderCellValue(
     }
 
     case "currency": {
+      const num = Number(value);
+      const formatted = Number.isFinite(num)
+        ? Math.round(num).toLocaleString("cs-CZ")
+        : String(value);
       if (column.format) {
-        return column.format.replace("{value}", String(value));
+        return column.format.replace("{value}", formatted);
       }
-      return `${String(value)} Kč`;
+      return `${formatted} Kč`;
     }
 
     case "icon":
