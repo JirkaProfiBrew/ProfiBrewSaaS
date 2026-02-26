@@ -81,11 +81,11 @@
     "noResults": "Žádná měsíční podání",
     "columns": {
       "period": "Období",
-      "openingBalance": "Poč. stav (hl)",
-      "production": "Výroba (hl)",
-      "release": "Propuštění (hl)",
-      "loss": "Ztráty (hl)",
-      "closingBalance": "Kon. stav (hl)",
+      "openingBalanceHl": "Poč. stav (hl)",
+      "productionHl": "Výroba (hl)",
+      "releaseHl": "Propuštění (hl)",
+      "lossHl": "Ztráty (hl)",
+      "closingBalanceHl": "Kon. stav (hl)",
       "totalTax": "Daň (Kč)",
       "status": "Stav"
     },

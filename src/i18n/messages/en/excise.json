@@ -81,11 +81,11 @@
     "noResults": "No monthly reports",
     "columns": {
       "period": "Period",
-      "openingBalance": "Opening (hl)",
-      "production": "Production (hl)",
-      "release": "Release (hl)",
-      "loss": "Loss (hl)",
-      "closingBalance": "Closing (hl)",
+      "openingBalanceHl": "Opening (hl)",
+      "productionHl": "Production (hl)",
+      "releaseHl": "Release (hl)",
+      "lossHl": "Loss (hl)",
+      "closingBalanceHl": "Closing (hl)",
       "totalTax": "Tax (CZK)",
       "status": "Status"
     },
