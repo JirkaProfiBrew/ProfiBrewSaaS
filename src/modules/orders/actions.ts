@@ -16,6 +16,8 @@ import {
   stockIssues,
   stockIssueLines,
 } from "@/../drizzle/schema/stock";
+import { cashflows } from "@/../drizzle/schema/cashflows";
+import { cancelStockIssue } from "@/modules/stock-issues/actions";
 import type {
   Order,
   OrderItem,
@@ -841,23 +843,17 @@ export async function confirmOrder(
       // Recalculate totals one final time
       await recalculateOrderTotals(id, tenantId);
 
-      // Reserve stock + update status in a transaction
-      const result = await db.transaction(async (tx) => {
-        // Reserve stock for each order item
-        await adjustReservedQtyForOrder(tx, tenantId, id, 1);
+      // Set status to confirmed
+      const rows = await db
+        .update(orders)
+        .set({
+          status: "confirmed",
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+        .returning();
 
-        // Set status to confirmed
-        const rows = await tx
-          .update(orders)
-          .set({
-            status: "confirmed",
-            updatedAt: sql`now()`,
-          })
-          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-          .returning();
-
-        return rows[0];
-      });
+      const result = rows[0];
 
       if (!result) return { error: "NOT_FOUND" };
 
@@ -937,23 +933,18 @@ export async function shipOrder(
 
       const today = new Date().toISOString().slice(0, 10);
 
-      // Release reserved_qty + update status in a transaction
-      const result = await db.transaction(async (tx) => {
-        // Release reserved stock
-        await adjustReservedQtyForOrder(tx, tenantId, id, -1);
+      // Update status to shipped
+      const rows = await db
+        .update(orders)
+        .set({
+          status: "shipped",
+          shippedDate: today,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+        .returning();
 
-        const rows = await tx
-          .update(orders)
-          .set({
-            status: "shipped",
-            shippedDate: today,
-            updatedAt: sql`now()`,
-          })
-          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-          .returning();
-
-        return rows[0];
-      });
+      const result = rows[0];
 
       if (!result) return { error: "NOT_FOUND" };
 
@@ -1061,8 +1052,8 @@ export async function invoiceOrder(
 }
 
 /** Cancel an order: any status except invoiced -> cancelled. Sets closedDate.
- * Releases reserved_qty if order was confirmed+ and not yet shipped.
- * Cancels any linked draft stock issue.
+ * Cancels linked stock issue (draft or confirmed) and planned/pending cashflow.
+ * Blocks if linked cashflow is already paid.
  */
 export async function cancelOrder(
   id: string,
@@ -1075,6 +1066,7 @@ export async function cancelOrder(
           status: orders.status,
           internalNotes: orders.internalNotes,
           stockIssueId: orders.stockIssueId,
+          cashflowId: orders.cashflowId,
         })
         .from(orders)
         .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
@@ -1087,75 +1079,167 @@ export async function cancelOrder(
       if (existingRow.status === "cancelled")
         return { error: "ALREADY_CANCELLED" };
 
-      const today = new Date().toISOString().slice(0, 10);
-      const previousStatus = existingRow.status;
-      const linkedStockIssueId = existingRow.stockIssueId;
+      // ── PRE-CHECK: CashFlow ──────────────────────────────
+      let cfStatus: string | null = null;
+      if (existingRow.cashflowId) {
+        const cfRows = await db
+          .select({ status: cashflows.status })
+          .from(cashflows)
+          .where(eq(cashflows.id, existingRow.cashflowId))
+          .limit(1);
+        cfStatus = cfRows[0]?.status ?? null;
 
-      // Append or set cancellation reason in internalNotes
-      let newInternalNotes = existingRow.internalNotes;
-      if (reason) {
-        if (newInternalNotes) {
-          newInternalNotes = `${newInternalNotes}\n[Cancelled] ${reason}`;
-        } else {
-          newInternalNotes = `[Cancelled] ${reason}`;
+        if (cfStatus === "paid") {
+          return { error: "CASHFLOW_ALREADY_PAID" };
         }
       }
 
-      const result = await db.transaction(async (tx) => {
-        // Release reserved_qty if order was confirmed but not yet shipped
-        // (shipped already released reserved_qty)
-        const hasReservation =
-          previousStatus === "confirmed" ||
-          previousStatus === "in_preparation";
+      const today = new Date().toISOString().slice(0, 10);
+      const linkedStockIssueId = existingRow.stockIssueId;
+      const linkedCashflowId = existingRow.cashflowId;
 
-        if (hasReservation) {
-          await adjustReservedQtyForOrder(tx, tenantId, id, -1);
+      // Append cancellation reason
+      let newInternalNotes = existingRow.internalNotes;
+      if (reason) {
+        newInternalNotes = newInternalNotes
+          ? `${newInternalNotes}\n[Cancelled] ${reason}`
+          : `[Cancelled] ${reason}`;
+      }
+
+      // ── VÝDEJKA ──────────────────────────────────────────
+      if (linkedStockIssueId) {
+        const issueRows = await db
+          .select({ status: stockIssues.status })
+          .from(stockIssues)
+          .where(eq(stockIssues.id, linkedStockIssueId))
+          .limit(1);
+
+        const issueStatus = issueRows[0]?.status;
+
+        if (issueStatus === "draft") {
+          await db
+            .update(stockIssues)
+            .set({ status: "cancelled", updatedAt: sql`now()` })
+            .where(eq(stockIssues.id, linkedStockIssueId));
+        } else if (issueStatus === "confirmed") {
+          // Full reversal — counter-movements, stock_status restore
+          await cancelStockIssue(linkedStockIssueId);
         }
+        // status === "cancelled" → skip
+      }
 
-        // Cancel linked draft stock issue if any
-        if (linkedStockIssueId) {
-          const issueRows = await tx
-            .select({ status: stockIssues.status })
-            .from(stockIssues)
-            .where(eq(stockIssues.id, linkedStockIssueId))
-            .limit(1);
+      // ── CASHFLOW ─────────────────────────────────────────
+      if (linkedCashflowId && (cfStatus === "planned" || cfStatus === "pending")) {
+        await db
+          .update(cashflows)
+          .set({ status: "cancelled", updatedAt: sql`now()` })
+          .where(eq(cashflows.id, linkedCashflowId));
+      }
 
-          if (issueRows[0]?.status === "draft") {
-            await tx
-              .update(stockIssues)
-              .set({ status: "cancelled", updatedAt: sql`now()` })
-              .where(eq(stockIssues.id, linkedStockIssueId));
-          }
-        }
+      // ── ORDER ────────────────────────────────────────────
+      const updatedRows = await db
+        .update(orders)
+        .set({
+          status: "cancelled",
+          closedDate: today,
+          internalNotes: newInternalNotes,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
+        .returning();
 
-        // Set order status to cancelled
-        const rows = await tx
-          .update(orders)
-          .set({
-            status: "cancelled",
-            closedDate: today,
-            internalNotes: newInternalNotes,
-            updatedAt: sql`now()`,
-          })
-          .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
-          .returning();
-
-        return rows[0];
-      });
-
-      if (!result) return { error: "NOT_FOUND" };
+      const updated = updatedRows[0];
+      if (!updated) return { error: "UPDATE_FAILED" };
 
       const partnerRows = await db
         .select({ name: partners.name })
         .from(partners)
-        .where(eq(partners.id, result.partnerId))
+        .where(eq(partners.id, updated.partnerId))
         .limit(1);
 
-      return mapOrderRow(result, { partnerName: partnerRows[0]?.name });
+      return mapOrderRow(updated, { partnerName: partnerRows[0]?.name });
     } catch (err: unknown) {
       console.error("[orders] cancelOrder failed:", err);
       return { error: "CANCEL_FAILED" };
     }
+  });
+}
+
+// ── Cancel Order Precheck ─────────────────────────────────────
+
+export interface CancelOrderPrecheckResult {
+  canCancel: boolean;
+  blockReason?: string;
+  impacts: Array<{ type: "stock_issue" | "cashflow"; action: string; code?: string }>;
+}
+
+export async function getCancelOrderPrecheck(
+  orderId: string
+): Promise<CancelOrderPrecheckResult> {
+  return withTenant(async (tenantId) => {
+    const orderRows = await db
+      .select({
+        status: orders.status,
+        stockIssueId: orders.stockIssueId,
+        cashflowId: orders.cashflowId,
+      })
+      .from(orders)
+      .where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)))
+      .limit(1);
+
+    const row = orderRows[0];
+    if (!row) return { canCancel: false, blockReason: "NOT_FOUND", impacts: [] };
+    if (row.status === "invoiced")
+      return { canCancel: false, blockReason: "ALREADY_INVOICED", impacts: [] };
+    if (row.status === "cancelled")
+      return { canCancel: false, blockReason: "ALREADY_CANCELLED", impacts: [] };
+
+    const impacts: CancelOrderPrecheckResult["impacts"] = [];
+
+    // Check stock issue
+    if (row.stockIssueId) {
+      const issueRows = await db
+        .select({ status: stockIssues.status, code: stockIssues.code })
+        .from(stockIssues)
+        .where(eq(stockIssues.id, row.stockIssueId))
+        .limit(1);
+
+      const issue = issueRows[0];
+      if (issue && issue.status !== "cancelled") {
+        impacts.push({
+          type: "stock_issue",
+          action: issue.status === "confirmed" ? "reverse" : "cancel_draft",
+          code: issue.code ?? undefined,
+        });
+      }
+    }
+
+    // Check cashflow
+    if (row.cashflowId) {
+      const cfRows = await db
+        .select({ status: cashflows.status, code: cashflows.code })
+        .from(cashflows)
+        .where(eq(cashflows.id, row.cashflowId))
+        .limit(1);
+
+      const cf = cfRows[0];
+      if (cf && cf.status !== "cancelled") {
+        if (cf.status === "paid") {
+          return {
+            canCancel: false,
+            blockReason: "CASHFLOW_ALREADY_PAID",
+            impacts: [{ type: "cashflow" as const, action: "blocked_paid", code: cf.code ?? undefined }],
+          };
+        }
+        impacts.push({
+          type: "cashflow",
+          action: "cancel",
+          code: cf.code ?? undefined,
+        });
+      }
+    }
+
+    return { canCancel: true, impacts };
   });
 }
 

@@ -477,6 +477,16 @@ draft → confirmed → in_preparation → shipped → delivered → invoiced �
 - Vytvoření výdejky z objednávky: nabídne předvyplněnou výdejku s položkami z objednávky
 - Záloha se účtuje zvlášť (deposit_amount per obalový typ)
 
+**Stornování objednávky:**
+- Stornovat lze z libovolného ne-terminálního stavu (draft, confirmed, in_preparation, shipped, delivered)
+- Terminální stavy (invoiced, cancelled) — tlačítko storno se nezobrazuje
+- Před stornováním se volá `getCancelOrderPrecheck()` — pre-flight kontrola dopadů:
+  - Pokud existuje potvrzená výdejka → bude stornována (`cancelStockIssue()` — counter-movements, obnova zůstatků)
+  - Pokud existuje draftová výdejka → bude zrušena (status → cancelled)
+  - Pokud existuje navázaný CF (planned/pending) → bude stornován
+  - Pokud je CF ve stavu `paid` → **storno blokováno** — uživatel musí nejdříve stornovat pohledávku
+- Cancel dialog zobrazuje seznam dopadů jako bullet points, při blokaci je tlačítko "Stornovat" neaktivní
+
 ---
 
 ## 7. MODUL FINANCE

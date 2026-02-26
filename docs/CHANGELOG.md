@@ -355,6 +355,17 @@
 - [x] API route `/api/cron/generate-cf` — POST/GET endpoint pro cron, autorizace přes CRON_SECRET
 - [x] Dashboard: `AutoCfNotification` komponenta — Alert s počtem automaticky vygenerovaných dokladů dnes
 - [x] i18n: `templates.autoGenerate`, `templates.autoGenerateHelp`, `templates.autoBadge`, `templates.autoNote`, `autoGenerate.todayTitle`, `autoGenerate.badge` (cs + en)
+- ⏳ pg_cron job (generate-cf-daily) — deferred until first production/preview deploy. Extensions pg_cron + pg_net enabled in Supabase. CRON_SECRET set in .env.local. Manual testing via curl: `POST http://localhost:3000/api/cron/generate-cf`
+
+### Opraveno — Fix cancelOrder (výdejka + cashflow)
+- [x] `cancelOrder()` přepsán: ruší potvrzené výdejky (volá `cancelStockIssue()`), nejen draftové
+- [x] `cancelOrder()` ruší navázaný cash flow (planned/pending) — dříve se ignoroval
+- [x] `cancelOrder()` blokuje storno pokud je CF ve stavu `paid` → vrací `CASHFLOW_ALREADY_PAID`
+- [x] Odstraněny všechny volání `adjustReservedQtyForOrder()` z `confirmOrder()`, `shipOrder()`, `cancelOrder()` — reserved_qty logika v objednávkách se nepoužívá
+- [x] Nový server action `getCancelOrderPrecheck()` — pre-flight kontrola před stornováním: vrací seznam dopadů (stock_issue, cashflow) a flag zda lze stornovat
+- [x] Cancel dialog s dynamickými dopady: načítá precheck při otevření, zobrazuje seznam dopadů (storno výdejky, storno CF, blokace kvůli zaplacenému CF)
+- [x] Tlačítko "Stornovat" přidáno ke VŠEM ne-terminálním stavům (in_preparation, shipped, delivered — dříve jen draft a confirmed)
+- [x] i18n: `cancelDialog.willReverseStockIssue`, `willCancelDraftIssue`, `willCancelCashflow`, `blockedByCashflow`, `messages.cashflowPaid` (cs + en)
 
 ### Architektonická rozhodnutí
 - Unit system: `toBaseFactor = null` → IS the base unit (kg), not "assume grams"

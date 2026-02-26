@@ -118,7 +118,8 @@
     "needsItems": "Objednávka musí mít alespoň jednu položku",
     "noWarehouse": "Objednávka nemá přiřazený sklad — nelze potvrdit",
     "stockModeNone": "Prodejna má vypnuté sledování skladu — nelze rezervovat položky",
-    "onlyDraft": "Tuto akci lze provést pouze u konceptu"
+    "onlyDraft": "Tuto akci lze provést pouze u konceptu",
+    "cashflowPaid": "Objednávku nelze stornovat — pohledávka je zaplacená. Nejdříve stornujte pohledávku."
   },
   "stockIssueTab": {
     "title": "Výdejka",
@@ -149,7 +150,11 @@
   },
   "cancelDialog": {
     "title": "Stornovat objednávku?",
-    "description": "Opravdu chcete stornovat tuto objednávku? Tuto akci nelze vrátit zpět.",
+    "description": "Opravdu chcete stornovat tuto objednávku?",
+    "willReverseStockIssue": "Výdejka bude stornována — zboží se vrátí na sklad",
+    "willCancelDraftIssue": "Rozpracovaná výdejka bude zrušena",
+    "willCancelCashflow": "Pohledávka bude stornována",
+    "blockedByCashflow": "\u26a0\ufe0f Pohledávka je zaplacená — nejdříve ji stornujte",
     "confirm": "Stornovat",
     "cancel": "Zpět"
   }

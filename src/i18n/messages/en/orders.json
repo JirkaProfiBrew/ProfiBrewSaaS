@@ -118,7 +118,8 @@
     "needsItems": "Order must have at least one item",
     "noWarehouse": "Order has no warehouse assigned — cannot confirm",
     "stockModeNone": "Shop has stock tracking disabled — cannot reserve items",
-    "onlyDraft": "This action can only be performed on drafts"
+    "onlyDraft": "This action can only be performed on drafts",
+    "cashflowPaid": "Cannot cancel order — cash flow is already paid. Cancel the cash flow first."
   },
   "stockIssueTab": {
     "title": "Stock Issue",
@@ -149,7 +150,11 @@
   },
   "cancelDialog": {
     "title": "Cancel this order?",
-    "description": "Are you sure you want to cancel this order? This action cannot be undone.",
+    "description": "Are you sure you want to cancel this order?",
+    "willReverseStockIssue": "Stock issue will be reversed — items returned to stock",
+    "willCancelDraftIssue": "Draft stock issue will be cancelled",
+    "willCancelCashflow": "Cash flow will be cancelled",
+    "blockedByCashflow": "\u26a0\ufe0f Cash flow is already paid — cancel it first",
     "confirm": "Cancel Order",
     "cancel": "Go Back"
   }

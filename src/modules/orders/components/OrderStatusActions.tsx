@@ -38,7 +38,9 @@ import {
   deliverOrder,
   invoiceOrder,
   cancelOrder,
+  getCancelOrderPrecheck,
 } from "../actions";
+import type { CancelOrderPrecheckResult } from "../actions";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -97,7 +99,14 @@ export function OrderStatusActions({
     try {
       const result = await cancelOrder(orderId);
       if (result && typeof result === "object" && "error" in result) {
-        toast.error(t("messages.statusFailed"));
+        const err = (result as { error: string }).error;
+        if (err === "CASHFLOW_ALREADY_PAID") {
+          toast.error(t("messages.cashflowPaid"));
+        } else if (err === "ALREADY_INVOICED") {
+          toast.error(t("messages.statusFailed"));
+        } else {
+          toast.error(t("messages.statusFailed"));
+        }
       } else {
         toast.success(t("messages.cancelled"));
         onTransition();
@@ -148,6 +157,7 @@ export function OrderStatusActions({
           </TooltipProvider>
 
           <CancelButton
+            orderId={orderId}
             isLoading={isLoading}
             onConfirm={handleCancel}
           />
@@ -172,81 +182,152 @@ export function OrderStatusActions({
           </Button>
 
           <CancelButton
+            orderId={orderId}
             isLoading={isLoading}
             onConfirm={handleCancel}
           />
         </>
       )}
 
-      {/* in_preparation: Ship */}
+      {/* in_preparation: Ship + Cancel */}
       {currentStatus === "in_preparation" && (
-        <Button
-          size="sm"
-          onClick={() =>
-            void handleTransition(
-              () => shipOrder(orderId),
-              t("messages.shipped")
-            )
-          }
-          disabled={isLoading}
-        >
-          <Truck className="mr-1 size-4" />
-          {t("actions.ship")}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            onClick={() =>
+              void handleTransition(
+                () => shipOrder(orderId),
+                t("messages.shipped")
+              )
+            }
+            disabled={isLoading}
+          >
+            <Truck className="mr-1 size-4" />
+            {t("actions.ship")}
+          </Button>
+          <CancelButton
+            orderId={orderId}
+            isLoading={isLoading}
+            onConfirm={handleCancel}
+          />
+        </>
       )}
 
-      {/* shipped: Deliver */}
+      {/* shipped: Deliver + Cancel */}
       {currentStatus === "shipped" && (
-        <Button
-          size="sm"
-          onClick={() =>
-            void handleTransition(
-              () => deliverOrder(orderId),
-              t("messages.delivered")
-            )
-          }
-          disabled={isLoading}
-        >
-          <PackageCheck className="mr-1 size-4" />
-          {t("actions.deliver")}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            onClick={() =>
+              void handleTransition(
+                () => deliverOrder(orderId),
+                t("messages.delivered")
+              )
+            }
+            disabled={isLoading}
+          >
+            <PackageCheck className="mr-1 size-4" />
+            {t("actions.deliver")}
+          </Button>
+          <CancelButton
+            orderId={orderId}
+            isLoading={isLoading}
+            onConfirm={handleCancel}
+          />
+        </>
       )}
 
-      {/* delivered: Invoice */}
+      {/* delivered: Invoice + Cancel */}
       {currentStatus === "delivered" && (
-        <Button
-          size="sm"
-          onClick={() =>
-            void handleTransition(
-              () => invoiceOrder(orderId),
-              t("messages.invoiced")
-            )
-          }
-          disabled={isLoading}
-        >
-          <FileText className="mr-1 size-4" />
-          {t("actions.invoice")}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            onClick={() =>
+              void handleTransition(
+                () => invoiceOrder(orderId),
+                t("messages.invoiced")
+              )
+            }
+            disabled={isLoading}
+          >
+            <FileText className="mr-1 size-4" />
+            {t("actions.invoice")}
+          </Button>
+          <CancelButton
+            orderId={orderId}
+            isLoading={isLoading}
+            onConfirm={handleCancel}
+          />
+        </>
       )}
     </div>
   );
 }
 
-// ── Cancel Button with AlertDialog ─────────────────────────────
+// ── Cancel Button with AlertDialog + Precheck ───────────────────
 
 interface CancelButtonProps {
+  orderId: string;
   isLoading: boolean;
   onConfirm: () => Promise<void>;
 }
 
 function CancelButton({
+  orderId,
   isLoading,
   onConfirm,
 }: CancelButtonProps): React.ReactNode {
   const t = useTranslations("orders");
+  const [open, setOpen] = useState(false);
+  const [precheck, setPrecheck] = useState<CancelOrderPrecheckResult | null>(null);
+  const [precheckLoading, setPrecheckLoading] = useState(false);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean): void => {
+      if (nextOpen) {
+        setPrecheckLoading(true);
+        setPrecheck(null);
+        getCancelOrderPrecheck(orderId)
+          .then((result) => {
+            setPrecheck(result);
+          })
+          .catch((err: unknown) => {
+            console.error("Precheck failed:", err);
+            // Allow cancel anyway — precheck is informational
+            setPrecheck({ canCancel: true, impacts: [] });
+          })
+          .finally(() => {
+            setPrecheckLoading(false);
+          });
+      }
+      setOpen(nextOpen);
+    },
+    [orderId]
+  );
+
+  const impacts: string[] = [];
+  if (precheck) {
+    for (const impact of precheck.impacts) {
+      if (impact.type === "stock_issue") {
+        if (impact.action === "reverse") {
+          impacts.push(t("cancelDialog.willReverseStockIssue"));
+        } else if (impact.action === "cancel_draft") {
+          impacts.push(t("cancelDialog.willCancelDraftIssue"));
+        }
+      } else if (impact.type === "cashflow") {
+        if (impact.action === "blocked_paid") {
+          impacts.push(t("cancelDialog.blockedByCashflow"));
+        } else {
+          impacts.push(t("cancelDialog.willCancelCashflow"));
+        }
+      }
+    }
+  }
+
+  const blocked = precheck !== null && !precheck.canCancel;
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>
         <Button size="sm" variant="outline" disabled={isLoading}>
           <XCircle className="mr-1 size-4" />
@@ -258,14 +339,27 @@ function CancelButton({
           <AlertDialogTitle>
             {t("cancelDialog.title")}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("cancelDialog.description")}
+          <AlertDialogDescription asChild>
+            <div>
+              <p>{t("cancelDialog.description")}</p>
+              {impacts.length > 0 && (
+                <ul className="mt-2 space-y-1 text-sm">
+                  {impacts.map((impact, i) => (
+                    <li key={i}>• {impact}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("cancelDialog.cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => void onConfirm()}
+            onClick={() => {
+              setOpen(false);
+              void onConfirm();
+            }}
+            disabled={precheckLoading || blocked}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {t("cancelDialog.confirm")}
