@@ -306,6 +306,16 @@
       "save": "Save",
       "cancel": "Cancel",
       "delete": "Delete"
+    },
+    "ogChangeDialog": {
+      "title": "Change Actual OG",
+      "description": "Changing OG will update related records:",
+      "receiptLines": "{count, plural, one {# receipt line} other {# receipt lines}}",
+      "exciseMovements": "{count, plural, one {# excise movement} other {# excise movements}}",
+      "noImpact": "No related records will be affected.",
+      "confirm": "Save & update",
+      "cancel": "Cancel",
+      "blocked": "Cannot change OG. An excise movement linked to this batch is part of a submitted monthly report ({period}). Revert the report to draft first."
     }
   },
   "createDialog": {

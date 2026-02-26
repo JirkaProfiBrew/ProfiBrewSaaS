@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Save, Factory, ExternalLink } from "lucide-react";
+import { Save, Factory, ExternalLink, Loader2, XCircle, Beer } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -42,6 +42,7 @@ import {
   createProductionReceipt,
 } from "../actions";
 import type { BottlingLineData, ReceiptInfo } from "../actions";
+import type { ExcisePrevalidationError } from "@/modules/excise/types";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export function BatchBottlingTab({
   onMutate,
 }: BatchBottlingTabProps): React.ReactNode {
   const t = useTranslations("batches");
+  const te = useTranslations("excise");
 
   const [mode, setMode] = useState<"none" | "bulk" | "packaged" | null>(null);
   const [lines, setLines] = useState<ProductLine[]>([]);
@@ -85,6 +87,9 @@ export function BatchBottlingTab({
   const [dirty, setDirty] = useState(false);
   const [savedOnce, setSavedOnce] = useState(false);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
+  const [exciseCheckLoading, setExciseCheckLoading] = useState(false);
+  const [exciseApplicable, setExciseApplicable] = useState(false);
+  const [exciseErrors, setExciseErrors] = useState<ExcisePrevalidationError[]>([]);
 
   // Load bottling lines from server (auto-generated based on stock_mode)
   const loadData = useCallback((): void => {
@@ -117,6 +122,37 @@ export function BatchBottlingTab({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Excise pre-check when stock dialog opens
+  useEffect(() => {
+    if (!stockDialogOpen) {
+      setExciseErrors([]);
+      setExciseApplicable(false);
+      return;
+    }
+
+    let cancelled = false;
+    setExciseCheckLoading(true);
+
+    import("@/modules/excise/actions")
+      .then((mod) => mod.prevalidateExciseForBatch(batchId))
+      .then((result) => {
+        if (!cancelled) {
+          setExciseApplicable(result.applicable);
+          setExciseErrors(result.errors);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to prevalidate excise:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setExciseCheckLoading(false);
+      });
+
+    return (): void => {
+      cancelled = true;
+    };
+  }, [stockDialogOpen, batchId]);
 
   // Update quantity for a product line
   const handleQtyChange = useCallback(
@@ -572,12 +608,58 @@ export function BatchBottlingTab({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("bottling.stock.confirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-1">
-              <span>{t("bottling.stock.confirmDescription")}</span>
-              <br />
-              <span>{t("bottling.stock.confirmLines", { count: summary.nonZeroCount })}</span>
-              <br />
-              <span>{t("bottling.stock.confirmVolume", { volume: summary.totalBottled.toFixed(1) })}</span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <span>{t("bottling.stock.confirmDescription")}</span>
+                  <br />
+                  <span>{t("bottling.stock.confirmLines", { count: summary.nonZeroCount })}</span>
+                  <br />
+                  <span>{t("bottling.stock.confirmVolume", { volume: summary.totalBottled.toFixed(1) })}</span>
+                </div>
+
+                {/* Excise pre-check */}
+                {exciseCheckLoading && (
+                  <div className="flex items-center gap-2 py-2">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {te("prevalidation.checking")}
+                    </span>
+                  </div>
+                )}
+
+                {/* Excise errors — blocking */}
+                {!exciseCheckLoading && exciseErrors.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
+                    <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                    <div className="space-y-1.5 w-full">
+                      <p className="text-sm font-medium text-destructive">
+                        {te("prevalidation.title")}
+                      </p>
+                      <ul className="list-disc pl-5 space-y-0.5">
+                        {exciseErrors.map((err) => (
+                          <li key={err.code} className="text-sm text-destructive/90">
+                            {te(`prevalidation.${err.code}`)}
+                            {err.detail && (
+                              <span className="text-muted-foreground"> — {err.detail}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Excise OK — info that excise movement will be created */}
+                {!exciseCheckLoading && exciseApplicable && exciseErrors.length === 0 && (
+                  <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+                    <Beer className="h-5 w-5 text-blue-600 shrink-0" />
+                    <p className="text-sm text-blue-700">
+                      {te("prevalidation.willCreate")}
+                    </p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -585,12 +667,13 @@ export function BatchBottlingTab({
               {t("bottling.stock.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={stocking}
+              disabled={stocking || exciseCheckLoading || exciseErrors.length > 0}
               onClick={(e) => {
                 e.preventDefault();
                 void handleStock();
               }}
             >
+              {stocking && <Loader2 className="mr-2 size-4 animate-spin" />}
               {t("bottling.stock.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -81,6 +81,9 @@ export interface StockIssueLine {
   expiryDate: string | null;
   lotAttributes: Record<string, unknown>;
   remainingQty: string | null;
+  // Excise data (receipt lines only — snapshot from batch at receipt time)
+  plato: string | null;
+  receiptBatchId: string | null;
   // VPN (vedlejší pořizovací náklady) — computed by recalculate
   overheadPerUnit: string;
   fullUnitPrice: string | null;

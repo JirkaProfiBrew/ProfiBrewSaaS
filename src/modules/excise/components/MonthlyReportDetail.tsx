@@ -202,6 +202,34 @@ export function MonthlyReportDetail({
           {t("reports.detail.title")} --- {report.period}
         </h1>
         {statusBadge}
+
+        <div className="ml-auto flex items-center gap-2">
+          {isDraft && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => void handleRegenerate()}
+              >
+                <RefreshCw className="mr-1 size-4" />
+                {t("reports.regenerate")}
+              </Button>
+              <Button onClick={() => void handleSubmit()}>
+                <Send className="mr-1 size-4" />
+                {t("reports.submit")}
+              </Button>
+            </>
+          )}
+
+          {isSubmitted && (
+            <Button
+              variant="outline"
+              onClick={() => void handleRevert()}
+            >
+              <Undo2 className="mr-1 size-4" />
+              {t("reports.backToDraft")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Section 1: Balance card */}
@@ -445,44 +473,6 @@ export function MonthlyReportDetail({
         </CardContent>
       </Card>
 
-      {/* Action buttons */}
-      <Separator />
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            router.push("/stock/monthly-report");
-          }}
-        >
-          {t("movements.detail.back")}
-        </Button>
-
-        {isDraft && (
-          <>
-            <Button
-              variant="outline"
-              onClick={() => void handleRegenerate()}
-            >
-              <RefreshCw className="mr-1 size-4" />
-              {t("reports.regenerate")}
-            </Button>
-            <Button onClick={() => void handleSubmit()}>
-              <Send className="mr-1 size-4" />
-              {t("reports.submit")}
-            </Button>
-          </>
-        )}
-
-        {isSubmitted && (
-          <Button
-            variant="outline"
-            onClick={() => void handleRevert()}
-          >
-            <Undo2 className="mr-1 size-4" />
-            {t("reports.backToDraft")}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

@@ -16,11 +16,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useBatchDetail } from "../hooks";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+import {
   createBatch,
   updateBatch,
   deleteBatch,
   getEquipmentOptions,
   getRecipeOptions,
+  checkOgChangeImpact,
 } from "../actions";
 import { BatchStatusBadge } from "./BatchStatusBadge";
 import { BatchStatusTransition } from "./BatchStatusTransition";
@@ -86,6 +98,13 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ogDialogOpen, setOgDialogOpen] = useState(false);
+  const [ogBlockedOpen, setOgBlockedOpen] = useState(false);
+  const [ogBlockedPeriod, setOgBlockedPeriod] = useState<string | null>(null);
+  const [ogImpact, setOgImpact] = useState<{
+    receiptLines: number;
+    exciseMovements: number;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState(
     initialTab && VALID_TABS.includes(initialTab) ? initialTab : "overview"
   );
@@ -259,7 +278,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
     [errors]
   );
 
-  const handleSave = useCallback(async (): Promise<void> => {
+  const doSave = useCallback(async (): Promise<void> => {
     try {
       if (isNew) {
         const result = await createBatch({
@@ -295,6 +314,34 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
       toast.error(tCommon("saveFailed"));
     }
   }, [isNew, id, values, router, tCommon, mutate]);
+
+  const handleSave = useCallback(async (): Promise<void> => {
+    // Check if OG changed — show confirmation or block dialog
+    if (
+      !isNew &&
+      batchDetail?.batch &&
+      String(values.ogActual ?? "") !== String(batchDetail.batch.ogActual ?? "")
+    ) {
+      try {
+        const impact = await checkOgChangeImpact(id);
+
+        // Block if any affected movement is in a submitted monthly report
+        if (impact.blockedBySubmittedReport) {
+          setOgBlockedPeriod(impact.submittedPeriod);
+          setOgBlockedOpen(true);
+          return;
+        }
+
+        setOgImpact(impact);
+        setOgDialogOpen(true);
+      } catch {
+        // If impact check fails, save without dialog
+        await doSave();
+      }
+      return;
+    }
+    await doSave();
+  }, [isNew, id, values, batchDetail, doSave]);
 
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
@@ -484,11 +531,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
             />
             {batch && (
               <div className="mt-4">
-                <ExciseBatchCard
-                  exciseRelevantHl={batch.exciseRelevantHl}
-                  exciseStatus={batch.exciseStatus}
-                  plato={batch.ogActual}
-                />
+                <ExciseBatchCard batchId={batch.id} />
               </div>
             )}
           </TabsContent>
@@ -537,6 +580,79 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           </TabsContent>
         </Tabs>
       </DetailView>
+
+      {/* OG change confirmation dialog */}
+      <AlertDialog open={ogDialogOpen} onOpenChange={setOgDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("detail.ogChangeDialog.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {ogImpact &&
+                (ogImpact.receiptLines > 0 ||
+                  ogImpact.exciseMovements > 0) ? (
+                  <>
+                    <p>{t("detail.ogChangeDialog.description")}</p>
+                    <ul className="mt-2 list-disc pl-5 space-y-1">
+                      {ogImpact.receiptLines > 0 && (
+                        <li>
+                          {t("detail.ogChangeDialog.receiptLines", {
+                            count: ogImpact.receiptLines,
+                          })}
+                        </li>
+                      )}
+                      {ogImpact.exciseMovements > 0 && (
+                        <li>
+                          {t("detail.ogChangeDialog.exciseMovements", {
+                            count: ogImpact.exciseMovements,
+                          })}
+                        </li>
+                      )}
+                    </ul>
+                  </>
+                ) : (
+                  <p>{t("detail.ogChangeDialog.noImpact")}</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("detail.ogChangeDialog.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void doSave();
+              }}
+            >
+              {t("detail.ogChangeDialog.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* OG change blocked — submitted monthly report */}
+      <AlertDialog open={ogBlockedOpen} onOpenChange={setOgBlockedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("detail.ogChangeDialog.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("detail.ogChangeDialog.blocked", {
+                period: ogBlockedPeriod ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {tCommon("cancel")}
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

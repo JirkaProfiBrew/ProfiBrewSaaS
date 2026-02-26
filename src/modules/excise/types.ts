@@ -162,6 +162,24 @@ export interface ExciseMovementFilter {
   search?: string;
 }
 
+// ── Excise Pre-validation ─────────────────────────────────────
+
+export interface ExcisePrevalidationError {
+  code:
+    | "excise_not_enabled"
+    | "no_brewery_category"
+    | "no_excise_rate"
+    | "no_excise_items"
+    | "no_plato";
+  detail: string;
+}
+
+export interface ExcisePrevalidationResult {
+  /** True when the warehouse is excise-relevant and checks were performed */
+  applicable: boolean;
+  errors: ExcisePrevalidationError[];
+}
+
 // ── Dashboard ─────────────────────────────────────────────────
 
 export interface ExciseDashboardData {

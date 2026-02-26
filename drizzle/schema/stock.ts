@@ -93,6 +93,9 @@ export const stockIssueLines = pgTable(
     expiryDate: date("expiry_date"),
     lotAttributes: jsonb("lot_attributes").default({}),
     remainingQty: decimal("remaining_qty"), // materialized: for receipts = issuedQty - allocated
+    // Excise-relevant data (filled on receipt lines — snapshot from batch at receipt time)
+    plato: decimal("plato"), // °P (original gravity) for excise tax calculation
+    receiptBatchId: uuid("batch_id").references(() => batches.id), // source batch for this receipt line
     // VPN (vedlejší pořizovací náklady) — computed by recalculateOverheadForReceipt
     overheadPerUnit: decimal("overhead_per_unit").default("0"),
     fullUnitPrice: decimal("full_unit_price"), // unitPrice + overheadPerUnit (= pořizovací cena)

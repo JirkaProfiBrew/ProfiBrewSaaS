@@ -852,12 +852,16 @@ export async function getDemandBreakdown(
         const conversionFactor = childInfo ? childInfo.qty : 1;
         const rawRequired = Number(od.quantity);
         const required = Math.round(rawRequired * conversionFactor * 100) / 100;
+        // issuedQty from stock_issue_lines is already in base units for bulk mode
+        // (conversionFactor was already applied during stock issue creation)
         const rawIssued = issuedMap.get(od.orderItemId) ?? 0;
-        const issued = Math.round(rawIssued * conversionFactor * 100) / 100;
+        const issued = Math.round(rawIssued * 100) / 100;
         const remaining = Math.max(0, required - issued);
         if (remaining > 0) {
           // Build detail string for aggregated child demands: "5.61 (17 × Tmavý ležák plex 330 ml)"
-          const rawRemaining = Math.max(0, rawRequired - rawIssued);
+          const rawRemaining = conversionFactor !== 0
+            ? Math.max(0, Math.round((remaining / conversionFactor) * 100) / 100)
+            : remaining;
           const childDetail = childInfo
             ? `${rawRemaining} × ${childInfo.name}`
             : null;

@@ -23,6 +23,7 @@ import {
   stockIssueLines,
   stockMovements,
 } from "@/../drizzle/schema/stock";
+import { exciseMovements } from "@/../drizzle/schema/excise";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { shops } from "@/../drizzle/schema/shops";
 import { updateStockStatusRow } from "@/modules/stock-issues/lib/stock-status-sync";
@@ -650,8 +651,153 @@ export async function updateBatch(
       const updated = updatedRows[0];
       if (!updated) throw new Error("Failed to update batch");
 
+      // Propagate OG change to receipt lines and excise movements
+      if (data.ogActual !== undefined && data.ogActual !== current.ogActual) {
+        // 1. Update plato on all receipt lines sourced from this batch
+        await tx
+          .update(stockIssueLines)
+          .set({ plato: data.ogActual })
+          .where(eq(stockIssueLines.receiptBatchId, batchId));
+
+        // 2. Recalculate ALL excise movements connected to this batch
+        // Covers: direct batch_id match + FIFO trace (receipt_line → stock_movements → release)
+        if (data.ogActual) {
+          const ogNum = Number(data.ogActual);
+          const ogStr = String(ogNum);
+
+          // Look up excise rate for tax (re-)calculation
+          const { getTenantExciseSettings, getCurrentExciseRate } =
+            await import("@/modules/excise/actions");
+          const settings = await getTenantExciseSettings(tenantId);
+          const rate = settings.excise_brewery_category
+            ? await getCurrentExciseRate(
+                tenantId,
+                settings.excise_brewery_category
+              )
+            : null;
+          const rateNum = rate ? Number(rate.ratePerPlatoHl) : null;
+          const taxPoint = settings.excise_tax_point ?? "production";
+
+          // Step A: Find all affected excise movement IDs
+          // (direct batch_id match + FIFO trace through receipt lines)
+          const affectedRows = await tx.execute(sql`
+            SELECT em.id
+            FROM excise_movements em
+            WHERE em.tenant_id = ${tenantId}
+              AND (
+                em.batch_id = ${batchId}
+                OR em.stock_issue_id IN (
+                  SELECT DISTINCT sm.stock_issue_id
+                  FROM stock_movements sm
+                  JOIN stock_issue_lines rl ON rl.id = sm.receipt_line_id
+                  WHERE rl.batch_id = ${batchId}
+                    AND sm.movement_type = 'out'
+                    AND sm.tenant_id = ${tenantId}
+                )
+              )
+          `);
+
+          const affectedIds = (
+            affectedRows as unknown as Array<{ id: string }>
+          ).map((r) => r.id);
+
+          if (affectedIds.length > 0) {
+            // Step B: Update plato on all affected movements
+            await tx
+              .update(exciseMovements)
+              .set({ plato: ogStr, updatedAt: sql`now()` })
+              .where(inArray(exciseMovements.id, affectedIds));
+
+            // Step C: Set/recalculate tax on taxable movements
+            if (rateNum !== null) {
+              const taxableTypes: string[] = [];
+              if (taxPoint === "production") taxableTypes.push("production");
+              if (taxPoint === "release") taxableTypes.push("release");
+
+              if (taxableTypes.length > 0) {
+                await tx
+                  .update(exciseMovements)
+                  .set({
+                    taxRate: String(rateNum),
+                    taxAmount: sql`(${exciseMovements.volumeHl} * ${ogNum} * ${rateNum})`,
+                    updatedAt: sql`now()`,
+                  })
+                  .where(
+                    and(
+                      inArray(exciseMovements.id, affectedIds),
+                      inArray(exciseMovements.movementType, taxableTypes)
+                    )
+                  );
+              }
+            }
+          }
+        }
+      }
+
       return mapBatchRow(updated);
     });
+  });
+}
+
+/** Check how many receipt lines and excise movements would be affected by an OG change.
+ *  Also checks if any affected movement belongs to a submitted monthly report (blocks change). */
+export async function checkOgChangeImpact(
+  batchId: string
+): Promise<{
+  receiptLines: number;
+  exciseMovements: number;
+  blockedBySubmittedReport: boolean;
+  submittedPeriod: string | null;
+}> {
+  return withTenant(async (tenantId) => {
+    // 1. Receipt lines with this batch
+    const rlRows = await db
+      .select({ cnt: sql<string>`count(*)` })
+      .from(stockIssueLines)
+      .where(
+        and(
+          eq(stockIssueLines.receiptBatchId, batchId),
+          eq(stockIssueLines.tenantId, tenantId)
+        )
+      );
+
+    // 2. Excise movements: direct batch_id match OR FIFO trace
+    // Also check if any belongs to a submitted monthly report
+    const emRows = await db.execute(sql`
+      SELECT
+        count(DISTINCT em.id) AS cnt,
+        max(CASE WHEN mr.status = 'submitted' THEN mr.period ELSE NULL END) AS submitted_period
+      FROM excise_movements em
+      LEFT JOIN excise_monthly_reports mr
+        ON mr.tenant_id = em.tenant_id AND mr.period = em.period
+      WHERE em.tenant_id = ${tenantId}
+        AND (
+          em.batch_id = ${batchId}
+          OR em.stock_issue_id IN (
+            SELECT DISTINCT sm.stock_issue_id
+            FROM stock_movements sm
+            JOIN stock_issue_lines rl ON rl.id = sm.receipt_line_id
+            WHERE rl.batch_id = ${batchId}
+              AND sm.movement_type = 'out'
+              AND sm.tenant_id = ${tenantId}
+          )
+        )
+    `);
+
+    const row = (emRows as unknown as Array<{
+      cnt: string;
+      submitted_period: string | null;
+    }>)[0];
+    const receiptLines = Number(rlRows[0]?.cnt ?? 0);
+    const emCount = Number(row?.cnt ?? 0);
+    const submittedPeriod = row?.submitted_period ?? null;
+
+    return {
+      receiptLines,
+      exciseMovements: emCount,
+      blockedBySubmittedReport: submittedPeriod !== null,
+      submittedPeriod,
+    };
   });
 }
 
@@ -1183,7 +1329,7 @@ export async function createProductionReceipt(
 ): Promise<{ receiptId: string; receiptCode: string } | { error: string }> {
   return withTenant(async (tenantId) => {
     try {
-      return await db.transaction(async (tx) => {
+      const txResult = await db.transaction(async (tx) => {
         // 1. Load batch
         const batchRows = await tx
           .select()
@@ -1320,6 +1466,9 @@ export async function createProductionReceipt(
               lotNumber: batch.lotNumber,
               expiryDate,
               sortOrder: i,
+              // Excise data snapshot from batch
+              plato: batch.ogActual ?? null,
+              receiptBatchId: batch.id,
             })
             .returning();
 
@@ -1365,8 +1514,33 @@ export async function createProductionReceipt(
           })
           .where(eq(stockIssues.id, issue.id));
 
-        return { receiptId: issue.id, receiptCode: code };
+        return { receiptId: issue.id, receiptCode: code, warehouseId, receiptDate };
       });
+
+      // Post-transaction: auto-generate excise movement (same as confirmStockIssue hook)
+      if ("receiptId" in txResult && txResult.receiptId && txResult.warehouseId) {
+        try {
+          const { createExciseMovementFromStockIssue } = await import(
+            "@/modules/excise/actions"
+          );
+          await createExciseMovementFromStockIssue(
+            txResult.receiptId,
+            "receipt",
+            "production_in",
+            txResult.warehouseId,
+            batchId,
+            txResult.receiptDate,
+            tenantId
+          );
+        } catch (err: unknown) {
+          console.error("[batches] excise movement generation failed:", err);
+        }
+      }
+
+      if ("receiptId" in txResult && txResult.receiptId && txResult.receiptCode) {
+        return { receiptId: txResult.receiptId, receiptCode: txResult.receiptCode };
+      }
+      return "error" in txResult ? txResult : { error: "RECEIPT_FAILED" };
     } catch (err) {
       console.error("[batches] createProductionReceipt failed:", err);
       return { error: "RECEIPT_FAILED" };

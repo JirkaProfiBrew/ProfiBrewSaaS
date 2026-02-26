@@ -59,7 +59,8 @@
         "warehouseId": "Warehouse",
         "description": "Description",
         "notes": "Notes",
-        "status": "Status"
+        "status": "Status",
+        "direction": "Direction"
       },
       "platoSource": {
         "batch_measurement": "From batch measurement",
@@ -163,10 +164,23 @@
     "exciseTitle": "Excise Tax",
     "volume": "Volume",
     "plato": "Plato",
+    "rate": "Rate",
+    "tax": "Tax",
     "exciseStatus": {
       "none": "Not Recorded",
+      "pending": "Pending",
       "recorded": "Recorded",
       "reported": "Reported"
     }
+  },
+  "prevalidation": {
+    "title": "Cannot confirm — excise tax settings incomplete",
+    "checking": "Checking excise tax…",
+    "excise_not_enabled": "Excise tax tracking is not enabled",
+    "no_brewery_category": "Brewery category is not set",
+    "no_excise_rate": "No valid rate found for the selected category",
+    "no_excise_items": "No items on the document are marked as excise-relevant",
+    "no_plato": "Batch has no original gravity (OG) recorded",
+    "willCreate": "An excise tax movement will be automatically created."
   }
 }

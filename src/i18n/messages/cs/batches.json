@@ -306,6 +306,16 @@
       "save": "Uložit",
       "cancel": "Zrušit",
       "delete": "Smazat"
+    },
+    "ogChangeDialog": {
+      "title": "Změna skutečného OG",
+      "description": "Změna OG se projeví na navázaných záznamech:",
+      "receiptLines": "{count, plural, one {# příjemková řádka} few {# příjemkové řádky} other {# příjemkových řádek}}",
+      "exciseMovements": "{count, plural, one {# daňový pohyb} few {# daňové pohyby} other {# daňových pohybů}}",
+      "noImpact": "Žádné navázané záznamy nebudou ovlivněny.",
+      "confirm": "Uložit a aktualizovat",
+      "cancel": "Zrušit",
+      "blocked": "Změna OG není možná. Daňový pohyb navázaný na tuto várku je součástí měsíčního podání ({period}), které je ve stavu Odesláno. Nejprve vraťte podání do konceptu."
     }
   },
   "createDialog": {

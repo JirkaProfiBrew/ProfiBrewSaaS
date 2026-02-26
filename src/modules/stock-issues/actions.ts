@@ -12,6 +12,7 @@ import {
   receiptCosts,
 } from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
+import { batches } from "@/../drizzle/schema/batches";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
@@ -113,6 +114,8 @@ function mapLineRow(
     expiryDate: row.expiryDate ?? null,
     lotAttributes: (row.lotAttributes as Record<string, unknown>) ?? {},
     remainingQty: row.remainingQty ?? null,
+    plato: row.plato ?? null,
+    receiptBatchId: row.receiptBatchId ?? null,
     overheadPerUnit: row.overheadPerUnit ?? "0",
     fullUnitPrice: row.fullUnitPrice ?? null,
     createdAt: row.createdAt,
@@ -957,6 +960,17 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
       const isReceipt = issue.movementType === "receipt";
       let documentTotalCost = 0;
 
+      // Resolve plato from batch for manual receipts (excise snapshot)
+      let receiptPlato: string | null = null;
+      if (isReceipt && issue.batchId) {
+        const batchRow = await tx
+          .select({ ogActual: batches.ogActual })
+          .from(batches)
+          .where(eq(batches.id, issue.batchId))
+          .limit(1);
+        receiptPlato = batchRow[0]?.ogActual ?? null;
+      }
+
       // 3. PROCESS each line
       for (const line of lines) {
         const requestedQty = Number(line.requestedQty);
@@ -990,12 +1004,19 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
           });
 
           // Set remaining_qty = requestedQty (full lot available)
+          // Also snapshot excise data from batch (if not already set from creation)
           await tx
             .update(stockIssueLines)
             .set({
               issuedQty: String(requestedQty),
               totalCost: String(lineTotalCost),
               remainingQty: String(requestedQty),
+              ...(issue.batchId && !line.receiptBatchId
+                ? {
+                    plato: receiptPlato,
+                    receiptBatchId: issue.batchId,
+                  }
+                : {}),
             })
             .where(eq(stockIssueLines.id, line.id));
 

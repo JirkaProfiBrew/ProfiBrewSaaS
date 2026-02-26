@@ -21,6 +21,8 @@ export type {
   CreateExciseMovementInput,
   UpdateExciseMovementInput,
   ExciseMovementFilter,
+  ExcisePrevalidationError,
+  ExcisePrevalidationResult,
 } from "./types";
 
 export { DEFAULT_EXCISE_SETTINGS } from "./types";

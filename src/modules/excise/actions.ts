@@ -25,6 +25,8 @@ import type {
   ExciseMovementFilter,
   ExciseDashboardData,
   TaxDetailEntry,
+  ExcisePrevalidationError,
+  ExcisePrevalidationResult,
 } from "./types";
 import { DEFAULT_EXCISE_SETTINGS } from "./types";
 
@@ -293,6 +295,43 @@ export async function getExciseMovement(id: string): Promise<ExciseMovement> {
   });
 }
 
+/**
+ * Get all excise movements linked to a batch.
+ * Used by ExciseBatchCard to show real movement data.
+ */
+export async function getExciseMovementsForBatch(
+  batchId: string
+): Promise<ExciseMovement[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        ...getTableColumns(exciseMovements),
+        batchNumber: batches.batchNumber,
+        stockIssueCode: stockIssues.code,
+        warehouseName: warehouses.name,
+      })
+      .from(exciseMovements)
+      .leftJoin(batches, eq(exciseMovements.batchId, batches.id))
+      .leftJoin(stockIssues, eq(exciseMovements.stockIssueId, stockIssues.id))
+      .leftJoin(warehouses, eq(exciseMovements.warehouseId, warehouses.id))
+      .where(
+        and(
+          eq(exciseMovements.batchId, batchId),
+          eq(exciseMovements.tenantId, tenantId)
+        )
+      )
+      .orderBy(desc(exciseMovements.date));
+
+    return rows.map((r) =>
+      mapMovementRow(r, {
+        batchNumber: r.batchNumber,
+        stockIssueCode: r.stockIssueCode,
+        warehouseName: r.warehouseName,
+      })
+    );
+  });
+}
+
 export async function createExciseMovement(
   data: CreateExciseMovementInput
 ): Promise<ExciseMovement> {
@@ -448,6 +487,205 @@ export async function resolveExcisePlato(
   return { plato: null, source: null };
 }
 
+// ── Stock Issue Pre-validation ─────────────────────────────────
+
+/**
+ * Pre-validates excise prerequisites for a stock issue BEFORE confirmation.
+ * Called from StockIssueConfirmDialog to block confirmation if excise data is incomplete.
+ * Returns applicable=false if the warehouse is not excise-relevant (no checks needed).
+ */
+export async function prevalidateExciseForStockIssue(
+  issueId: string
+): Promise<ExcisePrevalidationResult> {
+  return withTenant(async (tenantId) => {
+    // Load issue to get warehouse + batch
+    const issueRows = await db
+      .select({
+        warehouseId: stockIssues.warehouseId,
+        batchId: stockIssues.batchId,
+        movementType: stockIssues.movementType,
+        movementPurpose: stockIssues.movementPurpose,
+      })
+      .from(stockIssues)
+      .where(
+        and(eq(stockIssues.tenantId, tenantId), eq(stockIssues.id, issueId))
+      )
+      .limit(1);
+
+    const issue = issueRows[0];
+    if (!issue) return { applicable: false, errors: [] };
+
+    // Check if warehouse is excise relevant
+    const whRows = await db
+      .select({ isExciseRelevant: warehouses.isExciseRelevant })
+      .from(warehouses)
+      .where(eq(warehouses.id, issue.warehouseId))
+      .limit(1);
+
+    if (!whRows[0]?.isExciseRelevant) {
+      return { applicable: false, errors: [] };
+    }
+
+    // Warehouse IS excise-relevant → run all checks
+    const errors: ExcisePrevalidationError[] = [];
+
+    // 1. Excise enabled?
+    const settings = await getTenantExciseSettings(tenantId);
+    if (!settings.excise_enabled) {
+      errors.push({
+        code: "excise_not_enabled",
+        detail: "Nastavení → Spotřební daň → zapnout evidenci",
+      });
+    }
+
+    // 2. Brewery category set?
+    if (!settings.excise_brewery_category) {
+      errors.push({
+        code: "no_brewery_category",
+        detail: "Nastavení → Spotřební daň → vybrat kategorii pivovaru",
+      });
+    }
+
+    // 3. Excise rate exists for the category?
+    if (settings.excise_brewery_category) {
+      const rate = await getCurrentExciseRate(
+        tenantId,
+        settings.excise_brewery_category
+      );
+      if (!rate) {
+        errors.push({
+          code: "no_excise_rate",
+          detail: `Sazba pro kategorii ${settings.excise_brewery_category} nenalezena`,
+        });
+      }
+    }
+
+    // 4. At least one excise-relevant item on the lines?
+    const lines = await db
+      .select({
+        isExciseRelevant: items.isExciseRelevant,
+      })
+      .from(stockIssueLines)
+      .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+      .where(
+        and(
+          eq(stockIssueLines.stockIssueId, issueId),
+          eq(stockIssueLines.tenantId, tenantId)
+        )
+      );
+
+    const exciseLines = lines.filter((l) => l.isExciseRelevant);
+    if (exciseLines.length === 0) {
+      // Not an error — just means no excise movement will be created
+      return { applicable: false, errors: [] };
+    }
+
+    // 5. Plato resolvable? (for production receipts with batch)
+    if (issue.batchId) {
+      const { plato } = await resolveExcisePlato(issue.batchId, tenantId);
+      if (plato === null) {
+        errors.push({
+          code: "no_plato",
+          detail: "Várka nemá zadanou stupňovitost (OG)",
+        });
+      }
+    }
+
+    return { applicable: true, errors };
+  });
+}
+
+/**
+ * Pre-validates excise prerequisites for a batch BEFORE creating a production receipt.
+ * Called from BatchBottlingTab "Naskladnit pivo?" dialog.
+ * Finds the target warehouse by looking at excise-relevant warehouses for this tenant.
+ */
+export async function prevalidateExciseForBatch(
+  batchId: string
+): Promise<ExcisePrevalidationResult> {
+  return withTenant(async (tenantId) => {
+    // Load batch to get item
+    const batchRows = await db
+      .select({ itemId: batches.itemId })
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const batch = batchRows[0];
+    if (!batch?.itemId) return { applicable: false, errors: [] };
+
+    // Check if production item is excise-relevant
+    const itemRows = await db
+      .select({ isExciseRelevant: items.isExciseRelevant })
+      .from(items)
+      .where(eq(items.id, batch.itemId))
+      .limit(1);
+
+    if (!itemRows[0]?.isExciseRelevant) {
+      return { applicable: false, errors: [] };
+    }
+
+    // Check if tenant has ANY excise-relevant warehouse
+    const whRows = await db
+      .select({ id: warehouses.id })
+      .from(warehouses)
+      .where(
+        and(
+          eq(warehouses.tenantId, tenantId),
+          eq(warehouses.isExciseRelevant, true),
+          eq(warehouses.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (whRows.length === 0) {
+      return { applicable: false, errors: [] };
+    }
+
+    // Item IS excise-relevant and there are excise warehouses → run checks
+    const errors: ExcisePrevalidationError[] = [];
+
+    const settings = await getTenantExciseSettings(tenantId);
+    if (!settings.excise_enabled) {
+      errors.push({
+        code: "excise_not_enabled",
+        detail: "Nastavení → Spotřební daň → zapnout evidenci",
+      });
+    }
+
+    if (!settings.excise_brewery_category) {
+      errors.push({
+        code: "no_brewery_category",
+        detail: "Nastavení → Spotřební daň → vybrat kategorii pivovaru",
+      });
+    }
+
+    if (settings.excise_brewery_category) {
+      const rate = await getCurrentExciseRate(
+        tenantId,
+        settings.excise_brewery_category
+      );
+      if (!rate) {
+        errors.push({
+          code: "no_excise_rate",
+          detail: `Sazba pro kategorii ${settings.excise_brewery_category} nenalezena`,
+        });
+      }
+    }
+
+    // Plato resolvable?
+    const { plato } = await resolveExcisePlato(batchId, tenantId);
+    if (plato === null) {
+      errors.push({
+        code: "no_plato",
+        detail: "Várka nemá zadanou stupňovitost (OG)",
+      });
+    }
+
+    return { applicable: true, errors };
+  });
+}
+
 // ── Stock Issue Integration ───────────────────────────────────
 
 /**
@@ -477,32 +715,6 @@ export async function createExciseMovementFromStockIssue(
   // Check excise_enabled in settings
   const settings = await getTenantExciseSettings(tenantId);
   if (!settings.excise_enabled) return;
-
-  // Load issue lines, filter by excise-relevant items
-  const lines = await db
-    .select({
-      requestedQty: stockIssueLines.requestedQty,
-      isExciseRelevant: items.isExciseRelevant,
-    })
-    .from(stockIssueLines)
-    .innerJoin(items, eq(stockIssueLines.itemId, items.id))
-    .where(
-      and(
-        eq(stockIssueLines.stockIssueId, issueId),
-        eq(stockIssueLines.tenantId, tenantId)
-      )
-    );
-
-  const exciseLines = lines.filter((l) => l.isExciseRelevant);
-  if (exciseLines.length === 0) return;
-
-  // Calculate total volume in HL (sum requestedQty of excise items / 100)
-  const totalVolumeHl = exciseLines.reduce(
-    (sum, l) => sum + Number(l.requestedQty) / 100,
-    0
-  );
-
-  if (totalVolumeHl <= 0) return;
 
   // Determine movementType and direction from issue type/purpose
   let movementType: string;
@@ -539,19 +751,11 @@ export async function createExciseMovementFromStockIssue(
     movementType = "transfer_out";
     direction = "out";
   } else if (issueMovementType === "issue") {
-    // Default for other issue purposes
     movementType = "release";
     direction = "out";
   } else {
-    // Unknown combination — skip
     return;
   }
-
-  // Resolve plato from batch
-  const { plato, source: platoSource } = await resolveExcisePlato(
-    issueBatchId,
-    tenantId
-  );
 
   // Get rate from excise_rates
   const rate = await getCurrentExciseRate(
@@ -559,48 +763,212 @@ export async function createExciseMovementFromStockIssue(
     settings.excise_brewery_category
   );
 
-  // Calculate tax (only for release movements)
-  let taxRate: string | null = null;
-  let taxAmount: string | null = null;
+  // Is this movement type the taxable point per tenant settings?
+  const isTaxable =
+    (settings.excise_tax_point === "production" &&
+      movementType === "production") ||
+    (settings.excise_tax_point === "release" && movementType === "release");
 
-  if (movementType === "release" && plato && rate) {
-    taxRate = rate.ratePerPlatoHl;
-    taxAmount = String(totalVolumeHl * plato * Number(rate.ratePerPlatoHl));
-  }
+  const period = issueDate.substring(0, 7);
 
-  // Derive period from issue date
-  const period = issueDate.substring(0, 7); // "YYYY-MM"
-
-  // Insert excise movement with status 'confirmed'
-  await db.insert(exciseMovements).values({
-    tenantId,
-    batchId: issueBatchId ?? null,
-    stockIssueId: issueId,
-    warehouseId,
-    movementType,
-    volumeHl: String(totalVolumeHl),
-    direction,
-    plato: plato !== null ? String(plato) : null,
-    platoSource: platoSource ?? null,
-    taxRate,
-    taxAmount,
-    date: issueDate,
-    period,
-    status: "confirmed",
-  });
-
-  // Update batch excise fields if batchId present
-  if (issueBatchId) {
-    await db
-      .update(batches)
-      .set({
-        exciseRelevantHl: sql`COALESCE(${batches.exciseRelevantHl}, '0')::numeric + ${String(totalVolumeHl)}::numeric`,
-        exciseStatus: "pending",
-        updatedAt: sql`now()`,
+  if (issueMovementType === "receipt") {
+    // ── RECEIPT PATH (production, transfer_in) ──
+    // Plato + batchId are stored directly on receipt lines
+    const receiptLines = await db
+      .select({
+        requestedQty: stockIssueLines.requestedQty,
+        plato: stockIssueLines.plato,
+        receiptBatchId: stockIssueLines.receiptBatchId,
+        isExciseRelevant: items.isExciseRelevant,
       })
+      .from(stockIssueLines)
+      .innerJoin(items, eq(stockIssueLines.itemId, items.id))
       .where(
-        and(eq(batches.id, issueBatchId), eq(batches.tenantId, tenantId))
+        and(
+          eq(stockIssueLines.stockIssueId, issueId),
+          eq(stockIssueLines.tenantId, tenantId)
+        )
       );
+
+    const exciseLines = receiptLines.filter((l) => l.isExciseRelevant);
+    if (exciseLines.length === 0) return;
+
+    const totalVolumeHl = exciseLines.reduce(
+      (sum, l) => sum + Number(l.requestedQty) / 100,
+      0
+    );
+    if (totalVolumeHl <= 0) return;
+
+    // For receipts, all lines come from the same batch
+    const linePlato = exciseLines[0]?.plato
+      ? Number(exciseLines[0].plato)
+      : null;
+    const effectiveBatchId =
+      exciseLines[0]?.receiptBatchId ?? issueBatchId;
+
+    // Fallback: if line has no plato (pre-migration data), resolve from batch
+    let plato = linePlato;
+    let platoSource: string | null = linePlato ? "batch_measurement" : null;
+    if (plato === null && effectiveBatchId) {
+      const resolved = await resolveExcisePlato(effectiveBatchId, tenantId);
+      plato = resolved.plato;
+      platoSource = resolved.source;
+    }
+
+    let taxRate: string | null = null;
+    let taxAmount: string | null = null;
+    if (isTaxable && plato && rate) {
+      taxRate = rate.ratePerPlatoHl;
+      taxAmount = String(totalVolumeHl * plato * Number(rate.ratePerPlatoHl));
+    }
+
+    await db.insert(exciseMovements).values({
+      tenantId,
+      batchId: effectiveBatchId ?? null,
+      stockIssueId: issueId,
+      warehouseId,
+      movementType,
+      volumeHl: String(totalVolumeHl),
+      direction,
+      plato: plato !== null ? String(plato) : null,
+      platoSource,
+      taxRate,
+      taxAmount,
+      date: issueDate,
+      period,
+      status: "confirmed",
+    });
+
+    // Update batch excise fields
+    if (effectiveBatchId) {
+      await db
+        .update(batches)
+        .set({
+          exciseRelevantHl: sql`COALESCE(${batches.exciseRelevantHl}, '0')::numeric + ${String(totalVolumeHl)}::numeric`,
+          exciseStatus: "pending",
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(batches.id, effectiveBatchId),
+            eq(batches.tenantId, tenantId)
+          )
+        );
+    }
+  } else {
+    // ── ISSUE PATH (release, destruction, transfer_out) ──
+    // Get plato + batchId per source batch from FIFO allocations.
+    // stock_movements (out) → receipt_line (plato, batch_id) → GROUP BY batch
+    const batchGroupRows = await db.execute(sql`
+      SELECT rl.batch_id, rl.plato,
+             SUM(ABS(sm.quantity::numeric)) AS total_qty_liters
+      FROM stock_movements sm
+      JOIN stock_issue_lines rl ON rl.id = sm.receipt_line_id
+      JOIN items i ON i.id = sm.item_id
+      WHERE sm.stock_issue_id = ${issueId}
+        AND sm.tenant_id = ${tenantId}
+        AND sm.movement_type = 'out'
+        AND i.is_excise_relevant = true
+      GROUP BY rl.batch_id, rl.plato
+    `);
+
+    const batchGroups = batchGroupRows as unknown as Array<{
+      batch_id: string | null;
+      plato: string | null;
+      total_qty_liters: string;
+    }>;
+
+    if (batchGroups.length === 0) {
+      // Fallback: no FIFO data (e.g. pre-migration movements without receipt_line_id)
+      const lines = await db
+        .select({
+          requestedQty: stockIssueLines.requestedQty,
+          isExciseRelevant: items.isExciseRelevant,
+        })
+        .from(stockIssueLines)
+        .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+        .where(
+          and(
+            eq(stockIssueLines.stockIssueId, issueId),
+            eq(stockIssueLines.tenantId, tenantId)
+          )
+        );
+
+      const exciseLines = lines.filter((l) => l.isExciseRelevant);
+      if (exciseLines.length === 0) return;
+
+      const totalVolumeHl = exciseLines.reduce(
+        (sum, l) => sum + Number(l.requestedQty) / 100,
+        0
+      );
+      if (totalVolumeHl <= 0) return;
+
+      const { plato, source } = await resolveExcisePlato(
+        issueBatchId,
+        tenantId
+      );
+
+      let taxRate: string | null = null;
+      let taxAmount: string | null = null;
+      if (isTaxable && plato && rate) {
+        taxRate = rate.ratePerPlatoHl;
+        taxAmount = String(
+          totalVolumeHl * plato * Number(rate.ratePerPlatoHl)
+        );
+      }
+
+      await db.insert(exciseMovements).values({
+        tenantId,
+        batchId: issueBatchId ?? null,
+        stockIssueId: issueId,
+        warehouseId,
+        movementType,
+        volumeHl: String(totalVolumeHl),
+        direction,
+        plato: plato !== null ? String(plato) : null,
+        platoSource: source ?? null,
+        taxRate,
+        taxAmount,
+        date: issueDate,
+        period,
+        status: "confirmed",
+      });
+      return;
+    }
+
+    // Create one excise movement per source batch (different °P)
+    for (const group of batchGroups) {
+      const volumeHl = Number(group.total_qty_liters) / 100;
+      if (volumeHl <= 0) continue;
+
+      const plato = group.plato ? Number(group.plato) : null;
+
+      let taxRate: string | null = null;
+      let taxAmount: string | null = null;
+      if (isTaxable && plato && rate) {
+        taxRate = rate.ratePerPlatoHl;
+        taxAmount = String(
+          volumeHl * plato * Number(rate.ratePerPlatoHl)
+        );
+      }
+
+      await db.insert(exciseMovements).values({
+        tenantId,
+        batchId: group.batch_id ?? null,
+        stockIssueId: issueId,
+        warehouseId,
+        movementType,
+        volumeHl: String(volumeHl),
+        direction,
+        plato: plato !== null ? String(plato) : null,
+        platoSource: plato ? "batch_measurement" : null,
+        taxRate,
+        taxAmount,
+        date: issueDate,
+        period,
+        status: "confirmed",
+      });
+    }
   }
 }
 

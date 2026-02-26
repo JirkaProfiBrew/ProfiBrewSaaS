@@ -59,7 +59,8 @@
         "warehouseId": "Sklad",
         "description": "Popis",
         "notes": "Poznámka",
-        "status": "Stav"
+        "status": "Stav",
+        "direction": "Směr"
       },
       "platoSource": {
         "batch_measurement": "Z měření na várce",
@@ -163,10 +164,23 @@
     "exciseTitle": "Spotřební daň",
     "volume": "Objem",
     "plato": "Stupňovitost",
+    "rate": "Sazba",
+    "tax": "Daň",
     "exciseStatus": {
       "none": "Neevidováno",
+      "pending": "Čeká na potvrzení",
       "recorded": "Evidováno",
       "reported": "Nahlášeno"
     }
+  },
+  "prevalidation": {
+    "title": "Nelze potvrdit — chybí nastavení spotřební daně",
+    "checking": "Kontrola spotřební daně…",
+    "excise_not_enabled": "Evidence spotřební daně není zapnutá",
+    "no_brewery_category": "Není nastavena kategorie pivovaru",
+    "no_excise_rate": "Nenalezena platná sazba pro danou kategorii",
+    "no_excise_items": "Žádná položka na dokladu není označena jako daňově relevantní",
+    "no_plato": "Várka nemá zadanou stupňovitost (OG)",
+    "willCreate": "Bude automaticky vytvořen daňový pohyb (spotřební daň)."
   }
 }
