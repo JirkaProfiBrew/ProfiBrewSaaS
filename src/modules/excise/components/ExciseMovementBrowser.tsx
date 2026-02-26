@@ -3,11 +3,9 @@
 import React, { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
-import { Button } from "@/components/ui/button";
 
 import { exciseMovementBrowserConfig } from "../config";
 import { useExciseMovements } from "../hooks";
@@ -246,7 +244,7 @@ export function ExciseMovementBrowser(): React.ReactNode {
           };
         }),
       })),
-      actions: { create: { label: "", enabled: false }, bulkDelete: false, rowClick: "detail" as const },
+      actions: { ...exciseMovementBrowserConfig.actions, create: { label: t("movements.create"), enabled: true } },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, currentPeriod, previousPeriod]
@@ -291,20 +289,9 @@ export function ExciseMovementBrowser(): React.ReactNode {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t("movements.title")}
-        </h1>
-        <Button
-          size="sm"
-          onClick={() => {
-            router.push("/stock/excise/new");
-          }}
-        >
-          <Plus className="size-4" />
-          {t("movements.create")}
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight">
+        {t("movements.title")}
+      </h1>
       <DataBrowser
         config={localizedConfig}
         data={pageData}
