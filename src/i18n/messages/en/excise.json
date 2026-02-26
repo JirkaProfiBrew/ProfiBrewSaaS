@@ -37,6 +37,8 @@
       "all": "All",
       "in": "Inbound",
       "out": "Outbound",
+      "confirmed": "Confirmed",
+      "reported": "Reported",
       "thisMonth": "This Month",
       "lastMonth": "Last Month"
     },

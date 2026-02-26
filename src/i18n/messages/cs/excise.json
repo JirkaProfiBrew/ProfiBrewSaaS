@@ -37,6 +37,8 @@
       "all": "Vše",
       "in": "Příjmy",
       "out": "Výdeje",
+      "confirmed": "Potvrzené",
+      "reported": "Reportované",
       "thisMonth": "Tento měsíc",
       "lastMonth": "Minulý měsíc"
     },
