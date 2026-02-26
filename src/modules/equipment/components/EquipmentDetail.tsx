@@ -11,6 +11,8 @@ import { FormSection } from "@/components/forms";
 import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewAction } from "@/components/detail-view";
 
+import { useShops } from "@/modules/shops/hooks";
+
 import { useEquipmentItem } from "../hooks";
 import { createEquipment, updateEquipment, deleteEquipment } from "../actions";
 
@@ -27,12 +29,13 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
 
   const isNew = id === "new";
   const { data: equipmentItem, isLoading } = useEquipmentItem(id);
+  const { data: shopList } = useShops();
 
   const [values, setValues] = useState<Record<string, unknown>>({
     name: "",
     equipmentType: "",
     volumeL: null,
-    shopId: null,
+    shopId: "__none__",
     status: "available",
     notes: null,
     isActive: true,
@@ -47,7 +50,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         name: equipmentItem.name,
         equipmentType: equipmentItem.equipmentType,
         volumeL: equipmentItem.volumeL,
-        shopId: equipmentItem.shopId,
+        shopId: equipmentItem.shopId ?? "__none__",
         status: equipmentItem.status,
         notes: equipmentItem.notes,
         isActive: equipmentItem.isActive,
@@ -56,6 +59,14 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
   }, [equipmentItem]);
 
   const mode: FormMode = isNew ? "create" : "edit";
+
+  const shopOptions = useMemo(
+    () => [
+      { value: "__none__", label: t("detail.fields.noShop") },
+      ...shopList.map((s) => ({ value: s.id, label: s.name })),
+    ],
+    [shopList, t]
+  );
 
   // Form section definition
   const formSection: FormSectionDef = useMemo(
@@ -97,9 +108,8 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         {
           key: "shopId",
           label: t("detail.fields.shopId"),
-          type: "text",
-          placeholder: t("detail.fields.shopId"),
-          helpText: t("detail.fields.shopIdHelp"),
+          type: "select",
+          options: shopOptions,
         },
         {
           key: "status",
@@ -126,7 +136,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         },
       ],
     }),
-    [t, isNew]
+    [t, isNew, shopOptions]
   );
 
   const handleChange = useCallback(
@@ -167,7 +177,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           name: String(values.name),
           equipmentType: String(values.equipmentType),
           volumeL: values.volumeL ? String(values.volumeL) : null,
-          shopId: values.shopId ? String(values.shopId) : null,
+          shopId: values.shopId && String(values.shopId) !== "__none__" ? String(values.shopId) : null,
           status: String(values.status ?? "available"),
           properties: {},
           notes: values.notes ? String(values.notes) : null,
@@ -178,7 +188,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           name: String(values.name),
           equipmentType: String(values.equipmentType),
           volumeL: values.volumeL ? String(values.volumeL) : null,
-          shopId: values.shopId ? String(values.shopId) : null,
+          shopId: values.shopId && String(values.shopId) !== "__none__" ? String(values.shopId) : null,
           status: String(values.status ?? "available"),
           properties: {},
           notes: values.notes ? String(values.notes) : null,

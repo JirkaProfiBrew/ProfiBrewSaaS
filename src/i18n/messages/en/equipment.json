@@ -45,6 +45,7 @@
       "volumeL": "Capacity (liters)",
       "shopId": "Location",
       "shopIdHelp": "Location ID (will be connected to shops directory)",
+      "noShop": "— no shop —",
       "status": "Status",
       "notes": "Notes",
       "isActive": "Active"

@@ -139,7 +139,13 @@
     "linked": "Cash flow vytvořen",
     "viewCashflow": "Zobrazit cash flow",
     "noCashflow": "Cash flow zatím nebyl vytvořen",
-    "createHint": "Vytvořte cash flow po doručení objednávky"
+    "createHint": "Vytvořte cash flow po doručení objednávky",
+    "createTitle": "Vytvořit pohledávku",
+    "createDescription": "Z objednávky bude vytvořen záznam cash flow (pohledávka).",
+    "created": "Pohledávka vytvořena",
+    "creating": "Vytvářím…",
+    "alreadyExists": "Cash flow pro tuto objednávku již existuje",
+    "createFailed": "Nepodařilo se vytvořit cash flow"
   },
   "cancelDialog": {
     "title": "Stornovat objednávku?",

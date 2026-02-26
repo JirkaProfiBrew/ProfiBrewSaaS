@@ -184,8 +184,8 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {demandBreakdown.map((row) => (
-                <TableRow key={`${row.source}-${row.sourceId}`}>
+              {demandBreakdown.map((row, idx) => (
+                <TableRow key={`${row.source}-${row.sourceId}-${idx}`}>
                   <TableCell>
                     <Badge
                       variant="outline"
@@ -223,6 +223,11 @@ export function ItemStockTab({ itemId }: ItemStockTabProps): React.ReactNode {
                   </TableCell>
                   <TableCell className="text-right font-mono text-red-600 font-semibold">
                     {row.remainingQty.toLocaleString("cs-CZ")}
+                    {row.childDetail && (
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        ({row.childDetail})
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

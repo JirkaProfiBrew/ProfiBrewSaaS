@@ -1214,7 +1214,7 @@ export async function createProductionReceipt(
         }
 
         // 4. Resolve warehouse from shop settings
-        const settings = await getShopSettingsForBatch(tenantId, tx);
+        const settings = await getShopSettingsForBatch(tenantId, tx, batchId);
         const productionUnitPrice = await getProductionUnitPrice(tenantId, batchId, settings, tx);
         const warehouseId =
           settings.default_warehouse_beer_id ??
@@ -2076,9 +2076,52 @@ type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** Resolve shop settings for a batch — uses default/first active shop for the tenant. */
 export async function getShopSettingsForBatch(
   tenantId: string,
-  txOrDb?: TxType | typeof db
+  txOrDb?: TxType | typeof db,
+  batchId?: string
 ): Promise<ResolvedShopSettings> {
   const executor = txOrDb ?? db;
+
+  // Try to resolve shop via batch → equipment → shop chain
+  if (batchId) {
+    const batchRow = await executor
+      .select({ equipmentId: batches.equipmentId })
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    if (batchRow[0]?.equipmentId) {
+      const equipRow = await executor
+        .select({ shopId: equipment.shopId })
+        .from(equipment)
+        .where(eq(equipment.id, batchRow[0].equipmentId))
+        .limit(1);
+
+      if (equipRow[0]?.shopId) {
+        const shopRow = await executor
+          .select({ settings: shops.settings })
+          .from(shops)
+          .where(
+            and(
+              eq(shops.tenantId, tenantId),
+              eq(shops.id, equipRow[0].shopId),
+              eq(shops.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (shopRow[0]) {
+          const raw = shopRow[0].settings as Record<string, unknown> | null;
+          return {
+            stock_mode: (raw?.stock_mode as ResolvedShopSettings["stock_mode"]) ?? "packaged",
+            default_warehouse_beer_id: raw?.default_warehouse_beer_id as string | undefined,
+            beer_pricing_mode: (raw?.beer_pricing_mode as ResolvedShopSettings["beer_pricing_mode"]) ?? "fixed",
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback: default shop for the tenant
   const shopRows = await executor
     .select({ settings: shops.settings })
     .from(shops)
@@ -2259,8 +2302,8 @@ export async function getBottlingLines(
     const batch = batchRows[0];
     if (!batch) return { mode: "none" as const, lines: [], receiptInfo: null, bottledDate: null, shelfLifeDays: null, productionPrice: null, pricingMode: null };
 
-    // Resolve shop settings
-    const settings = await getShopSettingsForBatch(tenantId);
+    // Resolve shop settings via batch → equipment → shop, fallback to default
+    const settings = await getShopSettingsForBatch(tenantId, undefined, batchId);
 
     if (settings.stock_mode === "none") {
       return { mode: "none" as const, lines: [], receiptInfo: null, bottledDate: null, shelfLifeDays: null, productionPrice: null, pricingMode: null };

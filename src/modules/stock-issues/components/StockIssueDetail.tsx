@@ -138,8 +138,13 @@ export function StockIssueDetail({
   const paramBatchId = searchParams.get("batchId");
   const paramBatchNumber = searchParams.get("batchNumber");
   const paramTab = searchParams.get("tab");
+  const paramFrom = searchParams.get("from");
   const fromBatch = Boolean(paramBatchId && paramBatchNumber);
-  const batchBackHref = fromBatch ? `/brewery/batches/${paramBatchId}?tab=${paramTab ?? "ingredients"}` : null;
+  const batchBackHref = paramFrom
+    ? paramFrom
+    : fromBatch
+      ? `/brewery/batches/${paramBatchId}?tab=${paramTab ?? "ingredients"}`
+      : null;
 
   const { data: issueDetail, isLoading, error: loadError, mutate } = useStockIssueDetail(
     isNew ? "" : id

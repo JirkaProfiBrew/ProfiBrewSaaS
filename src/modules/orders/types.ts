@@ -37,6 +37,7 @@ export interface Order {
   totalDeposit: string;
   currency: string;
   stockIssueId: string | null;
+  stockIssueStatus: string | null;
   cashflowId: string | null;
   notes: string | null;
   internalNotes: string | null;

@@ -357,6 +357,7 @@ export async function getItemsWithStock(
     const itemIds = rows.map((r) => r.item.id);
 
     // 2) Order demand per item — unfulfilled order_items from active orders
+    //    Respects warehouse mode: bulk-warehouse demands redirect to base item
     const orderDemandMap = new Map<string, number>();
 
     const activeOrderItems = await db
@@ -364,6 +365,7 @@ export async function getItemsWithStock(
         id: orderItems.id,
         itemId: orderItems.itemId,
         quantity: orderItems.quantity,
+        warehouseId: orders.warehouseId,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orderItems.orderId, orders.id))
@@ -374,6 +376,56 @@ export async function getItemsWithStock(
           sql`${orders.status} IN ('confirmed', 'in_preparation', 'shipped')`
         )
       );
+
+    // Determine which warehouses are in "bulk" mode
+    const { warehouses: warehousesTable } = await import("@/../drizzle/schema/warehouses");
+    const { shops } = await import("@/../drizzle/schema/shops");
+
+    const orderWarehouseIds = [...new Set(
+      activeOrderItems.map((r) => r.warehouseId).filter(Boolean)
+    )] as string[];
+
+    const bulkWarehouseIds = new Set<string>();
+    if (orderWarehouseIds.length > 0) {
+      const whShopRows = await db
+        .select({ id: warehousesTable.id, shopId: warehousesTable.shopId })
+        .from(warehousesTable)
+        .where(inArray(warehousesTable.id, orderWarehouseIds));
+
+      const whShopIds = [...new Set(
+        whShopRows.map((r) => r.shopId).filter(Boolean)
+      )] as string[];
+
+      if (whShopIds.length > 0) {
+        const shopSettingsRows = await db
+          .select({ id: shops.id, settings: shops.settings })
+          .from(shops)
+          .where(inArray(shops.id, whShopIds));
+
+        const bulkShopIds = new Set<string>();
+        for (const s of shopSettingsRows) {
+          const raw = s.settings as Record<string, unknown> | null;
+          if (raw?.stock_mode === "bulk") bulkShopIds.add(s.id);
+        }
+
+        for (const wh of whShopRows) {
+          if (wh.shopId && bulkShopIds.has(wh.shopId)) {
+            bulkWarehouseIds.add(wh.id);
+          }
+        }
+      }
+    }
+
+    // Build baseItemId → baseItemQuantity map for child items in the result set
+    const childItemBaseMap = new Map<string, { baseItemId: string; baseItemQty: number }>();
+    for (const r of rows) {
+      if (r.item.baseItemId && r.item.baseItemQuantity) {
+        childItemBaseMap.set(r.item.id, {
+          baseItemId: r.item.baseItemId,
+          baseItemQty: Number(r.item.baseItemQuantity),
+        });
+      }
+    }
 
     if (activeOrderItems.length > 0) {
       const oiIds = activeOrderItems.map((r) => r.id);
@@ -404,7 +456,20 @@ export async function getItemsWithStock(
         const required = Number(oi.quantity);
         const issued = oiIssuedMap.get(oi.id) ?? 0;
         const remaining = Math.max(0, required - issued);
-        if (remaining > 0) {
+        if (remaining <= 0) continue;
+
+        // If order is on a bulk warehouse and item is a child → redirect to base item
+        const isBulkOrder = oi.warehouseId && bulkWarehouseIds.has(oi.warehouseId);
+        const childInfo = childItemBaseMap.get(oi.itemId);
+
+        if (isBulkOrder && childInfo) {
+          // Convert packaged qty to base units and assign to base item
+          const baseRemaining = Math.round(remaining * childInfo.baseItemQty * 100) / 100;
+          orderDemandMap.set(
+            childInfo.baseItemId,
+            (orderDemandMap.get(childInfo.baseItemId) ?? 0) + baseRemaining
+          );
+        } else {
           orderDemandMap.set(
             oi.itemId,
             (orderDemandMap.get(oi.itemId) ?? 0) + remaining
@@ -509,42 +574,94 @@ export async function getItemStockByWarehouse(
 }> {
   return withTenant(async (tenantId) => {
     const { stockStatus } = await import("@/../drizzle/schema/stock");
-    const { warehouses } = await import("@/../drizzle/schema/warehouses");
+    const { warehouses: warehousesTable } = await import("@/../drizzle/schema/warehouses");
+    const { shops } = await import("@/../drizzle/schema/shops");
 
-    const [stockRows, demand] = await Promise.all([
-      db
-        .select({
-          warehouseId: stockStatus.warehouseId,
-          warehouseName: warehouses.name,
-          quantity: stockStatus.quantity,
-        })
-        .from(stockStatus)
-        .innerJoin(warehouses, eq(stockStatus.warehouseId, warehouses.id))
-        .where(
-          and(
-            eq(stockStatus.tenantId, tenantId),
-            eq(stockStatus.itemId, itemId)
-          )
+    // 1. Get per-warehouse stock quantities
+    const stockRows = await db
+      .select({
+        warehouseId: stockStatus.warehouseId,
+        warehouseName: warehousesTable.name,
+        quantity: stockStatus.quantity,
+        shopId: warehousesTable.shopId,
+      })
+      .from(stockStatus)
+      .innerJoin(warehousesTable, eq(stockStatus.warehouseId, warehousesTable.id))
+      .where(
+        and(
+          eq(stockStatus.tenantId, tenantId),
+          eq(stockStatus.itemId, itemId)
         )
-        .orderBy(warehouses.name),
-      getDemandBreakdown(itemId),
-    ]);
+      )
+      .orderBy(warehousesTable.name);
 
-    // Total stock across all warehouses
-    const totalQty = stockRows.reduce(
-      (sum, r) => sum + Number(r.quantity ?? "0"),
-      0
-    );
-    const demandedTotal = demand.totalDemanded;
+    if (stockRows.length === 0) {
+      return { warehouses: [], demandBreakdown: [] };
+    }
+
+    const warehouseIds = stockRows.map((r) => r.warehouseId);
+
+    // 2. Check if this item is a base/production item (has child items)
+    // and check warehouse shop settings for bulk mode
+    const childItemRows = await db
+      .select({ id: items.id, baseItemQuantity: items.baseItemQuantity })
+      .from(items)
+      .where(
+        and(
+          eq(items.tenantId, tenantId),
+          eq(items.baseItemId, itemId),
+          eq(items.isActive, true)
+        )
+      );
+
+    // Determine which warehouses are in "bulk" mode via warehouse → shop → settings
+    const shopIds = [...new Set(stockRows.map((r) => r.shopId).filter(Boolean))] as string[];
+    let bulkShopIds: Set<string> = new Set();
+    if (shopIds.length > 0 && childItemRows.length > 0) {
+      const shopRows = await db
+        .select({ id: shops.id, settings: shops.settings })
+        .from(shops)
+        .where(and(eq(shops.tenantId, tenantId), inArray(shops.id, shopIds)));
+
+      for (const s of shopRows) {
+        const raw = s.settings as Record<string, unknown> | null;
+        if (raw?.stock_mode === "bulk") {
+          bulkShopIds.add(s.id);
+        }
+      }
+    }
+
+    // Build list of bulk warehouse IDs that should aggregate child item demands
+    const bulkWarehouseIds = stockRows
+      .filter((r) => r.shopId && bulkShopIds.has(r.shopId))
+      .map((r) => r.warehouseId);
+
+    // 3. Get demand breakdown filtered to these warehouses
+    //    For bulk warehouses, also include child item demands (converted to base units)
+    const includeChildItemIds = bulkWarehouseIds.length > 0
+      ? childItemRows.map((c) => c.id)
+      : [];
+
+    const demand = await getDemandBreakdown(itemId, {
+      warehouseIds: warehouseIds,
+      includeChildItemIds,
+    });
+
+    // 4. Assign demand per warehouse using warehouseId from each demand row
+    const perWarehouseDemand = new Map<string, number>();
+    for (const row of demand.rows) {
+      if (row.warehouseId && warehouseIds.includes(row.warehouseId)) {
+        perWarehouseDemand.set(
+          row.warehouseId,
+          (perWarehouseDemand.get(row.warehouseId) ?? 0) + row.remainingQty
+        );
+      }
+    }
 
     return {
       warehouses: stockRows.map((r) => {
         const qty = Number(r.quantity ?? "0");
-        // Distribute demand proportionally per warehouse by stock share
-        const warehouseDemand =
-          totalQty > 0
-            ? Math.round((qty / totalQty) * demandedTotal * 100) / 100
-            : demandedTotal;
+        const warehouseDemand = Math.round((perWarehouseDemand.get(r.warehouseId) ?? 0) * 100) / 100;
         const available = qty - warehouseDemand;
         return {
           warehouseId: r.warehouseId,
@@ -629,6 +746,9 @@ export interface DemandBreakdownRow {
   requiredQty: number;
   issuedQty: number;
   remainingQty: number;
+  warehouseId?: string | null;
+  /** When demand is aggregated from a child item to the base item, describes the original source */
+  childDetail?: string | null;
 }
 
 /**
@@ -638,7 +758,8 @@ export interface DemandBreakdownRow {
  * Issued qty is computed from confirmed stock_issue_lines linked by order_item_id / recipe_item_id.
  */
 export async function getDemandBreakdown(
-  itemId: string
+  itemId: string,
+  opts?: { warehouseIds?: string[]; includeChildItemIds?: string[] }
 ): Promise<{ totalDemanded: number; rows: DemandBreakdownRow[] }> {
   return withTenant(async (tenantId) => {
     const { orders, orderItems } = await import("@/../drizzle/schema/orders");
@@ -654,22 +775,34 @@ export async function getDemandBreakdown(
     const rows: DemandBreakdownRow[] = [];
 
     // ── 1. Order demand ──────────────────────────────────────────
+
+    // Build item IDs to query: direct item + optional child items (for bulk aggregation)
+    const demandItemIds = [itemId, ...(opts?.includeChildItemIds ?? [])];
+
+    const orderConditions = [
+      eq(orderItems.tenantId, tenantId),
+      demandItemIds.length === 1
+        ? eq(orderItems.itemId, itemId)
+        : inArray(orderItems.itemId, demandItemIds),
+      sql`${orders.status} IN ('confirmed', 'in_preparation', 'shipped')`,
+    ];
+
+    if (opts?.warehouseIds?.length) {
+      orderConditions.push(inArray(orders.warehouseId, opts.warehouseIds));
+    }
+
     const orderDemandRows = await db
       .select({
         orderItemId: orderItems.id,
         orderId: orders.id,
         orderNumber: orders.orderNumber,
         quantity: orderItems.quantity,
+        warehouseId: orders.warehouseId,
+        orderItemId2: orderItems.itemId,
       })
       .from(orderItems)
       .innerJoin(orders, eq(orderItems.orderId, orders.id))
-      .where(
-        and(
-          eq(orderItems.tenantId, tenantId),
-          eq(orderItems.itemId, itemId),
-          sql`${orders.status} IN ('confirmed', 'in_preparation', 'shipped')`
-        )
-      );
+      .where(and(...orderConditions));
 
     // Compute issued qty per order_item_id
     if (orderDemandRows.length > 0) {
@@ -700,11 +833,35 @@ export async function getDemandBreakdown(
         if (r.orderItemId) issuedMap.set(r.orderItemId, Number(r.totalIssued));
       }
 
+      // Build child-item → { baseItemQuantity, name } map for conversion + detail
+      const childItemIds = opts?.includeChildItemIds ?? [];
+      let childInfoMap: Map<string, { qty: number; name: string }> | null = null;
+      if (childItemIds.length > 0) {
+        const { items: itemsTable } = await import("@/../drizzle/schema/items");
+        const childRows = await db
+          .select({ id: itemsTable.id, baseItemQuantity: itemsTable.baseItemQuantity, name: itemsTable.name })
+          .from(itemsTable)
+          .where(inArray(itemsTable.id, childItemIds));
+        childInfoMap = new Map(childRows.map((c) => [c.id, { qty: Number(c.baseItemQuantity ?? 1), name: c.name }]));
+      }
+
       for (const od of orderDemandRows) {
-        const required = Number(od.quantity);
-        const issued = issuedMap.get(od.orderItemId) ?? 0;
+        // If this is a child item demand, convert quantity to base units
+        const isChildItem = od.orderItemId2 !== itemId && childInfoMap;
+        const childInfo = isChildItem ? childInfoMap!.get(od.orderItemId2!) : null;
+        const conversionFactor = childInfo ? childInfo.qty : 1;
+        const rawRequired = Number(od.quantity);
+        const required = Math.round(rawRequired * conversionFactor * 100) / 100;
+        const rawIssued = issuedMap.get(od.orderItemId) ?? 0;
+        const issued = Math.round(rawIssued * conversionFactor * 100) / 100;
         const remaining = Math.max(0, required - issued);
         if (remaining > 0) {
+          // Build detail string for aggregated child demands: "5.61 (17 × Tmavý ležák plex 330 ml)"
+          const rawRemaining = Math.max(0, rawRequired - rawIssued);
+          const childDetail = childInfo
+            ? `${rawRemaining} × ${childInfo.name}`
+            : null;
+
           rows.push({
             source: "order",
             sourceId: od.orderId,
@@ -712,6 +869,8 @@ export async function getDemandBreakdown(
             requiredQty: required,
             issuedQty: issued,
             remainingQty: remaining,
+            warehouseId: od.warehouseId,
+            childDetail,
           });
         }
       }

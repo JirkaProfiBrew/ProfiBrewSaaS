@@ -45,6 +45,7 @@
       "volumeL": "Kapacita (litry)",
       "shopId": "Provozovna",
       "shopIdHelp": "ID provozovny (bude připojeno k číselníku provozoven)",
+      "noShop": "— bez provozovny —",
       "status": "Stav",
       "notes": "Poznámky",
       "isActive": "Aktivní"

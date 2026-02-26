@@ -9,7 +9,7 @@ import { deposits } from "@/../drizzle/schema/deposits";
 import { units } from "@/../drizzle/schema/system";
 import { shops } from "@/../drizzle/schema/shops";
 import { warehouses } from "@/../drizzle/schema/warehouses";
-import { eq, and, sql, desc, ilike, or, gte, lte, count } from "drizzle-orm";
+import { eq, and, sql, desc, ilike, or, gte, lte, count, inArray } from "drizzle-orm";
 import { getNextNumber } from "@/lib/db/counters";
 import { updateReservedQtyRow } from "@/modules/stock-issues/lib/stock-status-sync";
 import {
@@ -31,7 +31,7 @@ import type {
 
 function mapOrderRow(
   row: typeof orders.$inferSelect,
-  joined?: { partnerName?: string | null; contactName?: string | null }
+  joined?: { partnerName?: string | null; contactName?: string | null; stockIssueStatus?: string | null }
 ): Order {
   return {
     id: row.id,
@@ -53,6 +53,7 @@ function mapOrderRow(
     totalDeposit: row.totalDeposit ?? "0",
     currency: row.currency ?? "CZK",
     stockIssueId: row.stockIssueId ?? null,
+    stockIssueStatus: joined?.stockIssueStatus ?? null,
     cashflowId: row.cashflowId ?? null,
     notes: row.notes ?? null,
     internalNotes: row.internalNotes ?? null,
@@ -212,16 +213,18 @@ export async function getOrders(filter?: OrderFilter): Promise<Order[]> {
 /** Get a single order by ID, including all line items with joined fields. */
 export async function getOrder(id: string): Promise<OrderWithItems | null> {
   return withTenant(async (tenantId) => {
-    // Load order header with partner + contact names
+    // Load order header with partner + contact names + stock issue status
     const orderRows = await db
       .select({
         order: orders,
         partnerName: partners.name,
         contactName: contacts.name,
+        stockIssueStatus: stockIssues.status,
       })
       .from(orders)
       .leftJoin(partners, eq(orders.partnerId, partners.id))
       .leftJoin(contacts, eq(orders.contactId, contacts.id))
+      .leftJoin(stockIssues, eq(orders.stockIssueId, stockIssues.id))
       .where(and(eq(orders.tenantId, tenantId), eq(orders.id, id)))
       .limit(1);
 
@@ -251,6 +254,7 @@ export async function getOrder(id: string): Promise<OrderWithItems | null> {
       ...mapOrderRow(row.order, {
         partnerName: row.partnerName,
         contactName: row.contactName,
+        stockIssueStatus: row.stockIssueStatus,
       }),
       items: itemRows.map((ir) =>
         mapOrderItemRow(ir.orderItem, {
@@ -1167,7 +1171,7 @@ export async function createStockIssueFromOrder(
 ): Promise<{ stockIssueId: string } | { error: string }> {
   return withTenant(async (tenantId) => {
     try {
-      // Load order with items
+      // Load order with items + linked stock issue status
       const orderRow = await db
         .select({
           status: orders.status,
@@ -1175,8 +1179,10 @@ export async function createStockIssueFromOrder(
           warehouseId: orders.warehouseId,
           stockIssueId: orders.stockIssueId,
           orderDate: orders.orderDate,
+          siStatus: stockIssues.status,
         })
         .from(orders)
+        .leftJoin(stockIssues, eq(orders.stockIssueId, stockIssues.id))
         .where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)))
         .limit(1);
 
@@ -1184,13 +1190,31 @@ export async function createStockIssueFromOrder(
       if (!oRow) return { error: "NOT_FOUND" };
       if (oRow.status === "draft") return { error: "NOT_CONFIRMED" };
       if (oRow.status === "cancelled") return { error: "CANCELLED" };
-      if (oRow.stockIssueId) return { error: "ALREADY_HAS_ISSUE" };
+      if (oRow.stockIssueId && oRow.siStatus !== "cancelled") return { error: "ALREADY_HAS_ISSUE" };
 
       const warehouseId = oRow.warehouseId;
       if (!warehouseId) return { error: "NO_WAREHOUSE" };
 
       const issueDate = oRow.orderDate;
       const issueParnerId = oRow.partnerId;
+
+      // Resolve shop's stock_mode via order.shopId
+      let stockMode: string | undefined;
+      const orderFullRow = await db
+        .select({ shopId: orders.shopId })
+        .from(orders)
+        .where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)))
+        .limit(1);
+
+      if (orderFullRow[0]?.shopId) {
+        const shopRows = await db
+          .select({ settings: shops.settings })
+          .from(shops)
+          .where(eq(shops.id, orderFullRow[0].shopId))
+          .limit(1);
+        const settings = shopRows[0]?.settings as Record<string, unknown> | null;
+        stockMode = settings?.stock_mode as string | undefined;
+      }
 
       // Load order items
       const oItems = await db
@@ -1210,6 +1234,90 @@ export async function createStockIssueFromOrder(
         .orderBy(orderItems.sortOrder, orderItems.createdAt);
 
       if (oItems.length === 0) return { error: "NO_ITEMS" };
+
+      // In bulk mode, aggregate packaged items to their base/production items
+      type IssueLine = {
+        itemId: string;
+        orderItemId: string;
+        requestedQty: string;
+        issuedQty: string;
+        unitPrice: string | null;
+      };
+
+      let issueLines: IssueLine[];
+
+      if (stockMode === "bulk") {
+        // Load baseItemId + baseItemQuantity for each order item
+        const itemIdsToCheck = [...new Set(oItems.map((oi) => oi.itemId))];
+        const itemInfoRows = await db
+          .select({
+            id: items.id,
+            baseItemId: items.baseItemId,
+            baseItemQuantity: items.baseItemQuantity,
+            costPrice: items.costPrice,
+          })
+          .from(items)
+          .where(inArray(items.id, itemIdsToCheck));
+
+        const itemInfoMap = new Map(itemInfoRows.map((r) => [r.id, r]));
+
+        // Aggregate: baseItemId → { totalQty, unitPrice, orderItemIds }
+        const bulkAgg = new Map<string, {
+          totalQty: number;
+          totalValue: number;
+          orderItemId: string;
+          unitPrice: string | null;
+        }>();
+
+        for (const oi of oItems) {
+          const info = itemInfoMap.get(oi.itemId);
+          const qty = Number(oi.quantity);
+
+          if (info?.baseItemId && info?.baseItemQuantity) {
+            // Convert packaged qty to base units
+            const baseQty = qty * Number(info.baseItemQuantity);
+            const existing = bulkAgg.get(info.baseItemId);
+            if (existing) {
+              existing.totalQty += baseQty;
+              existing.totalValue += qty * Number(oi.unitPrice ?? "0");
+            } else {
+              // Use cost price of the base item if available
+              const baseItemInfo = itemInfoMap.get(info.baseItemId);
+              bulkAgg.set(info.baseItemId, {
+                totalQty: baseQty,
+                totalValue: qty * Number(oi.unitPrice ?? "0"),
+                orderItemId: oi.id,
+                unitPrice: baseItemInfo?.costPrice ?? oi.unitPrice,
+              });
+            }
+          } else {
+            // Non-packaged item — pass through as-is
+            bulkAgg.set(oi.itemId, {
+              totalQty: qty,
+              totalValue: qty * Number(oi.unitPrice ?? "0"),
+              orderItemId: oi.id,
+              unitPrice: oi.unitPrice,
+            });
+          }
+        }
+
+        issueLines = [...bulkAgg.entries()].map(([baseItemId, agg]) => ({
+          itemId: baseItemId,
+          orderItemId: agg.orderItemId,
+          requestedQty: String(Math.round(agg.totalQty * 100) / 100),
+          issuedQty: String(Math.round(agg.totalQty * 100) / 100),
+          unitPrice: agg.unitPrice,
+        }));
+      } else {
+        // Packaged mode or no mode — 1:1 from order items
+        issueLines = oItems.map((oi) => ({
+          itemId: oi.itemId,
+          orderItemId: oi.id,
+          requestedQty: oi.quantity,
+          issuedQty: oi.quantity,
+          unitPrice: oi.unitPrice,
+        }));
+      }
 
       // Generate stock issue code
       const counterEntity = "stock_issue_dispatch";
@@ -1236,19 +1344,19 @@ export async function createStockIssueFromOrder(
         const newIssueId = issueRows[0]?.id;
         if (!newIssueId) throw new Error("Failed to create stock issue");
 
-        // Create issue lines from order items
+        // Create issue lines
         let lineNo = 0;
-        for (const oi of oItems) {
+        for (const line of issueLines) {
           lineNo += 1;
           await tx.insert(stockIssueLines).values({
             tenantId,
             stockIssueId: newIssueId,
-            itemId: oi.itemId,
-            orderItemId: oi.id,
+            itemId: line.itemId,
+            orderItemId: line.orderItemId,
             lineNo,
-            requestedQty: oi.quantity,
-            issuedQty: oi.quantity,
-            unitPrice: oi.unitPrice,
+            requestedQty: line.requestedQty,
+            issuedQty: line.issuedQty,
+            unitPrice: line.unitPrice,
             sortOrder: lineNo,
           });
         }
@@ -1354,28 +1462,37 @@ export async function getItemOptions(): Promise<
   });
 }
 
-/** Get shop options for select fields. */
+/** Get shop options for select fields. Returns shops sorted with default first. */
 export async function getShopOptions(): Promise<
-  Array<{ value: string; label: string }>
+  Array<{ value: string; label: string; isDefault: boolean }>
 > {
   return withTenant(async (tenantId) => {
     const rows = await db
-      .select({ id: shops.id, name: shops.name })
+      .select({ id: shops.id, name: shops.name, isDefault: shops.isDefault })
       .from(shops)
       .where(
         and(eq(shops.tenantId, tenantId), eq(shops.isActive, true))
       )
-      .orderBy(shops.name);
+      .orderBy(desc(shops.isDefault), shops.name);
 
-    return rows.map((r) => ({ value: r.id, label: r.name }));
+    return rows.map((r) => ({ value: r.id, label: r.name, isDefault: r.isDefault ?? false }));
   });
 }
 
-/** Get warehouse options for select fields. */
-export async function getWarehouseOptions(): Promise<
-  Array<{ value: string; label: string }>
-> {
+/** Get warehouse options for select fields, optionally filtered by shop. */
+export async function getWarehouseOptions(
+  shopId?: string | null
+): Promise<Array<{ value: string; label: string }>> {
   return withTenant(async (tenantId) => {
+    const conditions = [
+      eq(warehouses.tenantId, tenantId),
+      eq(warehouses.isActive, true),
+    ];
+
+    if (shopId) {
+      conditions.push(eq(warehouses.shopId, shopId));
+    }
+
     const rows = await db
       .select({
         id: warehouses.id,
@@ -1383,12 +1500,7 @@ export async function getWarehouseOptions(): Promise<
         code: warehouses.code,
       })
       .from(warehouses)
-      .where(
-        and(
-          eq(warehouses.tenantId, tenantId),
-          eq(warehouses.isActive, true)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(warehouses.name);
 
     return rows.map((r) => ({

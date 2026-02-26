@@ -30,6 +30,7 @@ import { OrderStatusActions } from "./OrderStatusActions";
 import { OrderItemsTable } from "./OrderItemsTable";
 import { OrderSummary } from "./OrderSummary";
 import { CreateStockIssueDialog } from "./CreateStockIssueDialog";
+import { CreateCashFlowDialog } from "./CreateCashFlowDialog";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -76,16 +77,23 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("header");
 
-  // Load select options on mount
+  // Load partner + shop options on mount; pre-fill default shop for new orders
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getPartnerOptions(), getShopOptions(), getWarehouseOptions()])
-      .then(([partOpts, shopOpts, whOpts]) => {
+    Promise.all([getPartnerOptions(), getShopOptions()])
+      .then(([partOpts, shopOpts]) => {
         if (!cancelled) {
           setPartnerOptions(partOpts);
           setShopOptions(shopOpts);
-          setWarehouseOptions(whOpts);
+
+          // Pre-fill default shop for new orders
+          if (isNew) {
+            const defaultShop = shopOpts.find((s) => s.isDefault);
+            if (defaultShop) {
+              setValues((prev) => ({ ...prev, shopId: defaultShop.value }));
+            }
+          }
         }
       })
       .catch((error: unknown) => {
@@ -95,7 +103,27 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
     return (): void => {
       cancelled = true;
     };
-  }, []);
+  }, [isNew]);
+
+  // Load warehouse options filtered by selected shop
+  useEffect(() => {
+    const shopId = values.shopId;
+    let cancelled = false;
+
+    getWarehouseOptions(typeof shopId === "string" ? shopId : undefined)
+      .then((whOpts) => {
+        if (!cancelled) {
+          setWarehouseOptions(whOpts);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load warehouse options:", error);
+      });
+
+    return (): void => {
+      cancelled = true;
+    };
+  }, [values.shopId]);
 
   // Load contact options when partnerId changes
   useEffect(() => {
@@ -288,7 +316,14 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
 
   const handleChange = useCallback(
     (key: string, value: unknown): void => {
-      setValues((prev) => ({ ...prev, [key]: value }));
+      setValues((prev) => {
+        const next = { ...prev, [key]: value };
+        // Reset warehouse when shop changes
+        if (key === "shopId") {
+          next.warehouseId = null;
+        }
+        return next;
+      });
       if (errors[key]) {
         setErrors((prev) => {
           const next = { ...prev };
@@ -541,13 +576,13 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {order?.stockIssueId ? (
+                {order?.stockIssueId && order.stockIssueStatus !== "cancelled" ? (
                   <div className="flex items-center gap-3">
                     <p className="text-sm text-muted-foreground">
                       {t("stockIssueTab.linked")}
                     </p>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/stock/issues/${order.stockIssueId}`}>
+                      <Link href={`/stock/movements/${order.stockIssueId}?from=/sales/orders/${id}`}>
                         <ExternalLink className="mr-1 size-4" />
                         {t("stockIssueTab.viewIssue")}
                       </Link>
@@ -590,20 +625,28 @@ export function OrderDetail({ id }: OrderDetailProps): React.ReactNode {
                       {t("cashflowTab.linked")}
                     </p>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/finance/cashflow/${order.cashflowId}`}>
+                      <Link href={`/finance/cashflow/${order.cashflowId}?from=/sales/orders/${id}`}>
                         <ExternalLink className="mr-1 size-4" />
                         {t("cashflowTab.viewCashflow")}
                       </Link>
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      {t("cashflowTab.noCashflow")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t("cashflowTab.createHint")}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        {t("cashflowTab.noCashflow")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("cashflowTab.createHint")}
+                      </p>
+                    </div>
+                    {order && order.status !== "draft" && order.status !== "cancelled" && (
+                      <CreateCashFlowDialog
+                        orderId={id}
+                        onCreated={() => mutate()}
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>

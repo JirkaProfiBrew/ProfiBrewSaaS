@@ -82,6 +82,8 @@ function mapCashFlowRow(
     notes: row.notes ?? null,
     isCash: row.isCash ?? false,
     cashDeskId: row.cashDeskId ?? null,
+    templateId: null,
+    isRecurring: false,
     createdBy: row.createdBy ?? null,
     createdAt: row.createdAt ?? null,
     updatedAt: row.updatedAt ?? null,

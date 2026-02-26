@@ -24,6 +24,7 @@ import {
   Hash,
   UserCog,
   Warehouse,
+  Repeat,
   type LucideIcon,
 } from "lucide-react";
 
@@ -95,6 +96,7 @@ export const modules: ModuleConfig[] = [
       { slug: "excise", icon: FileText, labelKey: "excise", path: "excise" },
       { slug: "monthlyReport", icon: FileText, labelKey: "monthlyReport", path: "monthly-report" },
       { slug: "cashflow", icon: Banknote, labelKey: "cashflow", path: "cashflow" },
+      { slug: "cashflowTemplates", icon: Repeat, labelKey: "cashflowTemplates", path: "cashflow/templates" },
       { slug: "cashdesk", icon: Landmark, labelKey: "cashdesk", path: "cashdesk" },
     ],
   },

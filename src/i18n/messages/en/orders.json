@@ -139,7 +139,13 @@
     "linked": "Cash flow created",
     "viewCashflow": "View cash flow",
     "noCashflow": "No cash flow created yet",
-    "createHint": "Create cash flow after order delivery"
+    "createHint": "Create cash flow after order delivery",
+    "createTitle": "Create receivable",
+    "createDescription": "A cash flow record (receivable) will be created from this order.",
+    "created": "Receivable created",
+    "creating": "Creating…",
+    "alreadyExists": "Cash flow already exists for this order",
+    "createFailed": "Failed to create cash flow"
   },
   "cancelDialog": {
     "title": "Cancel this order?",
