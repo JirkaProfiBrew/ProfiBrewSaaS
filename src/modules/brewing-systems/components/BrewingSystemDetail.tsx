@@ -454,6 +454,8 @@ export function BrewingSystemDetail({
 
               {/* Whirlpool block */}
               <div className="space-y-3">
+                {/* Spacer — aligns with the volume input in Kettle/Fermenter columns */}
+                <div className="hidden md:block h-[3.25rem]" />
                 <div className="space-y-1">
                   <Label className="text-xs">
                     {t("detail.fields.whirlpoolLossPct")}
