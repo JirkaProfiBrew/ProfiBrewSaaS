@@ -44,7 +44,10 @@
     "notes": "Poznámky",
     "itemId": "Výrobní položka",
     "itemIdPlaceholder": "Vyberte výrobní položku",
-    "shelfLifeDays": "Trvanlivost"
+    "shelfLifeDays": "Trvanlivost",
+    "brewingSystem": "Varní soustava",
+    "brewingSystemPlaceholder": "Vyberte varní soustavu",
+    "noBrewingSystem": "Bez varní soustavy (výchozí parametry)"
   },
   "ingredients": {
     "add": "Surovina",
@@ -149,7 +152,28 @@
       "calc_price": "Kalkulační cena",
       "avg_stock": "Průměrná skladová cena",
       "last_purchase": "Poslední nákupní cena"
-    }
+    },
+    "pipeline": {
+      "title": "Objemová pipeline",
+      "preBoil": "Pre-boil (sladina)",
+      "postBoil": "Post-boil (mladina)",
+      "intoFermenter": "Do fermentoru",
+      "finishedBeer": "Hotové pivo",
+      "losses": "Ztráty",
+      "kettleLoss": "Ztráta kotel",
+      "whirlpoolLoss": "Ztráta whirlpool",
+      "fermentationLoss": "Ztráta fermentace",
+      "totalLoss": "Celkové ztráty"
+    },
+    "requirements": {
+      "title": "Potřeba surovin",
+      "maltRequired": "Potřeba sladu",
+      "waterRequired": "Potřeba vody",
+      "maltUnit": "kg",
+      "waterUnit": "L"
+    },
+    "brewingSystemNote": "Výpočty dle varní soustavy: {name}",
+    "defaultSystemNote": "Výchozí parametry (varní soustava nenastavena)"
   },
   "detail": {
     "title": "Detail receptury",

@@ -11,6 +11,7 @@ import {
   recipeCalculations,
   mashingProfiles,
 } from "@/../drizzle/schema/recipes";
+import { brewingSystems } from "@/../drizzle/schema/brewing-systems";
 import { beerStyles, beerStyleGroups } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
 import { units } from "@/../drizzle/schema/system";
@@ -31,6 +32,7 @@ import type {
   BeerStyle,
   MashingProfile,
   RecipeCalculationResult,
+  BrewingSystemInput,
 } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ function mapRecipeRow(
     shelfLifeDays: row.shelfLifeDays,
     notes: row.notes,
     itemId: row.itemId,
+    brewingSystemId: row.brewingSystemId ?? null,
     isFromLibrary: row.isFromLibrary ?? false,
     sourceRecipeId: row.sourceRecipeId ?? null,
     createdBy: row.createdBy,
@@ -303,6 +306,7 @@ export async function createRecipe(
         shelfLifeDays: parsed.shelfLifeDays ?? null,
         notes: parsed.notes ?? null,
         itemId: parsed.itemId ?? null,
+        brewingSystemId: parsed.brewingSystemId ?? null,
       })
       .returning();
 
@@ -417,6 +421,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           shelfLifeDays: orig.shelfLifeDays,
           notes: orig.notes,
           itemId: orig.itemId,
+          brewingSystemId: orig.brewingSystemId,
         })
         .returning();
 
@@ -889,6 +894,39 @@ export async function calculateAndSaveRecipe(
       };
     });
 
+    // Load brewing system (if linked)
+    let brewingSystemInput: BrewingSystemInput | null = null;
+    if (recipe.brewingSystemId) {
+      const bsRows = await db
+        .select()
+        .from(brewingSystems)
+        .where(
+          and(
+            eq(brewingSystems.id, recipe.brewingSystemId),
+            eq(brewingSystems.tenantId, tenantId)
+          )
+        )
+        .limit(1);
+
+      const bs = bsRows[0];
+      if (bs) {
+        brewingSystemInput = {
+          batchSizeL: parseFloat(bs.batchSizeL) || 100,
+          efficiencyPct: parseFloat(bs.efficiencyPct) || 75,
+          kettleVolumeL: parseFloat(bs.kettleVolumeL ?? "") || 120,
+          kettleLossPct: parseFloat(bs.kettleLossPct ?? "") || 10,
+          whirlpoolLossPct: parseFloat(bs.whirlpoolLossPct ?? "") || 5,
+          fermenterVolumeL: parseFloat(bs.fermenterVolumeL ?? "") || 120,
+          fermentationLossPct: parseFloat(bs.fermentationLossPct ?? "") || 5,
+          extractEstimate: parseFloat(bs.extractEstimate ?? "") || 80,
+          waterPerKgMalt: parseFloat(bs.waterPerKgMalt ?? "") || 4,
+          waterReserveL: parseFloat(bs.waterReserveL ?? "") || 10,
+        };
+      } else {
+        console.warn(`[calculateAndSaveRecipe] brewing_system_id=${recipe.brewingSystemId} not found, using defaults`);
+      }
+    }
+
     const volumeL = recipe.batchSizeL ? parseFloat(recipe.batchSizeL) : 0;
     const fgPlato = recipe.fg ? parseFloat(recipe.fg) : undefined;
 
@@ -899,7 +937,7 @@ export async function calculateAndSaveRecipe(
       brewCostCzk: shopSettings?.brew_cost_czk ?? 0,
     };
 
-    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead);
+    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead, brewingSystemInput);
 
     // Enrich result with pricing mode + per-ingredient price source
     result.pricingMode = pricingMode;
@@ -1047,6 +1085,38 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
     groupNameCz: row.groupNameCz ?? undefined,
     groupImageUrl: row.groupImageUrl ?? null,
   }));
+}
+
+// ── Brewing System Options (for recipe select) ─────────────────
+
+export interface BrewingSystemOption {
+  id: string;
+  name: string;
+  batchSizeL: string;
+  efficiencyPct: string;
+}
+
+/** Get active brewing systems for the tenant (for select dropdown). */
+export async function getBrewingSystemOptions(): Promise<BrewingSystemOption[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: brewingSystems.id,
+        name: brewingSystems.name,
+        batchSizeL: brewingSystems.batchSizeL,
+        efficiencyPct: brewingSystems.efficiencyPct,
+      })
+      .from(brewingSystems)
+      .where(
+        and(
+          eq(brewingSystems.tenantId, tenantId),
+          eq(brewingSystems.isActive, true)
+        )
+      )
+      .orderBy(asc(brewingSystems.name));
+
+    return rows;
+  });
 }
 
 /** Get mashing profiles: system (tenant_id IS NULL) + tenant's own. */

@@ -9,7 +9,8 @@
  * - Cost: sum of ingredient costs based on amount and unit price
  */
 
-import type { RecipeCalculationResult } from "./types";
+import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline } from "./types";
+import { DEFAULT_BREWING_SYSTEM } from "./types";
 
 // ── Input interface ─────────────────────────────────────────
 
@@ -258,6 +259,85 @@ export function calculateCost(
   };
 }
 
+// ── Volume pipeline ─────────────────────────────────────────
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * Calculate volumes through the entire brewing process (reverse calculation).
+ * Starting from finished beer volume, working backwards to pre-boil.
+ */
+export function calculateVolumePipeline(
+  targetVolumeL: number,
+  system: BrewingSystemInput
+): VolumePipeline {
+  const finishedBeerL = targetVolumeL;
+
+  const fermLossFactor = 1 - system.fermentationLossPct / 100;
+  const intoFermenterL = fermLossFactor > 0 ? finishedBeerL / fermLossFactor : finishedBeerL;
+
+  const whirlpoolLossFactor = 1 - system.whirlpoolLossPct / 100;
+  const postBoilL = whirlpoolLossFactor > 0 ? intoFermenterL / whirlpoolLossFactor : intoFermenterL;
+
+  const kettleLossFactor = 1 - system.kettleLossPct / 100;
+  const preBoilL = kettleLossFactor > 0 ? postBoilL / kettleLossFactor : postBoilL;
+
+  return {
+    preBoilL: round1(preBoilL),
+    postBoilL: round1(postBoilL),
+    intoFermenterL: round1(intoFermenterL),
+    finishedBeerL: round1(finishedBeerL),
+    losses: {
+      kettleL: round1(preBoilL - postBoilL),
+      whirlpoolL: round1(postBoilL - intoFermenterL),
+      fermentationL: round1(intoFermenterL - finishedBeerL),
+      totalL: round1(preBoilL - finishedBeerL),
+    },
+  };
+}
+
+// ── Malt & water requirements ───────────────────────────────
+
+/**
+ * Calculate total malt required in kg.
+ * extract_needed = (plato/100) × pre_boil_volume × wort_density
+ * malt_kg = extract_needed / (extract_estimate/100) / (efficiency/100)
+ */
+export function calculateMaltRequired(
+  targetPlato: number,
+  preBoilVolumeL: number,
+  system: BrewingSystemInput
+): number {
+  if (targetPlato <= 0 || preBoilVolumeL <= 0) return 0;
+
+  const wortDensity = 1 + targetPlato / 258;
+  const extractNeededKg = (targetPlato / 100) * preBoilVolumeL * wortDensity;
+
+  const extractFraction = (system.extractEstimate || 80) / 100;
+  const efficiencyFraction = (system.efficiencyPct || 75) / 100;
+
+  if (extractFraction <= 0 || efficiencyFraction <= 0) return 0;
+
+  const maltKg = extractNeededKg / extractFraction / efficiencyFraction;
+  return Math.round(maltKg * 100) / 100;
+}
+
+/**
+ * Calculate total water required in liters.
+ * water_L = malt_kg × water_per_kg_malt + water_reserve_L
+ */
+export function calculateWaterRequired(
+  maltKg: number,
+  system: BrewingSystemInput
+): number {
+  if (maltKg <= 0) return 0;
+
+  const waterL = maltKg * (system.waterPerKgMalt || 4) + (system.waterReserveL || 0);
+  return Math.round(waterL * 10) / 10;
+}
+
 // ── Combined calculation ────────────────────────────────────
 
 /**
@@ -267,15 +347,23 @@ export function calculateCost(
  * @param volumeL - batch volume in liters
  * @param fgPlato - Final gravity in Plato (optional, defaults to 25% of OG for estimate)
  * @param overhead - optional overhead inputs (pct, fixed costs)
+ * @param brewingSystem - optional brewing system parameters (null = use defaults)
  * @returns RecipeCalculationResult with all calculated values
  */
 export function calculateAll(
   ingredients: IngredientInput[],
   volumeL: number,
   fgPlato?: number,
-  overhead?: OverheadInputs
+  overhead?: OverheadInputs,
+  brewingSystem?: BrewingSystemInput | null
 ): RecipeCalculationResult {
-  const og = calculateOG(ingredients, volumeL);
+  const system = brewingSystem ?? DEFAULT_BREWING_SYSTEM;
+
+  // Volume pipeline
+  const pipeline = calculateVolumePipeline(volumeL, system);
+
+  // OG — use efficiency from brewing system
+  const og = calculateOG(ingredients, volumeL, system.efficiencyPct / 100);
 
   // Default FG estimate: ~25% of OG (typical apparent attenuation ~75%)
   const fg = fgPlato ?? Math.round(og * 0.25 * 10) / 10;
@@ -298,6 +386,10 @@ export function calculateAll(
       ? Math.round((totalProductionCost / volumeL) * 100) / 100
       : 0;
 
+  // Malt & water requirements
+  const maltRequiredKg = calculateMaltRequired(og, pipeline.preBoilL, system);
+  const waterRequiredL = calculateWaterRequired(maltRequiredKg, system);
+
   return {
     og,
     fg,
@@ -314,5 +406,9 @@ export function calculateAll(
     pricingMode: "calc_price",
     ingredients: perItem.map((i) => ({ ...i, priceSource: "calc_price" })),
     costPrice: totalProductionCost,
+    pipeline,
+    maltRequiredKg,
+    waterRequiredL,
+    brewingSystemUsed: brewingSystem != null,
   };
 }

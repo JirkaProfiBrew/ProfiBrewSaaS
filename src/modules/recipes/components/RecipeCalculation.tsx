@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, Droplets, Wheat } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { Recipe, RecipeItem, RecipeCalculationResult } from "../types";
-import { useBeerStyles } from "../hooks";
+import { useBeerStyles, useBrewingSystemOptions } from "../hooks";
 import { calculateAndSaveRecipe, getLatestRecipeCalculation } from "../actions";
 
 // ── Props ──────────────────────────────────────────────────────
@@ -69,6 +69,7 @@ export function RecipeCalculation({
   const tCommon = useTranslations("common");
 
   const { data: beerStyles } = useBeerStyles();
+  const { data: brewingSystemOpts } = useBrewingSystemOptions();
   const [isCalculating, setIsCalculating] = useState(false);
   const [calcSnapshot, setCalcSnapshot] = useState<RecipeCalculationResult | null>(null);
 
@@ -278,6 +279,82 @@ export function RecipeCalculation({
           )}
         </CardContent>
       </Card>
+
+      {/* Volume pipeline + material requirements */}
+      {calcSnapshot?.pipeline && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Volume pipeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Droplets className="size-4" />
+                {t("calculation.pipeline.title")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { label: t("calculation.pipeline.preBoil"), value: calcSnapshot.pipeline.preBoilL },
+                  { label: t("calculation.pipeline.postBoil"), value: calcSnapshot.pipeline.postBoilL, loss: calcSnapshot.pipeline.losses.kettleL, lossLabel: t("calculation.pipeline.kettleLoss") },
+                  { label: t("calculation.pipeline.intoFermenter"), value: calcSnapshot.pipeline.intoFermenterL, loss: calcSnapshot.pipeline.losses.whirlpoolL, lossLabel: t("calculation.pipeline.whirlpoolLoss") },
+                  { label: t("calculation.pipeline.finishedBeer"), value: calcSnapshot.pipeline.finishedBeerL, loss: calcSnapshot.pipeline.losses.fermentationL, lossLabel: t("calculation.pipeline.fermentationLoss") },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between">
+                    <span className="text-sm">{row.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{row.value} L</span>
+                      {row.loss != null && row.loss > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          (−{row.loss} L)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div className="border-t pt-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">{t("calculation.pipeline.totalLoss")}</span>
+                  <span className="font-semibold text-amber-600">
+                    {calcSnapshot.pipeline.losses.totalL} L
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Material requirements */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wheat className="size-4" />
+                {t("calculation.requirements.title")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-sm">{t("calculation.requirements.maltRequired")}</span>
+                  <span className="text-2xl font-bold">
+                    {calcSnapshot.maltRequiredKg ?? 0} {t("calculation.requirements.maltUnit")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-sm">{t("calculation.requirements.waterRequired")}</span>
+                  <span className="text-2xl font-bold">
+                    {calcSnapshot.waterRequiredL ?? 0} {t("calculation.requirements.waterUnit")}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-muted-foreground">
+                {calcSnapshot.brewingSystemUsed
+                  ? t("calculation.brewingSystemNote", {
+                      name: brewingSystemOpts.find((bs) => bs.id === recipe?.brewingSystemId)?.name ?? "",
+                    })
+                  : t("calculation.defaultSystemNote")}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Cost breakdown */}
       <Card>

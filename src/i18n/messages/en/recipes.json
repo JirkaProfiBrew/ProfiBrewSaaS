@@ -44,7 +44,10 @@
     "notes": "Notes",
     "itemId": "Production Item",
     "itemIdPlaceholder": "Select production item",
-    "shelfLifeDays": "Shelf Life"
+    "shelfLifeDays": "Shelf Life",
+    "brewingSystem": "Brewing System",
+    "brewingSystemPlaceholder": "Select brewing system",
+    "noBrewingSystem": "No brewing system (default parameters)"
   },
   "ingredients": {
     "add": "Ingredient",
@@ -149,7 +152,28 @@
       "calc_price": "Calculation Price",
       "avg_stock": "Average Stock Price",
       "last_purchase": "Last Purchase Price"
-    }
+    },
+    "pipeline": {
+      "title": "Volume Pipeline",
+      "preBoil": "Pre-boil (wort)",
+      "postBoil": "Post-boil (wort)",
+      "intoFermenter": "Into Fermenter",
+      "finishedBeer": "Finished Beer",
+      "losses": "Losses",
+      "kettleLoss": "Kettle Loss",
+      "whirlpoolLoss": "Whirlpool Loss",
+      "fermentationLoss": "Fermentation Loss",
+      "totalLoss": "Total Losses"
+    },
+    "requirements": {
+      "title": "Material Requirements",
+      "maltRequired": "Malt Required",
+      "waterRequired": "Water Required",
+      "maltUnit": "kg",
+      "waterUnit": "L"
+    },
+    "brewingSystemNote": "Calculated using brewing system: {name}",
+    "defaultSystemNote": "Default parameters (no brewing system set)"
   },
   "detail": {
     "title": "Recipe Detail",

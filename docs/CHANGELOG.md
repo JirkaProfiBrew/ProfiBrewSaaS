@@ -413,6 +413,36 @@
 
 ---
 
+## [0.6.4] — Sprint 6 Fáze B: Kalkulační engine
+**Období:** T13 (27.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] `BrewingSystemInput` interface + `DEFAULT_BREWING_SYSTEM` fallback hodnoty
+- [x] `calculateVolumePipeline()` — zpětný výpočet objemů (pre-boil → post-boil → fermenter → hotové pivo) se ztrátami
+- [x] `calculateMaltRequired()` — výpočet potřebného sladu z target °Plato, pre-boil objemu a efektivity
+- [x] `calculateWaterRequired()` — výpočet potřeby vody z kg sladu × water_per_kg_malt + reserve
+- [x] `calculateAll()` rozšířen o volitelný `BrewingSystemInput` parametr — efektivita, ztráty z varní soustavy
+- [x] `RecipeCalculationResult` rozšířen: `pipeline`, `maltRequiredKg`, `waterRequiredL`, `brewingSystemUsed`
+- [x] `calculateAndSaveRecipe()` — načte brewing system z `recipe.brewing_system_id`, parsuje decimal → number
+- [x] `getBrewingSystemOptions()` — nová server action pro select dropdown na receptuře
+- [x] Recipe detail: select "Varní soustava" na tabu Základní údaje (za pivní styl, před výrobní položku)
+- [x] Recipe kalkulace: sekce "Objemová pipeline" s objemy a ztrátami v každém kroku
+- [x] Recipe kalkulace: sekce "Potřeba surovin" s kg sladu a L vody
+- [x] Recipe kalkulace: poznámka o použité varní soustavě / výchozích parametrech
+- [x] Duplikace receptury kopíruje `brewingSystemId`
+- [x] Zod schema: `brewingSystemId` (UUID, nullable, optional)
+- [x] i18n: pipeline, requirements, brewingSystem klíče (cs + en)
+
+### Architektonická rozhodnutí
+- Pipeline výpočet je zpětný: od finishedBeer (cíl) zpět k preBoil — pivovarský standard
+- Efficiency fallback: 75% default zachován (reálné pivovary mají 65-85%)
+- Nové `calculateAll()` pole jsou optional v RecipeCalculationResult — zpětná kompatibilita se starými snapshoty
+- JSONB snapshot automaticky pojme nová pole — žádná migrace potřeba
+- `extractEstimate` default 80% (průměr pro plnohodnotný slad), `waterPerKgMalt` default 4 L/kg (infuzní rmutování)
+
+---
+
 ## [0.6.3] — Sprint 6 Fáze A4: Mashing Profiles (Rmutovací profily)
 **Období:** T13 (27.02.2026)
 **Status:** ✅ Done

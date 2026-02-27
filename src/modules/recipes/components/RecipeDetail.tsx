@@ -12,7 +12,7 @@ import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewTab, DetailViewAction } from "@/components/detail-view";
 import { BeerGlass } from "@/components/ui/beer-glass";
 
-import { useRecipeDetail, useBeerStyles } from "../hooks";
+import { useRecipeDetail, useBeerStyles, useBrewingSystemOptions } from "../hooks";
 import {
   createRecipe,
   updateRecipe,
@@ -40,6 +40,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   const isNew = id === "new";
   const { data: recipeDetail, isLoading, mutate } = useRecipeDetail(id);
   const { data: beerStyles } = useBeerStyles();
+  const { data: brewingSystemOpts } = useBrewingSystemOptions();
 
   // Snapshot mode: opened from a batch detail
   const batchId = searchParams.get("batchId");
@@ -53,6 +54,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     code: null,
     beerStyleId: null,
     itemId: null,
+    brewingSystemId: null,
     status: "draft",
     batchSizeL: null,
     batchSizeBrutoL: null,
@@ -76,6 +78,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         code: r.code,
         beerStyleId: r.beerStyleId,
         itemId: r.itemId,
+        brewingSystemId: r.brewingSystemId,
         status: r.status,
         batchSizeL: r.batchSizeL,
         batchSizeBrutoL: r.batchSizeBrutoL,
@@ -118,6 +121,16 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     [beerStyles]
   );
 
+  // Build brewing system options for select
+  const brewingSystemOptions = useMemo(
+    () =>
+      brewingSystemOpts.map((bs) => ({
+        value: bs.id,
+        label: `${bs.name} (${bs.batchSizeL} L, ${bs.efficiencyPct}%)`,
+      })),
+    [brewingSystemOpts]
+  );
+
   // Form section definition for the basic tab
   const basicFormSection: FormSectionDef = useMemo(
     () => ({
@@ -143,6 +156,13 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
           label: t("form.beerStyle"),
           type: "select",
           options: beerStyleOptions,
+        },
+        {
+          key: "brewingSystemId",
+          label: t("form.brewingSystem"),
+          type: "select",
+          options: brewingSystemOptions,
+          placeholder: t("form.brewingSystemPlaceholder"),
         },
         {
           key: "itemId",
@@ -219,7 +239,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         },
       ],
     }),
-    [t, isNew, beerStyleOptions, productionItemOptions]
+    [t, isNew, beerStyleOptions, brewingSystemOptions, productionItemOptions]
   );
 
   const handleChange = useCallback(
@@ -275,6 +295,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
             ? Number(values.shelfLifeDays)
             : null,
           notes: values.notes ? String(values.notes) : null,
+          brewingSystemId: values.brewingSystemId ? String(values.brewingSystemId) : null,
         });
 
         toast.success(tCommon("saved"));
@@ -285,6 +306,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         await updateRecipe(id, {
           name: String(values.name),
           beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
+          brewingSystemId: values.brewingSystemId ? String(values.brewingSystemId) : null,
           itemId: itemIdValue,
           status: String(values.status ?? "draft"),
           batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,

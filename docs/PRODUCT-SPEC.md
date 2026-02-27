@@ -229,6 +229,16 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace s overhead breakdown
 - Poznámky
 
+**Kalkulace — varní soustava a objemová pipeline:**
+- Vazba receptury na varní soustavu: `recipes.brewing_system_id` → `brewing_systems.id` (nullable, select na tabu Základní údaje)
+- Efektivita varny z brewing system (ne hardcoded 75%) — ovlivňuje výpočet OG
+- Objemová pipeline (zpětný výpočet od cílového objemu): pre-boil → post-boil → do fermentoru → hotové pivo
+- Ztráty v litrech: kotel (kettle_loss_pct), whirlpool (whirlpool_loss_pct), fermentace (fermentation_loss_pct)
+- Výpočet potřeby sladu: extract_needed / extract_estimate / efficiency → kg sladu
+- Výpočet potřeby vody: maltKg × water_per_kg_malt + water_reserve
+- Fallback: pokud varní soustava není nastavena → výchozí parametry (75% efektivita, 10/5/5% ztráty)
+- UI: sekce "Objemová pipeline" a "Potřeba surovin" na tabu Kalkulace (nad nákladovou kalkulací)
+
 **Kalkulace — overhead a cenotvorba surovin:**
 - Zdroj cen surovin dle `ingredient_pricing_mode` z nastavení provozovny: `calc_price` (kalkulační cena z items), `avg_stock` (průměrná skladová z items.avgPrice), `last_purchase` (poslední nákupní cena z potvrzených příjemek)
 - Fallback: pokud resolved cena je null → items.costPrice
@@ -239,7 +249,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Graceful fallback: staré snapshoty bez overhead dat zobrazí pouze celkovou cenu (bez breakdown)
 
 **Byznys pravidla:**
-- Receptura se dá duplikovat (nová kopie, status=draft, včetně `item_id`)
+- Receptura se dá duplikovat (nová kopie, status=draft, včetně `item_id` a `brewing_system_id`)
 - Vazba na výrobní položku: `recipes.item_id` → `items.id` (nullable). Při vytvoření várky se `item_id` kopíruje na `batch.item_id` (pokud batch nemá vlastní).
 - Při vytvoření várky se receptura zkopíruje jako snapshot (status=`batch_snapshot`, `source_recipe_id`=originál). Snapshot zahrnuje kompletní kopii receptury včetně všech surovin (recipe_items), kroků (recipe_steps) a `item_id`.
 - Snapshoty se nezobrazují v RecipeBrowseru (filtrováno dle status ≠ batch_snapshot)

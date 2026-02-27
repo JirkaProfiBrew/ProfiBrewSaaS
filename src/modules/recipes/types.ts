@@ -34,6 +34,7 @@ export interface Recipe {
   shelfLifeDays: number | null;
   notes: string | null;
   itemId: string | null;
+  brewingSystemId: string | null;
   isFromLibrary: boolean;
   sourceRecipeId: string | null;
   createdBy: string | null;
@@ -85,6 +86,49 @@ export interface RecipeStep {
   sortOrder: number;
 }
 
+/**
+ * Parametry varní soustavy pro výpočty.
+ * Načtené z brewing_systems tabulky nebo NULL (= default hardcoded hodnoty).
+ */
+export interface BrewingSystemInput {
+  batchSizeL: number;
+  efficiencyPct: number;
+  kettleVolumeL: number;
+  kettleLossPct: number;
+  whirlpoolLossPct: number;
+  fermenterVolumeL: number;
+  fermentationLossPct: number;
+  extractEstimate: number;
+  waterPerKgMalt: number;
+  waterReserveL: number;
+}
+
+export const DEFAULT_BREWING_SYSTEM: BrewingSystemInput = {
+  batchSizeL: 100,
+  efficiencyPct: 75,
+  kettleVolumeL: 120,
+  kettleLossPct: 10,
+  whirlpoolLossPct: 5,
+  fermenterVolumeL: 120,
+  fermentationLossPct: 5,
+  extractEstimate: 80,
+  waterPerKgMalt: 4,
+  waterReserveL: 10,
+};
+
+export interface VolumePipeline {
+  preBoilL: number;
+  postBoilL: number;
+  intoFermenterL: number;
+  finishedBeerL: number;
+  losses: {
+    kettleL: number;
+    whirlpoolL: number;
+    fermentationL: number;
+    totalL: number;
+  };
+}
+
 export interface RecipeCalculationResult {
   og: number;
   fg: number;
@@ -112,6 +156,11 @@ export interface RecipeCalculationResult {
   }[];
   /** @deprecated Alias for totalProductionCost (backward compat). */
   costPrice: number;
+  // Volume pipeline (Phase B)
+  pipeline?: VolumePipeline;
+  maltRequiredKg?: number;
+  waterRequiredL?: number;
+  brewingSystemUsed?: boolean;
 }
 
 export interface BeerStyle {

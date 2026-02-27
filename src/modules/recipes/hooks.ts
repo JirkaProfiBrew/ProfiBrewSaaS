@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 
 import type { Recipe, RecipeDetailData, BeerStyle, MashingProfile } from "./types";
-import type { RecipeFilter, BrewMaterialOption } from "./actions";
+import type { RecipeFilter, BrewMaterialOption, BrewingSystemOption } from "./actions";
 import {
   getRecipes,
   getRecipeDetail,
   getBeerStyles,
   getMashingProfiles,
   getBrewMaterialItems,
+  getBrewingSystemOptions,
 } from "./actions";
 
 // ── useRecipeList ──────────────────────────────────────────────
@@ -167,6 +168,43 @@ export function useBrewMaterialItems(): UseBrewMaterialItemsReturn {
       .catch((error: unknown) => {
         if (!cancelled) {
           console.error("Failed to load brew material items:", error);
+          setIsLoading(false);
+        }
+      });
+
+    return (): void => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { data, isLoading };
+}
+
+// ── useBrewingSystemOptions ──────────────────────────────────
+
+interface UseBrewingSystemOptionsReturn {
+  data: BrewingSystemOption[];
+  isLoading: boolean;
+}
+
+export function useBrewingSystemOptions(): UseBrewingSystemOptionsReturn {
+  const [data, setData] = useState<BrewingSystemOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+
+    getBrewingSystemOptions()
+      .then((result) => {
+        if (!cancelled) {
+          setData(result);
+          setIsLoading(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          console.error("Failed to load brewing system options:", error);
           setIsLoading(false);
         }
       });
