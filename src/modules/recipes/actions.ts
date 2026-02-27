@@ -16,6 +16,7 @@ import { beerStyles, beerStyleGroups } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
 import { units } from "@/../drizzle/schema/system";
 import { batches } from "@/../drizzle/schema/batches";
+import { stockIssueLines } from "@/../drizzle/schema/stock";
 import { equipment } from "@/../drizzle/schema/equipment";
 import { shops } from "@/../drizzle/schema/shops";
 import { recipeCreateSchema, recipeItemCreateSchema, recipeStepCreateSchema } from "./schema";
@@ -563,6 +564,12 @@ export async function updateRecipeItem(
 /** Remove an ingredient from a recipe (physical DELETE). */
 export async function removeRecipeItem(itemId: string): Promise<void> {
   return withTenant(async (tenantId) => {
+    // Nullify FK references in stock_issue_lines before deleting
+    await db
+      .update(stockIssueLines)
+      .set({ recipeItemId: null })
+      .where(and(eq(stockIssueLines.tenantId, tenantId), eq(stockIssueLines.recipeItemId, itemId)));
+
     await db
       .delete(recipeItems)
       .where(and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.id, itemId)));

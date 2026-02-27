@@ -84,7 +84,7 @@ export const stockIssueLines = pgTable(
     issueModeSnapshot: text("issue_mode_snapshot"), // snapshot of item's issue_mode at time of issue
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),
-    recipeItemId: uuid("recipe_item_id").references(() => recipeItems.id),
+    recipeItemId: uuid("recipe_item_id").references(() => recipeItems.id, { onDelete: "set null" }),
     orderItemId: uuid("order_item_id"), // NO FK — circular dep with orders.ts
     // Manual allocation entries (for manual_lot issue lines, stored as JSONB)
     manualAllocations: jsonb("manual_allocations"),
