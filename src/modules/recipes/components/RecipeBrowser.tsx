@@ -160,13 +160,12 @@ export function RecipeBrowser(): React.ReactNode {
     return {
       ...base,
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
-        // Use recipe's calculated EBC; fall back to beer style's midpoint EBC
+        // Use recipe's calculated EBC; fall back to beer style's midpoint EBC; default 8 (pale)
         const recipeEbc = row.ebc != null ? Number(row.ebc) : 0;
         const styleId = row.beerStyleId as string | null;
         const ebc = recipeEbc > 0
           ? recipeEbc
-          : (styleId ? styleEbcMap.get(styleId) ?? null : null);
-        if (ebc == null) return null;
+          : (styleId ? styleEbcMap.get(styleId) ?? 8 : 8);
         return <BeerGlass ebc={ebc} size="lg" />;
       },
     };
@@ -213,7 +212,7 @@ export function RecipeBrowser(): React.ReactNode {
           : undefined,
       },
     }),
-    [t]
+    [t, cardViewConfig]
   );
 
   // Derive filtered, sorted, and paginated data from params + loaded data
