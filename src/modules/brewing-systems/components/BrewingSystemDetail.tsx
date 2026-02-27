@@ -339,11 +339,13 @@ export function BrewingSystemDetail({
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
       await deleteBrewingSystem(id);
+      toast.success(tCommon("deleted"));
       router.push("/brewery/brewing-systems");
     } catch (error: unknown) {
       console.error("Failed to delete brewing system:", error);
+      toast.error(tCommon("deleteFailed"));
     }
-  }, [id, router]);
+  }, [id, router, tCommon]);
 
   const handleCancel = useCallback((): void => {
     router.push("/brewery/brewing-systems");

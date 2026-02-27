@@ -107,7 +107,8 @@ export function BrewingSystemBrowser(): React.ReactNode {
   const tCommon = useTranslations("common");
   const router = useRouter();
   const { params } = useDataBrowserParams(brewingSystemBrowserConfig);
-  const { data: systemsData, isLoading, mutate } = useBrewingSystemList();
+  const activeFilter = useMemo(() => ({ isActive: true }), []);
+  const { data: systemsData, isLoading, mutate } = useBrewingSystemList(activeFilter);
 
   const isPrimaryLabels: Record<string, string> = {
     true: t("columns.isPrimary"),
