@@ -1,13 +1,11 @@
 {
-  "title": "Equipment",
-  "create": "Equipment",
+  "title": "Tanks",
+  "create": "+ Tank",
   "quickFilters": {
     "all": "All",
-    "brewhouse": "Brewhouses",
     "fermenter": "Fermenters",
     "brite_tank": "Brite Tanks",
-    "conditioning": "Conditioning",
-    "bottling_line": "Bottling Lines"
+    "conditioning": "Conditioning"
   },
   "columns": {
     "name": "Name",
@@ -23,12 +21,9 @@
     "isActive": "Active"
   },
   "equipmentType": {
-    "brewhouse": "Brewhouse",
     "fermenter": "Fermenter",
     "brite_tank": "Brite Tank",
-    "conditioning": "Conditioning Tank",
-    "bottling_line": "Bottling Line",
-    "keg_washer": "Keg Washer"
+    "conditioning": "Conditioning Tank"
   },
   "status": {
     "available": "Available",
@@ -37,14 +32,14 @@
     "retired": "Retired"
   },
   "detail": {
-    "title": "Equipment Detail",
-    "newTitle": "New Equipment",
+    "title": "Tank Detail",
+    "newTitle": "New Tank",
     "fields": {
       "name": "Name",
-      "equipmentType": "Equipment Type",
+      "equipmentType": "Type",
       "volumeL": "Capacity (liters)",
       "shopId": "Location",
-      "shopIdHelp": "Location ID (will be connected to shops directory)",
+      "shopIdHelp": "Location ID",
       "noShop": "— no shop —",
       "status": "Status",
       "notes": "Notes",

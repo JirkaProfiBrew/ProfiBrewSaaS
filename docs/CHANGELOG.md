@@ -413,6 +413,40 @@
 
 ---
 
+## [0.6.0] — Sprint 6 Fáze A1: Brewing Systems (Varní soustavy)
+**Období:** T13 (26.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB schema: `brewing_systems` — nová tabulka (varní soustava s objemy, ztrátami, konstantami, časy kroků)
+- [x] DB schema: `recipes.brewing_system_id` FK — vazba receptury na varní soustavu
+- [x] DB schema: `batches.brewing_system_id` FK — vazba várky na varní soustavu
+- [x] RLS policies + partial unique index pro is_primary per tenant
+- [x] Equipment refaktor — zjednodušení na tanky (fermenter/brite_tank/conditioning), přejmenování "Zařízení" → "Tanky"
+- [x] Smazány equipment typy: brewhouse, bottling_line, keg_washer (včetně FK cleanup v batches)
+- [x] Brewing Systems CRUD: getBrewingSystems, getBrewingSystem, createBrewingSystem, updateBrewingSystem, deleteBrewingSystem (soft delete)
+- [x] getPrimaryBrewingSystem, setPrimaryBrewingSystem (transakce: max 1 primární per tenant)
+- [x] calculateVolumes — pure function: preboil → postBoil → postWhirlpool → intoFermenter → finishedBeer
+- [x] BrewingSystemBrowser — DataBrowser (list + card view), quick filtry (Vše/Aktivní), computed finishedBeerL
+- [x] BrewingSystemDetail — 5 sekcí: hlavička, vizuální bloky (teplá zóna), konstanty, časy kroků, poznámky
+- [x] VesselBlock + WhirlpoolBlock — vizualizace nádob s dynamickým CSS vybarvením dle poměru objem/nádoba
+- [x] Reaktivní přepočet — změna batch size / ztrát okamžitě přepočítá vizualizaci a objemy
+- [x] Barvy kapalin: sladina (amber-500), mladina (yellow-400), hotové pivo (yellow-200)
+- [x] Časy kroků: editovatelné + readonly řádky (rmutování, chmelovar = "Čas vychází z receptu")
+- [x] Navigace: /brewery/brewing-systems (list), /brewery/brewing-systems/[id] (detail), /brewery/brewing-systems/new
+- [x] Sidebar: "Varní soustavy" za "Vary", "Tanky" místo "Zařízení"
+- [x] i18n: brewing-systems (cs + en), aktualizace equipment i18n (cs + en), nav agendas (cs + en)
+
+### Architektonická rozhodnutí
+- Brewing System = šablona pro výpočty (objemy, ztráty, konstanty); Equipment = konkrétní fyzická nádoba (tank)
+- calculateVolumes je pure function v types.ts (ne v "use server" actions.ts) — použitelná client-side i server-side
+- VesselBlock: čistý CSS/Tailwind (div s border + vnitřní div s %-height), žádné SVG/canvas
+- fermenter_volume_l na brewing_system je schématická hodnota pro vizualizaci — skutečné tanky jsou v equipment
+- is_primary: partial unique index v SQL migraci (Drizzle nativně nepodporuje partial unique)
+- Ztráty v %: after = before × (1 - loss/100), batch_size_l = objem PO chmelovaru
+
+---
+
 <!--
 
 ## [0.5.0] — Sprint 5: Excise + Dashboard

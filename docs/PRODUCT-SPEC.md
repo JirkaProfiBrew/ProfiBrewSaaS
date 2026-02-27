@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 5
+### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 6
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -81,7 +81,7 @@ Content: DataBrowser / DetailView / Dashboard
 ### 2.2 Moduly a agendy ✅
 
 **Pivovar:**
-Přehled, Partneři, Kontakty, Suroviny, Receptury, Vary, Zařízení
+Přehled, Partneři, Kontakty, Suroviny, Receptury, Vary, Varní soustavy, Tanky
 
 **Sklad:**
 Položky (katalog), Skladové pohyby, Tracking, Daňové pohyby, Měsíční podání
@@ -292,32 +292,69 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Dokončení várky: warning pokud příjemka neexistuje (non-blocking confirm dialog), user může dokončit i bez naskladnění
 - `packaging_loss_l` = actual_volume_l − SUM(qty × base_item_quantity); kladné = ztráta, záporné = přebytek
 
-### 4.6 Zařízení ✅
+### 4.6a Varní soustavy (Brewing Systems) ✅
 
-**Co to je:** Evidence výrobního zařízení pivovaru.
+**Co to je:** Šablona pro výpočty objemů, ztrát a konstant varního zařízení. Pivovar má typicky 1-2 soustavy. Slouží jako základ pro kalkulační engine receptur (Sprint 7).
 
 **Jak to funguje:**
-- DataBrowser: seznam zařízení (název, typ, kapacita, stav, aktuální šarže, provozovna)
-- Quick filters: Vše | Varny | Fermentory | Ležácké | CKT | Stáčecí
+- DataBrowser: seznam soustav (název, batch size, efektivita, hotové pivo, provozovna, primární badge)
+- Quick filters: Vše | Aktivní
+- Route: `/brewery/brewing-systems`
 
-**Typy zařízení:**
-- brewhouse (varna)
+**Detail — 5 sekcí:**
+1. **Hlavička:** název, popis, batch size (L), efektivita (%), provozovna, primární toggle
+2. **Teplá zóna — vizuální bloky:** 3 bloky vedle sebe (Chmelovar, Whirlpool, Fermentor) s VesselBlock vizualizací
+   - Chmelovar: objem nádoby, ztráta %, dvě nádoby (sladina → mladina)
+   - Whirlpool: ztráta % (textový blok, bez nádob)
+   - Fermentor: objem nádoby, ztráta %, dvě nádoby (mladina → hotové pivo)
+   - VesselBlock: CSS obdélníky s dynamickým vybarvením dle poměru objem/nádoba
+   - Barvy: sladina (amber), mladina (zlatá), hotové pivo (světle zlatá)
+   - Reaktivní přepočet při změně jakéhokoliv vstupu
+3. **Konstanty:** extrakt sladu (0-1), voda L/kg slad, voda navíc (L)
+4. **Časy kroků:** příprava, scezování, whirlpool, přesun, úklid (editovatelné min) + rmutování, chmelovar (readonly — "čas z receptu")
+5. **Poznámky:** textarea
+
+**Výpočet objemů (calculateVolumes):**
+- `batch_size_l` = objem mladiny = objem PO chmelovaru
+- `preboil` = batch_size / (1 - kettle_loss/100)
+- `postWhirlpool` = batch_size × (1 - whirlpool_loss/100)
+- `intoFermenter` = postWhirlpool
+- `finishedBeer` = intoFermenter × (1 - fermentation_loss/100)
+
+**Byznys pravidla:**
+- Max 1 primární soustava per tenant (partial unique index)
+- Ztráty v % — vždy kladné číslo
+- `fermenter_volume_l` = schématická/referenční hodnota pro vizualizaci (skutečné tanky jsou v equipment)
+- Soft delete (is_active = false)
+
+**Vazby:**
+- `recipes.brewing_system_id` — pro výpočty objemů, ztrát, potřebného sladu (Sprint 7)
+- `batches.brewing_system_id` — zděděné z recipe, nebo přepsané
+
+### 4.6b Tanky (Equipment) ✅
+
+**Co to je:** Evidence fyzických nádob studené zóny pivovaru (fermentory, ležácké tanky, CKT). Dříve "Zařízení" — přejmenováno po oddělení varních soustav.
+
+**Jak to funguje:**
+- DataBrowser: seznam tanků (název, typ, kapacita, stav, provozovna)
+- Quick filters: Vše | Fermentory | Ležácké | CKT
+
+**Typy tanků:**
 - fermenter (fermentor)
 - brite_tank (ležácký tank)
 - conditioning (CKT — cylindrokónický)
-- bottling_line (stáčecí linka)
-- keg_washer (myčka sudů)
+
+*Odstraněné typy (Sprint 6):* brewhouse, bottling_line, keg_washer — nahrazeny modulem Varní soustavy.
 
 **Detail:**
 - Název, typ, kapacita (litry), provozovna
 - Stav: available | in_use | maintenance | retired
 - Aktuální šarže (pokud obsazený) — link na šarži
-- Vlastnosti dle typu (JSONB): materiál, chlazení, přetlakový...
 - Poznámky
 
 **Byznys pravidla:**
 - Stav se mění automaticky: přiřazení šarže → in_use, dokončení šarže → available
-- Kapacita slouží pro plánování (Fáze 2) — kontrola že šarže nepřesahuje objem tanku
+- Kapacita slouží pro plánování (post-MVP)
 
 ---
 
@@ -797,7 +834,8 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | items (all) | Sklad | Položky | ✅ |
 | recipes | Pivovar | Receptury | ✅ |
 | batches | Pivovar | Vary | ✅ |
-| equipment | Pivovar | Zařízení | ✅ |
+| brewing_systems | Pivovar | Varní soustavy | ✅ |
+| equipment | Pivovar | Tanky | ✅ |
 | warehouses | Sklad | (Nastavení) | ✅ |
 | stock_issues | Sklad | Skladové pohyby | ✅ |
 | stock_movements | Sklad | (interní) | ✅ |

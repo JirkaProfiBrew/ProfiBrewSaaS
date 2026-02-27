@@ -15,6 +15,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const dataBrowser = (await import(`./messages/${locale}/dataBrowser.json`)).default as Record<string, string>;
   const partners = (await import(`./messages/${locale}/partners.json`)).default as Record<string, unknown>;
   const equipment = (await import(`./messages/${locale}/equipment.json`)).default as Record<string, unknown>;
+  const brewingSystemsMsg = (await import(`./messages/${locale}/brewing-systems.json`)).default as Record<string, unknown>;
   const items = (await import(`./messages/${locale}/items.json`)).default as Record<string, unknown>;
   const shops = (await import(`./messages/${locale}/shops.json`)).default as Record<string, unknown>;
   const contacts = (await import(`./messages/${locale}/contacts.json`)).default as Record<string, unknown>;
@@ -34,6 +35,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: { common, auth, nav, dataBrowser, partners, equipment, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg, deposits: depositsMsg, cashflowCategories: cashflowCategoriesMsg, orders: ordersMsg, cashflows: cashflowsMsg, cashDesks: cashDesksMsg, excise: exciseMsg },
+    messages: { common, auth, nav, dataBrowser, partners, equipment, brewingSystems: brewingSystemsMsg, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg, deposits: depositsMsg, cashflowCategories: cashflowCategoriesMsg, orders: ordersMsg, cashflows: cashflowsMsg, cashDesks: cashDesksMsg, excise: exciseMsg },
   };
 });

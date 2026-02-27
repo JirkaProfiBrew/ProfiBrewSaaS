@@ -1,13 +1,11 @@
 {
-  "title": "Zařízení",
-  "create": "Zařízení",
+  "title": "Tanky",
+  "create": "+ Tank",
   "quickFilters": {
     "all": "Vše",
-    "brewhouse": "Varny",
     "fermenter": "Fermentory",
     "brite_tank": "Ležácké",
-    "conditioning": "CKT",
-    "bottling_line": "Stáčecí"
+    "conditioning": "CKT"
   },
   "columns": {
     "name": "Název",
@@ -23,12 +21,9 @@
     "isActive": "Aktivní"
   },
   "equipmentType": {
-    "brewhouse": "Varna",
     "fermenter": "Fermentor",
     "brite_tank": "Ležácký tank",
-    "conditioning": "CKT",
-    "bottling_line": "Stáčecí linka",
-    "keg_washer": "Myčka sudů"
+    "conditioning": "CKT"
   },
   "status": {
     "available": "Dostupný",
@@ -37,14 +32,14 @@
     "retired": "Vyřazený"
   },
   "detail": {
-    "title": "Detail zařízení",
-    "newTitle": "Nové zařízení",
+    "title": "Detail tanku",
+    "newTitle": "Nový tank",
     "fields": {
       "name": "Název",
       "equipmentType": "Typ zařízení",
       "volumeL": "Kapacita (litry)",
       "shopId": "Provozovna",
-      "shopIdHelp": "ID provozovny (bude připojeno k číselníku provozoven)",
+      "shopIdHelp": "ID provozovny",
       "noShop": "— bez provozovny —",
       "status": "Stav",
       "notes": "Poznámky",

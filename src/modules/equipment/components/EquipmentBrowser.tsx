@@ -134,12 +134,9 @@ export function EquipmentBrowser(): React.ReactNode {
 
   // Badge value label maps
   const equipmentTypeLabels: Record<string, string> = {
-    brewhouse: t("equipmentType.brewhouse"),
     fermenter: t("equipmentType.fermenter"),
     brite_tank: t("equipmentType.brite_tank"),
     conditioning: t("equipmentType.conditioning"),
-    bottling_line: t("equipmentType.bottling_line"),
-    keg_washer: t("equipmentType.keg_washer"),
   };
   const statusLabels: Record<string, string> = {
     available: t("status.available"),

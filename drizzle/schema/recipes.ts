@@ -13,6 +13,7 @@ import { tenants } from "./tenants";
 import { beerStyles } from "./beer-styles";
 import { items } from "./items";
 import { units } from "./system";
+import { brewingSystems } from "./brewing-systems";
 
 // ============================================================
 // MASHING PROFILES (tenant_id NULL = system profile)
@@ -55,6 +56,9 @@ export const recipes = pgTable(
     shelfLifeDays: integer("shelf_life_days"),
     notes: text("notes"),
     itemId: uuid("item_id").references(() => items.id),
+    brewingSystemId: uuid("brewing_system_id").references(
+      () => brewingSystems.id
+    ),
     isFromLibrary: boolean("is_from_library").default(false),
     sourceLibraryId: uuid("source_library_id"),
     sourceRecipeId: uuid("source_recipe_id"),

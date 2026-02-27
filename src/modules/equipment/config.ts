@@ -7,7 +7,7 @@ import type { DataBrowserConfig } from "@/components/data-browser";
 
 export const equipmentBrowserConfig: DataBrowserConfig = {
   entity: "equipment",
-  title: "Zařízení",
+  title: "Tanky",
 
   views: {
     list: { enabled: true, default: true },
@@ -34,11 +34,6 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
   quickFilters: [
     { key: "all", label: "Vše", filter: {} },
     {
-      key: "brewhouse",
-      label: "Varny",
-      filter: { equipmentType: "brewhouse" },
-    },
-    {
       key: "fermenter",
       label: "Fermentory",
       filter: { equipmentType: "fermenter" },
@@ -53,11 +48,6 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
       label: "CKT",
       filter: { equipmentType: "conditioning" },
     },
-    {
-      key: "bottling_line",
-      label: "Stáčecí",
-      filter: { equipmentType: "bottling_line" },
-    },
   ],
 
   filters: [
@@ -66,12 +56,9 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
       label: "Typ",
       type: "select",
       options: [
-        { value: "brewhouse", label: "Varna" },
         { value: "fermenter", label: "Fermentor" },
         { value: "brite_tank", label: "Ležácký tank" },
         { value: "conditioning", label: "CKT" },
-        { value: "bottling_line", label: "Stáčecí linka" },
-        { value: "keg_washer", label: "Myčka sudů" },
       ],
     },
     {
@@ -93,7 +80,7 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Zařízení", enabled: true },
+    create: { label: "+ Tank", enabled: true },
     bulkDelete: true,
     rowClick: "detail",
   },

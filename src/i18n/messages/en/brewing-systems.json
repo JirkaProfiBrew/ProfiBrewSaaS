@@ -1,0 +1,70 @@
+{
+  "title": "Brewing Systems",
+  "create": "+ Brewing System",
+  "columns": {
+    "name": "Name",
+    "batchSizeL": "Batch Size (L)",
+    "efficiencyPct": "Efficiency (%)",
+    "finishedBeerL": "Finished Beer (L)",
+    "shopName": "Shop",
+    "isPrimary": "Primary"
+  },
+  "quickFilters": {
+    "all": "All",
+    "active": "Active"
+  },
+  "detail": {
+    "title": "Brewing System",
+    "newTitle": "New Brewing System",
+    "sections": {
+      "header": "Basic Info",
+      "hotZone": "Hot Zone",
+      "constants": "Constants",
+      "stepTimes": "Step Times",
+      "notes": "Notes"
+    },
+    "fields": {
+      "name": "System Name",
+      "description": "Description",
+      "isPrimary": "Primary System",
+      "batchSizeL": "Wort Volume / Batch Size (L)",
+      "efficiencyPct": "Brewhouse Efficiency (%)",
+      "shopId": "Shop",
+      "noShop": "— no shop —",
+      "kettleVolumeL": "Vessel Volume (L)",
+      "kettleLossPct": "Boil Loss (%)",
+      "whirlpoolLossPct": "Whirlpool Loss (%)",
+      "whirlpoolDescription": "hop trub, transfer",
+      "fermenterVolumeL": "Vessel Volume (L)",
+      "fermentationLossPct": "Fermentation Loss (%)",
+      "extractEstimate": "Extract Estimate",
+      "waterPerKgMalt": "Water L/kg Malt",
+      "waterReserveL": "Water Reserve (piping etc.)",
+      "timePreparation": "Preparation",
+      "timeMashing": "Mashing",
+      "timeLautering": "Lautering",
+      "timeBoiling": "Boiling",
+      "timeWhirlpool": "Whirlpool & Cooling",
+      "timeTransfer": "Transfer to Fermenter",
+      "timeCleanup": "Cleanup"
+    },
+    "hotZoneBlocks": {
+      "kettle": "Boil Kettle",
+      "whirlpool": "Whirlpool",
+      "fermenter": "Fermenter"
+    },
+    "stepTimesNote": "Time from recipe",
+    "volumeLabels": {
+      "preboil": "Pre-boil Wort",
+      "postBoil": "Post-boil Wort",
+      "intoFermenter": "Into Fermenter",
+      "finishedBeer": "Finished Beer"
+    },
+    "actions": {
+      "save": "Save",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "setPrimary": "Set as Primary"
+  }
+}

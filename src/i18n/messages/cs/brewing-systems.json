@@ -1,0 +1,70 @@
+{
+  "title": "Varní soustavy",
+  "create": "+ Varní soustava",
+  "columns": {
+    "name": "Název",
+    "batchSizeL": "Batch size (L)",
+    "efficiencyPct": "Efektivita (%)",
+    "finishedBeerL": "Hotové pivo (L)",
+    "shopName": "Provozovna",
+    "isPrimary": "Primární"
+  },
+  "quickFilters": {
+    "all": "Vše",
+    "active": "Aktivní"
+  },
+  "detail": {
+    "title": "Varní soustava",
+    "newTitle": "Nová varní soustava",
+    "sections": {
+      "header": "Základní údaje",
+      "hotZone": "Teplá zóna",
+      "constants": "Konstanty",
+      "stepTimes": "Časy kroků",
+      "notes": "Poznámky"
+    },
+    "fields": {
+      "name": "Název zařízení",
+      "description": "Popis zařízení",
+      "isPrimary": "Primární zařízení",
+      "batchSizeL": "Objem mladiny / batch size (L)",
+      "efficiencyPct": "Efektivita varny (%)",
+      "shopId": "Provozovna",
+      "noShop": "— bez provozovny —",
+      "kettleVolumeL": "Celkový objem nádoby (L)",
+      "kettleLossPct": "Ztráta chmelovar (%)",
+      "whirlpoolLossPct": "Ztráta whirlpool (%)",
+      "whirlpoolDescription": "chmelové mláto, čerpání",
+      "fermenterVolumeL": "Celkový objem nádoby (L)",
+      "fermentationLossPct": "Ztráta kvašení (%)",
+      "extractEstimate": "Odhadovaný extr. sladu",
+      "waterPerKgMalt": "Voda L/kg slad",
+      "waterReserveL": "Voda navíc (potrubí apd.)",
+      "timePreparation": "Příprava",
+      "timeMashing": "Rmutování",
+      "timeLautering": "Scezování",
+      "timeBoiling": "Chmelovar",
+      "timeWhirlpool": "Whirlpool a chlazení",
+      "timeTransfer": "Přesun na kvašení",
+      "timeCleanup": "Úklid"
+    },
+    "hotZoneBlocks": {
+      "kettle": "Chmelovar",
+      "whirlpool": "Whirlpool",
+      "fermenter": "Fermentor"
+    },
+    "stepTimesNote": "Čas vychází z receptu",
+    "volumeLabels": {
+      "preboil": "Sladina před chmelovarem",
+      "postBoil": "Mladina po chmelovaru",
+      "intoFermenter": "Mladina před zakvašením",
+      "finishedBeer": "Hotové pivo"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "cancel": "Storno"
+    },
+    "setPrimary": "Nastavit jako primární"
+  }
+}

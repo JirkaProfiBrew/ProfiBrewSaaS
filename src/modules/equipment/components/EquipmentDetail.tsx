@@ -87,15 +87,9 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           type: "select",
           required: true,
           options: [
-            { value: "brewhouse", label: t("equipmentType.brewhouse") },
             { value: "fermenter", label: t("equipmentType.fermenter") },
             { value: "brite_tank", label: t("equipmentType.brite_tank") },
             { value: "conditioning", label: t("equipmentType.conditioning") },
-            {
-              value: "bottling_line",
-              label: t("equipmentType.bottling_line"),
-            },
-            { value: "keg_washer", label: t("equipmentType.keg_washer") },
           ],
         },
         {

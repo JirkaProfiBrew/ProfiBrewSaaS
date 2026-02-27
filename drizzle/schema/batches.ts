@@ -14,6 +14,7 @@ import { tenants } from "./tenants";
 import { recipes } from "./recipes";
 import { items } from "./items";
 import { equipment } from "./equipment";
+import { brewingSystems } from "./brewing-systems";
 
 // ============================================================
 // BATCHES
@@ -39,6 +40,9 @@ export const batches = pgTable(
     fgActual: decimal("fg_actual"),
     abvActual: decimal("abv_actual"),
     equipmentId: uuid("equipment_id").references(() => equipment.id),
+    brewingSystemId: uuid("brewing_system_id").references(
+      () => brewingSystems.id
+    ),
     primaryBatchId: uuid("primary_batch_id"), // Self-reference — FK added in SQL migration
     exciseRelevantHl: decimal("excise_relevant_hl"),
     exciseReportedHl: decimal("excise_reported_hl"),
