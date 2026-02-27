@@ -1005,6 +1005,7 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
     .select({
       style: beerStyles,
       groupName: beerStyleGroups.name,
+      groupNameCz: beerStyleGroups.nameCz,
       groupSortOrder: beerStyleGroups.sortOrder,
     })
     .from(beerStyles)
@@ -1015,6 +1016,7 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
     id: row.style.id,
     styleGroupId: row.style.styleGroupId,
     bjcpNumber: row.style.bjcpNumber,
+    bjcpCategory: row.style.bjcpCategory,
     name: row.style.name,
     abvMin: row.style.abvMin,
     abvMax: row.style.abvMax,
@@ -1026,7 +1028,22 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
     ogMax: row.style.ogMax,
     fgMin: row.style.fgMin,
     fgMax: row.style.fgMax,
+    srmMin: row.style.srmMin,
+    srmMax: row.style.srmMax,
+    appearance: row.style.appearance,
+    aroma: row.style.aroma,
+    flavor: row.style.flavor,
+    comments: row.style.comments,
+    impression: row.style.impression,
+    mouthfeel: row.style.mouthfeel,
+    history: row.style.history,
+    ingredients: row.style.ingredients,
+    styleComparison: row.style.styleComparison,
+    commercialExamples: row.style.commercialExamples,
+    origin: row.style.origin,
+    styleFamily: row.style.styleFamily,
     groupName: row.groupName,
+    groupNameCz: row.groupNameCz ?? undefined,
   }));
 }
 

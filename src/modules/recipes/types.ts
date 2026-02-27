@@ -118,6 +118,7 @@ export interface BeerStyle {
   id: string;
   styleGroupId: string;
   bjcpNumber: string | null;
+  bjcpCategory: string | null;
   name: string;
   abvMin: string | null;
   abvMax: string | null;
@@ -129,12 +130,29 @@ export interface BeerStyle {
   ogMax: string | null;
   fgMin: string | null;
   fgMax: string | null;
+  srmMin: string | null;
+  srmMax: string | null;
+  appearance: string | null;
+  aroma: string | null;
+  flavor: string | null;
+  comments: string | null;
+  impression: string | null;
+  mouthfeel: string | null;
+  history: string | null;
+  ingredients: string | null;
+  styleComparison: string | null;
+  commercialExamples: string | null;
+  origin: string | null;
+  styleFamily: string | null;
   groupName?: string;
+  groupNameCz?: string;
 }
 
 export interface BeerStyleGroup {
   id: string;
   name: string;
+  nameCz: string | null;
+  imageUrl: string | null;
   sortOrder: number;
 }
 

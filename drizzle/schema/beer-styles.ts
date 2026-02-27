@@ -13,6 +13,8 @@ import {
 export const beerStyleGroups = pgTable("beer_style_groups", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  nameCz: text("name_cz"),
+  imageUrl: text("image_url"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
@@ -38,9 +40,19 @@ export const beerStyles = pgTable("beer_styles", {
   ogMax: decimal("og_max"),
   fgMin: decimal("fg_min"),
   fgMax: decimal("fg_max"),
+  srmMin: decimal("srm_min"),
+  srmMax: decimal("srm_max"),
   appearance: text("appearance"),
   aroma: text("aroma"),
   flavor: text("flavor"),
   comments: text("comments"),
+  impression: text("impression"),
+  mouthfeel: text("mouthfeel"),
+  history: text("history"),
+  ingredients: text("ingredients"),
+  styleComparison: text("style_comparison"),
+  commercialExamples: text("commercial_examples"),
+  origin: text("origin"),
+  styleFamily: text("style_family"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

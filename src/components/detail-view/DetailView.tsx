@@ -50,6 +50,7 @@ function DetailViewSkeleton(): React.ReactElement {
 export function DetailView({
   title,
   subtitle,
+  headerExtra,
   backHref,
   backLabel,
   tabs,
@@ -91,6 +92,7 @@ export function DetailView({
             <ArrowLeft className="size-4" />
           </Link>
         </Button>
+        {headerExtra !== undefined && headerExtra}
         <div className="flex flex-col gap-0.5">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle !== undefined && (

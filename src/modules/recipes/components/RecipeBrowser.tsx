@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
+import { BeerGlass } from "@/components/ui/beer-glass";
+
 import { recipeBrowserConfig } from "../config";
 import { useRecipeList } from "../hooks";
 import { deleteRecipe } from "../actions";
@@ -139,11 +141,29 @@ export function RecipeBrowser(): React.ReactNode {
     archived: t("status.archived"),
   };
 
+  // Card view config with BeerGlass renderImage
+  const cardViewConfig = useMemo(() => {
+    const base = recipeBrowserConfig.views.card;
+    if (base === false) return false as const;
+    return {
+      ...base,
+      renderImage: (row: Record<string, unknown>): React.ReactNode => {
+        const ebc = row.ebc;
+        if (ebc == null) return null;
+        return <BeerGlass ebc={Number(ebc)} size="lg" />;
+      },
+    };
+  }, []);
+
   // Build localized config with translated labels
   const localizedConfig = useMemo(
     () => ({
       ...recipeBrowserConfig,
       title: t("title"),
+      views: {
+        ...recipeBrowserConfig.views,
+        card: cardViewConfig,
+      },
       columns: recipeBrowserConfig.columns.map((col) => {
         const valueLabels = col.key === "status" ? statusLabels : undefined;
         return { ...col, label: t(`columns.${col.key}`), valueLabels };

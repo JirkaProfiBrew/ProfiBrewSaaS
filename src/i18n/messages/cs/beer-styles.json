@@ -1,0 +1,34 @@
+{
+  "title": "Pivní styly",
+  "columns": {
+    "bjcpNumber": "BJCP",
+    "name": "Styl",
+    "group": "Skupina",
+    "abv": "ABV %",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "og": "OG",
+    "fg": "FG"
+  },
+  "detail": {
+    "appearance": "Vzhled",
+    "aroma": "Aroma",
+    "flavor": "Chuť",
+    "mouthfeel": "Pocit v ústech",
+    "impression": "Celkový dojem",
+    "ingredients": "Typické suroviny",
+    "history": "Historie",
+    "commercialExamples": "Komerční příklady",
+    "comments": "Poznámky",
+    "origin": "Původ",
+    "styleComparison": "Srovnání stylů",
+    "styleFamily": "Rodina stylu"
+  },
+  "ranges": {
+    "abv": "ABV",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "og": "OG (°P)",
+    "fg": "FG (°P)"
+  }
+}

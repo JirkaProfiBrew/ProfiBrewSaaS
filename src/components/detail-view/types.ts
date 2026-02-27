@@ -23,6 +23,8 @@ export interface DetailViewAction {
 export interface DetailViewProps {
   title: string;
   subtitle?: string;
+  /** Custom content rendered next to the title/subtitle area (e.g. an icon or visual). */
+  headerExtra?: React.ReactNode;
   backHref: string;
   backLabel?: string;
   tabs?: DetailViewTab[];

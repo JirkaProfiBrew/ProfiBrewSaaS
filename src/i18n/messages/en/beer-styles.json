@@ -1,0 +1,34 @@
+{
+  "title": "Beer Styles",
+  "columns": {
+    "bjcpNumber": "BJCP",
+    "name": "Style",
+    "group": "Group",
+    "abv": "ABV %",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "og": "OG",
+    "fg": "FG"
+  },
+  "detail": {
+    "appearance": "Appearance",
+    "aroma": "Aroma",
+    "flavor": "Flavor",
+    "mouthfeel": "Mouthfeel",
+    "impression": "Overall Impression",
+    "ingredients": "Characteristic Ingredients",
+    "history": "History",
+    "commercialExamples": "Commercial Examples",
+    "comments": "Comments",
+    "origin": "Origin",
+    "styleComparison": "Style Comparison",
+    "styleFamily": "Style Family"
+  },
+  "ranges": {
+    "abv": "ABV",
+    "ibu": "IBU",
+    "ebc": "EBC",
+    "og": "OG (°P)",
+    "fg": "FG (°P)"
+  }
+}

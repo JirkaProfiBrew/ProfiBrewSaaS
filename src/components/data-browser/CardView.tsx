@@ -125,7 +125,8 @@ function DataCard({
   const imageUrl = cardConfig.imageField
     ? getStringValue(row, cardConfig.imageField)
     : undefined;
-  const hasImage = cardConfig.imageField !== undefined;
+  const hasImage = cardConfig.imageField !== undefined || cardConfig.renderImage !== undefined;
+  const customImage = cardConfig.renderImage ? cardConfig.renderImage(row) : null;
 
   function handleCardClick(): void {
     onClick?.(row);
@@ -166,7 +167,9 @@ function DataCard({
       {/* Image area */}
       {hasImage && (
         <div className="bg-muted flex h-36 w-full items-center justify-center overflow-hidden">
-          {imageUrl ? (
+          {customImage ? (
+            customImage
+          ) : imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}

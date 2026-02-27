@@ -42,6 +42,8 @@ export interface CardMetricField {
 export interface CardViewConfig {
   enabled: boolean;
   imageField?: string;
+  /** Custom render function for the card image area. Takes precedence over imageField. */
+  renderImage?: (row: Record<string, unknown>) => React.ReactNode;
   titleField: string;
   subtitleField?: string;
   badgeFields?: string[];

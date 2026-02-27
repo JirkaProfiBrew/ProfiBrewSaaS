@@ -447,6 +447,34 @@
 
 ---
 
+## [0.6.2] — Sprint 6 Fáze A3: Beer Styles (BJCP 2021 Expansion)
+**Období:** T13 (27.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB schema: beer_style_groups — nové sloupce: `name_cz`, `image_url`
+- [x] DB schema: beer_styles — nové sloupce: `srm_min`, `srm_max`, `impression`, `mouthfeel`, `history`, `ingredients`, `style_comparison`, `commercial_examples`, `origin`, `style_family`
+- [x] SQL migrace `0013_beer_styles_expansion.sql` — ALTER TABLE pro všechny nové sloupce
+- [x] Import script `scripts/import-beer-styles.mjs` — import 118 BJCP 2021 stylů ze 13 skupin (Bubble CSV export)
+- [x] Konverze: SRM → EBC (`×1.97`), SG → Plato (`259 - 259/SG`), CSV decimal comma → dot
+- [x] BeerGlass SVG component (`src/components/ui/beer-glass/`) — pivní půllitr s barvou dle EBC
+- [x] `ebcToColor` utility — 16-bodová SRM color mapa s lineární RGB interpolací
+- [x] BeerGlass v RecipeBrowser card view — renderImage callback zobrazí pivot dle EBC receptury
+- [x] BeerGlass v RecipeDetail header — zobrazení vedle názvu receptury (dle EBC nebo midpoint stylu)
+- [x] DetailView — nový `headerExtra` prop pro custom obsah v hlavičce
+- [x] i18n: beer-styles namespace (cs + en) — popisky pro budoucí Beer Styles browser
+- [x] Aktualizované typy: BeerStyle (11 nových polí), BeerStyleGroup (nameCz, imageUrl)
+- [x] getBeerStyles action — vrací všechna nová pole včetně groupNameCz
+
+### Architektonická rozhodnutí
+- BeerGlass je pure SVG (ne canvas) — glass outline `currentColor` (funguje v light/dark mode)
+- ebcToColor: EBC clamped 0-160, konverze `EBC/1.97` → SRM → RGB interpolace z 16-bodové mapy
+- Import script vyžaduje `csv-parse` + `dotenv`, čte přímo z `docs/BeerStyles/` CSV souborů
+- CardView `renderImage` callback — generic rozšíření frameworku, renderImage > imageField > fallback
+- Beer styles jsou globální codebook (bez tenant_id) — systémová data sdílená všemi tenanty
+
+---
+
 ## [0.6.1] — Sprint 6 Fáze A2: Equipment Refaktor
 **Období:** T13 (27.02.2026)
 **Status:** ✅ Done

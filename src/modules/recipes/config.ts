@@ -62,7 +62,7 @@ export const recipeBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Receptura", enabled: true },
+    create: { label: "Receptura", enabled: true },
     bulkDelete: true,
     rowClick: "detail",
   },

@@ -10,6 +10,7 @@ import { DetailView } from "@/components/detail-view";
 import { FormSection } from "@/components/forms";
 import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewTab, DetailViewAction } from "@/components/detail-view";
+import { BeerGlass } from "@/components/ui/beer-glass";
 
 import { useRecipeDetail, useBeerStyles } from "../hooks";
 import {
@@ -521,6 +522,23 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
     ? `/brewery/batches/${batchId}?tab=ingredients`
     : "/brewery/recipes";
 
+  // Determine EBC for the BeerGlass header decoration:
+  // 1. Use recipe's calculated EBC if available
+  // 2. Fall back to selected beer style's midpoint EBC
+  const headerEbc = useMemo((): number | null => {
+    const recipeEbc = recipeDetail?.recipe?.ebc;
+    if (recipeEbc != null) return Number(recipeEbc);
+
+    const selectedStyleId = values.beerStyleId;
+    if (selectedStyleId) {
+      const style = beerStyles.find((s) => s.id === String(selectedStyleId));
+      if (style?.ebcMin != null && style?.ebcMax != null) {
+        return (Number(style.ebcMin) + Number(style.ebcMax)) / 2;
+      }
+    }
+    return null;
+  }, [recipeDetail, values.beerStyleId, beerStyles]);
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Snapshot banner — shown when editing a batch copy */}
@@ -535,6 +553,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
       <DetailView
         title={title}
         subtitle={subtitle}
+        headerExtra={headerEbc !== null ? <BeerGlass ebc={headerEbc} size="sm" /> : undefined}
         backHref={backHref}
         actions={actions}
         tabs={tabs}

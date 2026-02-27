@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 26.02.2026 | Poslední sprint: Sprint 6
+### Aktualizováno: 27.02.2026 | Poslední sprint: Sprint 6
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -222,7 +222,8 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Status: draft → active → archived
 
 **Detail receptury:**
-- Základní info: název, kód, pivní styl (z BJCP číselníku), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
+- Základní info: název, kód, pivní styl (z BJCP 2021 číselníku — 118 stylů / 13 skupin), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
+- BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i detail hlavičce
 - Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
 - Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona).
 - Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace s overhead breakdown
@@ -355,6 +356,29 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 **Byznys pravidla:**
 - Stav se mění automaticky: přiřazení šarže → in_use, dokončení šarže → available
 - Kapacita slouží pro plánování (post-MVP)
+
+### 4.6c Pivní styly (Beer Styles — BJCP 2021) ✅
+
+**Co to je:** Systémový číselník 118 pivních stylů dle BJCP 2021, sdílený všemi tenanty (globální codebook, bez tenant_id).
+
+**Data:**
+- 13 skupin (beer_style_groups): Pale Lager, Amber/Dark Lager, Czech Lager, Pale Ale, Amber/Brown Ale, IPA, Dark British Ale, Strong European Ale, Strong Ale, Wheat Beer, Belgian Ale, Sour/Wild, Specialty
+- 118 stylů: kompletní BJCP 2021 sada s parametry (OG, FG, IBU, SRM/EBC, ABV) a textovými popisy (vzhled, aroma, chuť, dojem, suroviny, historie, srovnání, komerční příklady)
+- Import: `scripts/import-beer-styles.mjs` z Bubble CSV exportu (`docs/BeerStyles/`)
+
+**Vizualizace — BeerGlass:**
+- SVG komponenta pivního půllitru (`src/components/ui/beer-glass/BeerGlass.tsx`)
+- Barva piva dle EBC hodnoty: `ebcToColor()` — 16-bodová SRM color mapa s lineární RGB interpolací
+- Obrys sklenice: `currentColor` (funguje v light/dark mode)
+- Velikosti: sm (40px), md (64px), lg (96px)
+- Použití v UI:
+  - RecipeBrowser card view — renderImage zobrazí BeerGlass dle EBC receptury
+  - RecipeDetail header — malý BeerGlass vedle názvu (dle EBC receptury nebo midpoint stylu)
+
+**Konverze:**
+- SRM → EBC: `EBC = SRM × 1.97`
+- SG → Plato: `°P ≈ 259 - (259 / SG)`
+- V DB uloženy obě varianty (SRM i EBC)
 
 ---
 
