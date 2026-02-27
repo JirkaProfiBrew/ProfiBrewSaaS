@@ -389,6 +389,7 @@ export function BrewingSystemDetail({
         saveLabel={t("detail.actions.save")}
         cancelLabel={t("detail.actions.cancel")}
       >
+        <div className="flex flex-col gap-6">
         {/* Section 1: Header */}
         <FormSection
           section={headerSection}
@@ -684,6 +685,7 @@ export function BrewingSystemDetail({
           mode={mode}
           onChange={handleChange}
         />
+        </div>
       </DetailView>
     </div>
   );
