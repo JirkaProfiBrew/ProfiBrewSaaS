@@ -170,6 +170,7 @@ export function BrewingSystemDetail({
           key: "shopId",
           label: t("detail.fields.shopId"),
           type: "select",
+          required: true,
           options: shopOptions,
         },
         {
@@ -256,6 +257,9 @@ export function BrewingSystemDetail({
     }
     if (!values.batchSizeL || Number(values.batchSizeL) <= 0) {
       newErrors.batchSizeL = tCommon("validation.required");
+    }
+    if (!values.shopId || String(values.shopId) === "__none__") {
+      newErrors.shopId = tCommon("validation.required");
     }
 
     setErrors(newErrors);
