@@ -363,9 +363,13 @@ export function BrewingSystemDetail({
         onClick: () => {
           void handleDelete();
         },
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
       },
     ];
-  }, [isNew, t, handleDelete]);
+  }, [isNew, t, tCommon, handleDelete]);
 
   const title = isNew
     ? t("detail.newTitle")

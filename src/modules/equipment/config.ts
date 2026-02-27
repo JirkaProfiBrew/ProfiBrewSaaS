@@ -80,7 +80,7 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Tank", enabled: true },
+    create: { label: "Tank", enabled: true },
     bulkDelete: true,
     rowClick: "detail",
   },

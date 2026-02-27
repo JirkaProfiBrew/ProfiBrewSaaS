@@ -130,7 +130,8 @@ export function EquipmentBrowser(): React.ReactNode {
   const router = useRouter();
   const pathname = usePathname();
   const { params } = useDataBrowserParams(equipmentBrowserConfig);
-  const { data: equipmentData, isLoading, mutate } = useEquipmentList();
+  const activeFilter = useMemo(() => ({ isActive: true }), []);
+  const { data: equipmentData, isLoading, mutate } = useEquipmentList(activeFilter);
 
   // Badge value label maps
   const equipmentTypeLabels: Record<string, string> = {

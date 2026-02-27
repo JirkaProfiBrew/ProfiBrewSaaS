@@ -201,11 +201,13 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
   const handleDelete = useCallback(async (): Promise<void> => {
     try {
       await deleteEquipment(id);
+      toast.success(tCommon("deleted"));
       router.push("/brewery/equipment");
     } catch (error: unknown) {
       console.error("Failed to delete equipment:", error);
+      toast.error(tCommon("deleteFailed"));
     }
-  }, [id, router]);
+  }, [id, router, tCommon]);
 
   const handleCancel = useCallback((): void => {
     router.push("/brewery/equipment");
@@ -223,9 +225,13 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         onClick: () => {
           void handleDelete();
         },
+        confirm: {
+          title: tCommon("confirmDelete"),
+          description: tCommon("confirmDeleteDescription"),
+        },
       },
     ];
-  }, [isNew, t, handleDelete]);
+  }, [isNew, t, tCommon, handleDelete]);
 
   const title = isNew
     ? t("detail.newTitle")
