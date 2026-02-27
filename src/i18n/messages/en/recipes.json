@@ -183,6 +183,34 @@
       "noStyle": "No style selected",
       "noSystem": "Default parameters"
     },
+    "design": {
+      "title": "Beer Design",
+      "batchSize": "Batch Size",
+      "batchSizeUnit": "L",
+      "ogLabel": "OG",
+      "ogUnit": "°P",
+      "fgLabel": "FG",
+      "fgUnit": "°P",
+      "ibuLabel": "IBU",
+      "ebcLabel": "EBC",
+      "abvLabel": "ABV",
+      "abvReadonly": "Calculated from OG and FG",
+      "gravityFormat": "({sg} SG)",
+      "styleRange": "{min}–{max}",
+      "noStyle": "No style selected",
+      "calculated": "recipe"
+    },
+    "execution": {
+      "title": "Execution"
+    },
+    "sidebar": {
+      "title": "Design vs. Reality",
+      "designColumn": "Design",
+      "recipeColumn": "Recipe",
+      "match": "Match",
+      "slightlyOff": "Slightly Off",
+      "outOfRange": "Out of Range"
+    },
     "feedback": {
       "og": "OG",
       "ibu": "IBU",

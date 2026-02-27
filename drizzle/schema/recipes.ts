@@ -53,6 +53,8 @@ export const recipes = pgTable(
     abv: decimal("abv"),
     ibu: decimal("ibu"),
     ebc: decimal("ebc"),
+    targetIbu: decimal("target_ibu"),
+    targetEbc: decimal("target_ebc"),
     boilTimeMin: integer("boil_time_min"),
     costPrice: decimal("cost_price"),
     durationFermentationDays: integer("duration_fermentation_days"),

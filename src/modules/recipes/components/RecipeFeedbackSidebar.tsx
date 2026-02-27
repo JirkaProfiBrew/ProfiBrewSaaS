@@ -2,130 +2,103 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { Check, AlertTriangle, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import type { BeerStyle, VolumePipeline } from "../types";
 
 // ── Props ────────────────────────────────────────────────────────
 
 interface RecipeFeedbackSidebarProps {
-  recipeName: string;
-  styleName: string | null;
-  batchSizeL: number;
-  systemName: string | null;
-  og: number;
-  fg: number;
-  abv: number;
-  ibu: number;
-  ebc: number;
-  style: BeerStyle | null;
-  maltActualKg: number;
+  // Design targets (from sliders)
+  designOg: number;
+  designFg: number;
+  designIbu: number;
+  designEbc: number;
+  // Calculated values (from ingredients via calculateAll)
+  calcOg: number;
+  calcFg: number;
+  calcAbv: number;
+  calcIbu: number;
+  calcEbc: number;
+  // Malt plan
   maltPlanKg: number;
-  pipeline: VolumePipeline | null;
+  maltActualKg: number;
+  // Pipeline
+  pipeline: {
+    preBoilL: number;
+    postBoilL: number;
+    intoFermenterL: number;
+    finishedBeerL: number;
+  } | null;
+  // Water
   waterRequiredL: number;
+  // Cost
   totalCost: number;
   costPerLiter: number;
 }
 
-// ── Range helpers ────────────────────────────────────────────────
+// ── Comparison helpers ──────────────────────────────────────────
 
-type RangeStatus = "in_range" | "slightly_off" | "out_of_range" | "no_style";
+type ComparisonStatus = "good" | "warn" | "bad" | "neutral";
 
-function getRangeStatus(
-  value: number,
-  minStr: string | null,
-  maxStr: string | null
-): RangeStatus {
-  if (minStr == null && maxStr == null) return "no_style";
-
-  const lo = minStr != null ? parseFloat(minStr) : -Infinity;
-  const hi = maxStr != null ? parseFloat(maxStr) : Infinity;
-
-  if (isNaN(lo) && isNaN(hi)) return "no_style";
-
-  const effectiveLo = isNaN(lo) ? -Infinity : lo;
-  const effectiveHi = isNaN(hi) ? Infinity : hi;
-
-  if (value >= effectiveLo && value <= effectiveHi) return "in_range";
-
-  const span =
-    effectiveLo !== -Infinity && effectiveHi !== Infinity
-      ? effectiveHi - effectiveLo
-      : Math.abs(value) || 1;
-  const tolerance = span * 0.1;
-
-  if (
-    value >= effectiveLo - tolerance &&
-    value <= effectiveHi + tolerance
-  ) {
-    return "slightly_off";
-  }
-
-  return "out_of_range";
+function getComparisonStatus(
+  design: number,
+  calc: number
+): ComparisonStatus {
+  if (design === 0) return "neutral";
+  const pct = Math.abs(calc - design) / design * 100;
+  if (pct <= 5) return "good";
+  if (pct <= 15) return "warn";
+  return "bad";
 }
 
-function formatRange(
-  minStr: string | null,
-  maxStr: string | null
-): string {
-  const lo = minStr != null ? parseFloat(minStr) : null;
-  const hi = maxStr != null ? parseFloat(maxStr) : null;
-  if (lo != null && hi != null) return `${lo}–${hi}`;
-  if (lo != null) return `${lo}+`;
-  if (hi != null) return `≤${hi}`;
-  return "—";
-}
-
-// ── Parameter row ────────────────────────────────────────────────
-
-interface ParamDef {
-  label: string;
-  value: number;
-  displayValue: string;
-  minStr: string | null;
-  maxStr: string | null;
-}
-
-function ParameterRow({
-  param,
-  style,
+function StatusIcon({
+  status,
 }: {
-  param: ParamDef;
-  style: BeerStyle | null;
+  status: ComparisonStatus;
 }): React.ReactNode {
-  const status = style
-    ? getRangeStatus(param.value, param.minStr, param.maxStr)
-    : "no_style";
+  if (status === "neutral") return null;
+  if (status === "good") {
+    return <Check className="size-3.5 shrink-0 text-green-600" />;
+  }
+  if (status === "warn") {
+    return <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />;
+  }
+  return <X className="size-3.5 shrink-0 text-red-500" />;
+}
 
-  const hasRange = param.minStr != null || param.maxStr != null;
+// ── Comparison row ──────────────────────────────────────────────
+
+interface ComparisonRowDef {
+  label: string;
+  designValue: string;
+  calcValue: string;
+  status: ComparisonStatus;
+}
+
+function ComparisonRow({ row }: { row: ComparisonRowDef }): React.ReactNode {
+  const textColor =
+    row.status === "good"
+      ? "text-green-600"
+      : row.status === "warn"
+        ? "text-amber-500"
+        : row.status === "bad"
+          ? "text-red-500"
+          : "";
 
   return (
-    <div className="flex items-center justify-between text-xs">
-      <div className="flex items-center gap-1.5">
-        {style && hasRange && (
-          status === "in_range" ? (
-            <CheckCircle className="size-3.5 shrink-0 text-green-600" />
-          ) : (
-            <AlertCircle
-              className={cn(
-                "size-3.5 shrink-0",
-                status === "slightly_off" ? "text-amber-500" : "text-red-500"
-              )}
-            />
-          )
-        )}
-        <span className="text-muted-foreground">{param.label}</span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="font-semibold">{param.displayValue}</span>
-        {style && hasRange && (
-          <span className="text-muted-foreground">
-            / {formatRange(param.minStr, param.maxStr)}
-          </span>
-        )}
-      </div>
+    <div className={cn("flex items-center justify-between text-xs", textColor)}>
+      <span className={cn("w-16", !textColor && "text-muted-foreground")}>
+        {row.label}
+      </span>
+      <span className="w-12 text-right tabular-nums">{row.designValue}</span>
+      <span className="w-12 text-right tabular-nums font-semibold">
+        {row.calcValue}
+      </span>
+      <span className="w-5 flex justify-center">
+        <StatusIcon status={row.status} />
+      </span>
     </div>
   );
 }
@@ -133,18 +106,17 @@ function ParameterRow({
 // ── Component ────────────────────────────────────────────────────
 
 export function RecipeFeedbackSidebar({
-  recipeName,
-  styleName,
-  batchSizeL,
-  systemName,
-  og,
-  fg,
-  abv,
-  ibu,
-  ebc,
-  style,
-  maltActualKg,
+  designOg,
+  designFg,
+  designIbu,
+  designEbc,
+  calcOg,
+  calcFg,
+  calcAbv,
+  calcIbu,
+  calcEbc,
   maltPlanKg,
+  maltActualKg,
   pipeline,
   waterRequiredL,
   totalCost,
@@ -152,49 +124,67 @@ export function RecipeFeedbackSidebar({
 }: RecipeFeedbackSidebarProps): React.ReactNode {
   const t = useTranslations("recipes");
 
-  const parameters: ParamDef[] = useMemo(
+  // ABV from design targets
+  const designAbv = useMemo((): number | null => {
+    if (designOg <= 0 || designFg <= 0) return null;
+    const denominator = 2.0665 - 0.010665 * designOg;
+    if (denominator <= 0) return null;
+    return (designOg - designFg) / denominator;
+  }, [designOg, designFg]);
+
+  // Comparison rows
+  const rows: ComparisonRowDef[] = useMemo(
     () => [
       {
-        label: t("designer.feedback.og"),
-        value: og,
-        displayValue: og.toFixed(1),
-        minStr: style?.ogMin ?? null,
-        maxStr: style?.ogMax ?? null,
+        label: `${t("designer.feedback.og")} (\u00B0P)`,
+        designValue: designOg.toFixed(1),
+        calcValue: calcOg.toFixed(1),
+        status: getComparisonStatus(designOg, calcOg),
       },
       {
-        label: t("designer.feedback.fg"),
-        value: fg,
-        displayValue: fg.toFixed(1),
-        minStr: style?.fgMin ?? null,
-        maxStr: style?.fgMax ?? null,
+        label: `${t("designer.feedback.fg")} (\u00B0P)`,
+        designValue: designFg.toFixed(1),
+        calcValue: calcFg.toFixed(1),
+        status: getComparisonStatus(designFg, calcFg),
       },
       {
-        label: t("designer.feedback.abv"),
-        value: abv,
-        displayValue: `${abv.toFixed(1)}%`,
-        minStr: style?.abvMin ?? null,
-        maxStr: style?.abvMax ?? null,
+        label: `${t("designer.feedback.abv")} (%)`,
+        designValue: designAbv != null ? designAbv.toFixed(1) : "\u2014",
+        calcValue: calcAbv.toFixed(1),
+        status: "neutral",
       },
       {
         label: t("designer.feedback.ibu"),
-        value: ibu,
-        displayValue: ibu.toFixed(0),
-        minStr: style?.ibuMin ?? null,
-        maxStr: style?.ibuMax ?? null,
+        designValue: designIbu.toFixed(0),
+        calcValue: calcIbu.toFixed(0),
+        status: getComparisonStatus(designIbu, calcIbu),
       },
       {
         label: t("designer.feedback.ebc"),
-        value: ebc,
-        displayValue: ebc.toFixed(0),
-        minStr: style?.ebcMin ?? null,
-        maxStr: style?.ebcMax ?? null,
+        designValue: designEbc.toFixed(0),
+        calcValue: calcEbc.toFixed(0),
+        status: getComparisonStatus(designEbc, calcEbc),
       },
     ],
-    [t, og, fg, abv, ibu, ebc, style]
+    [
+      t,
+      designOg,
+      designFg,
+      designAbv,
+      designIbu,
+      designEbc,
+      calcOg,
+      calcFg,
+      calcAbv,
+      calcIbu,
+      calcEbc,
+    ]
   );
 
+  // Malt diff
   const maltDiff = maltActualKg - maltPlanKg;
-  const maltDiffPct = maltPlanKg > 0 ? Math.abs(maltDiff) / maltPlanKg * 100 : 0;
+  const maltDiffPct =
+    maltPlanKg > 0 ? (Math.abs(maltDiff) / maltPlanKg) * 100 : 0;
   const maltDiffColorClass =
     maltPlanKg <= 0
       ? "text-muted-foreground"
@@ -206,40 +196,35 @@ export function RecipeFeedbackSidebar({
 
   return (
     <div className="w-72 shrink-0 border-l bg-muted/30 p-4 space-y-4 overflow-y-auto hidden xl:block">
-      {/* Section 1: Target */}
+      {/* Section 1: Design vs Reality */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
-          {t("designer.target.title")}
+          {t("designer.sidebar.title")}
         </h3>
-        <div className="text-xs space-y-1 text-muted-foreground">
-          <div>
-            {t("designer.feedback.target")}:{" "}
-            {styleName ?? t("designer.target.noStyle")}
-          </div>
-          <div>
-            {t("form.batchSize")}: {batchSizeL} L
-          </div>
-          <div>{systemName ?? t("designer.target.noSystem")}</div>
+
+        {/* Column headers */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+          <span className="w-16" />
+          <span className="w-12 text-right">
+            {t("designer.sidebar.designColumn")}
+          </span>
+          <span className="w-12 text-right">
+            {t("designer.sidebar.recipeColumn")}
+          </span>
+          <span className="w-5" />
         </div>
-      </div>
 
-      <Separator />
-
-      {/* Section 2: Parameters with range status */}
-      <div>
-        <h3 className="text-sm font-semibold mb-2">
-          {t("designer.calculation.parametersTitle")}
-        </h3>
-        <div className="space-y-1.5">
-          {parameters.map((param) => (
-            <ParameterRow key={param.label} param={param} style={style} />
+        {/* Parameter rows */}
+        <div className="space-y-1">
+          {rows.map((row) => (
+            <ComparisonRow key={row.label} row={row} />
           ))}
         </div>
       </div>
 
       <Separator />
 
-      {/* Section 3: Malt plan vs actual */}
+      {/* Section 2: Malt plan vs actual */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
           {t("designer.feedback.maltPlan")}
@@ -265,7 +250,7 @@ export function RecipeFeedbackSidebar({
 
       <Separator />
 
-      {/* Section 4: Pipeline */}
+      {/* Section 3: Pipeline */}
       {pipeline && (
         <>
           <div>
@@ -298,7 +283,7 @@ export function RecipeFeedbackSidebar({
         </>
       )}
 
-      {/* Section 5: Water */}
+      {/* Section 4: Water */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
           {t("designer.feedback.water")}
@@ -310,7 +295,7 @@ export function RecipeFeedbackSidebar({
 
       <Separator />
 
-      {/* Section 6: Cost */}
+      {/* Section 5: Cost */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
           {t("designer.feedback.cost")}
@@ -318,11 +303,11 @@ export function RecipeFeedbackSidebar({
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("designer.feedback.costTotal")}:</span>
-            <span>{totalCost.toFixed(0)} Kč</span>
+            <span>{totalCost.toFixed(0)} K\u010D</span>
           </div>
           <div className="flex justify-between">
             <span>{t("designer.feedback.costPerLiter")}:</span>
-            <span>{costPerLiter.toFixed(2)} Kč</span>
+            <span>{costPerLiter.toFixed(2)} K\u010D</span>
           </div>
         </div>
       </div>

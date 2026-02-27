@@ -413,6 +413,31 @@
 
 ---
 
+## [0.7.1] — Sprint 7 Fáze C patch: Design Sliders
+**Období:** T14 (27.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB schema: `recipes.target_ibu`, `recipes.target_ebc` — cílové hodnoty z designových sliderů
+- [x] SQL migrace `0016_recipe_design_targets.sql`
+- [x] `DesignSlider` — custom slider s vizualizací rozsahu pivního stylu, barevným thumbem (zelená/oranžová/červená), number inputem, marker pro kalkulovanou hodnotu
+- [x] `RecipeDesignSection` — nová sekce "Návrh piva" (beer style select, batch size, 4 slidery: OG, FG, IBU, EBC, ABV readonly, SG konverze)
+- [x] `RecipeExecutionSection` — přejmenováno z RecipeTargetSection, odstraněny pole styl/objem (přesunuty do Design)
+- [x] `RecipeFeedbackSidebar` — přepsán na "Design vs Reality" dvousloupcovou srovnávací tabulku se stavovými ikonami (✅ ≤5%, ⚠️ ≤15%, ❌ >15%)
+- [x] `RecipeDesigner` — restrukturalizace na 3-sekční layout: Design → Execution → Editor
+- [x] shadcn/ui `Slider` komponenta (Radix)
+- [x] Sémantická změna: `og`, `fg` jsou nyní cílové hodnoty (design), ne kalkulované — `calculateAndSaveRecipe` je nepřepisuje
+- [x] Výběr pivního stylu → auto midpoint: při výběru stylu se slidery nastaví na střed rozsahu (pokud jsou na 0)
+- [x] i18n: `designer.design`, `designer.execution`, `designer.sidebar` (cs + en)
+
+### Architektonická rozhodnutí
+- 3-sekční workflow: Brewer NEJPRVE navrhne parametry (Design), pak nastaví výrobu (Execution), pak skládá suroviny (Editor)
+- `og`, `fg` v DB jsou nyní TARGET hodnoty ze sliderů — kalkulační engine je nepřepisuje
+- Nové sloupce `target_ibu`, `target_ebc` pro IBU/EBC targets — kalkulované IBU/EBC zůstávají v `ibu`/`ebc`
+- DesignSlider: rozsah stylu zobrazen jako zelená zóna, thumb barva dle vzdálenosti od rozsahu, marker ▲ pod trackem pro kalkulovanou hodnotu
+
+---
+
 ## [0.7.0] — Sprint 7 Fáze C: Recipe Designer UI
 **Období:** T14 (27.02.2026)
 **Status:** ✅ Done

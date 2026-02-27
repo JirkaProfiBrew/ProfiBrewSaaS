@@ -17,51 +17,44 @@ import { cn } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────
 
-interface RecipeTargetSectionProps {
+interface RecipeExecutionSectionProps {
   isNew: boolean;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   values: Record<string, unknown>;
   errors: Record<string, string>;
   onChange: (key: string, value: unknown) => void;
-  beerStyleOptions: Array<{ value: string; label: string }>;
   brewingSystemOptions: Array<{ value: string; label: string }>;
   mashingProfileOptions: Array<{ value: string; label: string }>;
   productionItemOptions: Array<{ value: string; label: string }>;
   onContinue?: () => void;
   // Computed display values for collapsed view
-  styleName: string | null;
   systemName: string | null;
-  batchSizeL: number;
 }
 
 // ── Component ────────────────────────────────────────────────────
 
-export function RecipeTargetSection({
+export function RecipeExecutionSection({
   isNew,
   isCollapsed,
   onToggleCollapse,
   values,
   errors,
   onChange,
-  beerStyleOptions,
   brewingSystemOptions,
   mashingProfileOptions,
   productionItemOptions,
   onContinue,
-  styleName,
   systemName,
-  batchSizeL,
-}: RecipeTargetSectionProps): React.ReactNode {
+}: RecipeExecutionSectionProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   // Collapsed summary text
   const collapsedSummary = useMemo(() => {
-    const style = styleName ?? t("designer.target.noStyle");
+    const name = values.name ? String(values.name) : "\u2014";
     const system = systemName ?? t("designer.target.noSystem");
-    const volume = batchSizeL > 0 ? `${batchSizeL}L` : "\u2014";
-    return `${style} | ${volume} | ${system}`;
-  }, [styleName, systemName, batchSizeL, t]);
+    return `${name} | ${system}`;
+  }, [values.name, systemName, t]);
 
   return (
     <div>
@@ -85,7 +78,7 @@ export function RecipeTargetSection({
         )}
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold">
-            {t("designer.target.title")}
+            {t("designer.execution.title")}
           </h2>
           {isCollapsed && (
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -126,26 +119,6 @@ export function RecipeTargetSection({
               />
             </div>
 
-            {/* Beer Style */}
-            <div className="space-y-1.5">
-              <Label>{t("form.beerStyle")}</Label>
-              <Select
-                value={values.beerStyleId ? String(values.beerStyleId) : ""}
-                onValueChange={(v) => onChange("beerStyleId", v || null)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("form.beerStyle")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {beerStyleOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Brewing System */}
             <div className="space-y-1.5">
               <Label>{t("form.brewingSystem")}</Label>
@@ -153,9 +126,9 @@ export function RecipeTargetSection({
                 value={
                   values.brewingSystemId
                     ? String(values.brewingSystemId)
-                    : ""
+                    : "__none__"
                 }
-                onValueChange={(v) => onChange("brewingSystemId", v || null)}
+                onValueChange={(v) => onChange("brewingSystemId", v === "__none__" ? null : v)}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -163,7 +136,7 @@ export function RecipeTargetSection({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">
+                  <SelectItem value="__none__">
                     {t("form.noBrewingSystem")}
                   </SelectItem>
                   {brewingSystemOptions.map((opt) => (
@@ -195,19 +168,6 @@ export function RecipeTargetSection({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Batch Size */}
-            <div className="space-y-1.5">
-              <Label htmlFor="target-batchSizeL">{t("form.batchSize")}</Label>
-              <Input
-                id="target-batchSizeL"
-                type="number"
-                value={String(values.batchSizeL ?? "")}
-                onChange={(e) => onChange("batchSizeL", e.target.value || null)}
-                placeholder="0"
-                step="1"
-              />
             </div>
 
             {/* Status */}

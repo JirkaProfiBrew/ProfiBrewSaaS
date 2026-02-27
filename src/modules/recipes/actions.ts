@@ -58,6 +58,8 @@ function mapRecipeRow(
     abv: row.abv,
     ibu: row.ibu,
     ebc: row.ebc,
+    targetIbu: row.targetIbu,
+    targetEbc: row.targetEbc,
     boilTimeMin: row.boilTimeMin,
     costPrice: row.costPrice,
     durationFermentationDays: row.durationFermentationDays,
@@ -302,6 +304,10 @@ export async function createRecipe(
         batchSizeL: parsed.batchSizeL ?? null,
         batchSizeBrutoL: parsed.batchSizeBrutoL ?? null,
         beerVolumeL: parsed.beerVolumeL ?? null,
+        og: parsed.og ?? null,
+        fg: parsed.fg ?? null,
+        targetIbu: parsed.targetIbu ?? null,
+        targetEbc: parsed.targetEbc ?? null,
         boilTimeMin: parsed.boilTimeMin ?? null,
         durationFermentationDays: parsed.durationFermentationDays ?? null,
         durationConditioningDays: parsed.durationConditioningDays ?? null,
@@ -417,6 +423,8 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           abv: orig.abv,
           ibu: orig.ibu,
           ebc: orig.ebc,
+          targetIbu: orig.targetIbu,
+          targetEbc: orig.targetEbc,
           boilTimeMin: orig.boilTimeMin,
           costPrice: orig.costPrice,
           durationFermentationDays: orig.durationFermentationDays,
@@ -981,11 +989,10 @@ export async function calculateAndSaveRecipe(
     });
 
     // Update recipe with calculated values — costPrice = totalProductionCost
+    // og, fg — NOT overwritten (they are target values from design sliders)
     await db
       .update(recipes)
       .set({
-        og: String(result.og),
-        fg: String(result.fg),
         abv: String(result.abv),
         ibu: String(result.ibu),
         ebc: String(result.ebc),

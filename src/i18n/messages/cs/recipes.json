@@ -183,6 +183,34 @@
       "noStyle": "Styl nevybrán",
       "noSystem": "Výchozí parametry"
     },
+    "design": {
+      "title": "Design piva",
+      "batchSize": "Objem várky",
+      "batchSizeUnit": "L",
+      "ogLabel": "OG",
+      "ogUnit": "°P",
+      "fgLabel": "FG",
+      "fgUnit": "°P",
+      "ibuLabel": "IBU",
+      "ebcLabel": "EBC",
+      "abvLabel": "ABV",
+      "abvReadonly": "Vypočteno z OG a FG",
+      "gravityFormat": "({sg} SG)",
+      "styleRange": "{min}–{max}",
+      "noStyle": "Styl nevybrán",
+      "calculated": "recept"
+    },
+    "execution": {
+      "title": "Provedení"
+    },
+    "sidebar": {
+      "title": "Design vs. Realita",
+      "designColumn": "Design",
+      "recipeColumn": "Recept",
+      "match": "Odpovídá",
+      "slightlyOff": "Mírně mimo",
+      "outOfRange": "Mimo"
+    },
     "feedback": {
       "og": "OG",
       "ibu": "IBU",

@@ -66,9 +66,9 @@ import { DEFAULT_BREWING_SYSTEM } from "../types";
 import { calculateAll } from "../utils";
 import type { IngredientInput } from "../utils";
 
-import { RecipeTargetSection } from "./RecipeTargetSection";
+import { RecipeExecutionSection } from "./RecipeTargetSection";
 import { RecipeEditor } from "./RecipeEditor";
-import { RecipeFeedbackBar } from "./RecipeFeedbackBar";
+import { RecipeDesignSection } from "./RecipeDesignSection";
 import { RecipeFeedbackSidebar } from "./RecipeFeedbackSidebar";
 
 // ── Props ────────────────────────────────────────────────────────
@@ -108,16 +108,24 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   const [values, setValues] = useState<Record<string, unknown>>({
     name: "",
     code: null,
-    beerStyleId: null,
     itemId: null,
     brewingSystemId: null,
     status: "draft",
-    batchSizeL: null,
     boilTimeMin: null,
     durationFermentationDays: null,
     durationConditioningDays: null,
     shelfLifeDays: null,
     notes: null,
+  });
+
+  // Design section state (sliders + style + batch size)
+  const [designValues, setDesignValues] = useState({
+    beerStyleId: null as string | null,
+    batchSizeL: 0,
+    og: 0,
+    fg: 0,
+    targetIbu: 0,
+    targetEbc: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -142,16 +150,22 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       setValues({
         name: r.name,
         code: r.code,
-        beerStyleId: r.beerStyleId,
         itemId: r.itemId,
         brewingSystemId: r.brewingSystemId,
         status: r.status,
-        batchSizeL: r.batchSizeL,
         boilTimeMin: r.boilTimeMin,
         durationFermentationDays: r.durationFermentationDays,
         durationConditioningDays: r.durationConditioningDays,
         shelfLifeDays: r.shelfLifeDays,
         notes: r.notes,
+      });
+      setDesignValues({
+        beerStyleId: r.beerStyleId,
+        batchSizeL: r.batchSizeL ? parseFloat(r.batchSizeL) : 0,
+        og: r.og ? parseFloat(r.og) : 0,
+        fg: r.fg ? parseFloat(r.fg) : 0,
+        targetIbu: r.targetIbu ? parseFloat(r.targetIbu) : 0,
+        targetEbc: r.targetEbc ? parseFloat(r.targetEbc) : 0,
       });
       setConstants(r.constantsOverride ?? {});
       setLocalItems(recipeDetail.items);
@@ -207,10 +221,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   // Current selected style
   const selectedStyle: BeerStyle | null = useMemo(() => {
-    const styleId = values.beerStyleId;
+    const styleId = designValues.beerStyleId;
     if (!styleId) return null;
     return beerStyles.find((s) => s.id === String(styleId)) ?? null;
-  }, [values.beerStyleId, beerStyles]);
+  }, [designValues.beerStyleId, beerStyles]);
 
   // Build system defaults (from selected brewing system or DEFAULT)
   const systemDefaults: BrewingSystemInput = useMemo(() => {
@@ -267,7 +281,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   );
 
   // Volume
-  const volumeL = values.batchSizeL ? parseFloat(String(values.batchSizeL)) : 0;
+  const volumeL = designValues.batchSizeL;
 
   // Real-time calculation (client-side)
   const calcResult = useMemo(() => {
@@ -316,6 +330,24 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     };
   }, [selectedStyle]);
 
+  // Style ranges for design sliders
+  const styleRanges = useMemo(() => {
+    if (!selectedStyle) return { og: null, fg: null, ibu: null, ebc: null };
+    const parse = (min: string | null, max: string | null): [number, number] | null => {
+      if (!min || !max) return null;
+      const a = parseFloat(min);
+      const b = parseFloat(max);
+      if (isNaN(a) || isNaN(b)) return null;
+      return [a, b];
+    };
+    return {
+      og: parse(selectedStyle.ogMin, selectedStyle.ogMax),
+      fg: parse(selectedStyle.fgMin, selectedStyle.fgMax),
+      ibu: parse(selectedStyle.ibuMin, selectedStyle.ibuMax),
+      ebc: parse(selectedStyle.ebcMin, selectedStyle.ebcMax),
+    };
+  }, [selectedStyle]);
+
   // Display names
   const styleName = selectedStyle?.name ?? null;
   const systemName = useMemo(() => {
@@ -324,20 +356,49 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     return brewingSystemOpts.find((b) => b.id === bsId)?.name ?? null;
   }, [values.brewingSystemId, brewingSystemOpts]);
 
-  // Header EBC for BeerGlass
+  // Header EBC for BeerGlass — use design target EBC, fallback to style midpoint
   const headerEbc = useMemo((): number | null => {
+    if (designValues.targetEbc > 0) return designValues.targetEbc;
     if (calcResult.ebc > 0) return calcResult.ebc;
     if (selectedStyle?.ebcMin != null && selectedStyle?.ebcMax != null) {
       return (Number(selectedStyle.ebcMin) + Number(selectedStyle.ebcMax)) / 2;
     }
     return null;
-  }, [calcResult.ebc, selectedStyle]);
+  }, [designValues.targetEbc, calcResult.ebc, selectedStyle]);
 
   const backHref = isSnapshot
     ? `/brewery/batches/${batchId}?tab=ingredients`
     : "/brewery/recipes";
 
   // ── Handlers ───────────────────────────────────────────────────
+
+  const handleDesignChange = useCallback(
+    (key: string, value: unknown): void => {
+      setDesignValues((prev) => ({ ...prev, [key]: value }));
+
+      // When selecting a beer style, set sliders to midpoint if currently 0
+      if (key === "beerStyleId" && value) {
+        const style = beerStyles.find((s) => s.id === String(value));
+        if (style) {
+          setDesignValues((prev) => {
+            const mid = (a: string | null, b: string | null): number => {
+              if (!a || !b) return 0;
+              return (parseFloat(a) + parseFloat(b)) / 2;
+            };
+            return {
+              ...prev,
+              beerStyleId: String(value),
+              og: prev.og === 0 ? Math.round(mid(style.ogMin, style.ogMax) * 10) / 10 : prev.og,
+              fg: prev.fg === 0 ? Math.round(mid(style.fgMin, style.fgMax) * 10) / 10 : prev.fg,
+              targetIbu: prev.targetIbu === 0 ? Math.round(mid(style.ibuMin, style.ibuMax)) : prev.targetIbu,
+              targetEbc: prev.targetEbc === 0 ? Math.round(mid(style.ebcMin, style.ebcMax)) : prev.targetEbc,
+            };
+          });
+        }
+      }
+    },
+    [beerStyles]
+  );
 
   const handleChange = useCallback(
     (key: string, value: unknown): void => {
@@ -370,66 +431,43 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     return Object.keys(newErrors).length === 0;
   }, [values, tCommon]);
 
+  // Build the data payload for save (merges execution values + design values)
+  const buildSaveData = useCallback((): Record<string, unknown> => ({
+    name: String(values.name),
+    beerStyleId: designValues.beerStyleId || null,
+    itemId: values.itemId ? String(values.itemId) : null,
+    status: String(values.status ?? "draft"),
+    batchSizeL: designValues.batchSizeL ? String(designValues.batchSizeL) : null,
+    og: designValues.og ? String(designValues.og) : null,
+    fg: designValues.fg ? String(designValues.fg) : null,
+    targetIbu: designValues.targetIbu ? String(designValues.targetIbu) : null,
+    targetEbc: designValues.targetEbc ? String(designValues.targetEbc) : null,
+    boilTimeMin: values.boilTimeMin ? Number(values.boilTimeMin) : null,
+    durationFermentationDays: values.durationFermentationDays
+      ? Number(values.durationFermentationDays)
+      : null,
+    durationConditioningDays: values.durationConditioningDays
+      ? Number(values.durationConditioningDays)
+      : null,
+    shelfLifeDays: values.shelfLifeDays ? Number(values.shelfLifeDays) : null,
+    notes: values.notes ? String(values.notes) : null,
+    brewingSystemId: values.brewingSystemId
+      ? String(values.brewingSystemId)
+      : null,
+    constantsOverride: Object.keys(constants).length > 0 ? constants : null,
+  }), [values, designValues, constants]);
+
   const handleSave = useCallback(async (): Promise<void> => {
     if (!validate()) return;
 
     try {
+      const data = buildSaveData();
       if (isNew) {
-        const created = await createRecipe({
-          name: String(values.name),
-          beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
-          itemId: values.itemId ? String(values.itemId) : null,
-          status: String(values.status ?? "draft"),
-          batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,
-          boilTimeMin: values.boilTimeMin
-            ? Number(values.boilTimeMin)
-            : null,
-          durationFermentationDays: values.durationFermentationDays
-            ? Number(values.durationFermentationDays)
-            : null,
-          durationConditioningDays: values.durationConditioningDays
-            ? Number(values.durationConditioningDays)
-            : null,
-          shelfLifeDays: values.shelfLifeDays
-            ? Number(values.shelfLifeDays)
-            : null,
-          notes: values.notes ? String(values.notes) : null,
-          brewingSystemId: values.brewingSystemId
-            ? String(values.brewingSystemId)
-            : null,
-          constantsOverride:
-            Object.keys(constants).length > 0 ? constants : null,
-        });
-
+        const created = await createRecipe(data);
         toast.success(tCommon("saved"));
         router.push(`/brewery/recipes/${created.id}`);
       } else {
-        await updateRecipe(id, {
-          name: String(values.name),
-          beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
-          brewingSystemId: values.brewingSystemId
-            ? String(values.brewingSystemId)
-            : null,
-          itemId: values.itemId ? String(values.itemId) : null,
-          status: String(values.status ?? "draft"),
-          batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,
-          boilTimeMin: values.boilTimeMin
-            ? Number(values.boilTimeMin)
-            : null,
-          durationFermentationDays: values.durationFermentationDays
-            ? Number(values.durationFermentationDays)
-            : null,
-          durationConditioningDays: values.durationConditioningDays
-            ? Number(values.durationConditioningDays)
-            : null,
-          shelfLifeDays: values.shelfLifeDays
-            ? Number(values.shelfLifeDays)
-            : null,
-          notes: values.notes ? String(values.notes) : null,
-          constantsOverride:
-            Object.keys(constants).length > 0 ? constants : null,
-        });
-
+        await updateRecipe(id, data);
         toast.success(tCommon("saved"));
         mutate();
       }
@@ -437,7 +475,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       console.error("Failed to save recipe:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [isNew, id, values, constants, validate, router, tCommon, mutate]);
+  }, [isNew, id, buildSaveData, validate, router, tCommon, mutate]);
 
   const handleDuplicate = useCallback(async (): Promise<void> => {
     try {
@@ -484,37 +522,15 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     if (!validate()) return;
 
     try {
-      const created = await createRecipe({
-        name: String(values.name),
-        beerStyleId: values.beerStyleId ? String(values.beerStyleId) : null,
-        itemId: values.itemId ? String(values.itemId) : null,
-        status: "draft",
-        batchSizeL: values.batchSizeL ? String(values.batchSizeL) : null,
-        boilTimeMin: values.boilTimeMin ? Number(values.boilTimeMin) : null,
-        durationFermentationDays: values.durationFermentationDays
-          ? Number(values.durationFermentationDays)
-          : null,
-        durationConditioningDays: values.durationConditioningDays
-          ? Number(values.durationConditioningDays)
-          : null,
-        shelfLifeDays: values.shelfLifeDays
-          ? Number(values.shelfLifeDays)
-          : null,
-        notes: values.notes ? String(values.notes) : null,
-        brewingSystemId: values.brewingSystemId
-          ? String(values.brewingSystemId)
-          : null,
-        constantsOverride:
-          Object.keys(constants).length > 0 ? constants : null,
-      });
-
+      const data = buildSaveData();
+      const created = await createRecipe(data);
       toast.success(tCommon("saved"));
       router.push(`/brewery/recipes/${created.id}`);
     } catch (error: unknown) {
       console.error("Failed to create recipe:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [values, constants, validate, router, tCommon]);
+  }, [buildSaveData, validate, router, tCommon]);
 
   // ── Ingredient handlers ────────────────────────────────────────
 
@@ -588,11 +604,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           updated.splice(newIndex, 0, removed);
         }
 
-        // Persist reorder
-        void reorderRecipeItems(
-          id,
-          updated.map((i) => i.id)
-        );
+        // Persist reorder in a microtask to avoid setState during render
+        const ids = updated.map((i) => i.id);
+        queueMicrotask(() => {
+          void reorderRecipeItems(id, ids);
+        });
 
         return updated;
       });
@@ -750,39 +766,36 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         </div>
       </div>
 
-      {/* Feedback bar */}
-      <RecipeFeedbackBar
-        og={calcResult.og}
-        ibu={calcResult.ibu}
-        ebc={calcResult.ebc}
-        abv={calcResult.abv}
-        maltActualKg={maltActualKg}
-        maltPlanKg={calcResult.maltRequiredKg ?? 0}
-        style={selectedStyle}
-      />
-
       {/* Main content with optional sidebar */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Step 1: Target Section */}
-          <RecipeTargetSection
+          {/* Section 1: Design */}
+          <RecipeDesignSection
+            values={designValues}
+            onChange={handleDesignChange}
+            beerStyleOptions={beerStyleOptions}
+            styleRanges={styleRanges}
+            calcOg={calcResult.og}
+            calcIbu={calcResult.ibu}
+            calcEbc={calcResult.ebc}
+          />
+
+          {/* Section 2: Execution (collapsible) */}
+          <RecipeExecutionSection
             isNew={isNew}
             isCollapsed={targetCollapsed}
             onToggleCollapse={() => setTargetCollapsed((p) => !p)}
             values={values}
             errors={errors}
             onChange={handleChange}
-            beerStyleOptions={beerStyleOptions}
             brewingSystemOptions={brewingSystemOptions}
             mashingProfileOptions={mashingProfileOptions}
             productionItemOptions={productionItemOptions}
             onContinue={isNew ? () => void handleContinue() : undefined}
-            styleName={styleName}
             systemName={systemName}
-            batchSizeL={volumeL}
           />
 
-          {/* Step 2: Editor (only shown for existing recipes) */}
+          {/* Section 3: Editor (only shown for existing recipes) */}
           {!isNew && (
             <RecipeEditor
               recipeId={id}
@@ -817,18 +830,17 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
         {/* Detail sidebar (xl+ screens) */}
         <RecipeFeedbackSidebar
-          recipeName={String(values.name ?? "")}
-          styleName={styleName}
-          batchSizeL={volumeL}
-          systemName={systemName}
-          og={calcResult.og}
-          fg={calcResult.fg}
-          abv={calcResult.abv}
-          ibu={calcResult.ibu}
-          ebc={calcResult.ebc}
-          style={selectedStyle}
-          maltActualKg={maltActualKg}
+          designOg={designValues.og}
+          designFg={designValues.fg}
+          designIbu={designValues.targetIbu}
+          designEbc={designValues.targetEbc}
+          calcOg={calcResult.og}
+          calcFg={calcResult.fg}
+          calcAbv={calcResult.abv}
+          calcIbu={calcResult.ibu}
+          calcEbc={calcResult.ebc}
           maltPlanKg={calcResult.maltRequiredKg ?? 0}
+          maltActualKg={maltActualKg}
           pipeline={calcResult.pipeline ?? null}
           waterRequiredL={calcResult.waterRequiredL ?? 0}
           totalCost={calcResult.totalProductionCost}

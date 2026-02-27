@@ -222,15 +222,21 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Status: draft → active → archived
 
 **Recipe Designer (Sprint 7):**
-UI receptury je dvousekční designer s real-time zpětnou vazbou:
+UI receptury je třísekční designer s aktivními designovými slidery a real-time zpětnou vazbou:
 
-**Sekce 1 — Cíl receptury (RecipeTargetSection):**
-- Kolabovatelný panel s 12 poli v 3-sloupcovém gridu
-- Pole: název, kód, pivní styl, varní soustava, rmutovací profil, cílový objem, status, výrobní položka, čas varu, kvašení, dokvašování, trvanlivost
-- V kolapsnutém stavu: jednořádkový souhrn "{styl} | {objem}L | {soustava}"
+**Sekce 1 — Návrh piva (RecipeDesignSection):**
+- Pivní styl (select) + batch size (input) — hlavní designové parametry
+- 4 aktivní DesignSlidery: OG (°P), FG (°P), IBU, EBC — sládek nejprve NAVRHNE cílové parametry piva
+- Každý slider: vizualizace rozsahu pivního stylu (zelená zóna), barevný thumb (zelená = v rozsahu, oranžová = mírně mimo, červená = daleko), marker ▲ pro kalkulovanou hodnotu
+- ABV readonly výpočet (Balling formule), SG konverze pro OG/FG
+- Výběr stylu → auto midpoint: při výběru stylu se slidery nastaví na střed rozsahu (pokud jsou na 0)
 - BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i header
 
-**Sekce 2 — Editor (RecipeEditor) s 7 sub-taby:**
+**Sekce 2 — Výroba (RecipeExecutionSection):**
+- Kolabovatelný panel s výrobními parametry (název, kód, varní soustava, rmutovací profil, status, výrobní položka, čas varu, kvašení, dokvašování, trvanlivost)
+- V kolapsnutém stavu: jednořádkový souhrn "{název} | {soustava}"
+
+**Sekce 3 — Editor (RecipeEditor) s 7 sub-taby:**
 - **Slady:** drag & drop kartičky (MaltCard) — množství, podíl%, EBC, extrakt%. Souhrn: celkem vs plán, surplus/deficit.
 - **Chmel:** HopCard — množství, alpha, fáze (var/whirlpool/dry hop), čas, IBU příspěvek. Souhrn: IBU breakdown.
 - **Kvasnice:** YeastCard — množství, odhad FG/ABV.
@@ -240,9 +246,9 @@ UI receptury je dvousekční designer s real-time zpětnou vazbou:
 - **Kalkulace:** wrapper kolem RecipeCalculation (pipeline, potřeba surovin, náklady).
 
 **Real-time zpětná vazba:**
-- `RecipeFeedbackBar` — sticky horizontální lišta s 5 progress bary (OG, IBU, EBC, ABV, Slad) + barevné kódování: zelená (v rozsahu), oranžová (mírně mimo), červená (mimo rozsah)
-- `RecipeFeedbackSidebar` — detailní postranní panel na xl+ obrazovkách (6 sekcí: Target, Parametry, Slad plán/aktuál, Pipeline, Voda, Náklady)
+- `RecipeFeedbackSidebar` — dvousloupcová tabulka "Design vs Reality" (xl+ obrazovky): porovnání cílových (design) a kalkulovaných (reality) hodnot OG, FG, ABV, IBU, EBC se stavovými ikonami (✅ ≤5%, ⚠️ ≤15%, ❌ >15%) + sekce Slad, Pipeline, Voda, Náklady
 - Výpočty běží client-side přes `calculateAll()` — okamžitá zpětná vazba bez server roundtrip
+- Sémantická změna: `og`, `fg` v DB jsou nyní cílové hodnoty ze sliderů (ne kalkulované). `target_ibu`, `target_ebc` pro IBU/EBC targety.
 
 **Constants override (JSONB `constants_override`):**
 - Receptura může přepsat 8 parametrů varní soustavy: efektivita, ztráty (kotel, whirlpool, fermentace), extrakt sladu, voda/kg, rezerva vody, čas varu

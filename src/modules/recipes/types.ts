@@ -27,6 +27,8 @@ export interface Recipe {
   abv: string | null;
   ibu: string | null;
   ebc: string | null;
+  targetIbu: string | null;
+  targetEbc: string | null;
   boilTimeMin: number | null;
   costPrice: string | null;
   durationFermentationDays: number | null;
