@@ -839,13 +839,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
         {/* Detail sidebar (xl+ screens) */}
         <RecipeFeedbackSidebar
-          designOg={designValues.og}
-          designFg={designValues.fg}
           designIbu={designValues.targetIbu}
           designEbc={designValues.targetEbc}
-          calcOg={calcResult.og}
-          calcFg={calcResult.fg}
-          calcAbv={calcResult.abv}
           calcIbu={calcResult.ibu}
           calcEbc={calcResult.ebc}
           maltPlanKg={calcResult.maltRequiredKg ?? 0}

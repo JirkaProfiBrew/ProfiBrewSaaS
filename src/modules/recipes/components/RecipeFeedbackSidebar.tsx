@@ -11,14 +11,9 @@ import { Separator } from "@/components/ui/separator";
 
 interface RecipeFeedbackSidebarProps {
   // Design targets (from sliders)
-  designOg: number;
-  designFg: number;
   designIbu: number;
   designEbc: number;
   // Calculated values (from ingredients via calculateAll)
-  calcOg: number;
-  calcFg: number;
-  calcAbv: number;
   calcIbu: number;
   calcEbc: number;
   // Malt plan
@@ -106,13 +101,8 @@ function ComparisonRow({ row }: { row: ComparisonRowDef }): React.ReactNode {
 // ── Component ────────────────────────────────────────────────────
 
 export function RecipeFeedbackSidebar({
-  designOg,
-  designFg,
   designIbu,
   designEbc,
-  calcOg,
-  calcFg,
-  calcAbv,
   calcIbu,
   calcEbc,
   maltPlanKg,
@@ -124,35 +114,9 @@ export function RecipeFeedbackSidebar({
 }: RecipeFeedbackSidebarProps): React.ReactNode {
   const t = useTranslations("recipes");
 
-  // ABV from design targets
-  const designAbv = useMemo((): number | null => {
-    if (designOg <= 0 || designFg <= 0) return null;
-    const denominator = 2.0665 - 0.010665 * designOg;
-    if (denominator <= 0) return null;
-    return (designOg - designFg) / denominator;
-  }, [designOg, designFg]);
-
-  // Comparison rows
+  // Comparison rows — only IBU and EBC (OG/FG/ABV not influenced by recipe ingredients)
   const rows: ComparisonRowDef[] = useMemo(
     () => [
-      {
-        label: `${t("designer.feedback.og")} (\u00B0P)`,
-        designValue: designOg.toFixed(1),
-        calcValue: calcOg.toFixed(1),
-        status: getComparisonStatus(designOg, calcOg),
-      },
-      {
-        label: `${t("designer.feedback.fg")} (\u00B0P)`,
-        designValue: designFg.toFixed(1),
-        calcValue: calcFg.toFixed(1),
-        status: getComparisonStatus(designFg, calcFg),
-      },
-      {
-        label: `${t("designer.feedback.abv")} (%)`,
-        designValue: designAbv != null ? designAbv.toFixed(1) : "\u2014",
-        calcValue: calcAbv.toFixed(1),
-        status: "neutral",
-      },
       {
         label: t("designer.feedback.ibu"),
         designValue: designIbu.toFixed(0),
@@ -166,19 +130,7 @@ export function RecipeFeedbackSidebar({
         status: getComparisonStatus(designEbc, calcEbc),
       },
     ],
-    [
-      t,
-      designOg,
-      designFg,
-      designAbv,
-      designIbu,
-      designEbc,
-      calcOg,
-      calcFg,
-      calcAbv,
-      calcIbu,
-      calcEbc,
-    ]
+    [t, designIbu, designEbc, calcIbu, calcEbc]
   );
 
   // Malt diff
