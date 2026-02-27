@@ -406,7 +406,7 @@ export function BrewingSystemDetail({
           <CardContent>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {/* Kettle block */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">
                     {t("detail.fields.kettleVolumeL")}
@@ -433,27 +433,29 @@ export function BrewingSystemDetail({
                     className="h-8"
                   />
                 </div>
-                <VesselBlock
-                  title={t("detail.hotZoneBlocks.kettle")}
-                  leftVessel={{
-                    vesselVolumeL: kettleVolumeL,
-                    liquidVolumeL: volumes.preboilVolumeL,
-                    label: t("detail.volumeLabels.preboil"),
-                    liquidColor: "bg-amber-500",
-                  }}
-                  rightVessel={{
-                    vesselVolumeL: kettleVolumeL,
-                    liquidVolumeL: volumes.postBoilVolumeL,
-                    label: t("detail.volumeLabels.postBoil"),
-                    liquidColor: "bg-yellow-400",
-                  }}
-                  lossLabel={t("detail.fields.kettleLossPct")}
-                  lossPct={kettleLossPct}
-                />
+                <div className="flex-1">
+                  <VesselBlock
+                    title={t("detail.hotZoneBlocks.kettle")}
+                    leftVessel={{
+                      vesselVolumeL: kettleVolumeL,
+                      liquidVolumeL: volumes.preboilVolumeL,
+                      label: t("detail.volumeLabels.preboil"),
+                      liquidColor: "bg-amber-500",
+                    }}
+                    rightVessel={{
+                      vesselVolumeL: kettleVolumeL,
+                      liquidVolumeL: volumes.postBoilVolumeL,
+                      label: t("detail.volumeLabels.postBoil"),
+                      liquidColor: "bg-yellow-400",
+                    }}
+                    lossLabel={t("detail.fields.kettleLossPct")}
+                    lossPct={kettleLossPct}
+                  />
+                </div>
               </div>
 
               {/* Whirlpool block */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {/* Spacer — aligns with the volume input in Kettle/Fermenter columns */}
                 <div className="hidden md:block h-[3.25rem]" />
                 <div className="space-y-1">
@@ -469,16 +471,18 @@ export function BrewingSystemDetail({
                     className="h-8"
                   />
                 </div>
-                <WhirlpoolBlock
-                  title={t("detail.hotZoneBlocks.whirlpool")}
-                  lossLabel={t("detail.fields.whirlpoolLossPct")}
-                  lossPct={whirlpoolLossPct}
-                  description={t("detail.fields.whirlpoolDescription")}
-                />
+                <div className="flex-1">
+                  <WhirlpoolBlock
+                    title={t("detail.hotZoneBlocks.whirlpool")}
+                    lossLabel={t("detail.fields.whirlpoolLossPct")}
+                    lossPct={whirlpoolLossPct}
+                    description={t("detail.fields.whirlpoolDescription")}
+                  />
+                </div>
               </div>
 
               {/* Fermenter block */}
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">
                     {t("detail.fields.fermenterVolumeL")}
@@ -505,23 +509,25 @@ export function BrewingSystemDetail({
                     className="h-8"
                   />
                 </div>
-                <VesselBlock
-                  title={t("detail.hotZoneBlocks.fermenter")}
-                  leftVessel={{
-                    vesselVolumeL: fermenterVolumeL,
-                    liquidVolumeL: volumes.intoFermenterL,
-                    label: t("detail.volumeLabels.intoFermenter"),
-                    liquidColor: "bg-yellow-400",
-                  }}
-                  rightVessel={{
-                    vesselVolumeL: fermenterVolumeL,
-                    liquidVolumeL: volumes.finishedBeerL,
-                    label: t("detail.volumeLabels.finishedBeer"),
-                    liquidColor: "bg-yellow-200",
-                  }}
-                  lossLabel={t("detail.fields.fermentationLossPct")}
-                  lossPct={fermentationLossPct}
-                />
+                <div className="flex-1">
+                  <VesselBlock
+                    title={t("detail.hotZoneBlocks.fermenter")}
+                    leftVessel={{
+                      vesselVolumeL: fermenterVolumeL,
+                      liquidVolumeL: volumes.intoFermenterL,
+                      label: t("detail.volumeLabels.intoFermenter"),
+                      liquidColor: "bg-yellow-400",
+                    }}
+                    rightVessel={{
+                      vesselVolumeL: fermenterVolumeL,
+                      liquidVolumeL: volumes.finishedBeerL,
+                      label: t("detail.volumeLabels.finishedBeer"),
+                      liquidColor: "bg-yellow-200",
+                    }}
+                    lossLabel={t("detail.fields.fermentationLossPct")}
+                    lossPct={fermentationLossPct}
+                  />
+                </div>
               </div>
             </div>
           </CardContent>

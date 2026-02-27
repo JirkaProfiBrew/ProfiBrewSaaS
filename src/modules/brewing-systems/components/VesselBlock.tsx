@@ -76,7 +76,7 @@ export function VesselBlock({
   lossPct,
 }: VesselBlockProps): React.ReactNode {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-lg border bg-card p-4 h-full">
       <h4 className="mb-3 text-sm font-semibold">{title}</h4>
       <div className="flex items-start justify-center gap-6">
         <Vessel {...leftVessel} />
