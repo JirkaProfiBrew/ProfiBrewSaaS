@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,21 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────
 
 interface RecipeExecutionSectionProps {
-  isNew: boolean;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   values: Record<string, unknown>;
-  errors: Record<string, string>;
   onChange: (key: string, value: unknown) => void;
   brewingSystemOptions: Array<{ value: string; label: string }>;
   mashingProfileOptions: Array<{ value: string; label: string }>;
   productionItemOptions: Array<{ value: string; label: string }>;
-  onContinue?: () => void;
   // Computed display values for collapsed view
   systemName: string | null;
 }
@@ -35,26 +30,30 @@ interface RecipeExecutionSectionProps {
 // ── Component ────────────────────────────────────────────────────
 
 export function RecipeExecutionSection({
-  isNew,
   isCollapsed,
   onToggleCollapse,
   values,
-  errors,
   onChange,
   brewingSystemOptions,
   mashingProfileOptions,
   productionItemOptions,
-  onContinue,
   systemName,
 }: RecipeExecutionSectionProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   // Collapsed summary text
   const collapsedSummary = useMemo(() => {
-    const name = values.name ? String(values.name) : "\u2014";
-    const system = systemName ?? t("designer.target.noSystem");
-    return `${name} | ${system}`;
-  }, [values.name, systemName, t]);
+    const parts: string[] = [];
+    if (systemName) parts.push(systemName);
+    if (values.boilTimeMin) parts.push(`${values.boilTimeMin} min`);
+    if (values.durationFermentationDays) {
+      parts.push(`${t("form.fermentationDays")}: ${values.durationFermentationDays}d`);
+    }
+    if (values.durationConditioningDays) {
+      parts.push(`${t("form.conditioningDays")}: ${values.durationConditioningDays}d`);
+    }
+    return parts.join(" | ") || t("designer.target.noSystem");
+  }, [systemName, values.boilTimeMin, values.durationFermentationDays, values.durationConditioningDays, t]);
 
   return (
     <div>
@@ -92,33 +91,6 @@ export function RecipeExecutionSection({
       {!isCollapsed && (
         <div className="rounded-b-lg border border-t-0 bg-card p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="target-name">{t("form.name")}</Label>
-              <Input
-                id="target-name"
-                value={String(values.name ?? "")}
-                onChange={(e) => onChange("name", e.target.value)}
-                placeholder={t("form.name")}
-                className={cn(errors.name && "border-destructive")}
-              />
-              {errors.name && (
-                <p className="text-xs text-destructive">{errors.name}</p>
-              )}
-            </div>
-
-            {/* Code */}
-            <div className="space-y-1.5">
-              <Label htmlFor="target-code">{t("form.code")}</Label>
-              <Input
-                id="target-code"
-                value={String(values.code ?? "")}
-                onChange={(e) => onChange("code", e.target.value)}
-                placeholder={t("form.code")}
-                disabled={!isNew}
-              />
-            </div>
-
             {/* Brewing System */}
             <div className="space-y-1.5">
               <Label>{t("form.brewingSystem")}</Label>
@@ -166,26 +138,6 @@ export function RecipeExecutionSection({
                       {opt.label}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status */}
-            <div className="space-y-1.5">
-              <Label>{t("form.status")}</Label>
-              <Select
-                value={String(values.status ?? "draft")}
-                onValueChange={(v) => onChange("status", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">{t("status.draft")}</SelectItem>
-                  <SelectItem value="active">{t("status.active")}</SelectItem>
-                  <SelectItem value="archived">
-                    {t("status.archived")}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -302,15 +254,6 @@ export function RecipeExecutionSection({
               />
             </div>
           </div>
-
-          {/* Continue button (only for new recipe) */}
-          {isNew && onContinue && (
-            <div className="mt-4 flex justify-end">
-              <Button onClick={onContinue}>
-                {t("designer.target.continue")}
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>

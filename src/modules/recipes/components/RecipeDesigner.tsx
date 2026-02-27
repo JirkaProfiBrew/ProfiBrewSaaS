@@ -100,6 +100,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   // ── State ──────────────────────────────────────────────────────
 
+  const [designCollapsed, setDesignCollapsed] = useState(!isNew);
   const [targetCollapsed, setTargetCollapsed] = useState(!isNew);
   const [productionItemOptions, setProductionItemOptions] = useState<
     Array<{ value: string; label: string }>
@@ -169,6 +170,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       });
       setConstants(r.constantsOverride ?? {});
       setLocalItems(recipeDetail.items);
+      setDesignCollapsed(true);
       setTargetCollapsed(true);
     }
   }, [recipeDetail]);
@@ -769,8 +771,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       {/* Main content with optional sidebar */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Section 1: Design */}
+          {/* Section 1: Design (collapsible) */}
           <RecipeDesignSection
+            isNew={isNew}
+            isCollapsed={designCollapsed}
+            onToggleCollapse={() => setDesignCollapsed((p) => !p)}
             values={designValues}
             onChange={handleDesignChange}
             beerStyleOptions={beerStyleOptions}
@@ -778,20 +783,24 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             calcOg={calcResult.og}
             calcIbu={calcResult.ibu}
             calcEbc={calcResult.ebc}
+            name={String(values.name ?? "")}
+            status={String(values.status ?? "draft")}
+            onNameChange={(v) => handleChange("name", v)}
+            onStatusChange={(v) => handleChange("status", v)}
+            nameError={errors.name}
+            styleName={styleName}
+            onContinue={isNew ? () => void handleContinue() : undefined}
           />
 
           {/* Section 2: Execution (collapsible) */}
           <RecipeExecutionSection
-            isNew={isNew}
             isCollapsed={targetCollapsed}
             onToggleCollapse={() => setTargetCollapsed((p) => !p)}
             values={values}
-            errors={errors}
             onChange={handleChange}
             brewingSystemOptions={brewingSystemOptions}
             mashingProfileOptions={mashingProfileOptions}
             productionItemOptions={productionItemOptions}
-            onContinue={isNew ? () => void handleContinue() : undefined}
             systemName={systemName}
           />
 
