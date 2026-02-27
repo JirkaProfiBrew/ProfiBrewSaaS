@@ -177,7 +177,7 @@ export function RecipeBrowser(): React.ReactNode {
               alt=""
               width={120}
               height={120}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           );
         }
