@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 27.02.2026 | Poslední sprint: Sprint 6
+### Aktualizováno: 27.02.2026 | Poslední sprint: Sprint 7
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -221,13 +221,33 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - DataBrowser: seznam receptur (název, styl, status, OG, IBU, EBC, cena várky)
 - Status: draft → active → archived
 
-**Detail receptury:**
-- Základní info: název, kód, pivní styl (z BJCP 2021 číselníku — 118 stylů / 13 skupin), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
-- BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i detail hlavičce
-- Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
-- Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona). Možnost uložit rmutovací kroky jako nový profil.
-- Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace s overhead breakdown
-- Poznámky
+**Recipe Designer (Sprint 7):**
+UI receptury je dvousekční designer s real-time zpětnou vazbou:
+
+**Sekce 1 — Cíl receptury (RecipeTargetSection):**
+- Kolabovatelný panel s 12 poli v 3-sloupcovém gridu
+- Pole: název, kód, pivní styl, varní soustava, rmutovací profil, cílový objem, status, výrobní položka, čas varu, kvašení, dokvašování, trvanlivost
+- V kolapsnutém stavu: jednořádkový souhrn "{styl} | {objem}L | {soustava}"
+- BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i header
+
+**Sekce 2 — Editor (RecipeEditor) s 7 sub-taby:**
+- **Slady:** drag & drop kartičky (MaltCard) — množství, podíl%, EBC, extrakt%. Souhrn: celkem vs plán, surplus/deficit.
+- **Chmel:** HopCard — množství, alpha, fáze (var/whirlpool/dry hop), čas, IBU příspěvek. Souhrn: IBU breakdown.
+- **Kvasnice:** YeastCard — množství, odhad FG/ABV.
+- **Ostatní:** AdjunctCard — množství, fáze, čas, poznámka.
+- **Rmutování:** wrapper kolem RecipeStepsTab (rmutovací kroky + profily).
+- **Konstanty:** override tabulka (parametr / soustava / receptura) — per-recipe přepsání parametrů varní soustavy. Reset tlačítko.
+- **Kalkulace:** wrapper kolem RecipeCalculation (pipeline, potřeba surovin, náklady).
+
+**Real-time zpětná vazba:**
+- `RecipeFeedbackBar` — sticky horizontální lišta s 5 progress bary (OG, IBU, EBC, ABV, Slad) + barevné kódování: zelená (v rozsahu), oranžová (mírně mimo), červená (mimo rozsah)
+- `RecipeFeedbackSidebar` — detailní postranní panel na xl+ obrazovkách (6 sekcí: Target, Parametry, Slad plán/aktuál, Pipeline, Voda, Náklady)
+- Výpočty běží client-side přes `calculateAll()` — okamžitá zpětná vazba bez server roundtrip
+
+**Constants override (JSONB `constants_override`):**
+- Receptura může přepsat 8 parametrů varní soustavy: efektivita, ztráty (kotel, whirlpool, fermentace), extrakt sladu, voda/kg, rezerva vody, čas varu
+- Override se merguje: recipe override → system defaults → DEFAULT_BREWING_SYSTEM fallback
+- Duplikace receptury kopíruje constants override
 
 **Kalkulace — varní soustava a objemová pipeline:**
 - Vazba receptury na varní soustavu: `recipes.brewing_system_id` → `brewing_systems.id` (nullable, select na tabu Základní údaje)

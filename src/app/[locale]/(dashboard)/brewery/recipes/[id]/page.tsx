@@ -1,4 +1,4 @@
-import { RecipeDetail } from "@/modules/recipes";
+import { RecipeDesigner } from "@/modules/recipes";
 
 export default async function RecipeDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function RecipeDetailPage({
   params: Promise<{ id: string }>;
 }): Promise<React.ReactNode> {
   const { id } = await params;
-  return <RecipeDetail id={id} />;
+  return <RecipeDesigner id={id} />;
 }

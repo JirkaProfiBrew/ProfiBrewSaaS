@@ -19,6 +19,7 @@ export const recipeCreateSchema = z.object({
   notes: z.string().nullable().optional(),
   itemId: z.string().uuid().nullable().optional(),
   brewingSystemId: z.string().uuid().nullable().optional(),
+  constantsOverride: z.any().nullable().optional(),
 });
 
 /** Schema for creating a recipe ingredient line. */

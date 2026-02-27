@@ -4,6 +4,7 @@
  */
 export { RecipeBrowser } from "./components/RecipeBrowser";
 export { RecipeDetail } from "./components/RecipeDetail";
+export { RecipeDesigner } from "./components/RecipeDesigner";
 export type {
   Recipe,
   RecipeItem,
@@ -12,4 +13,5 @@ export type {
   BeerStyle,
   MashingProfile,
   RecipeDetailData,
+  RecipeConstantsOverride,
 } from "./types";

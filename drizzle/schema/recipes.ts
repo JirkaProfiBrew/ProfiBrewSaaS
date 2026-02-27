@@ -63,6 +63,7 @@ export const recipes = pgTable(
     brewingSystemId: uuid("brewing_system_id").references(
       () => brewingSystems.id
     ),
+    constantsOverride: jsonb("constants_override"),
     isFromLibrary: boolean("is_from_library").default(false),
     sourceLibraryId: uuid("source_library_id"),
     sourceRecipeId: uuid("source_recipe_id"),

@@ -413,6 +413,46 @@
 
 ---
 
+## [0.7.0] — Sprint 7 Fáze C: Recipe Designer UI
+**Období:** T14 (27.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` — drag & drop pro přeřazování surovin v receptuře
+- [x] DB schema: `recipes.constants_override` (JSONB) — per-recipe override parametrů varní soustavy
+- [x] SQL migrace `0015_recipe_constants_override.sql`
+- [x] `RecipeConstantsOverride` interface (8 optional numeric polí: efficiency, ztráty, extrakt, voda, čas varu)
+- [x] Zod schema + server actions: createRecipe, duplicateRecipe, calculateAndSaveRecipe — podpora constants override
+- [x] `RecipeDesigner` — hlavní orchestrátor: form state, lokální items, real-time kalkulace, CRUD operace
+- [x] `RecipeTargetSection` — kolabovatelná sekce Step 1 (12 polí v 3-sloupcovém gridu, collapsed summary)
+- [x] `RecipeEditor` — Step 2 wrapper s 7 sub-taby (shadcn Tabs + badge počty)
+- [x] `RecipeFeedbackBar` — sticky horizontální lišta s 5 progress bary (OG, IBU, EBC, ABV, Malt) + barevné kódování (zelená/oranžová/červená)
+- [x] `RecipeFeedbackSidebar` — detailní postranní panel (xl+ obrazovky, 288px) se 6 sekcemi (Target, Parametry, Slad, Pipeline, Voda, Náklady)
+- [x] `IngredientCard` — base sortable wrapper s drag handle (GripVertical) + remove
+- [x] `MaltCard` — množství, podíl%, EBC, extrakt%
+- [x] `HopCard` — množství, alpha, fáze (select), čas varu, IBU příspěvek
+- [x] `YeastCard` — množství, odhadované FG/ABV
+- [x] `AdjunctCard` — množství, fáze, čas, poznámka
+- [x] `MaltTab` — DnD kontext + MaltCards + souhrn (celkem vs plán, surplus/deficit)
+- [x] `HopTab` — DnD kontext + HopCards + IBU breakdown (var/whirlpool/dry hop)
+- [x] `YeastTab` — DnD kontext + YeastCards + odhad FG/ABV
+- [x] `AdjunctTab` — DnD kontext + AdjunctCards
+- [x] `MashTab` — wrapper kolem existujícího RecipeStepsTab
+- [x] `ConstantsTab` — 3-sloupcová tabulka (parametr / soustava / receptura), override warning, reset button
+- [x] `CalculationTab` — wrapper kolem existujícího RecipeCalculation
+- [x] Stránky: `/brewery/recipes/[id]` + `/brewery/recipes/new` → RecipeDesigner (místo RecipeDetail)
+- [x] i18n: designer sekce v recipes.json (cs + en) — target, feedback, volumeChange, tabs, cards, constants, calculation
+
+### Architektonická rozhodnutí
+- RecipeDesigner je "use client" orchestrátor — form state + lokální items pro real-time editaci bez server roundtrip
+- Constants override: merge pattern — recipe overrides přepisují system defaults, ukládají se jako JSONB
+- Ingredient editace: optimistické lokální updates (okamžitá zpětná vazba) + background persist na server
+- FeedbackBar: barevné kódování: ±0% zelená, ±10% oranžová, >10% červená; malt: <2% zelená, 2-5% oranžová, >5% červená
+- RecipeDetail zachován (ne smazán) pro zpětnou kompatibilitu — stránky přepnuty na RecipeDesigner
+- @dnd-kit/sortable v10 (latest) — moderní DnD knihovna, SSR-friendly
+
+---
+
 ## [0.6.4] — Sprint 6 Fáze B: Kalkulační engine
 **Období:** T13 (27.02.2026)
 **Status:** ✅ Done

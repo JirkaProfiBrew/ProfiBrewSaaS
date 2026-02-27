@@ -33,6 +33,7 @@ import type {
   MashingProfile,
   RecipeCalculationResult,
   BrewingSystemInput,
+  RecipeConstantsOverride,
 } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ function mapRecipeRow(
     notes: row.notes,
     itemId: row.itemId,
     brewingSystemId: row.brewingSystemId ?? null,
+    constantsOverride: (row.constantsOverride as RecipeConstantsOverride) ?? null,
     isFromLibrary: row.isFromLibrary ?? false,
     sourceRecipeId: row.sourceRecipeId ?? null,
     createdBy: row.createdBy,
@@ -307,6 +309,7 @@ export async function createRecipe(
         notes: parsed.notes ?? null,
         itemId: parsed.itemId ?? null,
         brewingSystemId: parsed.brewingSystemId ?? null,
+        constantsOverride: parsed.constantsOverride ?? null,
       })
       .returning();
 
@@ -422,6 +425,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           notes: orig.notes,
           itemId: orig.itemId,
           brewingSystemId: orig.brewingSystemId,
+          constantsOverride: orig.constantsOverride,
         })
         .returning();
 
@@ -925,6 +929,27 @@ export async function calculateAndSaveRecipe(
       } else {
         console.warn(`[calculateAndSaveRecipe] brewing_system_id=${recipe.brewingSystemId} not found, using defaults`);
       }
+    }
+
+    const constantsOverride = recipe.constantsOverride as RecipeConstantsOverride | null;
+    if (constantsOverride && brewingSystemInput) {
+      if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
+      if (constantsOverride.kettleLossPct != null) brewingSystemInput.kettleLossPct = constantsOverride.kettleLossPct;
+      if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
+      if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
+      if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
+      if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;
+      if (constantsOverride.waterReserveL != null) brewingSystemInput.waterReserveL = constantsOverride.waterReserveL;
+    } else if (constantsOverride && !brewingSystemInput) {
+      const { DEFAULT_BREWING_SYSTEM } = await import("./types");
+      brewingSystemInput = { ...DEFAULT_BREWING_SYSTEM };
+      if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
+      if (constantsOverride.kettleLossPct != null) brewingSystemInput.kettleLossPct = constantsOverride.kettleLossPct;
+      if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
+      if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
+      if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
+      if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;
+      if (constantsOverride.waterReserveL != null) brewingSystemInput.waterReserveL = constantsOverride.waterReserveL;
     }
 
     const volumeL = recipe.batchSizeL ? parseFloat(recipe.batchSizeL) : 0;

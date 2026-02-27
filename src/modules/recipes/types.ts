@@ -35,6 +35,7 @@ export interface Recipe {
   notes: string | null;
   itemId: string | null;
   brewingSystemId: string | null;
+  constantsOverride: RecipeConstantsOverride | null;
   isFromLibrary: boolean;
   sourceRecipeId: string | null;
   createdBy: string | null;
@@ -101,6 +102,17 @@ export interface BrewingSystemInput {
   extractEstimate: number;
   waterPerKgMalt: number;
   waterReserveL: number;
+}
+
+export interface RecipeConstantsOverride {
+  efficiencyPct?: number;
+  kettleLossPct?: number;
+  whirlpoolLossPct?: number;
+  fermentationLossPct?: number;
+  extractEstimate?: number;
+  waterPerKgMalt?: number;
+  waterReserveL?: number;
+  boilTimeMin?: number;
 }
 
 export const DEFAULT_BREWING_SYSTEM: BrewingSystemInput = {
