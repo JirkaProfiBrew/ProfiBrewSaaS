@@ -10,7 +10,8 @@
     "finishedBeerL": "Hotové pivo (L)",
     "finishedBeerLDisplay": "Hotové pivo (L)",
     "shopName": "Provozovna",
-    "isPrimary": "Primární"
+    "isPrimary": "Primární",
+    "isActive": "Aktivní"
   },
   "quickFilters": {
     "all": "Vše",

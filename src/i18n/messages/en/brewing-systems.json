@@ -10,7 +10,8 @@
     "finishedBeerL": "Finished Beer (L)",
     "finishedBeerLDisplay": "Finished Beer (L)",
     "shopName": "Shop",
-    "isPrimary": "Primary"
+    "isPrimary": "Primary",
+    "isActive": "Active"
   },
   "quickFilters": {
     "all": "All",
