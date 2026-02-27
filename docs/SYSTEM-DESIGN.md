@@ -859,15 +859,15 @@ CREATE TABLE shops (
 );
 
 -- ============================================================
--- EQUIPMENT (Production equipment — tanks, brewhouses, packaging lines)
+-- EQUIPMENT (Cold zone vessels — fermenters, brite tanks, CKT)
 -- ============================================================
+-- After Sprint 6 refactor: brewhouse → brewing_systems, bottling_line/keg_washer removed
 CREATE TABLE equipment (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   shop_id         UUID REFERENCES shops(id), -- At which location
-  name            TEXT NOT NULL,              -- "Brewhouse 500l", "CKT #1"
-  equipment_type  TEXT NOT NULL,              -- 'brewhouse' | 'fermenter' | 'brite_tank' |
-                                              -- 'conditioning' | 'bottling_line' | 'keg_washer'
+  name            TEXT NOT NULL,              -- "CKT #1", "Ležák-1"
+  equipment_type  TEXT NOT NULL,              -- 'fermenter' | 'brite_tank' | 'conditioning'
   volume_l        DECIMAL,                   -- Capacity in liters (base unit)
   status          TEXT DEFAULT 'available',   -- 'available' | 'in_use' | 'maintenance' | 'retired'
   current_batch_id UUID REFERENCES batches(id), -- Currently occupying batch
@@ -880,7 +880,58 @@ CREATE TABLE equipment (
 
 -- properties examples:
 -- Fermenter: { "material": "stainless", "cooling": true, "pressure_rated": true }
--- Brewhouse: { "mash_tun_volume_l": 600, "kettle_volume_l": 500 }
+```
+
+### 5.3b Brewing Systems (Sprint 6)
+
+```sql
+-- ============================================================
+-- BREWING_SYSTEMS (Hot zone — brewhouse template for volume/loss calculations)
+-- ============================================================
+-- Replaces the old "brewhouse" equipment type. Defines volumes, losses,
+-- constants, and step times for a brewing setup.
+CREATE TABLE brewing_systems (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id             UUID NOT NULL REFERENCES tenants(id),
+  shop_id               UUID REFERENCES shops(id),
+  name                  TEXT NOT NULL,
+  description           TEXT,
+  is_primary            BOOLEAN DEFAULT false,    -- Max 1 per tenant (partial unique index)
+  batch_size_l          DECIMAL NOT NULL,         -- Post-boil volume (liters)
+  efficiency_pct        DECIMAL NOT NULL DEFAULT 75,
+
+  -- Hot zone — Kettle
+  kettle_volume_l       DECIMAL,
+  kettle_loss_pct       DECIMAL DEFAULT 10,
+
+  -- Hot zone — Whirlpool
+  whirlpool_loss_pct    DECIMAL DEFAULT 10,
+
+  -- Cold zone — Fermenter (schematic, for visualization)
+  fermenter_volume_l    DECIMAL,
+  fermentation_loss_pct DECIMAL DEFAULT 10,
+
+  -- Constants
+  extract_estimate      DECIMAL DEFAULT 0.80,
+  water_per_kg_malt     DECIMAL DEFAULT 1.0,
+  water_reserve_l       DECIMAL DEFAULT 0,
+
+  -- Step times (minutes)
+  time_preparation      INTEGER DEFAULT 30,
+  time_lautering        INTEGER DEFAULT 60,
+  time_whirlpool        INTEGER DEFAULT 90,
+  time_transfer         INTEGER DEFAULT 15,
+  time_cleanup          INTEGER DEFAULT 60,
+
+  notes                 TEXT,
+  is_active             BOOLEAN DEFAULT true,
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  updated_at            TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_brewing_systems_tenant ON brewing_systems(tenant_id, is_active);
+CREATE UNIQUE INDEX idx_brewing_systems_primary ON brewing_systems(tenant_id)
+  WHERE is_primary = true AND is_active = true;
 ```
 
 ### 5.4 Items (Hybrid Items)
@@ -1139,6 +1190,7 @@ CREATE TABLE recipes (
   duration_conditioning_days INTEGER,             -- Conditioning duration
 
   -- === LINKS ===
+  brewing_system_id     UUID REFERENCES brewing_systems(id), -- Brewing system for volume/loss calculations
   item_id               UUID REFERENCES items(id),  -- Production item (beer) this recipe makes
 
   -- === META ===
@@ -1269,7 +1321,8 @@ CREATE TABLE batches (
   abv_actual        DECIMAL,
 
   -- === EQUIPMENT ===
-  equipment_id      UUID REFERENCES equipment(id),  -- Primary tank
+  brewing_system_id UUID REFERENCES brewing_systems(id), -- Brewing system used
+  equipment_id      UUID REFERENCES equipment(id),  -- Primary tank (fermenter/CKT)
 
   -- === BATCH LINKING ===
   primary_batch_id  UUID REFERENCES batches(id),  -- For split/blend: reference to primary batch

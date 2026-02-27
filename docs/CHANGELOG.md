@@ -447,6 +447,24 @@
 
 ---
 
+## [0.6.1] — Sprint 6 Fáze A2: Equipment Refaktor
+**Období:** T13 (27.02.2026)
+**Status:** ✅ Done
+
+### Změněno
+- [x] Equipment = pouze nádoby studené zóny (fermenter, brite_tank, conditioning)
+- [x] Smazány equipment typy: brewhouse, bottling_line, keg_washer (kód, i18n, seed, migrace)
+- [x] Drizzle schema equipment.ts — aktualizován komentář (3 typy místo 6)
+- [x] `recipes.brewing_system_id` FK sloupec — Drizzle schema + SQL migrace (0012)
+- [x] `batches.brewing_system_id` FK sloupec — Drizzle schema + SQL migrace (0012)
+- [x] SYSTEM-DESIGN.md — aktualizace equipment_type komentáře, přidán brewing_systems CREATE TABLE, přidán brewing_system_id na recipes + batches
+
+### Poznámky
+- UI pro výběr brewing_system na receptuře/šarži se řeší v Sprint 7 (Recipe Designer)
+- Equipment config, browser, detail, i18n — byly vyčištěny již v Phase A1
+
+---
+
 <!--
 
 ## [0.5.0] — Sprint 5: Excise + Dashboard
