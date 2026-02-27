@@ -4,11 +4,23 @@
     "bjcpNumber": "BJCP",
     "name": "Style",
     "group": "Group",
+    "groupNameCz": "Group",
     "abv": "ABV %",
     "ibu": "IBU",
     "ebc": "EBC",
     "og": "OG",
-    "fg": "FG"
+    "fg": "FG",
+    "abvRange": "ABV %",
+    "ibuRange": "IBU",
+    "ebcRange": "EBC",
+    "ogRange": "OG (°P)"
+  },
+  "quickFilters": {
+    "all": "All"
+  },
+  "filters": {
+    "name": "Style name",
+    "groupNameCz": "Group"
   },
   "detail": {
     "appearance": "Appearance",
@@ -21,8 +33,7 @@
     "commercialExamples": "Commercial Examples",
     "comments": "Comments",
     "origin": "Origin",
-    "styleComparison": "Style Comparison",
-    "styleFamily": "Style Family"
+    "styleComparison": "Style Comparison"
   },
   "ranges": {
     "abv": "ABV",

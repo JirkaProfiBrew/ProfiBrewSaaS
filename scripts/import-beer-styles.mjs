@@ -59,6 +59,23 @@ const SORT_ORDER = {
   "Speciální styly": 13,
 };
 
+// Czech group name → image filename slug
+const IMAGE_SLUGS = {
+  "Světlé ležáky": "pale-lager",
+  "Polotmavé ležáky": "amber-lager",
+  "Tmavé ležáky": "dark-lager",
+  "Ostatní ležáky": "other-lager",
+  "Pšeničná piva": "wheat-beer",
+  "IPA / Pale Ale": "ipa-pale-ale",
+  "Svrchně kvašené Ale": "ale",
+  "Tmavší Ale": "dark-ale",
+  "Stout / Porter": "stout-porter",
+  "Belgická piva": "belgian",
+  "Kyselá / speciální piva": "sour-wild",
+  "Silná speciální piva": "strong-specialty",
+  "Speciální styly": "specialty",
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -152,10 +169,12 @@ async function main() {
     }
 
     const sortOrder = SORT_ORDER[nameCz] ?? 99;
+    const imageSlug = IMAGE_SLUGS[nameCz];
+    const imageUrl = imageSlug ? `/Images/Styles/Groups/${imageSlug}.png` : null;
 
     const [inserted] = await sql`
       INSERT INTO beer_style_groups (name, name_cz, image_url, sort_order)
-      VALUES (${nameEn || nameCz}, ${nameCz}, NULL, ${sortOrder})
+      VALUES (${nameEn || nameCz}, ${nameCz}, ${imageUrl}, ${sortOrder})
       RETURNING id
     `;
 

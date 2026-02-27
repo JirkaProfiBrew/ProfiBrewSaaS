@@ -4,11 +4,23 @@
     "bjcpNumber": "BJCP",
     "name": "Styl",
     "group": "Skupina",
+    "groupNameCz": "Skupina",
     "abv": "ABV %",
     "ibu": "IBU",
     "ebc": "EBC",
     "og": "OG",
-    "fg": "FG"
+    "fg": "FG",
+    "abvRange": "ABV %",
+    "ibuRange": "IBU",
+    "ebcRange": "EBC",
+    "ogRange": "OG (°P)"
+  },
+  "quickFilters": {
+    "all": "Vše"
+  },
+  "filters": {
+    "name": "Název stylu",
+    "groupNameCz": "Skupina"
   },
   "detail": {
     "appearance": "Vzhled",
@@ -21,8 +33,7 @@
     "commercialExamples": "Komerční příklady",
     "comments": "Poznámky",
     "origin": "Původ",
-    "styleComparison": "Srovnání stylů",
-    "styleFamily": "Rodina stylu"
+    "styleComparison": "Srovnání stylů"
   },
   "ranges": {
     "abv": "ABV",

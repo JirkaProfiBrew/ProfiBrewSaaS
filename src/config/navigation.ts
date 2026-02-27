@@ -26,6 +26,7 @@ import {
   UserCog,
   Warehouse,
   Repeat,
+  GlassWater,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,6 +61,7 @@ export const modules: ModuleConfig[] = [
       { slug: "contacts", icon: Contact, labelKey: "contacts", path: "contacts" },
       { slug: "materials", icon: Wheat, labelKey: "materials", path: "materials" },
       { slug: "recipes", icon: FlaskConical, labelKey: "recipes", path: "recipes" },
+      { slug: "beerStyles", icon: GlassWater, labelKey: "beerStyles", path: "beer-styles" },
       { slug: "batches", icon: FlaskRound, labelKey: "batches", path: "batches" },
       { slug: "brewingSystems", icon: Flame, labelKey: "brewingSystems", path: "brewing-systems" },
       { slug: "equipment", icon: Wrench, labelKey: "equipment", path: "equipment" },
