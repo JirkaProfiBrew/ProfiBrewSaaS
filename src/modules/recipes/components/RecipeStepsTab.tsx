@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Trash2, ChevronUp, ChevronDown, Plus, Download, Pencil } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown, Plus, Download, Upload, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ import {
   reorderRecipeSteps,
   applyMashProfile,
 } from "../actions";
+import { saveRecipeStepsAsProfile } from "@/modules/mashing-profiles/actions";
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -100,6 +101,10 @@ export function RecipeStepsTab({
 
   // Mash profile selection
   const [selectedProfileId, setSelectedProfileId] = useState("");
+
+  // Save as profile dialog
+  const [saveProfileDialogOpen, setSaveProfileDialogOpen] = useState(false);
+  const [saveProfileName, setSaveProfileName] = useState("");
 
   const resetForm = useCallback((): void => {
     setNewStepType("rest");
@@ -294,6 +299,29 @@ export function RecipeStepsTab({
     }
   }, [recipeId, selectedProfileId, tCommon, onMutate]);
 
+  const handleSaveAsProfile = useCallback(async (): Promise<void> => {
+    if (!saveProfileName.trim()) {
+      toast.error(tCommon("validation.required"));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await saveRecipeStepsAsProfile(recipeId, saveProfileName);
+      toast.success(t("steps.saveAsProfileSuccess"));
+      setSaveProfileDialogOpen(false);
+      setSaveProfileName("");
+    } catch (error: unknown) {
+      console.error("Failed to save steps as profile:", error);
+      const msg = error instanceof Error && error.message === "NO_MASH_STEPS"
+        ? t("steps.saveAsProfileNoSteps")
+        : tCommon("saveFailed");
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [recipeId, saveProfileName, t, tCommon]);
+
   // Step type label map
   const stepTypeLabels: Record<string, string> = {
     mash_in: t("steps.stepTypes.mash_in"),
@@ -310,6 +338,14 @@ export function RecipeStepsTab({
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">{t("tabs.steps")}</h3>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSaveProfileDialogOpen(true)}
+          >
+            <Upload className="mr-1 size-4" />
+            {t("steps.saveAsProfile")}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -550,6 +586,50 @@ export function RecipeStepsTab({
               {tCommon("cancel")}
             </Button>
             <Button onClick={handleDialogSave} disabled={isSubmitting}>
+              {tCommon("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Steps as Profile Dialog */}
+      <Dialog
+        open={saveProfileDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setSaveProfileName("");
+          setSaveProfileDialogOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("steps.saveAsProfileDialog.title")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                {t("steps.saveAsProfileDialog.nameLabel")}
+              </label>
+              <Input
+                value={saveProfileName}
+                onChange={(e) => setSaveProfileName(e.target.value)}
+                placeholder={t("steps.saveAsProfileDialog.namePlaceholder")}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSaveProfileName("");
+                setSaveProfileDialogOpen(false);
+              }}
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              onClick={() => void handleSaveAsProfile()}
+              disabled={isSubmitting || !saveProfileName.trim()}
+            >
               {tCommon("save")}
             </Button>
           </DialogFooter>

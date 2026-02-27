@@ -413,6 +413,32 @@
 
 ---
 
+## [0.6.3] — Sprint 6 Fáze A4: Mashing Profiles (Rmutovací profily)
+**Období:** T13 (27.02.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] DB schema: rozšíření `mashing_profiles` — nové sloupce `mashing_type`, `description`, `is_active`, `updated_at`
+- [x] SQL migrace `0014_mashing_profiles_expansion.sql` — ALTER TABLE + UPDATE systémových profilů (mashing_type, description)
+- [x] Mashing Profiles modul: types, schema (Zod), actions (CRUD + duplicate + saveFromRecipe), hooks (SWR), config (DataBrowser)
+- [x] MashProfileBrowser — DataBrowser s client-side filtrováním/řazením, quick filtry (Vše/Systémové/Vlastní), badge systémový/vlastní
+- [x] MashProfileDetail — detail/edit s rozlišením systémových (readonly + banner) a vlastních profilů
+- [x] MashStepEditor — inline tabulkový editor kroků (přidání/odebrání/řazení, typ/název/teplota/čas/poznámka)
+- [x] Duplikace profilů — systémové i vlastní → nová kopie s "(kopie)" sufixem, vždy tenant-owned
+- [x] Soft delete — `is_active = false`, systémové profily nelze smazat
+- [x] Recipe integration: tlačítko "Uložit jako profil" na tabu Kroky — extrahuje rmutovací kroky receptury do nového profilu
+- [x] Navigace: /brewery/mashing-profiles (list), /brewery/mashing-profiles/[id] (detail), /brewery/mashing-profiles/new
+- [x] Sidebar: "Rmutovací profily" s ikonou Thermometer (za Varní soustavy, před Tanky)
+- [x] i18n: mashing-profiles namespace (cs + en), recipes.steps.saveAsProfile keys (cs + en)
+
+### Architektonická rozhodnutí
+- Systémové profily: `tenant_id = NULL` → `isSystem` computed v app vrstvě (ne DB sloupec)
+- Systémové profily readonly — nelze editovat/smazat, ale lze duplikovat do vlastních
+- `saveRecipeStepsAsProfile()` filtruje kroky dle typu (mash_in, rest, decoction, mash_out) — boil/whirlpool/cooling se nepřenáší
+- MashStepEditor je reusable — stejný komponent pro profil detail i (budoucí) recipe steps refaktor
+
+---
+
 ## [0.6.0] — Sprint 6 Fáze A1: Brewing Systems (Varní soustavy)
 **Období:** T13 (26.02.2026)
 **Status:** ✅ Done

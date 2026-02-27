@@ -1,0 +1,69 @@
+{
+  "title": "Rmutovací profily",
+  "create": "Rmutovací profil",
+  "quickFilters": {
+    "all": "Vše",
+    "system": "Systémové",
+    "custom": "Vlastní"
+  },
+  "columns": {
+    "name": "Název",
+    "mashingTypeLabel": "Typ rmutování",
+    "stepCount": "Kroků",
+    "isSystemLabel": "Typ"
+  },
+  "mashingType": {
+    "infusion": "Infuzní",
+    "decoction": "Dekokční",
+    "step": "Stupňový"
+  },
+  "stepType": {
+    "mash_in": "Zapáření",
+    "rest": "Rast",
+    "decoction": "Dekokce",
+    "mash_out": "Odrmutování"
+  },
+  "isSystemLabel": {
+    "true": "Systémový",
+    "false": "Vlastní"
+  },
+  "detail": {
+    "title": "Detail profilu",
+    "newTitle": "Nový rmutovací profil",
+    "systemBanner": "Toto je systémový profil. Pro úpravu vytvořte kopii.",
+    "duplicateToOwn": "Duplikovat do vlastních",
+    "fields": {
+      "name": "Název",
+      "mashingType": "Typ rmutování",
+      "description": "Popis",
+      "notes": "Poznámky"
+    },
+    "actions": {
+      "save": "Uložit",
+      "delete": "Smazat",
+      "duplicate": "Duplikovat",
+      "cancel": "Zrušit"
+    }
+  },
+  "steps": {
+    "title": "Kroky rmutování",
+    "add": "Krok",
+    "empty": "Žádné kroky. Přidejte první krok tlačítkem níže.",
+    "name": "Krok",
+    "type": "Typ",
+    "temperature": "Teplota (°C)",
+    "time": "Čas (min)",
+    "notes": "Poznámka",
+    "deleteConfirm": "Opravdu smazat tento krok?"
+  },
+  "recipe": {
+    "loadProfile": "Načíst rmutovací profil",
+    "saveAsProfile": "Uložit kroky jako profil",
+    "saveDialog": {
+      "title": "Uložit jako rmutovací profil",
+      "nameLabel": "Název profilu",
+      "namePlaceholder": "Můj dekokční postup"
+    },
+    "manageProfiles": "Spravovat profily"
+  }
+}

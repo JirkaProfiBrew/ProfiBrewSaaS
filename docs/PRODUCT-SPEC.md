@@ -225,7 +225,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Základní info: název, kód, pivní styl (z BJCP 2021 číselníku — 118 stylů / 13 skupin), výrobní položka (select — vazba na items s `is_production_item=true`), cílový objem, doba kvašení/dokvašování, trvanlivost (shelf_life_days)
 - BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i detail hlavičce
 - Suroviny: tabulka — položka (lookup), kategorie (slad/chmel/kvasnice/přísada), množství (g), fáze použití (rmut/var/whirlpool/kvašení/dry hop), čas přidání
-- Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona).
+- Kroky: tabulka — typ kroku, název, teplota, čas, teplotní gradient, poznámka. Možnost použít rmutovací profil (šablona). Možnost uložit rmutovací kroky jako nový profil.
 - Kalkulace: vypočtené parametry (OG, FG, ABV, IBU, EBC) + nákladová kalkulace s overhead breakdown
 - Poznámky
 
@@ -379,6 +379,50 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - SRM → EBC: `EBC = SRM × 1.97`
 - SG → Plato: `°P ≈ 259 - (259 / SG)`
 - V DB uloženy obě varianty (SRM i EBC)
+
+### 4.6d Rmutovací profily (Mashing Profiles) ✅
+
+**Co to je:** Šablony rmutovacích postupů — definice kroků (teplota, čas, typ) pro opakované použití v recepturách. Systémové profily (BJCP doporučené postupy) jsou sdílené a readonly, uživatel si vytváří vlastní.
+
+**Jak to funguje:**
+- DataBrowser: seznam profilů (název, typ rmutování, počet kroků, systémový/vlastní badge)
+- Quick filters: Vše | Systémové | Vlastní
+- Route: `/brewery/mashing-profiles`
+
+**Systémové vs vlastní profily:**
+- **Systémové** (`tenant_id = NULL`): Jednokvasný infuzní, Dvourastový infuzní, Český dekokční jednomezový, Český dekokční dvoumezový. Readonly — nelze editovat ani smazat, ale lze duplikovat.
+- **Vlastní** (`tenant_id = tenantId`): plně editovatelné, soft delete (`is_active = false`)
+
+**Detail profilu:**
+- Název, typ rmutování (infusion/decoction/step), popis (textarea), poznámky (textarea)
+- Systémový profil: readonly formulář + alert banner "Systémový profil — pro úpravu duplikujte" + tlačítko "Duplikovat do vlastních"
+- MashStepEditor: inline tabulka kroků — typ (mash_in/rest/decoction/mash_out), název, teplota (°C), čas (min), poznámka. Tlačítka: přidat krok, posun nahoru/dolů, smazat.
+
+**Typy rmutování:**
+- infusion — infuzní postup
+- decoction — dekokční postup
+- step — stupňovaný postup
+
+**Typy kroků (MashStep):**
+- mash_in — zápara
+- rest — rast (teplotní pauza)
+- decoction — dekokce (odběr + var)
+- mash_out — odrmutování
+
+**Kroky jsou uloženy jako JSONB pole** `steps` na tabulce `mashing_profiles`:
+```json
+[{ "name": "Bílkovinný rast", "temperature": 52, "time": 15, "type": "rest" }]
+```
+
+**Integrace s recepturami:**
+- Tab "Kroky" na receptuře: tlačítko "Načíst rmutovací profil" → dialog s výběrem profilu → nahradí existující rmutovací kroky
+- Tab "Kroky" na receptuře: tlačítko "Uložit jako profil" → dialog s názvem → extrahuje rmutovací kroky (mash_in, rest, decoction, mash_out) a vytvoří nový vlastní profil
+
+**Byznys pravidla:**
+- Duplikace: kopie libovolného profilu (systémového i vlastního) → nový vlastní profil s sufixem "(kopie)"
+- `saveRecipeStepsAsProfile()`: filtruje kroky dle typu — přenáší pouze mash_in, rest, decoction, mash_out (ne boil/whirlpool/cooling)
+- Pokud receptura nemá žádné rmutovací kroky → chyba "Receptura nemá žádné rmutovací kroky"
+- Soft delete: `is_active = false`, systémové profily nelze smazat
 
 ---
 

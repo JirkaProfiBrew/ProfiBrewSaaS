@@ -112,7 +112,15 @@
       "editTitle": "Edit Step",
       "selectType": "Step Type",
       "selectProfile": "Select Profile"
-    }
+    },
+    "saveAsProfile": "Save as Profile",
+    "saveAsProfileDialog": {
+      "title": "Save Steps as Mashing Profile",
+      "nameLabel": "Profile Name",
+      "namePlaceholder": "My decoction process"
+    },
+    "saveAsProfileSuccess": "Mashing profile saved",
+    "saveAsProfileNoSteps": "Recipe has no mashing steps"
   },
   "calculation": {
     "recalculate": "Recalculate",

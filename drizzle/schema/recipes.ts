@@ -22,9 +22,13 @@ export const mashingProfiles = pgTable("mashing_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id),
   name: text("name").notNull(),
+  mashingType: text("mashing_type"), // 'infusion' | 'decoction' | 'step'
+  description: text("description"),
   steps: jsonb("steps").default([]),
   notes: text("notes"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 // ============================================================

@@ -33,9 +33,10 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const cashDesksMsg = (await import(`./messages/${locale}/cashDesks.json`)).default as Record<string, unknown>;
   const exciseMsg = (await import(`./messages/${locale}/excise.json`)).default as Record<string, unknown>;
   const beerStylesMsg = (await import(`./messages/${locale}/beer-styles.json`)).default as Record<string, unknown>;
+  const mashingProfilesMsg = (await import(`./messages/${locale}/mashing-profiles.json`)).default as Record<string, unknown>;
 
   return {
     locale,
-    messages: { common, auth, nav, dataBrowser, partners, equipment, brewingSystems: brewingSystemsMsg, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg, deposits: depositsMsg, cashflowCategories: cashflowCategoriesMsg, orders: ordersMsg, cashflows: cashflowsMsg, cashDesks: cashDesksMsg, excise: exciseMsg, beerStyles: beerStylesMsg },
+    messages: { common, auth, nav, dataBrowser, partners, equipment, brewingSystems: brewingSystemsMsg, items, shops, contacts, counters, recipes, batches, warehouses: warehousesMsg, stockIssues: stockIssuesMsg, materialLots: materialLotsMsg, tracking: trackingMsg, deposits: depositsMsg, cashflowCategories: cashflowCategoriesMsg, orders: ordersMsg, cashflows: cashflowsMsg, cashDesks: cashDesksMsg, excise: exciseMsg, beerStyles: beerStylesMsg, mashingProfiles: mashingProfilesMsg },
   };
 });

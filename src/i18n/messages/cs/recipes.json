@@ -112,7 +112,15 @@
       "editTitle": "Upravit krok",
       "selectType": "Typ kroku",
       "selectProfile": "Vyberte profil"
-    }
+    },
+    "saveAsProfile": "Uložit jako profil",
+    "saveAsProfileDialog": {
+      "title": "Uložit kroky jako rmutovací profil",
+      "nameLabel": "Název profilu",
+      "namePlaceholder": "Můj dekokční postup"
+    },
+    "saveAsProfileSuccess": "Rmutovací profil uložen",
+    "saveAsProfileNoSteps": "Receptura nemá žádné rmutovací kroky"
   },
   "calculation": {
     "recalculate": "Přepočítat",

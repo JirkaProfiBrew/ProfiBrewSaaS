@@ -27,6 +27,7 @@ import {
   Warehouse,
   Repeat,
   GlassWater,
+  Thermometer,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +65,7 @@ export const modules: ModuleConfig[] = [
       { slug: "beerStyles", icon: GlassWater, labelKey: "beerStyles", path: "beer-styles" },
       { slug: "batches", icon: FlaskRound, labelKey: "batches", path: "batches" },
       { slug: "brewingSystems", icon: Flame, labelKey: "brewingSystems", path: "brewing-systems" },
+      { slug: "mashingProfiles", icon: Thermometer, labelKey: "mashingProfiles", path: "mashing-profiles" },
       { slug: "equipment", icon: Wrench, labelKey: "equipment", path: "equipment" },
       { slug: "productSetup", icon: ShoppingBag, labelKey: "productSetup", path: "product-setup" },
     ],
