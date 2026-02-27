@@ -114,33 +114,48 @@ export async function createBrewingSystem(
   >
 ): Promise<BrewingSystem> {
   return withTenant(async (tenantId) => {
-    const rows = await db
-      .insert(brewingSystems)
-      .values({
-        tenantId,
-        name: data.name,
-        description: data.description,
-        isPrimary: data.isPrimary ?? false,
-        batchSizeL: data.batchSizeL,
-        efficiencyPct: data.efficiencyPct ?? "75",
-        shopId: data.shopId,
-        kettleVolumeL: data.kettleVolumeL,
-        kettleLossPct: data.kettleLossPct,
-        whirlpoolLossPct: data.whirlpoolLossPct,
-        fermenterVolumeL: data.fermenterVolumeL,
-        fermentationLossPct: data.fermentationLossPct,
-        extractEstimate: data.extractEstimate,
-        waterPerKgMalt: data.waterPerKgMalt,
-        waterReserveL: data.waterReserveL,
-        timePreparation: data.timePreparation,
-        timeLautering: data.timeLautering,
-        timeWhirlpool: data.timeWhirlpool,
-        timeTransfer: data.timeTransfer,
-        timeCleanup: data.timeCleanup,
-        notes: data.notes,
-        isActive: data.isActive ?? true,
-      })
-      .returning();
+    const rows = await db.transaction(async (tx) => {
+      // If new system is primary, unset existing primary first
+      if (data.isPrimary) {
+        await tx
+          .update(brewingSystems)
+          .set({ isPrimary: false, updatedAt: sql`now()` })
+          .where(
+            and(
+              eq(brewingSystems.tenantId, tenantId),
+              eq(brewingSystems.isPrimary, true)
+            )
+          );
+      }
+
+      return tx
+        .insert(brewingSystems)
+        .values({
+          tenantId,
+          name: data.name,
+          description: data.description,
+          isPrimary: data.isPrimary ?? false,
+          batchSizeL: data.batchSizeL,
+          efficiencyPct: data.efficiencyPct ?? "75",
+          shopId: data.shopId,
+          kettleVolumeL: data.kettleVolumeL,
+          kettleLossPct: data.kettleLossPct,
+          whirlpoolLossPct: data.whirlpoolLossPct,
+          fermenterVolumeL: data.fermenterVolumeL,
+          fermentationLossPct: data.fermentationLossPct,
+          extractEstimate: data.extractEstimate,
+          waterPerKgMalt: data.waterPerKgMalt,
+          waterReserveL: data.waterReserveL,
+          timePreparation: data.timePreparation,
+          timeLautering: data.timeLautering,
+          timeWhirlpool: data.timeWhirlpool,
+          timeTransfer: data.timeTransfer,
+          timeCleanup: data.timeCleanup,
+          notes: data.notes,
+          isActive: data.isActive ?? true,
+        })
+        .returning();
+    });
 
     const row = rows[0];
     if (!row) throw new Error("Failed to create brewing system");
@@ -158,16 +173,31 @@ export async function updateBrewingSystem(
   >
 ): Promise<BrewingSystem> {
   return withTenant(async (tenantId) => {
-    const rows = await db
-      .update(brewingSystems)
-      .set({
-        ...data,
-        updatedAt: sql`now()`,
-      })
-      .where(
-        and(eq(brewingSystems.tenantId, tenantId), eq(brewingSystems.id, id))
-      )
-      .returning();
+    const rows = await db.transaction(async (tx) => {
+      // If setting as primary, unset existing primary first
+      if (data.isPrimary) {
+        await tx
+          .update(brewingSystems)
+          .set({ isPrimary: false, updatedAt: sql`now()` })
+          .where(
+            and(
+              eq(brewingSystems.tenantId, tenantId),
+              eq(brewingSystems.isPrimary, true)
+            )
+          );
+      }
+
+      return tx
+        .update(brewingSystems)
+        .set({
+          ...data,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(eq(brewingSystems.tenantId, tenantId), eq(brewingSystems.id, id))
+        )
+        .returning();
+    });
 
     const row = rows[0];
     if (!row) throw new Error("Brewing system not found");
