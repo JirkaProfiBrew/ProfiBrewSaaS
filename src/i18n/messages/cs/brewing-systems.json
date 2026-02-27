@@ -1,11 +1,14 @@
 {
   "title": "Varní soustavy",
-  "create": "+ Varní soustava",
+  "create": "Varní soustava",
   "columns": {
     "name": "Název",
     "batchSizeL": "Batch size (L)",
+    "batchSizeLDisplay": "Batch size (L)",
     "efficiencyPct": "Efektivita (%)",
+    "efficiencyPctDisplay": "Efektivita (%)",
     "finishedBeerL": "Hotové pivo (L)",
+    "finishedBeerLDisplay": "Hotové pivo (L)",
     "shopName": "Provozovna",
     "isPrimary": "Primární"
   },

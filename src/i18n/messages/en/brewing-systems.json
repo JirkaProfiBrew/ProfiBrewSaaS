@@ -1,11 +1,14 @@
 {
   "title": "Brewing Systems",
-  "create": "+ Brewing System",
+  "create": "Brewing System",
   "columns": {
     "name": "Name",
     "batchSizeL": "Batch Size (L)",
+    "batchSizeLDisplay": "Batch Size (L)",
     "efficiencyPct": "Efficiency (%)",
+    "efficiencyPctDisplay": "Efficiency (%)",
     "finishedBeerL": "Finished Beer (L)",
+    "finishedBeerLDisplay": "Finished Beer (L)",
     "shopName": "Shop",
     "isPrimary": "Primary"
   },

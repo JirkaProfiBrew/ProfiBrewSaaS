@@ -30,6 +30,7 @@
   "bulkDeleteSuccess": "Deleted ({count})",
   "bulkDeleteFailed": "Some items could not be deleted",
   "saveFirst": "Save the record first",
+  "validationFailed": "Please fill in all required fields",
   "validation": {
     "required": "This field is required"
   }

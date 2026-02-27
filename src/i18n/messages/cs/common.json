@@ -30,6 +30,7 @@
   "bulkDeleteSuccess": "Smazáno ({count})",
   "bulkDeleteFailed": "Některé položky se nepodařilo smazat",
   "saveFirst": "Nejprve uložte záznam",
+  "validationFailed": "Vyplňte všechna povinná pole",
   "validation": {
     "required": "Toto pole je povinné"
   }

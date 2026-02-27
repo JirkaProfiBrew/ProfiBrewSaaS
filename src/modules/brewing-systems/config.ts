@@ -44,7 +44,7 @@ export const brewingSystemBrowserConfig: DataBrowserConfig = {
   pageSizeOptions: [15, 25, 50],
 
   actions: {
-    create: { label: "+ Varní soustava", enabled: true },
+    create: { label: "Varní soustava", enabled: true },
     bulkDelete: true,
     rowClick: "detail",
   },

@@ -263,7 +263,10 @@ export function BrewingSystemDetail({
   }, [values, tCommon]);
 
   const handleSave = useCallback(async (): Promise<void> => {
-    if (!validate()) return;
+    if (!validate()) {
+      toast.error(tCommon("validationFailed"));
+      return;
+    }
 
     const payload = {
       name: String(values.name),
