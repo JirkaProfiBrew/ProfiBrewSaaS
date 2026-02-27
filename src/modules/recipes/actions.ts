@@ -1006,6 +1006,7 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
       style: beerStyles,
       groupName: beerStyleGroups.name,
       groupNameCz: beerStyleGroups.nameCz,
+      groupImageUrl: beerStyleGroups.imageUrl,
       groupSortOrder: beerStyleGroups.sortOrder,
     })
     .from(beerStyles)
@@ -1044,6 +1045,7 @@ export async function getBeerStyles(): Promise<BeerStyle[]> {
     styleFamily: row.style.styleFamily,
     groupName: row.groupName,
     groupNameCz: row.groupNameCz ?? undefined,
+    groupImageUrl: row.groupImageUrl ?? null,
   }));
 }
 

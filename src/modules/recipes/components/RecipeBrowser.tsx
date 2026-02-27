@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
 
+import Image from "next/image";
+
 import { BeerGlass } from "@/components/ui/beer-glass";
 
 import { recipeBrowserConfig } from "../config";
@@ -135,15 +137,19 @@ export function RecipeBrowser(): React.ReactNode {
   const { data: recipeData, isLoading, mutate } = useRecipeList();
   const { data: beerStyles } = useBeerStyles();
 
-  // Build a lookup: beerStyleId → midpoint EBC (for BeerGlass fallback when recipe EBC is 0)
-  const styleEbcMap = useMemo(() => {
-    const map = new Map<string, number>();
+  // Build lookups: beerStyleId → midpoint EBC, beerStyleId → groupImageUrl
+  const { styleEbcMap, styleImageMap } = useMemo(() => {
+    const ebcMap = new Map<string, number>();
+    const imgMap = new Map<string, string>();
     for (const style of beerStyles) {
       if (style.ebcMin != null && style.ebcMax != null) {
-        map.set(style.id, (Number(style.ebcMin) + Number(style.ebcMax)) / 2);
+        ebcMap.set(style.id, (Number(style.ebcMin) + Number(style.ebcMax)) / 2);
+      }
+      if (style.groupImageUrl) {
+        imgMap.set(style.id, style.groupImageUrl);
       }
     }
-    return map;
+    return { styleEbcMap: ebcMap, styleImageMap: imgMap };
   }, [beerStyles]);
 
   // Badge value label maps
@@ -153,23 +159,38 @@ export function RecipeBrowser(): React.ReactNode {
     archived: t("status.archived"),
   };
 
-  // Card view config with BeerGlass renderImage
+  // Card view config with group image / BeerGlass fallback
   const cardViewConfig = useMemo(() => {
     const base = recipeBrowserConfig.views.card;
     if (base === false) return false as const;
     return {
       ...base,
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
-        // Use recipe's calculated EBC; fall back to beer style's midpoint EBC; default 8 (pale)
-        const recipeEbc = row.ebc != null ? Number(row.ebc) : 0;
         const styleId = row.beerStyleId as string | null;
+
+        // If recipe has a beer style with a group image → show the photo
+        const groupImage = styleId ? styleImageMap.get(styleId) : undefined;
+        if (groupImage) {
+          return (
+            <Image
+              src={groupImage}
+              alt=""
+              width={120}
+              height={120}
+              className="h-full w-full object-cover"
+            />
+          );
+        }
+
+        // Fallback: BeerGlass colored by EBC
+        const recipeEbc = row.ebc != null ? Number(row.ebc) : 0;
         const ebc = recipeEbc > 0
           ? recipeEbc
           : (styleId ? styleEbcMap.get(styleId) ?? 8 : 8);
         return <BeerGlass ebc={ebc} size="lg" />;
       },
     };
-  }, [styleEbcMap]);
+  }, [styleEbcMap, styleImageMap]);
 
   // Build localized config with translated labels
   const localizedConfig = useMemo(

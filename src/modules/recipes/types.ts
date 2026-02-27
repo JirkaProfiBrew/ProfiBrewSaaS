@@ -146,6 +146,7 @@ export interface BeerStyle {
   styleFamily: string | null;
   groupName?: string;
   groupNameCz?: string;
+  groupImageUrl?: string | null;
 }
 
 export interface BeerStyleGroup {
