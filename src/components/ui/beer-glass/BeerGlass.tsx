@@ -4,7 +4,7 @@ import { ebcToColor } from "./ebc-to-color";
 interface BeerGlassProps {
   /** EBC value (beer color). 0 = very pale, 80+ = black */
   ebc: number;
-  /** Size: sm=40px, md=64px, lg=96px */
+  /** Size: sm=40px, md=64px, lg=96px (height) */
   size?: "sm" | "md" | "lg";
   /** Optional className for the root SVG element */
   className?: string;
@@ -17,11 +17,11 @@ const SIZE_MAP: Record<NonNullable<BeerGlassProps["size"]>, number> = {
 };
 
 /**
- * Beer mug (pullitr/krigel) SVG component.
+ * Beer mug (půllitr/krýgl) SVG component.
  * Displays a Czech beer mug filled with beer colored according to EBC value.
  *
- * viewBox: 0 0 48 64
- * - Glass body: rounded bottom, straight sides, slightly wider at top
+ * viewBox: 0 0 72 64  (wider aspect ratio — resembles a real pub half-liter)
+ * - Glass body: rounded bottom, straight sides, wider shape
  * - Handle: right side
  * - Beer fill: colored by EBC
  * - Foam: white bumps on top
@@ -31,14 +31,14 @@ export function BeerGlass({
   size = "md",
   className,
 }: BeerGlassProps): React.ReactElement {
-  const width = SIZE_MAP[size];
-  const height = Math.round((width * 64) / 48);
+  const height = SIZE_MAP[size];
+  const width = Math.round((height * 72) / 64);
   const beerColor = ebcToColor(ebc);
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 48 64"
+      viewBox="0 0 72 64"
       width={width}
       height={height}
       fill="none"
@@ -49,15 +49,15 @@ export function BeerGlass({
       {/* Glass body clip path - defines the interior fill area */}
       <defs>
         <clipPath id={`glass-clip-${size}`}>
-          <path d="M10 14 L10 52 Q10 58 16 58 L30 58 Q36 58 36 52 L36 14 Z" />
+          <path d="M12 14 L12 52 Q12 58 20 58 L44 58 Q52 58 52 52 L52 14 Z" />
         </clipPath>
       </defs>
 
       {/* Beer fill (clipped to glass interior) */}
       <rect
-        x="10"
+        x="12"
         y="18"
-        width="26"
+        width="40"
         height="40"
         rx="4"
         fill={beerColor}
@@ -65,15 +65,15 @@ export function BeerGlass({
       />
 
       {/* Foam - white bubbles on top */}
-      <ellipse cx="15" cy="18" rx="5.5" ry="4.5" fill="white" opacity="0.92" />
-      <ellipse cx="23" cy="16" rx="6" ry="5" fill="white" opacity="0.95" />
-      <ellipse cx="31" cy="18" rx="5.5" ry="4.5" fill="white" opacity="0.92" />
-      <ellipse cx="19" cy="15" rx="4" ry="3.5" fill="white" opacity="0.88" />
-      <ellipse cx="27" cy="15" rx="4" ry="3.5" fill="white" opacity="0.88" />
+      <ellipse cx="19" cy="18" rx="7" ry="4.5" fill="white" opacity="0.92" />
+      <ellipse cx="32" cy="16" rx="8" ry="5" fill="white" opacity="0.95" />
+      <ellipse cx="45" cy="18" rx="7" ry="4.5" fill="white" opacity="0.92" />
+      <ellipse cx="25" cy="15" rx="5" ry="3.5" fill="white" opacity="0.88" />
+      <ellipse cx="39" cy="15" rx="5" ry="3.5" fill="white" opacity="0.88" />
 
       {/* Glass outline - the mug body */}
       <path
-        d="M10 12 L10 52 Q10 58 16 58 L30 58 Q36 58 36 52 L36 12 Z"
+        d="M12 12 L12 52 Q12 58 20 58 L44 58 Q52 58 52 52 L52 12 Z"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinejoin="round"
@@ -82,7 +82,7 @@ export function BeerGlass({
 
       {/* Glass rim (top edge, slightly wider) */}
       <path
-        d="M8 12 L38 12"
+        d="M10 12 L54 12"
         stroke="currentColor"
         strokeWidth="2.5"
         strokeLinecap="round"
@@ -90,7 +90,7 @@ export function BeerGlass({
 
       {/* Handle */}
       <path
-        d="M36 20 Q44 20 44 30 Q44 40 36 40"
+        d="M52 20 Q62 20 62 30 Q62 40 52 40"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
