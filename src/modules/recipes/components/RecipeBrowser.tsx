@@ -11,7 +11,7 @@ import type { DataBrowserParams } from "@/components/data-browser";
 import { BeerGlass } from "@/components/ui/beer-glass";
 
 import { recipeBrowserConfig } from "../config";
-import { useRecipeList } from "../hooks";
+import { useRecipeList, useBeerStyles } from "../hooks";
 import { deleteRecipe } from "../actions";
 import type { Recipe } from "../types";
 
@@ -133,6 +133,18 @@ export function RecipeBrowser(): React.ReactNode {
   const pathname = usePathname();
   const { params } = useDataBrowserParams(recipeBrowserConfig);
   const { data: recipeData, isLoading, mutate } = useRecipeList();
+  const { data: beerStyles } = useBeerStyles();
+
+  // Build a lookup: beerStyleId → midpoint EBC (for BeerGlass fallback when recipe EBC is 0)
+  const styleEbcMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const style of beerStyles) {
+      if (style.ebcMin != null && style.ebcMax != null) {
+        map.set(style.id, (Number(style.ebcMin) + Number(style.ebcMax)) / 2);
+      }
+    }
+    return map;
+  }, [beerStyles]);
 
   // Badge value label maps
   const statusLabels: Record<string, string> = {
@@ -148,12 +160,17 @@ export function RecipeBrowser(): React.ReactNode {
     return {
       ...base,
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
-        const ebc = row.ebc;
+        // Use recipe's calculated EBC; fall back to beer style's midpoint EBC
+        const recipeEbc = row.ebc != null ? Number(row.ebc) : 0;
+        const styleId = row.beerStyleId as string | null;
+        const ebc = recipeEbc > 0
+          ? recipeEbc
+          : (styleId ? styleEbcMap.get(styleId) ?? null : null);
         if (ebc == null) return null;
-        return <BeerGlass ebc={Number(ebc)} size="lg" />;
+        return <BeerGlass ebc={ebc} size="lg" />;
       },
     };
-  }, []);
+  }, [styleEbcMap]);
 
   // Build localized config with translated labels
   const localizedConfig = useMemo(

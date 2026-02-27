@@ -102,6 +102,10 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
 
   const mode: FormMode = isNew ? "create" : "edit";
 
+  const backHref = isSnapshot
+    ? `/brewery/batches/${batchId}?tab=ingredients`
+    : "/brewery/recipes";
+
   // Build beer style options for select
   const beerStyleOptions = useMemo(
     () =>
@@ -274,8 +278,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         });
 
         toast.success(tCommon("saved"));
-        // Redirect to the newly created recipe detail
-        router.push(`/brewery/recipes/${created.id}`);
+        router.push(backHref);
       } else {
         const itemIdValue = values.itemId ? String(values.itemId) : null;
 
@@ -310,13 +313,13 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
         }
 
         toast.success(tCommon("saved"));
-        mutate();
+        router.push(backHref);
       }
     } catch (error: unknown) {
       console.error("Failed to save recipe:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [isNew, id, values, validate, router, tCommon, mutate, batchId]);
+  }, [isNew, id, values, validate, router, tCommon, mutate, batchId, backHref]);
 
   const handleDuplicate = useCallback(async (): Promise<void> => {
     try {
@@ -517,10 +520,6 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   const subtitle = !isNew && recipeDetail?.recipe?.beerStyleName
     ? recipeDetail.recipe.beerStyleName
     : undefined;
-
-  const backHref = isSnapshot
-    ? `/brewery/batches/${batchId}?tab=ingredients`
-    : "/brewery/recipes";
 
   // Determine EBC for the BeerGlass header decoration:
   // 1. Use recipe's calculated EBC if available
