@@ -399,14 +399,6 @@ export function MaltTab({
               )}
             </>
           )}
-          {ebcTarget && (
-            <div className="flex justify-between">
-              <span>{t("designer.cards.color")}:</span>
-              <span className="font-medium">
-                {ebcTarget.min}–{ebcTarget.max} EBC
-              </span>
-            </div>
-          )}
         </div>
       )}
     </div>
