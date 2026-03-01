@@ -520,7 +520,21 @@
       "currentTax": "Aktuální daň",
       "taxDiff": "Rozdíl",
       "exciseMovements": "Pohyby",
-      "exciseCurrentVolume": "V daňovém skladu"
+      "exciseCurrentVolume": "V daňovém skladu",
+      "item": "Surovina",
+      "amount": "Množství",
+      "lot": "Šarže",
+      "document": "Doklad",
+      "noInputLots": "Žádné vstupní šarže",
+      "noOutputLots": "Žádné výstupní šarže",
+      "noExciseMovements": "Žádné pohyby",
+      "taxCzk": "Kč",
+      "recipeOg": "OG",
+      "recipeIbu": "IBU",
+      "recipeEbc": "EBC",
+      "recipeVolume": "Objem",
+      "noNotes": "Žádné poznámky",
+      "noMeasurements": "Žádná měření"
     }
   }
 }

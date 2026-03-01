@@ -11,6 +11,7 @@ import {
   batchMeasurements,
   batchNotes,
   bottlingItems,
+  batchLotTracking,
 } from "@/../drizzle/schema/batches";
 import { recipes, recipeSteps } from "@/../drizzle/schema/recipes";
 import { recipeItems } from "@/../drizzle/schema/recipes";
@@ -42,6 +43,8 @@ import type {
   RecipeIngredient,
   BatchIngredientRow,
   ProductionIssueInfo,
+  BatchLotEntry,
+  ExciseSummary,
 } from "./types";
 import { BATCH_STATUS_TRANSITIONS, PHASE_TRANSITIONS } from "./types";
 import { generateBrewSteps } from "./lib/generate-brew-steps";
@@ -3064,6 +3067,91 @@ export async function getBrewingSystemForBatch(
       timeWhirlpool: sys.timeWhirlpool,
       timeTransfer: sys.timeTransfer,
       timeCleanup: sys.timeCleanup,
+    };
+  });
+}
+
+// ── Lot Tracking & Excise ──────────────────────────────────────
+
+export async function getBatchLotTracking(
+  batchId: string
+): Promise<BatchLotEntry[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select()
+      .from(batchLotTracking)
+      .where(
+        and(
+          eq(batchLotTracking.tenantId, tenantId),
+          eq(batchLotTracking.batchId, batchId)
+        )
+      )
+      .orderBy(asc(batchLotTracking.createdAt));
+
+    return rows.map((r): BatchLotEntry => ({
+      id: r.id,
+      direction: r.direction as "in" | "out",
+      itemId: r.itemId,
+      itemName: r.itemName,
+      lotNumber: r.lotNumber,
+      amount: Number(r.amount),
+      unit: r.unit,
+      receiptId: r.receiptId,
+      notes: r.notes,
+      createdAt: r.createdAt?.toISOString() ?? new Date().toISOString(),
+    }));
+  });
+}
+
+export async function getBatchExciseSummary(
+  batchId: string
+): Promise<ExciseSummary> {
+  return withTenant(async (tenantId) => {
+    // Load excise movements for this batch
+    const movements = await db
+      .select()
+      .from(exciseMovements)
+      .where(
+        and(
+          eq(exciseMovements.tenantId, tenantId),
+          eq(exciseMovements.batchId, batchId)
+        )
+      )
+      .orderBy(asc(exciseMovements.date));
+
+    // Calculate summary
+    let totalTaxIn = 0;
+    let totalTaxOut = 0;
+    let totalVolumeIn = 0;
+    let totalVolumeOut = 0;
+
+    const movementList = movements.map((m) => {
+      const volumeL = Number(m.volumeHl ?? 0) * 100; // hl to L
+      const taxCzk = Number(m.taxAmount ?? 0);
+      const isIn = m.direction === "in";
+
+      if (isIn) {
+        totalTaxIn += taxCzk;
+        totalVolumeIn += volumeL;
+      } else {
+        totalTaxOut += Math.abs(taxCzk);
+        totalVolumeOut += Math.abs(volumeL);
+      }
+
+      return {
+        phase: m.movementType,
+        label: m.description ?? m.movementType,
+        volumeL: isIn ? volumeL : -Math.abs(volumeL),
+        taxCzk: isIn ? taxCzk : -Math.abs(taxCzk),
+      };
+    });
+
+    return {
+      plannedTaxCzk: totalTaxIn,
+      currentTaxCzk: totalTaxIn - totalTaxOut,
+      diffCzk: -totalTaxOut,
+      currentVolumeHl: (totalVolumeIn - totalVolumeOut) / 100,
+      movements: movementList,
     };
   });
 }

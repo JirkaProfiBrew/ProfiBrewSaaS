@@ -520,7 +520,21 @@
       "currentTax": "Current Tax",
       "taxDiff": "Difference",
       "exciseMovements": "Movements",
-      "exciseCurrentVolume": "In Tax Warehouse"
+      "exciseCurrentVolume": "In Tax Warehouse",
+      "item": "Item",
+      "amount": "Amount",
+      "lot": "Lot",
+      "document": "Document",
+      "noInputLots": "No input lots",
+      "noOutputLots": "No output lots",
+      "noExciseMovements": "No excise movements",
+      "taxCzk": "CZK",
+      "recipeOg": "OG",
+      "recipeIbu": "IBU",
+      "recipeEbc": "EBC",
+      "recipeVolume": "Volume",
+      "noNotes": "No notes",
+      "noMeasurements": "No measurements"
     }
   }
 }
