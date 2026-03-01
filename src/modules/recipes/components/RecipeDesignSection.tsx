@@ -205,7 +205,7 @@ export function RecipeDesignSection({
       {!isCollapsed && (
         <div className="rounded-b-lg border border-t-0 bg-card p-4 space-y-4">
           {/* Row 1: Name + Status + Beer Style */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr_auto_3fr] gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="design-name">{t("form.name")}</Label>
               <Input
@@ -236,7 +236,7 @@ export function RecipeDesignSection({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label>{t("form.beerStyle")}</Label>
               <Select
                 value={values.beerStyleId ?? "__none__"}
@@ -244,7 +244,7 @@ export function RecipeDesignSection({
                   onChange("beerStyleId", v === "__none__" ? null : v)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="truncate">
                   <SelectValue placeholder={t("form.beerStyle")} />
                 </SelectTrigger>
                 <SelectContent>
