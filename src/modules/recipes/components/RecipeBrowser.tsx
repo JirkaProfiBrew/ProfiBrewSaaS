@@ -169,7 +169,7 @@ export function RecipeBrowser(): React.ReactNode {
       renderCardStyle: (row: Record<string, unknown>): React.CSSProperties => {
         const ebc = row.ebc != null ? Number(row.ebc) : 0;
         return ebc > 0
-          ? { borderLeftWidth: '5px', borderLeftColor: ebcToColor(ebc) }
+          ? { borderLeftWidth: '8px', borderLeftColor: ebcToColor(ebc) }
           : {};
       },
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
