@@ -70,11 +70,14 @@
       "other": "Other"
     },
     "stages": {
-      "mash": "Mash",
       "boil": "Boil",
+      "fwh": "First Wort Hop",
       "whirlpool": "Whirlpool",
-      "fermentation": "Fermentation",
-      "dry_hop": "Dry Hop"
+      "mash": "Mash Hop",
+      "dry_hop_cold": "Dry Hop (Cold)",
+      "dry_hop_warm": "Dry Hop (Warm)",
+      "dry_hop": "Dry Hop",
+      "fermentation": "Fermentation"
     },
     "dialog": {
       "title": "Add Ingredient",
@@ -281,7 +284,10 @@
       "ibuBreakdown": "IBU Breakdown",
       "boilIbu": "Boil",
       "whirlpoolIbu": "Whirlpool",
-      "dryHopIbu": "Dry Hop"
+      "dryHopIbu": "Dry Hop",
+      "temperature": "Temperature (°C)",
+      "fwhIbu": "FWH",
+      "mashIbu": "Mash"
     },
     "constants": {
       "title": "Calculation Constants",
@@ -301,6 +307,7 @@
       "waterPerKg": "Water L/kg malt",
       "grainAbsorption": "Grain Absorption (L/kg)",
       "waterReserve": "Water Reserve (L)",
+      "whirlpoolTemp": "Whirlpool Temperature (°C)",
       "boilTime": "Boil Time (min)"
     },
     "calculation": {

@@ -38,6 +38,8 @@ interface RecipeEditorProps {
   // Calculated values for tabs
   ogPlato: number;
   volumeL: number;
+  boilTimeMin: number;
+  whirlpoolTempC: number;
   maltPlanKg: number;
   // Style targets
   ibuTarget: { min: number; max: number } | null;
@@ -50,6 +52,7 @@ interface RecipeEditorProps {
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
+  onTemperatureChange: (id: string, temp: number | null) => void;
   onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
@@ -80,6 +83,8 @@ export function RecipeEditor({
   allItems,
   ogPlato,
   volumeL,
+  boilTimeMin,
+  whirlpoolTempC,
   maltPlanKg,
   ibuTarget,
   ebcTarget,
@@ -89,6 +94,7 @@ export function RecipeEditor({
   onAmountChange,
   onStageChange,
   onTimeChange,
+  onTemperatureChange,
   onNotesChange,
   onRemove,
   onReorder,
@@ -154,10 +160,13 @@ export function RecipeEditor({
               items={hopItems}
               volumeL={volumeL}
               ogPlato={ogPlato}
+              boilTimeMin={boilTimeMin}
+              whirlpoolTempC={whirlpoolTempC}
               ibuTarget={ibuTarget}
               onAmountChange={onAmountChange}
               onStageChange={onStageChange}
               onTimeChange={onTimeChange}
+              onTemperatureChange={onTemperatureChange}
               onRemove={onRemove}
               onReorder={onReorder}
               onAdd={() => onAddIngredient("hop")}

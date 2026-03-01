@@ -37,6 +37,7 @@ export const brewingSystems = pgTable(
 
     // Hot zone — Whirlpool
     whirlpoolLossPct: decimal("whirlpool_loss_pct").default("10"),
+    whirlpoolTemperatureC: decimal("whirlpool_temperature_c").default("85"),
 
     // Cold zone — Fermenter (schematic, for visualization)
     fermenterVolumeL: decimal("fermenter_volume_l"),

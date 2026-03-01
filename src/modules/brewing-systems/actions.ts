@@ -28,6 +28,7 @@ function mapRow(
     evaporationRatePctPerHour: row.evaporationRatePctPerHour,
     kettleTrubLossL: row.kettleTrubLossL,
     whirlpoolLossPct: row.whirlpoolLossPct,
+    whirlpoolTemperatureC: row.whirlpoolTemperatureC,
     fermenterVolumeL: row.fermenterVolumeL,
     fermentationLossPct: row.fermentationLossPct,
     extractEstimate: row.extractEstimate,

@@ -13,15 +13,26 @@ interface HopCardProps {
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
+  onTemperatureChange: (id: string, temp: number | null) => void;
   onRemove: (id: string) => void;
 }
 
-export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onStageChange, onTimeChange, onRemove }: HopCardProps): React.ReactNode {
+const STAGES = ["boil", "fwh", "whirlpool", "mash", "dry_hop_cold", "dry_hop_warm"] as const;
+
+// Stages that use a time input
+const TIME_STAGES = new Set(["boil", "whirlpool", "mash"]);
+// Stages that use a temperature input
+const TEMP_STAGES = new Set(["whirlpool", "dry_hop_warm"]);
+
+export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onStageChange, onTimeChange, onTemperatureChange, onRemove }: HopCardProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   const alphaVal = item.itemAlpha ? parseFloat(item.itemAlpha) : null;
   const unitSymbol = item.unitSymbol ?? "g";
   const ibuPct = totalIbu > 0 ? (ibuContribution / totalIbu * 100).toFixed(1) : "0";
+  const stage = item.useStage ?? "boil";
+  const showTime = TIME_STAGES.has(stage);
+  const showTemp = TEMP_STAGES.has(stage);
 
   return (
     <IngredientCard
@@ -44,18 +55,18 @@ export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onSta
         </div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.phase")}:</label>
-          <Select value={item.useStage ?? "boil"} onValueChange={(v) => onStageChange(item.id, v)}>
-            <SelectTrigger className="h-7 w-32 text-sm">
+          <Select value={stage} onValueChange={(v) => onStageChange(item.id, v)}>
+            <SelectTrigger className="h-7 w-40 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="boil">{t("ingredients.stages.boil")}</SelectItem>
-              <SelectItem value="whirlpool">{t("ingredients.stages.whirlpool")}</SelectItem>
-              <SelectItem value="dry_hop">{t("ingredients.stages.dry_hop")}</SelectItem>
+              {STAGES.map((s) => (
+                <SelectItem key={s} value={s}>{t(`ingredients.stages.${s}`)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        {(item.useStage === "boil" || item.useStage === "whirlpool" || !item.useStage) && (
+        {showTime && (
           <div className="flex items-center gap-2">
             <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.boilTime")}:</label>
             <Input
@@ -66,6 +77,19 @@ export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onSta
               placeholder="min"
             />
             <span className="text-xs text-muted-foreground">min</span>
+          </div>
+        )}
+        {showTemp && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.temperature")}:</label>
+            <Input
+              type="number"
+              value={item.temperatureC ?? ""}
+              onChange={(e) => onTemperatureChange(item.id, e.target.value ? Number(e.target.value) : null)}
+              className="h-7 w-20 text-sm"
+              placeholder="°C"
+            />
+            <span className="text-xs text-muted-foreground">°C</span>
           </div>
         )}
         <div className="text-xs text-muted-foreground">

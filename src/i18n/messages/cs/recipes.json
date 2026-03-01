@@ -70,11 +70,14 @@
       "other": "Ostatní"
     },
     "stages": {
-      "mash": "Rmut",
-      "boil": "Var",
+      "boil": "Chmelovar",
+      "fwh": "First Wort Hop",
       "whirlpool": "Whirlpool",
-      "fermentation": "Kvašení",
-      "dry_hop": "Dry hop"
+      "mash": "Rmutový chmel",
+      "dry_hop_cold": "Dry hop (studený)",
+      "dry_hop_warm": "Dry hop (teplý)",
+      "dry_hop": "Dry hop",
+      "fermentation": "Kvašení"
     },
     "dialog": {
       "title": "Přidat surovinu",
@@ -281,7 +284,10 @@
       "ibuBreakdown": "Rozpad IBU",
       "boilIbu": "Chmelovar",
       "whirlpoolIbu": "Whirlpool",
-      "dryHopIbu": "Dry hop"
+      "dryHopIbu": "Dry hop",
+      "temperature": "Teplota (°C)",
+      "fwhIbu": "FWH",
+      "mashIbu": "Rmutový"
     },
     "constants": {
       "title": "Konstanty výpočtu",
@@ -301,6 +307,7 @@
       "waterPerKg": "Voda L/kg sladu",
       "grainAbsorption": "Absorpce vody zrnem (L/kg)",
       "waterReserve": "Rezerva vody (L)",
+      "whirlpoolTemp": "Teplota whirlpoolu (°C)",
       "boilTime": "Čas chmelovaru (min)"
     },
     "calculation": {

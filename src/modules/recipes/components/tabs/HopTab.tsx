@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HopCard } from "../cards/HopCard";
 import type { RecipeItem } from "../../types";
+import { calculateIBUBreakdown } from "../../utils";
+import type { IngredientInput } from "../../utils";
 
 // ── Props ────────────────────────────────────────────────────────
 
@@ -17,21 +19,16 @@ interface HopTabProps {
   items: RecipeItem[];
   volumeL: number;
   ogPlato: number;
+  boilTimeMin: number;
+  whirlpoolTempC: number;
   ibuTarget: { min: number; max: number } | null;
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
+  onTemperatureChange: (id: string, temp: number | null) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
   onAdd: () => void;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────
-
-interface HopIbuEntry {
-  id: string;
-  ibu: number;
-  stage: string;
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -40,75 +37,66 @@ export function HopTab({
   items,
   volumeL,
   ogPlato,
+  boilTimeMin,
+  whirlpoolTempC,
   ibuTarget,
   onAmountChange,
   onStageChange,
   onTimeChange,
+  onTemperatureChange,
   onRemove,
   onReorder,
   onAdd,
 }: HopTabProps): React.ReactNode {
   const t = useTranslations("recipes");
 
-  // Per-hop IBU contribution using Tinseth formula inline
-  const hopInputs: HopIbuEntry[] = useMemo(
+  // Build ingredient inputs for the breakdown calculation
+  const ingredientInputs: IngredientInput[] = useMemo(
     () =>
-      items.map((item) => {
-        const alphaDecimal = parseFloat(item.itemAlpha ?? "0") / 100;
-        const amount = parseFloat(item.amountG) || 0;
-        const factor = item.unitToBaseFactor ?? 0.001; // g -> kg default
-        const weightKg = amount * factor;
-        const boilTime = item.useTimeMin ?? 0;
-        const stage = item.useStage ?? "boil";
-
-        if (boilTime <= 0 || alphaDecimal <= 0 || volumeL <= 0) {
-          return { id: item.id, ibu: 0, stage };
-        }
-
-        const sg = 1 + ogPlato / (258.6 - 227.1 * (ogPlato / 258.2));
-        const bigness = 1.65 * Math.pow(0.000125, sg - 1);
-        const boilFactor = (1 - Math.exp(-0.04 * boilTime)) / 4.15;
-        const util = bigness * boilFactor;
-        const ibu = (weightKg * util * alphaDecimal * 1000000) / volumeL;
-
-        return { id: item.id, ibu: Math.round(ibu * 10) / 10, stage };
-      }),
-    [items, volumeL, ogPlato]
+      items.map((item) => ({
+        category: "hop",
+        amountG: parseFloat(item.amountG) || 0,
+        unitToBaseFactor: item.unitToBaseFactor ?? null,
+        alpha: item.itemAlpha ? parseFloat(item.itemAlpha) : null,
+        useTimeMin: item.useTimeMin,
+        useStage: item.useStage ?? "boil",
+        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
+        itemId: item.itemId,
+        recipeItemId: item.id,
+        name: item.itemName ?? item.itemId,
+      })),
+    [items]
   );
 
-  const totalIbu = useMemo(
-    () => hopInputs.reduce((s, h) => s + h.ibu, 0),
-    [hopInputs]
+  // Calculate IBU breakdown using the shared engine
+  const ibuBreakdown = useMemo(
+    () => calculateIBUBreakdown(ingredientInputs, volumeL, ogPlato, boilTimeMin, whirlpoolTempC),
+    [ingredientInputs, volumeL, ogPlato, boilTimeMin, whirlpoolTempC]
   );
 
-  // IBU breakdown by stage
-  const boilIbu = useMemo(
-    () =>
-      Math.round(
-        hopInputs
-          .filter((h) => h.stage === "boil")
-          .reduce((s, h) => s + h.ibu, 0) * 10
-      ) / 10,
-    [hopInputs]
-  );
-  const whirlpoolIbu = useMemo(
-    () =>
-      Math.round(
-        hopInputs
-          .filter((h) => h.stage === "whirlpool")
-          .reduce((s, h) => s + h.ibu, 0) * 10
-      ) / 10,
-    [hopInputs]
-  );
-  const dryHopIbu = useMemo(
-    () =>
-      Math.round(
-        hopInputs
-          .filter((h) => h.stage === "dry_hop")
-          .reduce((s, h) => s + h.ibu, 0) * 10
-      ) / 10,
-    [hopInputs]
-  );
+  // Per-hop IBU: run single-hop breakdown for each
+  const perHopIbu = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of items) {
+      const singleInput: IngredientInput[] = [{
+        category: "hop",
+        amountG: parseFloat(item.amountG) || 0,
+        unitToBaseFactor: item.unitToBaseFactor ?? null,
+        alpha: item.itemAlpha ? parseFloat(item.itemAlpha) : null,
+        useTimeMin: item.useTimeMin,
+        useStage: item.useStage ?? "boil",
+        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
+        itemId: item.itemId,
+        recipeItemId: item.id,
+        name: item.itemName ?? item.itemId,
+      }];
+      const result = calculateIBUBreakdown(singleInput, volumeL, ogPlato, boilTimeMin, whirlpoolTempC);
+      map.set(item.id, result.total);
+    }
+    return map;
+  }, [items, volumeL, ogPlato, boilTimeMin, whirlpoolTempC]);
+
+  const totalIbu = ibuBreakdown.total;
 
   // Check if total IBU is within target range
   const isInRange =
@@ -123,9 +111,16 @@ export function HopTab({
     }
   }
 
-  function getIbuForItem(itemId: string): number {
-    return hopInputs.find((h) => h.id === itemId)?.ibu ?? 0;
-  }
+  // Breakdown entries to display (only show stages that have IBU > 0)
+  const breakdownEntries = useMemo(() => {
+    const entries: { labelKey: string; value: number }[] = [];
+    if (ibuBreakdown.boil > 0) entries.push({ labelKey: "boilIbu", value: ibuBreakdown.boil });
+    if (ibuBreakdown.fwh > 0) entries.push({ labelKey: "fwhIbu", value: ibuBreakdown.fwh });
+    if (ibuBreakdown.whirlpool > 0) entries.push({ labelKey: "whirlpoolIbu", value: ibuBreakdown.whirlpool });
+    if (ibuBreakdown.mash > 0) entries.push({ labelKey: "mashIbu", value: ibuBreakdown.mash });
+    if (ibuBreakdown.dryHopWarm > 0) entries.push({ labelKey: "dryHopIbu", value: ibuBreakdown.dryHopWarm });
+    return entries;
+  }, [ibuBreakdown]);
 
   return (
     <div className="space-y-3">
@@ -138,11 +133,12 @@ export function HopTab({
             <HopCard
               key={item.id}
               item={item}
-              ibuContribution={getIbuForItem(item.id)}
+              ibuContribution={perHopIbu.get(item.id) ?? 0}
               totalIbu={totalIbu}
               onAmountChange={onAmountChange}
               onStageChange={onStageChange}
               onTimeChange={onTimeChange}
+              onTemperatureChange={onTemperatureChange}
               onRemove={onRemove}
             />
           ))}
@@ -175,17 +171,15 @@ export function HopTab({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>
-              {t("designer.cards.boilIbu")}: <span className="font-medium text-foreground">{boilIbu.toFixed(1)} IBU</span>
-            </span>
-            <span>
-              {t("designer.cards.whirlpoolIbu")}: <span className="font-medium text-foreground">{whirlpoolIbu.toFixed(1)} IBU</span>
-            </span>
-            <span>
-              {t("designer.cards.dryHopIbu")}: <span className="font-medium text-foreground">{dryHopIbu.toFixed(1)} IBU</span>
-            </span>
-          </div>
+          {breakdownEntries.length > 0 && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              {breakdownEntries.map((entry) => (
+                <span key={entry.labelKey}>
+                  {t(`designer.cards.${entry.labelKey}`)}: <span className="font-medium text-foreground">{entry.value.toFixed(1)} IBU</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

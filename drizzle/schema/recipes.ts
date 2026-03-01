@@ -99,6 +99,7 @@ export const recipeItems = pgTable(
     unitId: uuid("unit_id").references(() => units.id),
     useStage: text("use_stage"), // 'mash' | 'boil' | 'whirlpool' | 'fermentation' | 'dry_hop'
     useTimeMin: integer("use_time_min"),
+    temperatureC: decimal("temperature_c"),
     hopPhase: text("hop_phase"),
     notes: text("notes"),
     sortOrder: integer("sort_order").default(0),

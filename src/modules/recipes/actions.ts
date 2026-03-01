@@ -107,6 +107,7 @@ function mapRecipeItemRow(
     unitId: row.unitId,
     useStage: row.useStage,
     useTimeMin: row.useTimeMin,
+    temperatureC: row.temperatureC ?? null,
     hopPhase: row.hopPhase,
     notes: row.notes,
     sortOrder: row.sortOrder ?? 0,
@@ -907,6 +908,8 @@ export async function calculateAndSaveRecipe(
         costPrice: resolved?.price ?? fallbackPrice,
         stockUnitSymbol: row.stockUnitSymbol ?? null,
         useTimeMin: row.recipeItem.useTimeMin,
+        useStage: row.recipeItem.useStage ?? undefined,
+        temperatureC: row.recipeItem.temperatureC ? parseFloat(row.recipeItem.temperatureC) : undefined,
         itemId: row.recipeItem.itemId,
         recipeItemId: row.recipeItem.id,
         name: row.itemName,
@@ -936,6 +939,7 @@ export async function calculateAndSaveRecipe(
           evaporationRatePctPerHour: parseFloat(bs.evaporationRatePctPerHour ?? "") || 8,
           kettleTrubLossL: parseFloat(bs.kettleTrubLossL ?? "") || 5,
           whirlpoolLossPct: parseFloat(bs.whirlpoolLossPct ?? "") || 5,
+          whirlpoolTemperatureC: parseFloat(bs.whirlpoolTemperatureC ?? "") || 85,
           fermenterVolumeL: parseFloat(bs.fermenterVolumeL ?? "") || 120,
           fermentationLossPct: parseFloat(bs.fermentationLossPct ?? "") || 5,
           extractEstimate: parseFloat(bs.extractEstimate ?? "") || 80,
@@ -954,6 +958,7 @@ export async function calculateAndSaveRecipe(
       if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
       if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
+      if (constantsOverride.whirlpoolTemperatureC != null) brewingSystemInput.whirlpoolTemperatureC = constantsOverride.whirlpoolTemperatureC;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
       if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
       if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;
@@ -966,6 +971,7 @@ export async function calculateAndSaveRecipe(
       if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
       if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
+      if (constantsOverride.whirlpoolTemperatureC != null) brewingSystemInput.whirlpoolTemperatureC = constantsOverride.whirlpoolTemperatureC;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
       if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
       if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;

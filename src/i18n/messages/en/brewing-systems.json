@@ -40,6 +40,7 @@
       "kettleTrubLossL": "Kettle Trub Loss (L)",
       "grainAbsorptionLPerKg": "Grain Absorption (L/kg)",
       "whirlpoolLossPct": "Whirlpool Loss (%)",
+      "whirlpoolTemperatureC": "Whirlpool Temperature (°C)",
       "whirlpoolDescription": "hop trub, transfer",
       "fermenterVolumeL": "Vessel Volume (L)",
       "fermentationLossPct": "Fermentation Loss (%)",

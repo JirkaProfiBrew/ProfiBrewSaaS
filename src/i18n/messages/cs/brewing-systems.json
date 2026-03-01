@@ -40,6 +40,7 @@
       "kettleTrubLossL": "Ztráta kalovina (L)",
       "grainAbsorptionLPerKg": "Absorpce vody zrnem (L/kg)",
       "whirlpoolLossPct": "Ztráta whirlpool (%)",
+      "whirlpoolTemperatureC": "Teplota whirlpoolu (°C)",
       "whirlpoolDescription": "chmelové mláto, čerpání",
       "fermenterVolumeL": "Celkový objem nádoby (L)",
       "fermentationLossPct": "Ztráta kvašení (%)",

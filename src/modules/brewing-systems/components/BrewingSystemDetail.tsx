@@ -65,6 +65,7 @@ export function BrewingSystemDetail({
     evaporationRatePctPerHour: "8",
     kettleTrubLossL: "5",
     whirlpoolLossPct: "10",
+    whirlpoolTemperatureC: "85",
     fermenterVolumeL: "800",
     fermentationLossPct: "10",
     extractEstimate: "0.80",
@@ -95,6 +96,7 @@ export function BrewingSystemDetail({
         evaporationRatePctPerHour: systemItem.evaporationRatePctPerHour ?? "8",
         kettleTrubLossL: systemItem.kettleTrubLossL ?? "5",
         whirlpoolLossPct: systemItem.whirlpoolLossPct ?? "10",
+        whirlpoolTemperatureC: systemItem.whirlpoolTemperatureC ?? "85",
         fermenterVolumeL: systemItem.fermenterVolumeL ?? "",
         fermentationLossPct: systemItem.fermentationLossPct ?? "10",
         extractEstimate: systemItem.extractEstimate ?? "0.80",
@@ -307,6 +309,9 @@ export function BrewingSystemDetail({
       whirlpoolLossPct: values.whirlpoolLossPct
         ? String(values.whirlpoolLossPct)
         : null,
+      whirlpoolTemperatureC: values.whirlpoolTemperatureC
+        ? String(values.whirlpoolTemperatureC)
+        : null,
       fermenterVolumeL: values.fermenterVolumeL
         ? String(values.fermenterVolumeL)
         : null,
@@ -513,6 +518,20 @@ export function BrewingSystemDetail({
                       handleChange("whirlpoolLossPct", e.target.value)
                     }
                     className="h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    {t("detail.fields.whirlpoolTemperatureC")}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={String(values.whirlpoolTemperatureC ?? "")}
+                    onChange={(e) =>
+                      handleChange("whirlpoolTemperatureC", e.target.value)
+                    }
+                    className="h-8"
+                    step="1"
                   />
                 </div>
                 <div className="flex-1">

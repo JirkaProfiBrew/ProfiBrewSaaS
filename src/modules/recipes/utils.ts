@@ -9,7 +9,7 @@
  * - Cost: sum of ingredient costs based on amount and unit price
  */
 
-import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation } from "./types";
+import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation, IBUBreakdown } from "./types";
 import { DEFAULT_BREWING_SYSTEM } from "./types";
 
 // ── Input interface ─────────────────────────────────────────
@@ -25,6 +25,8 @@ export interface IngredientInput {
   extractPercent?: number | null;  // malt extract %
   costPrice?: number | null;       // cost per stock unit (NOT per kg — e.g. yeast: 4 CZK/g)
   useTimeMin?: number | null;      // boil time (for hops)
+  useStage?: string;               // boil | fwh | whirlpool | mash | dry_hop_cold | dry_hop_warm
+  temperatureC?: number;           // temperature in °C (for whirlpool, dry_hop_warm)
   itemId: string;
   recipeItemId?: string;           // unique recipe_items.id — for matching snapshot ↔ UI
   name: string;
@@ -170,32 +172,159 @@ function tinsethUtilization(boilTimeMin: number, sgWort: number): number {
 }
 
 /**
+ * Temperature factor for IBU utilization.
+ * Linear interpolation: 100°C = 1.0, 80°C = 0.0.
+ * Below 80°C = 0 (no isomerization).
+ */
+function temperatureFactor(tempC: number): number {
+  if (tempC >= 100) return 1.0;
+  if (tempC <= 80) return 0.0;
+  return (tempC - 80) / 20;
+}
+
+interface HopInput {
+  weightKg: number;
+  alphaDecimal: number;
+  useStage: string;
+  useTimeMin: number;
+  temperatureC?: number;
+}
+
+interface IBUContext {
+  postBoilL: number;
+  ogPlato: number;
+  boilTimeMin: number;
+  whirlpoolTempC: number;
+}
+
+function calculateHopIBU(hop: HopInput, ctx: IBUContext): number {
+  if (hop.alphaDecimal <= 0 || hop.weightKg <= 0 || ctx.postBoilL <= 0) return 0;
+
+  const sg = platoToSG(ctx.ogPlato);
+  let ibu = 0;
+
+  switch (hop.useStage) {
+    case "boil": {
+      if (hop.useTimeMin <= 0) return 0;
+      const util = tinsethUtilization(hop.useTimeMin, sg);
+      ibu = (hop.weightKg * util * hop.alphaDecimal * 1_000_000) / ctx.postBoilL;
+      break;
+    }
+    case "fwh": {
+      const util = tinsethUtilization(ctx.boilTimeMin, sg);
+      ibu = (hop.weightKg * util * hop.alphaDecimal * 1_000_000) / ctx.postBoilL * 1.1;
+      break;
+    }
+    case "whirlpool": {
+      if (hop.useTimeMin <= 0) return 0;
+      const tempC = hop.temperatureC ?? ctx.whirlpoolTempC;
+      const tempFact = temperatureFactor(tempC);
+      if (tempFact <= 0) return 0;
+      const util = tinsethUtilization(hop.useTimeMin, sg);
+      ibu = (hop.weightKg * util * hop.alphaDecimal * 1_000_000) / ctx.postBoilL * tempFact;
+      break;
+    }
+    case "mash": {
+      if (hop.useTimeMin <= 0) return 0;
+      const util = tinsethUtilization(hop.useTimeMin, sg);
+      ibu = (hop.weightKg * util * hop.alphaDecimal * 1_000_000) / ctx.postBoilL * 0.3;
+      break;
+    }
+    case "dry_hop_cold": {
+      ibu = 0;
+      break;
+    }
+    case "dry_hop_warm": {
+      const tempC = hop.temperatureC ?? 20;
+      if (tempC < 20) {
+        ibu = 0;
+      } else {
+        const lowUtil = 0.02 * (tempC - 20) / 10;
+        ibu = (hop.weightKg * lowUtil * hop.alphaDecimal * 1_000_000) / ctx.postBoilL;
+      }
+      break;
+    }
+    default:
+      ibu = 0;
+  }
+
+  return round1(ibu);
+}
+
+export function calculateIBUBreakdown(
+  ingredients: IngredientInput[],
+  postBoilL: number,
+  ogPlato: number,
+  boilTimeMin: number,
+  whirlpoolTempC: number
+): IBUBreakdown {
+  const ctx: IBUContext = { postBoilL, ogPlato, boilTimeMin, whirlpoolTempC };
+  const hops = ingredients.filter(i => i.category === "hop");
+
+  const breakdown: IBUBreakdown = {
+    boil: 0, fwh: 0, whirlpool: 0, mash: 0,
+    dryHopCold: 0, dryHopWarm: 0, total: 0,
+  };
+
+  for (const hop of hops) {
+    const hopInput: HopInput = {
+      weightKg: toKg(hop),
+      alphaDecimal: (hop.alpha ?? 0) / 100,
+      useStage: hop.useStage ?? "boil",
+      useTimeMin: hop.useTimeMin ?? 0,
+      temperatureC: hop.temperatureC ?? undefined,
+    };
+    const ibu = calculateHopIBU(hopInput, ctx);
+
+    switch (hopInput.useStage) {
+      case "boil": breakdown.boil += ibu; break;
+      case "fwh": breakdown.fwh += ibu; break;
+      case "whirlpool": breakdown.whirlpool += ibu; break;
+      case "mash": breakdown.mash += ibu; break;
+      case "dry_hop_cold": breakdown.dryHopCold += ibu; break;
+      case "dry_hop_warm": breakdown.dryHopWarm += ibu; break;
+    }
+  }
+
+  breakdown.total = round1(breakdown.boil + breakdown.fwh + breakdown.whirlpool +
+                    breakdown.mash + breakdown.dryHopCold + breakdown.dryHopWarm);
+
+  // Round individual values
+  breakdown.boil = round1(breakdown.boil);
+  breakdown.fwh = round1(breakdown.fwh);
+  breakdown.whirlpool = round1(breakdown.whirlpool);
+  breakdown.mash = round1(breakdown.mash);
+  breakdown.dryHopCold = round1(breakdown.dryHopCold);
+  breakdown.dryHopWarm = round1(breakdown.dryHopWarm);
+
+  return breakdown;
+}
+
+/**
  * Calculate IBU using Tinseth formula on POST-BOIL volume.
  * IBU = Σ(W_kg × U × alpha × 1,000,000) / V_postBoil
  */
 export function calculateIBU(
   ingredients: IngredientInput[],
   postBoilL: number,
-  ogPlato: number
+  ogPlato: number,
+  boilTimeMin: number,
+  whirlpoolTempC: number = 85
 ): number {
   if (postBoilL <= 0) return 0;
 
-  const sg = platoToSG(ogPlato);
-  const hops = ingredients.filter((i) => i.category === "hop");
+  const ctx: IBUContext = { postBoilL, ogPlato, boilTimeMin, whirlpoolTempC };
+  const hops = ingredients.filter(i => i.category === "hop");
 
   const totalIBU = hops.reduce((sum, hop) => {
-    const alphaDecimal = (hop.alpha ?? 0) / 100;
-    const boilTime = hop.useTimeMin ?? 0;
-
-    // Skip dry hops and whirlpool additions with 0 time (no isomerization)
-    if (boilTime <= 0) return sum;
-
-    const utilization = tinsethUtilization(boilTime, sg);
-    const weightKg = toKg(hop);
-
-    // Tinseth: IBU = (W_kg * U * alpha * 1000000) / V
-    const ibu = (weightKg * utilization * alphaDecimal * 1000000) / postBoilL;
-    return sum + ibu;
+    const hopInput: HopInput = {
+      weightKg: toKg(hop),
+      alphaDecimal: (hop.alpha ?? 0) / 100,
+      useStage: hop.useStage ?? "boil",
+      useTimeMin: hop.useTimeMin ?? 0,
+      temperatureC: hop.temperatureC ?? undefined,
+    };
+    return sum + calculateHopIBU(hopInput, ctx);
   }, 0);
 
   return round1(totalIBU);
@@ -397,7 +526,8 @@ export function calculateAll(
   const abv = calculateABV(og, fg);
 
   // 5. IBU — Tinseth on post-boil volume
-  const ibu = calculateIBU(ingredients, pipeline.postBoilL, og);
+  const ibu = calculateIBU(ingredients, pipeline.postBoilL, og, boilTimeMin, system.whirlpoolTemperatureC);
+  const ibuBreakdown = calculateIBUBreakdown(ingredients, pipeline.postBoilL, og, boilTimeMin, system.whirlpoolTemperatureC);
 
   // 6. EBC — Morey on batch size (into fermenter)
   const ebc = calculateEBC(ingredients, batchSizeL);
@@ -443,6 +573,7 @@ export function calculateAll(
     fg,
     abv,
     ibu,
+    ibuBreakdown,
     ebc,
     ingredientsCost,
     ingredientOverheadPct: oh.overheadPct,

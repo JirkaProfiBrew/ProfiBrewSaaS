@@ -17,6 +17,7 @@ export interface BrewingSystem {
   evaporationRatePctPerHour: string | null;
   kettleTrubLossL: string | null;
   whirlpoolLossPct: string | null;
+  whirlpoolTemperatureC: string | null;
   fermenterVolumeL: string | null;
   fermentationLossPct: string | null;
   extractEstimate: string | null;

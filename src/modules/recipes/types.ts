@@ -57,6 +57,7 @@ export interface RecipeItem {
   unitId: string | null;
   useStage: string | null;
   useTimeMin: number | null;
+  temperatureC: string | null;
   hopPhase: string | null;
   notes: string | null;
   sortOrder: number;
@@ -100,6 +101,7 @@ export interface BrewingSystemInput {
   evaporationRatePctPerHour: number;
   kettleTrubLossL: number;
   whirlpoolLossPct: number;
+  whirlpoolTemperatureC: number;
   fermenterVolumeL: number;
   fermentationLossPct: number;
   extractEstimate: number;
@@ -113,6 +115,7 @@ export interface RecipeConstantsOverride {
   evaporationRatePctPerHour?: number;
   kettleTrubLossL?: number;
   whirlpoolLossPct?: number;
+  whirlpoolTemperatureC?: number;
   fermentationLossPct?: number;
   extractEstimate?: number;
   waterPerKgMalt?: number;
@@ -128,6 +131,7 @@ export const DEFAULT_BREWING_SYSTEM: BrewingSystemInput = {
   evaporationRatePctPerHour: 8,
   kettleTrubLossL: 5,
   whirlpoolLossPct: 5,
+  whirlpoolTemperatureC: 85,
   fermenterVolumeL: 120,
   fermentationLossPct: 5,
   extractEstimate: 80,
@@ -157,11 +161,22 @@ export interface WaterCalculation {
   grainAbsorptionL: number;
 }
 
+export interface IBUBreakdown {
+  boil: number;
+  fwh: number;
+  whirlpool: number;
+  mash: number;
+  dryHopCold: number;
+  dryHopWarm: number;
+  total: number;
+}
+
 export interface RecipeCalculationResult {
   og: number;
   fg: number;
   abv: number;
   ibu: number;
+  ibuBreakdown: IBUBreakdown;
   ebc: number;
   // Cost breakdown
   ingredientsCost: number;

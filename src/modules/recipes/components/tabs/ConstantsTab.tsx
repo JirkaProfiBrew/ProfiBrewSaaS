@@ -28,6 +28,7 @@ const CONSTANT_ROWS: ConstantRow[] = [
   { key: "evaporationRatePctPerHour", systemKey: "evaporationRatePctPerHour", labelKey: "evaporationRate" },
   { key: "kettleTrubLossL", systemKey: "kettleTrubLossL", labelKey: "kettleTrubLoss" },
   { key: "whirlpoolLossPct", systemKey: "whirlpoolLossPct", labelKey: "whirlpoolLoss" },
+  { key: "whirlpoolTemperatureC", systemKey: "whirlpoolTemperatureC", labelKey: "whirlpoolTemp" },
   { key: "fermentationLossPct", systemKey: "fermentationLossPct", labelKey: "fermentationLoss" },
   { key: "extractEstimate", systemKey: "extractEstimate", labelKey: "extractEstimate" },
   { key: "waterPerKgMalt", systemKey: "waterPerKgMalt", labelKey: "waterPerKg" },

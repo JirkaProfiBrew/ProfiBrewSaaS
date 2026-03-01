@@ -252,6 +252,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       merged.kettleTrubLossL = constants.kettleTrubLossL;
     if (constants.whirlpoolLossPct != null)
       merged.whirlpoolLossPct = constants.whirlpoolLossPct;
+    if (constants.whirlpoolTemperatureC != null)
+      merged.whirlpoolTemperatureC = constants.whirlpoolTemperatureC;
     if (constants.fermentationLossPct != null)
       merged.fermentationLossPct = constants.fermentationLossPct;
     if (constants.extractEstimate != null)
@@ -305,6 +307,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         : null,
       costPrice: item.itemCostPrice ? parseFloat(item.itemCostPrice) : null,
       useTimeMin: item.useTimeMin,
+      useStage: item.useStage ?? undefined,
+      temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
       itemId: item.itemId,
       recipeItemId: item.id,
       name: item.itemName ?? item.itemId,
@@ -571,6 +575,20 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     []
   );
 
+  const handleTemperatureChange = useCallback(
+    (itemId: string, temp: number | null): void => {
+      setLocalItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, temperatureC: temp != null ? String(temp) : null }
+            : item
+        )
+      );
+      void updateRecipeItem(itemId, { temperatureC: temp != null ? String(temp) : null });
+    },
+    []
+  );
+
   const handleNotesChange = useCallback(
     (itemId: string, notes: string): void => {
       setLocalItems((prev) =>
@@ -815,6 +833,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               allItems={localItems}
               ogPlato={calcResult.og}
               volumeL={volumeL}
+              boilTimeMin={boilTimeMin}
+              whirlpoolTempC={effectiveSystem.whirlpoolTemperatureC}
               maltPlanKg={calcResult.maltRequiredKg ?? 0}
               ibuTarget={ibuTarget}
               ebcTarget={ebcTarget}
@@ -824,6 +844,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               onAmountChange={handleAmountChange}
               onStageChange={handleStageChange}
               onTimeChange={handleTimeChange}
+              onTemperatureChange={handleTemperatureChange}
               onNotesChange={handleNotesChange}
               onRemove={handleRemoveIngredient}
               onReorder={handleReorder}
