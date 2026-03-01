@@ -20,6 +20,7 @@
   "stepType": {
     "mash_in": "Zapáření",
     "rest": "Rast",
+    "heat": "Ohřev",
     "decoction": "Dekokce",
     "mash_out": "Odrmutování"
   },
@@ -52,9 +53,24 @@
     "name": "Krok",
     "type": "Typ",
     "temperature": "Teplota (°C)",
+    "targetTemp": "Cíl (°C)",
     "time": "Čas (min)",
+    "rampTime": "Náběh (min)",
+    "holdTime": "Výdrž (min)",
+    "totalTime": "Celkem",
+    "totalDuration": "Celkový čas rmutování",
+    "rampTotal": "Náběhy",
+    "holdTotal": "Prodlevy",
     "notes": "Poznámka",
-    "deleteConfirm": "Opravdu smazat tento krok?"
+    "deleteConfirm": "Opravdu smazat tento krok?",
+    "templates": {
+      "acidRest": "Kyselá prodleva",
+      "betaGlucanRest": "Beta-glukánová prodleva",
+      "proteinRest": "Bílkovinná prodleva",
+      "maltoseRest": "Maltózová prodleva",
+      "saccharificationRest": "Sacharifikační prodleva",
+      "mashOut": "Odrmutování"
+    }
   },
   "recipe": {
     "loadProfile": "Načíst rmutovací profil",

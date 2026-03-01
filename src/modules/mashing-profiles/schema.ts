@@ -8,9 +8,10 @@ import { z } from "zod";
 
 export const mashStepSchema = z.object({
   name: z.string().min(1, "Step name is required"),
-  temperature: z.number().min(0, "Temperature must be non-negative"),
-  time: z.number().min(0, "Time must be non-negative"),
-  type: z.enum(["mash_in", "rest", "decoction", "mash_out"]),
+  stepType: z.enum(["mash_in", "rest", "heat", "decoction", "mash_out"]),
+  targetTemperatureC: z.number().min(0, "Temperature must be non-negative"),
+  rampTimeMin: z.number().min(0, "Ramp time must be non-negative"),
+  holdTimeMin: z.number().min(0, "Hold time must be non-negative"),
   notes: z.string().optional(),
 });
 

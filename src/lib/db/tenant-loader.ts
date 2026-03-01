@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { tenants } from "@/../drizzle/schema/tenants";
-import { tenantUsers } from "@/../drizzle/schema/auth";
+import { tenantUsers, userProfiles } from "@/../drizzle/schema/auth";
 import { subscriptions, plans } from "@/../drizzle/schema/subscriptions";
 import { eq, and } from "drizzle-orm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -49,11 +49,19 @@ export async function loadTenantForUser(): Promise<TenantContextData | null> {
 
   const sub = subs[0];
 
+  // Load superadmin flag
+  const profileRows = await db
+    .select({ isSuperadmin: userProfiles.isSuperadmin })
+    .from(userProfiles)
+    .where(eq(userProfiles.id, user.id))
+    .limit(1);
+
   return {
     tenantId: membership.tenantId,
     tenantName: membership.tenantName,
     tenantSlug: membership.tenantSlug,
     userRole: membership.role as UserRole,
+    isSuperadmin: profileRows[0]?.isSuperadmin === true,
     subscription: {
       planSlug: sub?.planSlug ?? "free",
       modules: sub?.includedModules ?? ["brewery"],

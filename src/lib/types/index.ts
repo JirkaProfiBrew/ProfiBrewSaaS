@@ -5,6 +5,7 @@ export interface TenantContextData {
   tenantName: string;
   tenantSlug: string;
   userRole: UserRole;
+  isSuperadmin: boolean;
   subscription: {
     planSlug: string;
     modules: string[];

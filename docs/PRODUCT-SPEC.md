@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (UX patch)
+### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (UX-12 + UX-13)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -244,7 +244,7 @@ UI receptury je třísekční designer s aktivními designovými slidery a real-
 - **Chmel:** Auto-sort dle fáze (rmut→FWH→var→whirlpool→dry hop) a času, vizuální separátory. HopCard — množství, alpha, fáze, čas, IBU příspěvek. Souhrn: IBU breakdown.
 - **Kvasnice:** YeastCard — množství, odhad FG/ABV.
 - **Ostatní:** AdjunctCard — množství, fáze, čas, poznámka.
-- **Rmutování:** wrapper kolem RecipeStepsTab (rmutovací kroky + profily).
+- **Rmutování:** wrapper kolem RecipeStepsTab (rmutovací kroky + profily). MashStepEditor se sloupci: Cíl (°C), Náběh (min), Výdrž (min), Celkem. Sumární patička s celkovými časy.
 - **Konstanty:** override tabulka (parametr / soustava / receptura) — per-recipe přepsání parametrů varní soustavy. Reset tlačítko.
 - **Kalkulace:** wrapper kolem RecipeCalculation (pipeline, potřeba surovin, náklady).
 
@@ -439,23 +439,42 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 **Detail profilu:**
 - Název, typ rmutování (infusion/decoction/step), popis (textarea), poznámky (textarea)
 - Systémový profil: readonly formulář + alert banner "Systémový profil — pro úpravu duplikujte" + tlačítko "Duplikovat do vlastních"
-- MashStepEditor: inline tabulka kroků — typ (mash_in/rest/decoction/mash_out), název, teplota (°C), čas (min), poznámka. Tlačítka: přidat krok, posun nahoru/dolů, smazat.
+- MashStepEditor: inline tabulka kroků — typ (mash_in/heat/rest/decoction/mash_out), název, cíl °C, náběh (min), výdrž (min), celkem (min), poznámka. Sloupce: Cíl (°C) | Náběh (min) | Výdrž (min) | Celkem. Sumární patička: celkový náběh / výdrž / celkový čas. Autocomplete šablony názvů (6 běžných rastů s teplotami). Tlačítka: přidat krok, posun nahoru/dolů, smazat.
 
 **Typy rmutování:**
 - infusion — infuzní postup
 - decoction — dekokční postup
 - step — stupňovaný postup
 
-**Typy kroků (MashStep):**
+**Typy kroků (MashStepType):**
 - mash_in — zápara
+- heat — ohřev (přechodový krok bez pauzy)
 - rest — rast (teplotní pauza)
 - decoction — dekokce (odběr + var)
 - mash_out — odrmutování
 
+**MashStep interface:**
+```typescript
+interface MashStep {
+  stepType: MashStepType          // typ kroku
+  name: string                    // název (autocomplete šablony)
+  targetTemperatureC: number      // cílová teplota (°C)
+  rampTimeMin: number             // čas náběhu na cílovou teplotu (min)
+  holdTimeMin: number             // čas výdrže na cílové teplotě (min)
+  note?: string                   // poznámka
+}
+```
+
 **Kroky jsou uloženy jako JSONB pole** `steps` na tabulce `mashing_profiles`:
 ```json
-[{ "name": "Bílkovinný rast", "temperature": 52, "time": 15, "type": "rest" }]
+[{ "name": "Bílkovinný rast", "stepType": "rest", "targetTemperatureC": 52, "rampTimeMin": 5, "holdTimeMin": 15 }]
 ```
+
+**Legacy migrace:** Staré kroky s poli `temperature`, `time`, `type` jsou transparentně konvertovány funkcí `migrateStep()` při čtení (žádná DB migrace, zpětná kompatibilita).
+
+**Výpočet celkového času:** `calculateMashDuration()` — sečte náběh a výdrž všech kroků, formátovaný výstup (celkový čas rmutování).
+
+**Autocomplete šablony názvů:** 6 běžných rastů s typickými teplotami (bílkovinný rast 52 °C, beta-glukánový rast 40 °C, cukrotvorný rast 63 °C, zcukřovací rast 72 °C, maltózový rast 65 °C, odrmutování 78 °C).
 
 **Integrace s recepturami:**
 - Tab "Kroky" na receptuře: tlačítko "Načíst rmutovací profil" → dialog s výběrem profilu → nahradí existující rmutovací kroky
@@ -842,9 +861,28 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 
 ---
 
-## 10. ADMIN PANEL (SaaS Management) 💡
+## 10. ADMIN PANEL (SaaS Management) 🚧
 
 > Přístup: pouze superadmin (user_profiles.is_superadmin = true). Route group (admin), vlastní layout, BEZ tenant kontextu.
+
+### 10.0 Admin infrastruktura ✅
+
+**Autentizace a autorizace:**
+- Middleware: admin routes (`/admin/*`) vyžadují autentizaci (Supabase session)
+- Superadmin check v admin layoutu — ne-superadmini jsou tiše přesměrováni na `/dashboard`
+- `checkSuperadmin()` — vrací boolean, kontroluje `user_profiles.is_superadmin`
+- `getCurrentSuperadmin()` — vrací user data pokud je superadmin, jinak `null`
+- `withSuperadmin()` — wrapper pro admin server actions, vrací 403 pokud volající není superadmin
+- `isSuperadmin` flag přidán do `TenantContextData` a tenant-loaderu — dostupný v celé dashboard vrstvě
+
+**Admin layout:**
+- Vlastní layout s admin sidebar (BEZ tenant kontextu)
+- Sidebar sekce: SaaS Monitor (dashboard), Systémové browsery (rmutovací profily)
+- Superadmin gate: server-side kontrola v layoutu, tichý redirect
+
+**Integrace s dashboard:**
+- "Admin panel" odkaz v TopBar user menu — viditelný pouze superadminům
+- Ikona ShieldCheck, navigace na `/admin`
 
 ### 10.1 Admin Dashboard 💡
 - KPI: MRR, počet aktivních tenantů, nové registrace (tento měsíc), churn rate
@@ -871,6 +909,24 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 - System health: DB connections, response times, error rate
 - Error logs: posledních N chyb s detailem
 - Usage stats: API calls, storage, bandwidth per tenant
+
+### 10.6 Systémové rmutovací profily (Admin CRUD) ✅
+
+**Co to je:** Správa systémových rmutovacích profilů (`tenant_id = NULL`) — BJCP doporučené postupy sdílené všemi tenanty. Přístupné pouze superadminům v admin panelu.
+
+**Jak to funguje:**
+- AdminMashProfileBrowser: tabulkový přehled systémových profilů (název, typ rmutování, počet kroků, celkový čas)
+- AdminMashProfileDetail: formulář s názvem, typem rmutování, popisem + MashStepEditor (znovupoužitý z tenant modulu)
+- Route: `/admin/mashing-profiles` (list), `/admin/mashing-profiles/new` (nový), `/admin/mashing-profiles/[id]` (detail/edit)
+
+**Server actions** (vše zabaleno ve `withSuperadmin`):
+- `getSystemMashingProfiles()` — seznam systémových profilů
+- `getSystemMashingProfile(id)` — detail jednoho profilu
+- `createSystemMashingProfile()` — vytvoření nového systémového profilu
+- `updateSystemMashingProfile()` — úprava existujícího systémového profilu
+- `deleteSystemMashingProfile()` — smazání systémového profilu
+
+**Modul:** `src/admin/mashing-profiles/` (actions, hooks, components, index)
 
 ---
 
@@ -963,6 +1019,8 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 | counters | Nastavení | Číslovací řady | ✅ |
 | subscriptions | Nastavení | Billing | 📋 |
 | — | Module Access | Upgrade page | 📋 |
+| — | Admin | Infrastruktura (auth, layout) | ✅ |
+| mashing_profiles (system) | Admin | Rmutovací profily | ✅ |
 | tenants (cross) | Admin | Tenants | 💡 |
 | plans | Admin | Plans | 💡 |
 | subscriptions (cross) | Admin | Subscriptions | 💡 |

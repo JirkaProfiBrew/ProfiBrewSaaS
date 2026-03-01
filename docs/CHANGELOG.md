@@ -413,6 +413,44 @@
 
 ---
 
+## [0.7.4] — Sprint 7 Patch: UX-12 + UX-13 (Mashing Profiles + Admin)
+**Období:** T15 (01.03.2026)
+**Status:** ✅ Done
+
+### Přidáno — UX-12: Rmutovací profily — oprava názvosloví + ramp time
+- [x] MashStep interface přejmenován: `stepType`, `targetTemperatureC`, `rampTimeMin`, `holdTimeMin`
+- [x] Nový typ kroku `heat` (Ohřev) — přidán do MashStepType enum
+- [x] MashStepEditor UI: sloupce Cíl (°C), Náběh (min), Výdrž (min), Celkem
+- [x] Sumární patička s celkovým náběhem / výdrží / celkovým časem
+- [x] `calculateMashDuration()` — funkce s formátovaným výstupem (celkový čas rmutování)
+- [x] Autocomplete šablony názvů kroků — 6 běžných rastů s typickými teplotami
+- [x] 4 seed profily aktualizovány na nový model (ramp/hold časy, dekompozice kroků)
+- [x] Legacy JSONB migrace na čtení — `migrateStep()` funkce pro staré `temperature`/`time`/`type` pole
+- [x] Zod validační schéma aktualizováno
+- [x] i18n: typ heat, targetTemp, rampTime, holdTime, totalTime, totalDuration, rampTotal, holdTotal, 6 šablon názvů kroků (cs + en)
+
+### Přidáno — UX-13: Systémové profily + Admin přístup
+- [x] Middleware: admin routes vyžadují autentizaci (superadmin check v layoutu)
+- [x] `checkSuperadmin()`, `getCurrentSuperadmin()`, `withSuperadmin()` helpery v `src/lib/auth/superadmin.ts`
+- [x] `isSuperadmin` flag v TenantContextData a tenant-loaderu
+- [x] "Admin panel" odkaz v TopBar user menu (viditelný jen pro superadminy, ikona ShieldCheck)
+- [x] Admin layout se superadmin gate (tichý redirect ne-superadminů na dashboard)
+- [x] Admin sidebar: SaaS Monitor, Systémové browsery > Rmutovací profily
+- [x] Admin CRUD pro systémové rmutovací profily (`src/admin/mashing-profiles/`)
+- [x] 5 admin server actions: list, get, create, update, delete (vše zabaleno ve `withSuperadmin`)
+- [x] AdminMashProfileBrowser — tabulkový přehled systémových profilů
+- [x] AdminMashProfileDetail — znovupoužívá MashStepEditor z tenant modulu
+- [x] Route pages: `/admin/mashing-profiles`, `/admin/mashing-profiles/new`, `/admin/mashing-profiles/[id]`
+
+### Architektonická rozhodnutí
+- MashStep field naming: `targetTemperatureC` (ne `temperature`), `rampTimeMin` + `holdTimeMin` (ne `time`) — explicitnější, pivovarský standard
+- Legacy JSONB migration on read: `migrateStep()` transparentně konvertuje staré formáty → nové pole (žádná DB migrace)
+- Superadmin: `withSuperadmin()` wrapper pro admin server actions — ověřuje JWT + `is_superadmin` flag
+- Admin layout: vlastní sidebar, BEZ tenant kontextu, redirect na /dashboard pro ne-superadminy
+- Admin mashing profiles CRUD reusuje `MashStepEditor` komponentu z tenant modulu (DRY)
+
+---
+
 ## [0.7.3] — Sprint 7 Patch: Recipe Designer UX Improvements
 **Období:** T15 (01.03.2026)
 **Status:** ✅ Done

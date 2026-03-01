@@ -3,7 +3,7 @@
 import { useTranslations, useLocale } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Globe, Lock, LogOut, Settings, User } from "lucide-react";
+import { Globe, Lock, LogOut, Settings, ShieldCheck, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -25,7 +25,7 @@ export function TopBar(): React.ReactNode {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
-  const { tenantName, hasModule } = useTenantContext();
+  const { tenantName, hasModule, isSuperadmin } = useTenantContext();
 
   // Language switcher: cycle to the next locale
   const otherLocale = routing.locales.find((l) => l !== locale) ?? routing.locales[0];
@@ -105,6 +105,17 @@ export function TopBar(): React.ReactNode {
                 {t("agendas.settings")}
               </Link>
             </DropdownMenuItem>
+            {isSuperadmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/admin`} className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin panel
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => void signOut()}

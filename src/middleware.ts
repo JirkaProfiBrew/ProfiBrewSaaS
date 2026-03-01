@@ -66,8 +66,12 @@ export default async function middleware(
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
 
-  if (routeGroup === "admin" && !user) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+  if (routeGroup === "admin") {
+    if (!user) {
+      return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+    }
+    // Superadmin check is done in the admin layout (server component with DB access).
+    // Middleware only ensures user is authenticated.
   }
 
   // 3. Run next-intl middleware (handles locale negotiation + rewrites)

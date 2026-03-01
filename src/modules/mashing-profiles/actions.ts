@@ -6,18 +6,38 @@ import { db } from "@/lib/db";
 import { withTenant } from "@/lib/db/with-tenant";
 import { mashingProfiles, recipeSteps } from "@/../drizzle/schema/recipes";
 import { mashingProfileCreateSchema, mashingProfileUpdateSchema } from "./schema";
-import type { MashingProfile, MashStep } from "./types";
+import type { MashingProfile, MashStep, LegacyMashStep } from "./types";
 
 // ── Helpers ────────────────────────────────────────────────────
 
+/** Migrate a legacy step (old field names) to the new MashStep shape on read. */
+function migrateStep(raw: Record<string, unknown>): MashStep {
+  // New format already — has stepType field
+  if ("stepType" in raw && typeof raw.stepType === "string") {
+    return raw as unknown as MashStep;
+  }
+
+  // Legacy format — has type/temperature/time fields
+  const legacy = raw as unknown as LegacyMashStep;
+  return {
+    name: legacy.name,
+    stepType: legacy.type,
+    targetTemperatureC: legacy.temperature,
+    rampTimeMin: 0,
+    holdTimeMin: legacy.time,
+    notes: legacy.notes,
+  };
+}
+
 function mapRow(row: typeof mashingProfiles.$inferSelect): MashingProfile {
+  const rawSteps = (row.steps ?? []) as Record<string, unknown>[];
   return {
     id: row.id,
     tenantId: row.tenantId,
     name: row.name,
     mashingType: row.mashingType as MashingProfile["mashingType"],
     description: row.description,
-    steps: (row.steps ?? []) as MashStep[],
+    steps: rawSteps.map(migrateStep),
     notes: row.notes,
     isActive: row.isActive ?? true,
     isSystem: row.tenantId === null,
@@ -285,7 +305,7 @@ export async function saveRecipeStepsAsProfile(
   name: string
 ): Promise<MashingProfile> {
   return withTenant(async (tenantId) => {
-    const mashStepTypes = ["mash_in", "rest", "decoction", "mash_out"];
+    const mashStepTypes = ["mash_in", "rest", "heat", "decoction", "mash_out"];
 
     // Load mash steps from the recipe
     const stepRows = await db
@@ -307,9 +327,10 @@ export async function saveRecipeStepsAsProfile(
     // Convert recipe steps to MashStep[]
     const steps: MashStep[] = stepRows.map((step) => ({
       name: step.name,
-      temperature: step.temperatureC ? parseFloat(step.temperatureC) : 0,
-      time: step.timeMin ?? 0,
-      type: step.stepType as MashStep["type"],
+      stepType: step.stepType as MashStep["stepType"],
+      targetTemperatureC: step.temperatureC ? parseFloat(step.temperatureC) : 0,
+      rampTimeMin: step.rampTimeMin ?? 0,
+      holdTimeMin: step.timeMin ?? 0,
       notes: step.notes ?? undefined,
     }));
 

@@ -20,7 +20,7 @@ function profileToRecord(
   isSystemLabels: Record<string, string>
 ): Record<string, unknown> {
   const stepsPreview = item.steps.length > 0
-    ? item.steps.map((s) => `${s.temperature}°C`).join(" → ")
+    ? item.steps.map((s) => `${s.targetTemperatureC}°C`).join(" → ")
     : "—";
 
   return {

@@ -4,12 +4,22 @@
 
 export type MashingType = "infusion" | "decoction" | "step";
 
-export type MashStepType = "mash_in" | "rest" | "decoction" | "mash_out";
+export type MashStepType = "mash_in" | "rest" | "heat" | "decoction" | "mash_out";
 
 export interface MashStep {
   name: string;
-  temperature: number; // °C
-  time: number; // minutes
+  stepType: MashStepType;
+  targetTemperatureC: number; // °C
+  rampTimeMin: number; // minutes — time to reach target temperature
+  holdTimeMin: number; // minutes — time at target temperature
+  notes?: string;
+}
+
+/** Legacy MashStep shape — used for migrating old JSONB data on read */
+export interface LegacyMashStep {
+  name: string;
+  temperature: number;
+  time: number;
   type: MashStepType;
   notes?: string;
 }
@@ -37,3 +47,12 @@ export type CreateMashingProfileInput = {
 };
 
 export type UpdateMashingProfileInput = Partial<CreateMashingProfileInput>;
+
+// ── Mash Duration ─────────────────────────────────────────────
+
+export interface MashDuration {
+  totalMin: number;
+  rampMin: number;
+  holdMin: number;
+  formatted: string;
+}

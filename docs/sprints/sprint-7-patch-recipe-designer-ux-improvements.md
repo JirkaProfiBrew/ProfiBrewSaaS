@@ -784,6 +784,467 @@ maltInputMode: text("malt_input_mode").default("percent"), // 'kg' | 'percent'
 
 ---
 
+## UX-12: Rmutovací profily — oprava názvosloví + ramp time
+
+### 12a: Problém
+
+Aktuální model rmutovacího profilu neodpovídá realitě:
+- `decoction` jako step_type je špatně — dekokce je METODA ohřevu, ne typ kroku
+- Seed data modelují dekokci jako dva kroky (odběr + var) s nesmyslnými teplotami
+- `rest` je příliš generický — chybí pojmenování konkrétních prodlev
+- Chybí `ramp_time_min` na profilech (existuje jen v recipe_steps)
+- Chybí krok `heat` pro infuzní/přímý ohřev
+
+### 12b: Nový model kroku
+
+Každý krok = "dosáhni cílové teploty (metodou X) + drž Y minut"
+
+**Pole kroku:**
+
+| Pole | Typ | Popis |
+|------|-----|-------|
+| `name` | text | Název kroku (volný text, např. "Bílkovinná prodleva") |
+| `step_type` | enum | Typ: mash_in, rest, heat, decoction, mash_out |
+| `target_temperature_c` | number | Cílová teplota kroku (°C) |
+| `ramp_time_min` | number | **NOVÉ** — Náběh: čas na dosažení cílové teploty z předchozího kroku (min) |
+| `hold_time_min` | number | Výdrž: čas na cílové teplotě (min). Přejmenovat z `time` |
+| `notes` | text | Poznámka |
+
+**Celkový čas kroku = ramp_time_min + hold_time_min**
+
+### 12c: Nové step_type enum
+
+| step_type | CS | EN | Popis |
+|-----------|----|----|-------|
+| `mash_in` | Zapáření | Mash-in | Zamíchání sladu s vodou. Ramp = čas míchání. |
+| `rest` | Prodleva | Rest | Výdrž na teplotě. Ramp = 0 (teplota se nemění). |
+| `heat` | Ohřev | Heat | Zvýšení teploty přímým ohřevem nebo infuzí horké vody. |
+| `decoction` | Dekokce | Decoction | Zvýšení teploty dekokční metodou (odběr → var → návrat jako celek). |
+| `mash_out` | Odrmutování | Mash-out | Finální ohřev na 76–78°C pro zastavení enzymů. |
+
+**Zrušit z recipe_steps:** `boil`, `whirlpool`, `cooling` — tyto nepatří do rmutovacího profilu, jsou to fáze výroby (řeší se jinde).
+
+### 12d: Typické prodlevy — nápověda/templates
+
+Při přidávání kroku nabídnout rychlé šablony:
+
+| Šablona | step_type | target_temp | hold_time | Poznámka |
+|---------|-----------|-------------|-----------|----------|
+| Kyselá prodleva | rest | 40 | 15 | Snížení pH, nedoporučeno bez testů |
+| Beta-glukánová prodleva | rest | 40 | 20 | Pro pšeničný/ovesný slad, žitný slad |
+| Bílkovinná prodleva | rest | 52 | 15 | Rozklad bílkovin, pěnivost |
+| Maltózová prodleva | rest | 63 | 30 | Zkvasitelné cukry → suchší pivo |
+| Sacharifikační prodleva | rest | 72 | 30 | Nezkvasitelné cukry → plnější tělo |
+| Odrmutování | mash_out | 78 | 10 | Zastavení enzymové aktivity |
+
+UI: dropdown/autocomplete při psaní názvu kroku → nabídne šablonu s předvyplněnou teplotou a časem.
+
+### 12e: Aktualizované seed profily
+
+**Infuze — 1 rmut:**
+
+| # | Název | Typ | Cíl °C | Náběh | Výdrž |
+|---|-------|-----|--------|-------|-------|
+| 1 | Zapáření | mash_in | 62 | 5 | 5 |
+| 2 | Maltózová prodleva | rest | 62 | 0 | 30 |
+| 3 | Ohřev na sacharifikaci | heat | 72 | 10 | 0 |
+| 4 | Sacharifikační prodleva | rest | 72 | 0 | 30 |
+| 5 | Odrmutování | mash_out | 78 | 5 | 10 |
+
+Celkem: 5+5+0+30+10+0+0+30+5+10 = **95 min**
+
+**Infuze — 2 rmuty:**
+
+| # | Název | Typ | Cíl °C | Náběh | Výdrž |
+|---|-------|-----|--------|-------|-------|
+| 1 | Zapáření | mash_in | 52 | 5 | 5 |
+| 2 | Bílkovinná prodleva | rest | 52 | 0 | 15 |
+| 3 | Ohřev na maltózu | heat | 62 | 10 | 0 |
+| 4 | Maltózová prodleva | rest | 62 | 0 | 30 |
+| 5 | Ohřev na sacharifikaci | heat | 72 | 10 | 0 |
+| 6 | Sacharifikační prodleva | rest | 72 | 0 | 30 |
+| 7 | Odrmutování | mash_out | 78 | 5 | 10 |
+
+Celkem: **120 min**
+
+**Dekokce — 1 rmut:**
+
+| # | Název | Typ | Cíl °C | Náběh | Výdrž |
+|---|-------|-----|--------|-------|-------|
+| 1 | Zapáření | mash_in | 62 | 5 | 5 |
+| 2 | Maltózová prodleva | rest | 62 | 0 | 20 |
+| 3 | 1. dekokce | decoction | 72 | 25 | 0 |
+| 4 | Sacharifikační prodleva | rest | 72 | 0 | 30 |
+| 5 | Odrmutování | mash_out | 78 | 5 | 10 |
+
+Celkem: **100 min**
+Dekokce ramp 25 min = odběr (~3 min) + ohřev na 100°C (~7 min) + var (~10 min) + návrat a promíchání (~5 min)
+
+**Dekokce — 2 rmuty:**
+
+| # | Název | Typ | Cíl °C | Náběh | Výdrž |
+|---|-------|-----|--------|-------|-------|
+| 1 | Zapáření | mash_in | 52 | 5 | 5 |
+| 2 | Bílkovinná prodleva | rest | 52 | 0 | 10 |
+| 3 | 1. dekokce | decoction | 62 | 25 | 0 |
+| 4 | Maltózová prodleva | rest | 62 | 0 | 20 |
+| 5 | 2. dekokce | decoction | 72 | 25 | 0 |
+| 6 | Sacharifikační prodleva | rest | 72 | 0 | 30 |
+| 7 | Odrmutování | mash_out | 78 | 5 | 10 |
+
+Celkem: **135 min**
+
+### 12f: MashStep interface — aktualizace
+
+```typescript
+export type MashStepType = "mash_in" | "rest" | "heat" | "decoction" | "mash_out";
+
+export interface MashStep {
+  name: string;
+  stepType: MashStepType;        // přejmenovat z 'type' na 'stepType' pro konzistenci
+  targetTemperatureC: number;     // přejmenovat z 'temperature'
+  rampTimeMin: number;            // NOVÉ — náběh (min)
+  holdTimeMin: number;            // přejmenovat z 'time' — výdrž (min)
+  notes?: string;
+}
+```
+
+**Migrace stávajících profilů:**
+- `type` → `stepType`
+- `temperature` → `targetTemperatureC`
+- `time` → `holdTimeMin`
+- Přidat `rampTimeMin` — odhadnout z kontextu:
+  - `mash_in` → rampTimeMin = 5
+  - `rest` (stejná teplota jako předchozí) → rampTimeMin = 0
+  - `rest` (vyšší teplota) → rampTimeMin = 10
+  - `decoction` → rampTimeMin = 25
+  - `mash_out` → rampTimeMin = 5
+- Smazat staré dekokční odběr+var kroky, nahradit jedním dekokčním krokem
+
+### 12g: Výpočet celkového času rmutování
+
+```typescript
+function calculateMashDuration(steps: MashStep[]): MashDuration {
+  let totalRampMin = 0;
+  let totalHoldMin = 0;
+
+  for (const step of steps) {
+    totalRampMin += step.rampTimeMin;
+    totalHoldMin += step.holdTimeMin;
+  }
+
+  return {
+    totalMin: totalRampMin + totalHoldMin,
+    rampMin: totalRampMin,
+    holdMin: totalHoldMin,
+    formatted: formatMinutes(totalRampMin + totalHoldMin), // "2h 15min"
+  };
+}
+```
+
+Zobrazit v UI profilu:
+```
+Celkový čas rmutování: 2h 15min (náběhy: 65 min, prodlevy: 70 min)
+```
+
+Na receptuře v sidebar pipeline:
+```
+── Časový plán ──
+Rmutování:    135 min  (2h 15min)
+Var:           90 min
+Whirlpool:     20 min
+Chlazení:      30 min
+Celkem:       275 min  (4h 35min)
+```
+
+### 12h: UI — aktualizace step editoru
+
+**Tabulka kroků (profil i receptura):**
+
+| # | Název | Typ | Cíl °C | Náběh (min) | Výdrž (min) | Celkem | Poznámka |
+|---|-------|-----|--------|-------------|-------------|--------|----------|
+| 1 | Zapáření | Zapáření ▾ | 52 | 5 | 5 | 10 | |
+| 2 | Bílkovinná prodleva | Prodleva ▾ | 52 | 0 | 15 | 15 | |
+| 3 | 1. dekokce | Dekokce ▾ | 62 | 25 | 0 | 25 | odběr+var+návrat |
+| 4 | Maltózová prodleva | Prodleva ▾ | 62 | 0 | 20 | 20 | |
+| **Σ** | | | | **30** | **40** | **70** | |
+
+Sloupec "Celkem" = ramp + hold (readonly, computed).
+
+**Select options pro Typ:**
+```
+Zapáření
+Prodleva
+Ohřev
+Dekokce
+Odrmutování
+```
+
+**Nápověda při výběru názvu:**
+Při psaní do pole "Název" nabídnout autocomplete z typických prodlev (12d). Při výběru šablony předvyplnit teplotu a výdrž.
+
+### 12i: i18n
+
+```json
+{
+  "stepType": {
+    "mash_in": "Zapáření",
+    "rest": "Prodleva",
+    "heat": "Ohřev",
+    "decoction": "Dekokce",
+    "mash_out": "Odrmutování"
+  },
+  "steps": {
+    "title": "Kroky rmutování",
+    "targetTemp": "Cíl (°C)",
+    "rampTime": "Náběh (min)",
+    "holdTime": "Výdrž (min)",
+    "totalTime": "Celkem",
+    "totalDuration": "Celkový čas rmutování",
+    "rampTotal": "Náběhy",
+    "holdTotal": "Prodlevy",
+    "templates": {
+      "acidRest": "Kyselá prodleva",
+      "betaGlucanRest": "Beta-glukánová prodleva",
+      "proteinRest": "Bílkovinná prodleva",
+      "maltoseRest": "Maltózová prodleva",
+      "saccharificationRest": "Sacharifikační prodleva",
+      "mashOut": "Odrmutování"
+    }
+  }
+}
+```
+
+EN:
+```json
+{
+  "stepType": {
+    "mash_in": "Mash-in",
+    "rest": "Rest",
+    "heat": "Heat",
+    "decoction": "Decoction",
+    "mash_out": "Mash-out"
+  },
+  "steps": {
+    "targetTemp": "Target (°C)",
+    "rampTime": "Ramp (min)",
+    "holdTime": "Hold (min)",
+    "totalTime": "Total",
+    "totalDuration": "Total mash duration",
+    "rampTotal": "Ramp time",
+    "holdTotal": "Hold time",
+    "templates": {
+      "acidRest": "Acid rest",
+      "betaGlucanRest": "Beta-glucan rest",
+      "proteinRest": "Protein rest",
+      "maltoseRest": "Maltose rest",
+      "saccharificationRest": "Saccharification rest",
+      "mashOut": "Mash-out"
+    }
+  }
+}
+```
+
+### 12j: Schema migrace
+
+**recipe_steps — odstranit non-mash typy:**
+
+`boil`, `whirlpool`, `cooling` step_type se neodstraňují z DB, ale z rmutovacího profilu se nepoužívají. Pokud existují v recipe_steps, nechat (zpětná kompatibilita). V UI rmutovacího tabu filtrovat jen mash typy.
+
+**mashing_profiles.steps JSONB — migrace:**
+
+```sql
+-- Aktualizovat JSONB strukturu ve všech profilech
+-- Přejmenovat pole, přidat rampTimeMin
+-- Toto je jednorázový migrační script
+```
+
+Prakticky: aktualizovat seed script + re-seed systémové profily s novými daty.
+
+### 12k: Akceptační kritéria
+
+1. [ ] MashStepType enum: mash_in, rest, heat, decoction, mash_out
+2. [ ] MashStep interface: stepType, targetTemperatureC, rampTimeMin, holdTimeMin
+3. [ ] Seed profily aktualizovány (4 profily s novým modelem)
+4. [ ] Migrace stávajících JSONB dat v mashing_profiles
+5. [ ] recipe_steps: ramp_time_min sloupec použit (existuje, jen nebyl v profilech)
+6. [ ] Step editor: sloupec Náběh (min) + Výdrž (min) + Celkem
+7. [ ] calculateMashDuration() — celkový čas rmutování
+8. [ ] Celkový čas zobrazen v profilu i na receptuře
+9. [ ] Autocomplete šablony prodlev při psaní názvu
+10. [ ] i18n: cs + en (step types, templates, labels)
+11. [ ] Odstranit step types boil/whirlpool/cooling z mash profilu UI
+12. [ ] npm run build bez chyb
+
+---
+
+## UX-13: Systémové profily + Admin přístup (superadmin guard)
+
+**Problém:** 
+1. Systémové profily (tenant_id = NULL) jsou readonly — nelze editovat bez přístupu k DB
+2. Middleware na `/admin` routes kontroluje jen přihlášení, **NE is_superadmin** — bezpečnostní díra
+
+### 13a: Fix middleware — superadmin kontrola (KRITICKÉ)
+
+**Aktuální stav** (`src/middleware.ts`):
+```typescript
+// NEBEZPEČNÉ — kdokoli přihlášený se dostane na /admin
+if (routeGroup === "admin" && !user) {
+  return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+}
+```
+
+**Požadovaný stav:**
+```typescript
+if (routeGroup === "admin") {
+  if (!user) {
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+  }
+  const isSuperadmin = await checkSuperadmin(user.id);
+  if (!isSuperadmin) {
+    // Tichý redirect, žádný error — normální uživatel neví že admin existuje
+    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+  }
+}
+```
+
+**checkSuperadmin() implementace:**
+```typescript
+async function checkSuperadmin(userId: string): Promise<boolean> {
+  // Query user_profiles.is_superadmin
+  // Sloupec existuje v DB (Sprint 0 schema)
+  const result = await db
+    .select({ isSuperadmin: userProfiles.isSuperadmin })
+    .from(userProfiles)
+    .where(eq(userProfiles.id, userId))
+    .limit(1);
+  return result[0]?.isSuperadmin === true;
+}
+```
+
+**Performance:** DB query na každý /admin request. Akceptovatelné — superadmin = 1 člověk, traffic na /admin minimální. Cache volitelně (revalidate 5 min).
+
+### 13b: Kdo je superadmin
+
+V produkci: **Jirka** (tvůj účet). Nastavení výhradně přes DB:
+```sql
+UPDATE user_profiles SET is_superadmin = true WHERE id = '<tvoje-user-id>';
+```
+
+Žádné UI pro přidávání superadminů — security. Vždy manuálně přes DB.
+
+### 13c: Odkaz do Adminu v user menu
+
+V avatar dropdown menu (pravý horní roh) přidat odkaz **pouze pokud `is_superadmin = true`**:
+
+```
+┌──────────────────────┐
+│ Jiří Panec            │
+│ jiri@profibrew.com    │
+├──────────────────────┤
+│ Můj profil            │
+│ Nastavení             │
+├──────────────────────┤
+│ 🛡️ Admin panel        │  ← pouze superadmin
+├──────────────────────┤
+│ Odhlásit se           │
+└──────────────────────┘
+```
+
+**Implementace:**
+- `is_superadmin` načíst v TenantProvider / session context (jednou při loginu)
+- V `UserMenu` komponentě: `{isSuperadmin && <MenuItem href="/admin" icon={Shield}>Admin panel</MenuItem>}`
+- Ikona: `Shield` z lucide-react (nebo `ShieldCheck`)
+- Vizuální odlišení: jemně jiná barva nebo separator nad/pod
+
+**Kontext pro budoucí admin rozhraní:**
+Admin panel bude postupně obsahovat:
+- SaaS Monitor (KPI dashboard)
+- Správa tenantů (CRUD, subscription, usage)
+- Správa uživatelů (cross-tenant)
+- Systémové browsery (rmutovací profily, pivní styly, jednotky, ...)
+- Konfigurace plánů a ceníku
+- Monitoring (errors, DB health)
+
+Tyto moduly budou řešeny v samostatném sprintu. UX-13 řeší jen vstupní bránu (middleware guard + menu odkaz) a první admin agendu (systémové rmutovací profily).
+
+### 13e: Admin sidebar — systémové browsery
+
+Admin layout sidebar (existující placeholder `(admin)/layout.tsx`):
+
+```
+Admin panel
+├── SaaS Monitor
+├── Účty (tenants)
+├── Správa uživatelů
+├── Systémové browsery       ← SEKCE
+│   ├── Rmutovací profily    ← NOVÉ
+│   ├── Pivní styly          ← nice-to-have
+│   └── ...
+├── APIs
+└── General SET
+```
+
+### 13d: Admin CRUD na systémové rmutovací profily
+
+**Route:** `/admin/mashing-profiles` + `/admin/mashing-profiles/[id]`
+
+UI = stejné jako tenant verze, ale:
+- Zobrazuje POUZE systémové profily (tenant_id = NULL)
+- Plná editace: název, kroky, typ, popis
+- Přidání nového systémového profilu (tenant_id = NULL)
+- Smazání systémového profilu (soft delete)
+- Žádný "readonly" banner
+
+**Server actions:**
+```typescript
+// Admin-guarded actions — kontrola is_superadmin místo withTenant()
+export async function adminUpdateMashingProfile(id, data) {
+  return withSuperadmin(async () => { ... });
+}
+export async function adminCreateMashingProfile(data) {
+  return withSuperadmin(async () => {
+    // INSERT s tenant_id = NULL
+  });
+}
+```
+
+**withSuperadmin() helper:**
+```typescript
+async function withSuperadmin<T>(action: () => Promise<T>): Promise<T> {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new ForbiddenError("Not authenticated");
+  
+  const isSuperadmin = await checkSuperadmin(user.id);
+  if (!isSuperadmin) throw new ForbiddenError("Superadmin required");
+  
+  return action();
+}
+```
+
+**Tenant UI** (`/brewery/mashing-profiles`) beze změny — systémové readonly + duplikace.
+
+### 13e: Seed vs. admin-managed
+
+- Seed vytvoří 4 počáteční profily (ON CONFLICT DO NOTHING)
+- Admin přidává/edituje další přes UI
+- Seed nepřepisuje admin úpravy
+
+### 13f: Akceptační kritéria
+
+1. [ ] Middleware: `/admin` routes kontrolují `is_superadmin` (ne jen přihlášení)
+2. [ ] Non-superadmin na `/admin` → tichý redirect na `/dashboard`
+3. [ ] `is_superadmin` flag dostupný v session/context (načten při loginu)
+4. [ ] User menu: odkaz "Admin panel" viditelný pouze pro superadmin
+5. [ ] `withSuperadmin()` helper pro admin server actions
+6. [ ] Admin route `/admin/mashing-profiles` s plným CRUD
+7. [ ] Server actions: `adminCreate/Update/DeleteMashingProfile()` s superadmin guard
+8. [ ] Tenant UI beze změny (systémové readonly + duplikace)
+9. [ ] Seed nepřepisuje existující systémové profily
+
+---
+
 ## REJSTŘÍK ZMĚN
 
 | ID | Popis | Status |
@@ -799,6 +1260,8 @@ maltInputMode: text("malt_input_mode").default("percent"), // 'kg' | 'percent'
 | UX-09 | Recipe karty — levý border s dynamickou EBC barvou | Zadáno |
 | UX-10 | Beer styles tiles — dual BeerGlass min/max + foto + redesign SVG | Zadáno |
 | UX-11 | Slady — procentuální zadávání s posuvníky + automatické výchozí % | Zadáno |
+| UX-12 | Rmutovací profily — oprava názvosloví + ramp time + celkový čas | Zadáno |
+| UX-13 | Systémové rmutovací profily — editovatelné adminem v aplikaci | Zadáno |
 
 ---
 
