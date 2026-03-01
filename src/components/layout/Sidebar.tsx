@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -15,12 +14,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { modules, settingsAgenda, settingsSubAgendas, type AgendaConfig } from "@/config/navigation";
+import { useSidebar } from "./sidebar-context";
 
 export function Sidebar(): React.ReactNode {
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebar();
 
   // pathname: /cs/brewery/partners → segments: ['', 'cs', 'brewery', 'partners']
   const pathSegments = pathname.split("/");
@@ -143,7 +143,7 @@ export function Sidebar(): React.ReactNode {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggle}
             className={cn("w-full", collapsed && "px-0")}
           >
             {collapsed ? (

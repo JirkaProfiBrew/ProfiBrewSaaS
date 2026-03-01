@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { loadTenantForUser } from "@/lib/db/tenant-loader";
 import { TenantProvider } from "@/components/providers/TenantProvider";
+import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { TopBar } from "@/components/layout/TopBar";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -22,15 +23,17 @@ export default async function DashboardLayout({
 
   return (
     <TenantProvider value={tenantData}>
-      <div className="flex h-screen flex-col">
-        <TopBar />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
-          <main className="flex-1 overflow-y-auto p-6">
-            {children}
-          </main>
+      <SidebarProvider>
+        <div className="flex h-screen flex-col">
+          <TopBar />
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 overflow-y-auto p-6">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </SidebarProvider>
     </TenantProvider>
   );
 }

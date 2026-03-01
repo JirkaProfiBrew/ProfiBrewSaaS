@@ -73,6 +73,7 @@ import { DEFAULT_BREWING_SYSTEM } from "../types";
 import { calculateAll } from "../utils";
 import type { IngredientInput } from "../utils";
 
+import { useSidebar } from "@/components/layout/sidebar-context";
 import { RecipeExecutionSection } from "./RecipeTargetSection";
 import { RecipeEditor } from "./RecipeEditor";
 import { RecipeDesignSection } from "./RecipeDesignSection";
@@ -91,6 +92,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { collapsed: sidebarCollapsed } = useSidebar();
 
   const isNew = id === "new";
   const { data: recipeDetail, isLoading, mutate } = useRecipeDetail(id);
@@ -876,7 +878,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           {!isNew && (
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="xl:hidden">
+                <Button variant="outline" size="icon" className={sidebarCollapsed ? "lg:hidden" : "xl:hidden"}>
                   <BarChart3 className="size-4" />
                 </Button>
               </SheetTrigger>

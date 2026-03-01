@@ -6,6 +6,7 @@ import { Check, AlertTriangle, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/layout/sidebar-context";
 import type { VolumePipeline, WaterCalculation } from "../types";
 
 // ── Formatting helpers ──────────────────────────────────────────
@@ -127,6 +128,7 @@ export function RecipeFeedbackSidebar({
   className,
 }: RecipeFeedbackSidebarProps): React.ReactNode {
   const t = useTranslations("recipes");
+  const { collapsed: sidebarCollapsed } = useSidebar();
 
   // Comparison rows — only IBU and EBC (OG/FG/ABV not influenced by recipe ingredients)
   const rows: ComparisonRowDef[] = useMemo(
@@ -161,7 +163,11 @@ export function RecipeFeedbackSidebar({
           : "text-red-500";
 
   return (
-    <div className={cn("w-72 shrink-0 border-l bg-muted/30 p-4 space-y-4 overflow-y-auto hidden xl:block", className)}>
+    <div className={cn(
+      "w-72 shrink-0 border-l bg-muted/30 p-4 space-y-4 overflow-y-auto hidden",
+      sidebarCollapsed ? "lg:block" : "xl:block",
+      className,
+    )}>
       {/* Section 1: Design vs Reality */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
