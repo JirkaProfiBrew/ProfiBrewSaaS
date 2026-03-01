@@ -8,6 +8,21 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import type { VolumePipeline, WaterCalculation } from "../types";
 
+// ── Formatting helpers ──────────────────────────────────────────
+
+/** Format volume: 1 decimal, Czech thousands separator (e.g. 1 234,5) */
+function fmtVol(v: number): string {
+  return v.toLocaleString("cs-CZ", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** Format weight (kg): 1 decimal, Czech thousands separator */
+const fmtKg = fmtVol;
+
+/** Format currency: integer, Czech thousands separator (e.g. 5 989) */
+function fmtCost(v: number): string {
+  return Math.round(v).toLocaleString("cs-CZ");
+}
+
 // ── Props ────────────────────────────────────────────────────────
 
 interface RecipeFeedbackSidebarProps {
@@ -180,17 +195,17 @@ export function RecipeFeedbackSidebar({
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("designer.cards.plan")}:</span>
-            <span>{maltPlanKg.toFixed(1)} kg</span>
+            <span>{fmtKg(maltPlanKg)} kg</span>
           </div>
           <div className="flex justify-between">
             <span>{t("designer.feedback.maltActual")}:</span>
-            <span>{maltActualKg.toFixed(1)} kg</span>
+            <span>{fmtKg(maltActualKg)} kg</span>
           </div>
           <div className="flex justify-between">
             <span>{t("designer.feedback.maltDiff")}:</span>
             <span className={maltDiffColorClass}>
               {maltDiff > 0 ? "+" : ""}
-              {maltDiff.toFixed(1)} kg
+              {fmtKg(maltDiff)} kg
             </span>
           </div>
         </div>
@@ -206,28 +221,28 @@ export function RecipeFeedbackSidebar({
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("calculation.pipeline.preBoil")}:</span>
-            <span>{pipeline.preBoilL.toFixed(1)} L</span>
+            <span>{fmtVol(pipeline.preBoilL)} L</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span className="pl-2">– {t("designer.feedback.evaporation")}:</span>
-            <span>{pipeline.losses.evaporationL.toFixed(1)} L</span>
+            <span>{fmtVol(pipeline.losses.evaporationL)} L</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span className="pl-2">– {t("designer.feedback.kettleTrub")}:</span>
-            <span>{pipeline.losses.kettleTrubL.toFixed(1)} L</span>
+            <span>{fmtVol(pipeline.losses.kettleTrubL)} L</span>
           </div>
           <div className="flex justify-between">
             <span>{t("calculation.pipeline.postBoil")}:</span>
-            <span>{pipeline.postBoilL.toFixed(1)} L</span>
+            <span>{fmtVol(pipeline.postBoilL)} L</span>
           </div>
           <div className="flex justify-between">
             <span>{t("calculation.pipeline.intoFermenter")}:</span>
-            <span>{pipeline.intoFermenterL.toFixed(1)} L</span>
+            <span>{fmtVol(pipeline.intoFermenterL)} L</span>
           </div>
           <div className="flex justify-between">
             <span>{t("calculation.pipeline.finishedBeer")}:</span>
             <span className="font-semibold">
-              {pipeline.finishedBeerL.toFixed(1)} L
+              {fmtVol(pipeline.finishedBeerL)} L
             </span>
           </div>
         </div>
@@ -243,19 +258,19 @@ export function RecipeFeedbackSidebar({
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("designer.feedback.mashWater")}:</span>
-            <span>{water.mashWaterL.toFixed(1)} L</span>
+            <span>{fmtVol(water.mashWaterL)} L</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span className="pl-2">– {t("designer.feedback.grainAbsorption")}:</span>
-            <span>{water.grainAbsorptionL.toFixed(1)} L</span>
+            <span>{fmtVol(water.grainAbsorptionL)} L</span>
           </div>
           <div className="flex justify-between">
             <span>{t("designer.feedback.spargeWater")}:</span>
-            <span>{water.spargeWaterL.toFixed(1)} L</span>
+            <span>{fmtVol(water.spargeWaterL)} L</span>
           </div>
           <div className="flex justify-between font-semibold">
             <span>{t("designer.feedback.totalWater")}:</span>
-            <span>{water.totalWaterL.toFixed(1)} L</span>
+            <span>{fmtVol(water.totalWaterL)} L</span>
           </div>
         </div>
       </div>
@@ -270,11 +285,11 @@ export function RecipeFeedbackSidebar({
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("designer.feedback.costTotal")}:</span>
-            <span>{totalCost.toFixed(0)} K\u010D</span>
+            <span>{fmtCost(totalCost)} Kč</span>
           </div>
           <div className="flex justify-between">
             <span>{t("designer.feedback.costPerLiter")}:</span>
-            <span>{costPerLiter.toFixed(2)} K\u010D</span>
+            <span>{fmtCost(costPerLiter)} Kč</span>
           </div>
         </div>
       </div>
