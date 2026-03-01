@@ -969,6 +969,7 @@ export async function calculateAndSaveRecipe(
 
     const volumeL = recipe.batchSizeL ? parseFloat(recipe.batchSizeL) : 0;
     const fgPlato = recipe.fg ? parseFloat(recipe.fg) : undefined;
+    const targetOgPlato = recipe.og ? parseFloat(recipe.og) : undefined;
 
     // Build overhead inputs from shop settings
     const overhead: OverheadInputs = {
@@ -977,7 +978,7 @@ export async function calculateAndSaveRecipe(
       brewCostCzk: shopSettings?.brew_cost_czk ?? 0,
     };
 
-    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead, brewingSystemInput);
+    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead, brewingSystemInput, targetOgPlato);
 
     // Enrich result with pricing mode + per-ingredient price source
     result.pricingMode = pricingMode;

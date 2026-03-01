@@ -355,7 +355,8 @@ export function calculateAll(
   volumeL: number,
   fgPlato?: number,
   overhead?: OverheadInputs,
-  brewingSystem?: BrewingSystemInput | null
+  brewingSystem?: BrewingSystemInput | null,
+  targetOgPlato?: number
 ): RecipeCalculationResult {
   const system = brewingSystem ?? DEFAULT_BREWING_SYSTEM;
 
@@ -386,8 +387,9 @@ export function calculateAll(
       ? Math.round((totalProductionCost / volumeL) * 100) / 100
       : 0;
 
-  // Malt & water requirements
-  const maltRequiredKg = calculateMaltRequired(og, pipeline.preBoilL, system);
+  // Malt & water requirements — use design target OG (not calculated OG from ingredients)
+  const ogForPlan = targetOgPlato ?? og;
+  const maltRequiredKg = calculateMaltRequired(ogForPlan, pipeline.preBoilL, system);
   const waterRequiredL = calculateWaterRequired(maltRequiredKg, system);
 
   return {

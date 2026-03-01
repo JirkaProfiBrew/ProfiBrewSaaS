@@ -303,8 +303,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       name: item.itemName ?? item.itemId,
     }));
 
-    return calculateAll(ingredients, volumeL, undefined, undefined, effectiveSystem);
-  }, [localItems, volumeL, effectiveSystem]);
+    return calculateAll(ingredients, volumeL, undefined, undefined, effectiveSystem, designValues.og || undefined);
+  }, [localItems, volumeL, effectiveSystem, designValues.og]);
 
   // Malt actual kg
   const maltActualKg = useMemo(() => {
