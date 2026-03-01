@@ -7,6 +7,7 @@ import {
   decimal,
   date,
   timestamp,
+  jsonb,
   index,
   unique,
 } from "drizzle-orm/pg-core";
@@ -56,6 +57,17 @@ export const batches = pgTable(
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+
+    // Brew management lifecycle
+    currentPhase: text("current_phase").default("plan"),
+    phaseHistory: jsonb("phase_history").default({}),
+    brewMode: text("brew_mode").default("sheet"),
+    fermentationDays: integer("fermentation_days"),
+    conditioningDays: integer("conditioning_days"),
+    fermentationStart: date("fermentation_start"),
+    conditioningStart: date("conditioning_start"),
+    estimatedEnd: date("estimated_end"),
+    conditioningEquipmentId: uuid("conditioning_equipment_id").references(() => equipment.id),
   },
   (table) => [
     unique("batches_tenant_batch_number").on(table.tenantId, table.batchNumber),
@@ -89,6 +101,11 @@ export const batchSteps = pgTable(
     startTimeReal: timestamp("start_time_real", { withTimezone: true }),
     endTimeReal: timestamp("end_time_real", { withTimezone: true }),
     sortOrder: integer("sort_order").default(0),
+    stepSource: text("step_source").default("recipe"),
+    rampTimeMin: integer("ramp_time_min"),
+    hopAdditions: jsonb("hop_additions"),
+    actualDurationMin: integer("actual_duration_min"),
+    notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [
@@ -116,6 +133,8 @@ export const batchMeasurements = pgTable(
     temperatureC: decimal("temperature_c"),
     isStart: boolean("is_start").default(false),
     isEnd: boolean("is_end").default(false),
+    phase: text("phase"),
+    volumeL: decimal("volume_l"),
     notes: text("notes"),
     measuredAt: timestamp("measured_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -181,3 +200,31 @@ export const batchMaterialLots = pgTable("batch_material_lots", {
   quantityUsed: decimal("quantity_used"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// ============================================================
+// BATCH LOT TRACKING (traceability — input/output lots)
+// ============================================================
+export const batchLotTracking = pgTable(
+  "batch_lot_tracking",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => batches.id, { onDelete: "cascade" }),
+    direction: text("direction").notNull(), // 'in' | 'out'
+    itemId: uuid("item_id").references(() => items.id),
+    itemName: text("item_name").notNull(),
+    lotNumber: text("lot_number"),
+    amount: decimal("amount").notNull(),
+    unit: text("unit").notNull(),
+    receiptId: uuid("receipt_id"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_batch_lot_tenant").on(table.tenantId, table.batchId),
+  ]
+);
