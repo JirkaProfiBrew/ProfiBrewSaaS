@@ -413,6 +413,64 @@
 
 ---
 
+## [0.7.5] — Sprint 7: Batch Brew Management (Řízení vaření)
+**Období:** T15-T16 (01.03.2026)
+**Status:** ✅ Done
+
+### Přidáno — Fáze A: Schema + Typy
+- [x] Migrace 0021: rozšíření batches (currentPhase, phaseHistory JSONB, brewMode, fermentationDays, conditioningDays, etc.)
+- [x] Migrace 0021: rozšíření batch_steps (stepSource, rampTimeMin, hopAdditions JSONB, actualDurationMin, notes)
+- [x] Migrace 0021: rozšíření batch_measurements (phase, volumeL)
+- [x] Migrace 0021: nová tabulka `batch_lot_tracking` (vstupní/výstupní lot záznamy)
+- [x] Typy: BatchPhase, PHASE_TRANSITIONS, PHASE_ROUTES, PhaseHistory, HopAddition, BatchLotEntry, ExciseSummary
+
+### Přidáno — Fáze B: Shared Shell
+- [x] `BatchBrewShell` — layout wrapper s hlavičkou, fázovou lištou a postranním panelem
+- [x] `BatchPhaseBar` — 7-krokový stepper (Plán → Příprava → Vaření → Kvašení → Dokvašování → Stáčení → Dokončeno)
+- [x] `BrewSidebar` — 7 panelů (recept, objemy, měření, poznámky, porovnání, tracking, spotřební daň)
+- [x] Routes: `/brewery/batches/[id]/brew` s layoutem + 7 fázových stránek
+- [x] Odkaz "Řízení varu" z detailu šarže (BatchDetail)
+
+### Přidáno — Fáze C: Plan + Preparation
+- [x] `PlanPhase` — 3-sloupcový layout: náhled receptury, plánování, výběr nádoby
+- [x] `PrepPhase` — kontrola skladu surovin, výpočty vody, náhled kroků, výdej materiálu
+- [x] Server actions: `getAvailableVessels`, `updateBatchPlanData`, `getBrewingSystemForBatch`
+
+### Přidáno — Fáze D: Brew Sheet (Varní list)
+- [x] `BrewingPhase` — tabulka kroků s editovatelnými skutečnými časy
+- [x] Odpočítávání chmelení (hop countdown timer)
+- [x] 3 stopky (stopwatches) pro měření času kroků
+- [x] Měření v průběhu vaření (measurements)
+- [x] Dialog přechodu fáze (phase transition dialog)
+
+### Přidáno — Fáze E: Fermentation + Conditioning
+- [x] `FermentCondPhase` — sdílená komponenta: info o nádobě, progress bar, CRUD měření, přechody fází
+- [x] `FermentationPhase` — tenký wrapper nad FermentCondPhase
+- [x] `ConditioningPhase` — tenký wrapper nad FermentCondPhase
+
+### Přidáno — Fáze F: Packaging + Completed
+- [x] `PackagingPhase` — embedding existujícího BatchBottlingTab + tlačítko "Dokončit šarži"
+- [x] `CompletedPhase` — porovnání receptura vs skutečnost, navržené úpravy konstant, finance placeholder
+
+### Přidáno — Fáze G: Lot Tracking + Excise
+- [x] Server actions: `getBatchLotTracking`, `getBatchExciseSummary`
+- [x] Všech 7 panelů BrewSidebar naplněno: recept, objemy, měření, poznámky, porovnání, tracking, spotřební daň
+
+### Přidáno — i18n
+- [x] Kompletní pokrytí cs/en pro celé UI řízení vaření (brew management)
+
+### Architektonická rozhodnutí
+- 7-fázový lifecycle: plan → preparation → brewing → fermentation → conditioning → packaging → completed
+- `BatchBrewShell` jako sdílený layout — fázové stránky se renderují uvnitř shellu
+- `BatchPhaseBar` řídí navigaci mezi fázemi s validací povolených přechodů (PHASE_TRANSITIONS)
+- `FermentCondPhase` sdílená pro kvašení i dokvašování — DRY pattern s konfigurací dle fáze
+- `PackagingPhase` reusuje existující `BatchBottlingTab` — žádná duplikace kódu
+- `BrewSidebar` — 7 kontextových panelů, data načítána dle aktuální fáze
+- Lot tracking: vstupní loty (suroviny) + výstupní loty (hotové pivo) v jedné tabulce `batch_lot_tracking`
+- Phase history JSONB na batches — audit trail přechodů fází s timestamps
+
+---
+
 ## [0.7.4] — Sprint 7 Patch: UX-12 + UX-13 (Mashing Profiles + Admin)
 **Období:** T15 (01.03.2026)
 **Status:** ✅ Done

@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (UX-12 + UX-13)
+### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (Batch Brew Management)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -288,17 +288,18 @@ UI receptury je třísekční designer s aktivními designovými slidery a real-
 
 ### 4.5 Vary / Šarže ✅
 
-**Co to je:** Evidence výrobních šarží piva od vaření po stáčení.
+**Co to je:** Evidence výrobních šarží piva od vaření po stáčení. Řízení vaření (Brew Management) provází sládka celým výrobním procesem v 7 fázích.
 
 **Jak to funguje:**
 - DataBrowser: seznam várek (číslo, název piva, datum, stav, tank, OG, objem)
 - Vytvoření: vybrat recepturu → systém vytvoří snapshot receptury (kopie recipe + recipe_items + recipe_steps, status=`batch_snapshot`) a naváže ho na šarži
+- Z detailu šarže odkaz "Řízení varu" → otevře Brew Management UI
 
-**Status workflow:**
+**Status workflow (7 fází):**
 ```
-planned → brewing → fermenting → conditioning → carbonating → packaging → completed
-                                                                          → dumped
+plan → preparation → brewing → fermentation → conditioning → packaging → completed
 ```
+Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má definované povolené cílové fáze. Historie přechodů se ukládá jako `phaseHistory` (JSONB) na záznamu šarže s timestampy.
 
 **Detail šarže (taby):**
 - Přehled: číslo várky, recept, pivo (item), stav, datum vaření, tank, sládek
@@ -319,6 +320,68 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Spotřební daň: evidované hl, status nahlášení
 - Poznámky: ke krokům i celé šarži
 
+#### 4.5a Řízení vaření (Brew Management) ✅
+
+**Co to je:** Průvodce výrobním procesem šarže v 7 fázích. Sládek prochází celým lifecycle od plánování po dokončení s kontextovým postranním panelem.
+
+**Route:** `/brewery/batches/[id]/brew` — sdílený layout `BatchBrewShell` + 7 fázových stránek.
+
+**Společné prvky:**
+- `BatchBrewShell` — layout wrapper: hlavička s číslem várky a názvem piva, fázová lišta, postranní panel
+- `BatchPhaseBar` — 7-krokový stepper vizuálně zobrazující aktuální pozici v procesu. Navigace mezi fázemi s validací povolených přechodů.
+- `BrewSidebar` — 7 kontextových panelů:
+  1. **Recept** — klíčové parametry z receptury (OG, FG, IBU, EBC, ABV, objem)
+  2. **Objemy** — plánované vs skutečné objemy v průběhu procesu
+  3. **Měření** — seznam všech měření šarže s hodnotami
+  4. **Poznámky** — poznámky ke krokům i celé šarži
+  5. **Porovnání** — recept vs skutečnost (design vs reality)
+  6. **Lot tracking** — vstupní loty (suroviny) + výstupní loty (hotové pivo)
+  7. **Spotřební daň** — plánovaná/aktuální daň, pohyby
+
+**F1 Plán (PlanPhase):**
+- 3-sloupcový layout: náhled receptury | plánování (datum vaření, fermentace dny, dokvašování dny) | výběr nádoby
+- Server action `getAvailableVessels` — seznam dostupných tanků/fermentorů
+- Server action `updateBatchPlanData` — uložení plánovacích dat
+
+**F2 Příprava (PrepPhase):**
+- Kontrola skladu surovin — porovnání potřebného vs dostupného množství
+- Výpočty vody (objem, teplota)
+- Náhled varních kroků z receptury
+- Výdej materiálu — napojení na existující material issue flow (draft výdejka)
+
+**F3 Vaření (BrewingPhase):**
+- Tabulka kroků s editovatelnými skutečnými časy (plánovaný vs skutečný start/konec)
+- Odpočítávání chmelení (hop countdown timer) — z `hopAdditions` JSONB na batch_steps
+- 3 stopky (stopwatches) pro měření času kroků
+- Měření v průběhu vaření (teplota, SG, pH)
+- Dialog přechodu fáze s potvrzením
+
+**F4 Kvašení (FermentationPhase):**
+- Sdílená komponenta `FermentCondPhase` konfigurovaná pro kvašení
+- Info o nádobě (tank, objem, typ)
+- Progress bar (aktuální den / plánované dny kvašení)
+- CRUD měření (SG, teplota, pH, poznámky)
+- Přechod na další fázi (conditioning)
+
+**F5 Dokvašování (ConditioningPhase):**
+- Sdílená komponenta `FermentCondPhase` konfigurovaná pro dokvašování
+- Stejná funkčnost jako F4, jiné parametry (conditioningDays)
+
+**F6 Stáčení (PackagingPhase):**
+- Embedding existujícího `BatchBottlingTab` (viz detail šarže výše)
+- Tlačítko "Dokončit šarži" — přechod do stavu completed
+
+**F7 Dokončeno (CompletedPhase):**
+- Porovnání receptura vs skutečnost — tabulka cílových vs naměřených hodnot
+- Navržené úpravy konstant varní soustavy (na základě odchylek)
+- Finance placeholder (pro budoucí napojení na kalkulaci výrobních nákladů)
+
+**DB rozšíření (migrace 0021):**
+- `batches`: `current_phase` (text), `phase_history` (JSONB), `brew_mode` (text), `fermentation_days` (int), `conditioning_days` (int)
+- `batch_steps`: `step_source` (text), `ramp_time_min` (int), `hop_additions` (JSONB), `actual_duration_min` (int), `notes` (text)
+- `batch_measurements`: `phase` (text), `volume_l` (decimal)
+- Nová tabulka `batch_lot_tracking`: vstupní/výstupní lot záznamy pro traceability
+
 **Byznys pravidla:**
 - Číslo várky z číslovací řady (V-2026-001)
 - Číslo šarže (lot_number): auto-generováno z batch_number bez pomlček, editovatelné na overview tabu
@@ -331,6 +394,9 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Excise: objem se eviduje v hl, systém sleduje status nahlášení
 - Dokončení várky: warning pokud příjemka neexistuje (non-blocking confirm dialog), user může dokončit i bez naskladnění
 - `packaging_loss_l` = actual_volume_l − SUM(qty × base_item_quantity); kladné = ztráta, záporné = přebytek
+- Přechody fází validovány mapou `PHASE_TRANSITIONS` — nelze přeskočit fáze
+- Phase history audit trail — každý přechod se zaloguje s timestamp do `phaseHistory` JSONB
+- Lot tracking: vstupní suroviny (ze stock issue) i výstupní produkty (z příjemky) evidovány v `batch_lot_tracking`
 
 ### 4.6a Varní soustavy (Brewing Systems) ✅
 
