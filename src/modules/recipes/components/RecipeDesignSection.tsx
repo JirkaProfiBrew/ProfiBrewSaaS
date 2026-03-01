@@ -204,8 +204,8 @@ export function RecipeDesignSection({
       {/* Content — hidden when collapsed */}
       {!isCollapsed && (
         <div className="rounded-b-lg border border-t-0 bg-card p-4 space-y-4">
-          {/* Row 1: Name + Status + Beer Style */}
-          <div className="grid grid-cols-1 sm:grid-cols-[2fr_auto_3fr] gap-4">
+          {/* Row 1: Name + Status + Beer Style + Batch Size */}
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr_auto_3fr_auto] gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="design-name">{t("form.name")}</Label>
               <Input
@@ -259,31 +259,30 @@ export function RecipeDesignSection({
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          {/* Row 2: Batch Size */}
-          <div className="space-y-1.5">
-            <Label htmlFor="design-batchSize">
-              {t("designer.design.batchSize")}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="design-batchSize"
-                type="number"
-                value={values.batchSizeL || ""}
-                onChange={(e) =>
-                  onChange(
-                    "batchSizeL",
-                    e.target.value ? Number(e.target.value) : 0
-                  )
-                }
-                placeholder="0"
-                step="1"
-                className="w-28"
-              />
-              <span className="text-sm text-muted-foreground">
-                {t("designer.design.batchSizeUnit")}
-              </span>
+            <div className="space-y-1.5">
+              <Label htmlFor="design-batchSize">
+                {t("designer.design.batchSize")}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="design-batchSize"
+                  type="number"
+                  value={values.batchSizeL || ""}
+                  onChange={(e) =>
+                    onChange(
+                      "batchSizeL",
+                      e.target.value ? Number(e.target.value) : 0
+                    )
+                  }
+                  placeholder="0"
+                  step="1"
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t("designer.design.batchSizeUnit")}
+                </span>
+              </div>
             </div>
           </div>
 
