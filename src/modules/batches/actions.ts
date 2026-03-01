@@ -35,11 +35,15 @@ import type {
   BottlingItem,
   BatchDetail as BatchDetailType,
   BatchStatus,
+  BatchPhase,
+  PhaseHistory,
+  HopAddition,
   RecipeIngredient,
   BatchIngredientRow,
   ProductionIssueInfo,
 } from "./types";
-import { BATCH_STATUS_TRANSITIONS } from "./types";
+import { BATCH_STATUS_TRANSITIONS, PHASE_TRANSITIONS } from "./types";
+import { generateBrewSteps } from "./lib/generate-brew-steps";
 import type { BatchCreateInput, BatchUpdateInput, BatchMeasurementInput, BottlingItemInput } from "./schema";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -393,6 +397,100 @@ export async function getBatchDetail(
           itemCode: row.itemCode ?? undefined,
         })
       ),
+    };
+  });
+}
+
+/** Fetch batch data for the Brew Management view (shell + phases). */
+export async function getBatchBrewData(
+  batchId: string
+): Promise<Omit<BatchDetailType, "bottlingItems"> | null> {
+  return withTenant(async (tenantId) => {
+    const sourceRecipe = aliasedTable(recipes, "source_recipe");
+
+    const batchRows = await db
+      .select({
+        batch: batches,
+        recipeName: recipes.name,
+        sourceRecipeId: recipes.sourceRecipeId,
+        sourceRecipeName: sourceRecipe.name,
+        recipeOg: recipes.og,
+        recipeFg: recipes.fg,
+        recipeAbv: recipes.abv,
+        recipeIbu: recipes.ibu,
+        recipeEbc: recipes.ebc,
+        recipeBatchSizeL: recipes.batchSizeL,
+        recipeBeerStyleName: beerStyles.name,
+        itemName: items.name,
+        itemCode: items.code,
+        equipmentName: equipment.name,
+      })
+      .from(batches)
+      .leftJoin(recipes, eq(batches.recipeId, recipes.id))
+      .leftJoin(sourceRecipe, eq(recipes.sourceRecipeId, sourceRecipe.id))
+      .leftJoin(beerStyles, eq(recipes.beerStyleId, beerStyles.id))
+      .leftJoin(items, eq(batches.itemId, items.id))
+      .leftJoin(equipment, eq(batches.equipmentId, equipment.id))
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const batchRow = batchRows[0];
+    if (!batchRow) return null;
+
+    const [stepsData, measurementsData, notesData] = await Promise.all([
+      db
+        .select()
+        .from(batchSteps)
+        .where(
+          and(
+            eq(batchSteps.tenantId, tenantId),
+            eq(batchSteps.batchId, batchId)
+          )
+        )
+        .orderBy(asc(batchSteps.sortOrder)),
+
+      db
+        .select()
+        .from(batchMeasurements)
+        .where(
+          and(
+            eq(batchMeasurements.tenantId, tenantId),
+            eq(batchMeasurements.batchId, batchId)
+          )
+        )
+        .orderBy(asc(batchMeasurements.measuredAt)),
+
+      db
+        .select()
+        .from(batchNotes)
+        .where(
+          and(
+            eq(batchNotes.tenantId, tenantId),
+            eq(batchNotes.batchId, batchId)
+          )
+        )
+        .orderBy(desc(batchNotes.createdAt)),
+    ]);
+
+    return {
+      batch: mapBatchRow(batchRow.batch, {
+        recipeName: batchRow.recipeName,
+        sourceRecipeId: batchRow.sourceRecipeId,
+        sourceRecipeName: batchRow.sourceRecipeName,
+        recipeOg: batchRow.recipeOg,
+        recipeFg: batchRow.recipeFg,
+        recipeAbv: batchRow.recipeAbv,
+        recipeIbu: batchRow.recipeIbu,
+        recipeEbc: batchRow.recipeEbc,
+        recipeBatchSizeL: batchRow.recipeBatchSizeL,
+        recipeBeerStyleName: batchRow.recipeBeerStyleName,
+        itemName: batchRow.itemName,
+        itemCode: batchRow.itemCode,
+        equipmentName: batchRow.equipmentName,
+      }),
+      steps: stepsData.map(mapStepRow),
+      measurements: measurementsData.map(mapMeasurementRow),
+      notes: notesData.map(mapNoteRow),
     };
   });
 }
@@ -2639,3 +2737,122 @@ export async function getBottlingLines(
     };
   });
 }
+
+// ── Batch Brew Management ──────────────────────────────────────
+
+/**
+ * Advance batch phase — the brew lifecycle engine.
+ * Validates phase transition, updates phase_history, triggers side effects
+ * (e.g., generating brew steps on transition to "brewing").
+ */
+export async function advanceBatchPhase(
+  batchId: string,
+  targetPhase: BatchPhase
+): Promise<Batch> {
+  return withTenant(async (tenantId) => {
+    return db.transaction(async (tx) => {
+      // Load batch
+      const batchRows = await tx
+        .select()
+        .from(batches)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        )
+        .limit(1);
+      const batch = batchRows[0];
+      if (!batch) throw new Error("BATCH_NOT_FOUND");
+
+      const currentPhase = (batch.currentPhase ?? "plan") as BatchPhase;
+
+      // Validate transition
+      const allowed = PHASE_TRANSITIONS[currentPhase];
+      if (!allowed || !allowed.includes(targetPhase)) {
+        throw new Error(
+          `Cannot transition from ${currentPhase} to ${targetPhase}`
+        );
+      }
+
+      // Update phase_history
+      const history = (batch.phaseHistory ?? {}) as PhaseHistory;
+      if (history[currentPhase]) {
+        history[currentPhase]!.completed_at = new Date().toISOString();
+      }
+      history[targetPhase] = {
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      };
+
+      // Build updates
+      const updates: Record<string, unknown> = {
+        currentPhase: targetPhase,
+        phaseHistory: history,
+        updatedAt: sql`now()`,
+      };
+
+      // Side effects
+      if (targetPhase === "brewing") {
+        updates.brewDate = sql`CURRENT_TIMESTAMP`;
+        // Generate brew steps from recipe + brewing system
+        await generateBrewSteps(tx, tenantId, batchId, batch);
+      }
+      if (targetPhase === "fermentation") {
+        updates.fermentationStart = sql`CURRENT_DATE`;
+      }
+      if (targetPhase === "conditioning") {
+        updates.conditioningStart = sql`CURRENT_DATE`;
+      }
+      if (targetPhase === "completed") {
+        updates.endBrewDate = sql`CURRENT_TIMESTAMP`;
+      }
+
+      await tx
+        .update(batches)
+        .set(updates)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        );
+
+      // Reload and return
+      const updatedRows = await tx
+        .select()
+        .from(batches)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        )
+        .limit(1);
+      return mapBatchRow(updatedRows[0]!);
+    });
+  });
+}
+
+/** Update a single batch step (actual duration, notes, hop additions). */
+export async function updateBatchStep(
+  stepId: string,
+  data: {
+    actualDurationMin?: number;
+    notes?: string;
+    hopAdditions?: HopAddition[];
+  }
+): Promise<BatchStep> {
+  return withTenant(async (tenantId) => {
+    const updates: Record<string, unknown> = {};
+    if (data.actualDurationMin !== undefined)
+      updates.actualDurationMin = data.actualDurationMin;
+    if (data.notes !== undefined) updates.notes = data.notes;
+    if (data.hopAdditions !== undefined)
+      updates.hopAdditions = data.hopAdditions;
+
+    const rows = await db
+      .update(batchSteps)
+      .set(updates)
+      .where(
+        and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.id, stepId))
+      )
+      .returning();
+
+    const row = rows[0];
+    if (!row) throw new Error("BATCH_STEP_NOT_FOUND");
+    return mapStepRow(row);
+  });
+}
+

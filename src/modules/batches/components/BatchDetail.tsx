@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, Flame } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -13,6 +13,7 @@ import type { FormSectionDef, FormMode } from "@/components/forms";
 import type { DetailViewTab, DetailViewAction } from "@/components/detail-view";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 import { useBatchDetail } from "../hooks";
 import {
@@ -54,6 +55,8 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const routeParams = useParams();
+  const locale = routeParams.locale as string;
 
   const isNew = id === "new";
   const VALID_TABS = ["overview", "steps", "measurements", "ingredients", "bottling", "notes"];
@@ -440,6 +443,12 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
               currentStatus={batch.status}
               onTransition={handleTransition}
             />
+            <Link href={`/${locale}/brewery/batches/${id}/brew`}>
+              <Button variant="outline" size="sm">
+                <Flame className="mr-1 size-4" />
+                {t("brew.brewView")}
+              </Button>
+            </Link>
           </div>
         )}
 
