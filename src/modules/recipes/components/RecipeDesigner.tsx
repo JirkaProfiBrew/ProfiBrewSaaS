@@ -496,6 +496,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     fg: designValues.fg ? String(designValues.fg) : null,
     targetIbu: designValues.targetIbu ? String(designValues.targetIbu) : null,
     targetEbc: designValues.targetEbc ? String(designValues.targetEbc) : null,
+    // Persist calculated values so the browser can display them without recalculation
+    ebc: calcResult.ebc > 0 ? String(calcResult.ebc) : null,
+    ibu: calcResult.ibu > 0 ? String(calcResult.ibu) : null,
+    abv: calcResult.abv > 0 ? String(calcResult.abv) : null,
+    costPrice: calcResult.totalProductionCost > 0 ? String(calcResult.totalProductionCost) : null,
     boilTimeMin: values.boilTimeMin ? Number(values.boilTimeMin) : null,
     durationFermentationDays: values.durationFermentationDays
       ? Number(values.durationFermentationDays)
@@ -510,7 +515,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       : null,
     constantsOverride: Object.keys(constants).length > 0 ? constants : null,
     maltInputMode,
-  }), [values, designValues, constants, maltInputMode]);
+  }), [values, designValues, constants, maltInputMode, calcResult.ebc, calcResult.ibu, calcResult.abv, calcResult.totalProductionCost]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     if (!validate()) return;
