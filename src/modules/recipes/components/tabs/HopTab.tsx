@@ -2,8 +2,6 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus, Check, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +10,26 @@ import { HopCard } from "../cards/HopCard";
 import type { RecipeItem } from "../../types";
 import { calculateIBUBreakdown } from "../../utils";
 import type { IngredientInput } from "../../utils";
+
+// ── Stage ordering for auto-sort ─────────────────────────────────
+
+const STAGE_ORDER: Record<string, number> = {
+  mash: 1,
+  fwh: 2,
+  boil: 3,
+  whirlpool: 4,
+  dry_hop_warm: 5,
+  dry_hop_cold: 6,
+};
+
+function sortHops(hops: RecipeItem[]): RecipeItem[] {
+  return [...hops].sort((a, b) => {
+    const stageA = STAGE_ORDER[a.useStage ?? "boil"] ?? 99;
+    const stageB = STAGE_ORDER[b.useStage ?? "boil"] ?? 99;
+    if (stageA !== stageB) return stageA - stageB;
+    return (b.useTimeMin ?? 0) - (a.useTimeMin ?? 0);
+  });
+}
 
 // ── Props ────────────────────────────────────────────────────────
 
@@ -27,7 +45,6 @@ interface HopTabProps {
   onTimeChange: (id: string, time: number | null) => void;
   onTemperatureChange: (id: string, temp: number | null) => void;
   onRemove: (id: string) => void;
-  onReorder: (activeId: string, overId: string) => void;
   onAdd: () => void;
 }
 
@@ -45,10 +62,12 @@ export function HopTab({
   onTimeChange,
   onTemperatureChange,
   onRemove,
-  onReorder,
   onAdd,
 }: HopTabProps): React.ReactNode {
   const t = useTranslations("recipes");
+
+  // Auto-sort hops by stage then by time descending
+  const sortedItems = useMemo(() => sortHops(items), [items]);
 
   // Build ingredient inputs for the breakdown calculation
   const ingredientInputs: IngredientInput[] = useMemo(
@@ -104,13 +123,6 @@ export function HopTab({
     totalIbu >= ibuTarget.min &&
     totalIbu <= ibuTarget.max;
 
-  function handleDragEnd(event: DragEndEvent): void {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      onReorder(String(active.id), String(over.id));
-    }
-  }
-
   // Breakdown entries to display (only show stages that have IBU > 0)
   const breakdownEntries = useMemo(() => {
     const entries: { labelKey: string; value: number }[] = [];
@@ -122,28 +134,56 @@ export function HopTab({
     return entries;
   }, [ibuBreakdown]);
 
+  // Group sorted items by stage for rendering with separators
+  const groupedItems = useMemo(() => {
+    const groups: { stage: string; items: RecipeItem[] }[] = [];
+    let currentStage: string | null = null;
+    for (const item of sortedItems) {
+      const stage = item.useStage ?? "boil";
+      if (stage !== currentStage) {
+        groups.push({ stage, items: [item] });
+        currentStage = stage;
+      } else {
+        const lastGroup = groups[groups.length - 1];
+        if (lastGroup) lastGroup.items.push(item);
+      }
+    }
+    return groups;
+  }, [sortedItems]);
+
   return (
     <div className="space-y-3">
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={items.map((i) => i.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {items.map((item) => (
-            <HopCard
-              key={item.id}
-              item={item}
-              ibuContribution={perHopIbu.get(item.id) ?? 0}
-              totalIbu={totalIbu}
-              onAmountChange={onAmountChange}
-              onStageChange={onStageChange}
-              onTimeChange={onTimeChange}
-              onTemperatureChange={onTemperatureChange}
-              onRemove={onRemove}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+      <div className="space-y-2">
+        {groupedItems.map((group) => (
+          <div key={group.stage}>
+            {/* Stage separator — show for all groups when there is more than one */}
+            {groupedItems.length > 1 && (
+              <div className="flex items-center gap-2 pt-2 pb-1">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  {t("designer.cards.stage_" + group.stage)}
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            )}
+            <div className="space-y-2">
+              {group.items.map((item) => (
+                <HopCard
+                  key={item.id}
+                  item={item}
+                  ibuContribution={perHopIbu.get(item.id) ?? 0}
+                  totalIbu={totalIbu}
+                  onAmountChange={onAmountChange}
+                  onStageChange={onStageChange}
+                  onTimeChange={onTimeChange}
+                  onTemperatureChange={onTemperatureChange}
+                  onRemove={onRemove}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Add button */}
       <Button variant="outline" size="sm" onClick={onAdd} className="w-full">

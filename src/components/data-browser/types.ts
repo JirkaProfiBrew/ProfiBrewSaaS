@@ -44,6 +44,8 @@ export interface CardViewConfig {
   imageField?: string;
   /** Custom render function for the card image area. Takes precedence over imageField. */
   renderImage?: (row: Record<string, unknown>) => React.ReactNode;
+  /** Custom inline styles for the card root element (e.g. colored border). */
+  renderCardStyle?: (row: Record<string, unknown>) => React.CSSProperties;
   titleField: string;
   subtitleField?: string;
   badgeFields?: string[];

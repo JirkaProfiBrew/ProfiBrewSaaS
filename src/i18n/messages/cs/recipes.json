@@ -197,6 +197,10 @@
       "ibuLabel": "IBU",
       "ebcLabel": "EBC",
       "abvLabel": "ABV",
+      "batchSizeLabel": "objem",
+      "waterPerKgLabel": "L/kg",
+      "waterPerKgUnit": "L/kg",
+      "mashThickness": "Tloušťka díla: {value} L/kg",
       "abvReadonly": "Vypočteno z OG a FG",
       "gravityFormat": "({sg} SG)",
       "styleRange": "{min}–{max}",
@@ -242,6 +246,10 @@
       "costTotal": "Celkem",
       "costPerLiter": "Za litr"
     },
+    "systemChangeTitle": "Změna varní soustavy",
+    "systemChangeDesc": "Chcete aktualizovat konstanty a přepočítat výpočty dle nové soustavy \"{name}\"? Tím se přepíšou ručně upravené konstanty.",
+    "systemChangeYes": "Ano, aktualizovat",
+    "systemChangeNo": "Ne, jen změnit odkaz",
     "volumeChange": {
       "title": "Změna objemu receptury",
       "message": "Objem se změnil z {old}L na {new}L. Přepočítat množství surovin proporcionálně?",
@@ -287,7 +295,15 @@
       "dryHopIbu": "Dry hop",
       "temperature": "Teplota (°C)",
       "fwhIbu": "FWH",
-      "mashIbu": "Rmutový"
+      "mashIbu": "Rmutový",
+      "stage_mash": "Rmutování",
+      "stage_fwh": "First Wort Hop",
+      "stage_boil": "Chmelovar",
+      "stage_whirlpool": "Whirlpool",
+      "stage_dry_hop_warm": "Dry hop (teplý)",
+      "stage_dry_hop_cold": "Dry hop (studený)",
+      "target": "cíl",
+      "recipe": "recept"
     },
     "constants": {
       "title": "Konstanty výpočtu",
@@ -319,6 +335,14 @@
       "totalProduction": "Celkem výroba",
       "perLiter": "Cena za litr",
       "perHl": "Cena za hl"
+    },
+    "maltMode": {
+      "kg": "kg",
+      "percent": "%",
+      "totalPlan": "Plán dle OG",
+      "fromTotal": "z celkem",
+      "allOthersZero": "Všechny ostatní slady mají 0%",
+      "share": "Podíl"
     }
   },
   "detail": {

@@ -24,6 +24,7 @@ export const recipeCreateSchema = z.object({
   itemId: z.string().uuid().nullable().optional(),
   brewingSystemId: z.string().uuid().nullable().optional(),
   constantsOverride: z.any().nullable().optional(),
+  maltInputMode: z.string().nullable().optional(),
 });
 
 /** Schema for creating a recipe ingredient line. */
@@ -36,6 +37,7 @@ export const recipeItemCreateSchema = z.object({
   useTimeMin: z.number().int().min(0).nullable().optional(),
   hopPhase: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  percent: z.string().nullable().optional(),
 });
 
 /** Schema for creating a recipe process step. */

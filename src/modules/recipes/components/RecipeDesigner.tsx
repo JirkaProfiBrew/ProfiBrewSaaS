@@ -127,6 +127,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     fg: 0,
     targetIbu: 0,
     targetEbc: 0,
+    waterPerKgMalt: 3.0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -137,12 +138,29 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   // Constants override
   const [constants, setConstants] = useState<RecipeConstantsOverride>({});
 
+  // Malt input mode (UX-11)
+  const [maltInputMode, setMaltInputMode] = useState<"kg" | "percent">(isNew ? "percent" : "kg");
+
   // Add ingredient dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addCategory, setAddCategory] = useState<string>("malt");
   const [addItemId, setAddItemId] = useState("");
 
+  // Brewing system change confirmation dialog (UX-02)
+  const [pendingSystemChange, setPendingSystemChange] = useState<string | null>(null);
+
   // ── Effects ────────────────────────────────────────────────────
+
+  // Auto-select primary brewing system for new recipes (UX-01)
+  useEffect(() => {
+    if (isNew && brewingSystemOpts.length > 0 && !values.brewingSystemId) {
+      const primary = brewingSystemOpts.find((b) => b.isPrimary);
+      const defaultSystem = primary ?? brewingSystemOpts[0];
+      if (defaultSystem) {
+        setValues((prev) => ({ ...prev, brewingSystemId: defaultSystem.id }));
+      }
+    }
+  }, [isNew, brewingSystemOpts, values.brewingSystemId]);
 
   // Populate form when data loads
   useEffect(() => {
@@ -167,8 +185,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         fg: r.fg ? parseFloat(r.fg) : 0,
         targetIbu: r.targetIbu ? parseFloat(r.targetIbu) : 0,
         targetEbc: r.targetEbc ? parseFloat(r.targetEbc) : 0,
+        waterPerKgMalt: r.constantsOverride?.waterPerKgMalt ?? 3.0,
       });
       setConstants(r.constantsOverride ?? {});
+      setMaltInputMode((r.maltInputMode as "kg" | "percent") ?? "percent");
       setLocalItems(recipeDetail.items);
       setDesignCollapsed(true);
       setTargetCollapsed(true);
@@ -360,15 +380,15 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     return brewingSystemOpts.find((b) => b.id === bsId)?.name ?? null;
   }, [values.brewingSystemId, brewingSystemOpts]);
 
-  // Header EBC for BeerGlass — use design target EBC, fallback to style midpoint
+  // Header EBC for BeerGlass — prefer calculated EBC, then target, then style midpoint
   const headerEbc = useMemo((): number | null => {
-    if (designValues.targetEbc > 0) return designValues.targetEbc;
     if (calcResult.ebc > 0) return calcResult.ebc;
+    if (designValues.targetEbc > 0) return designValues.targetEbc;
     if (selectedStyle?.ebcMin != null && selectedStyle?.ebcMax != null) {
       return (Number(selectedStyle.ebcMin) + Number(selectedStyle.ebcMax)) / 2;
     }
     return null;
-  }, [designValues.targetEbc, calcResult.ebc, selectedStyle]);
+  }, [calcResult.ebc, designValues.targetEbc, selectedStyle]);
 
   const backHref = isSnapshot
     ? `/brewery/batches/${batchId}?tab=ingredients`
@@ -379,6 +399,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   const handleDesignChange = useCallback(
     (key: string, value: unknown): void => {
       setDesignValues((prev) => ({ ...prev, [key]: value }));
+
+      // Sync waterPerKgMalt slider to constants override
+      if (key === "waterPerKgMalt" && typeof value === "number") {
+        setConstants((prev) => ({ ...prev, waterPerKgMalt: value }));
+      }
 
       // When selecting a beer style, set sliders to midpoint if currently 0
       if (key === "beerStyleId" && value) {
@@ -406,6 +431,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   const handleChange = useCallback(
     (key: string, value: unknown): void => {
+      // UX-02: Confirm dialog when changing brewing system on existing recipe with items
+      if (key === "brewingSystemId" && !isNew && localItems.length > 0) {
+        setPendingSystemChange(value ? String(value) : null);
+        return;
+      }
+
       setValues((prev) => ({ ...prev, [key]: value }));
       if (errors[key]) {
         setErrors((prev) => {
@@ -423,7 +454,22 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         });
       }
     },
-    [errors, isNew, id, tCommon, mutate]
+    [errors, isNew, id, tCommon, mutate, localItems.length]
+  );
+
+  // UX-02: Confirm brewing system change — update constants
+  const handleSystemChangeConfirm = useCallback(
+    (resetConstants: boolean): void => {
+      if (pendingSystemChange === null) return;
+      const newId = pendingSystemChange === "__none__" ? null : pendingSystemChange;
+      setValues((prev) => ({ ...prev, brewingSystemId: newId }));
+      if (resetConstants) {
+        setConstants({});
+        setDesignValues((prev) => ({ ...prev, waterPerKgMalt: 3.0 }));
+      }
+      setPendingSystemChange(null);
+    },
+    [pendingSystemChange]
   );
 
   const validate = useCallback((): boolean => {
@@ -459,7 +505,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       ? String(values.brewingSystemId)
       : null,
     constantsOverride: Object.keys(constants).length > 0 ? constants : null,
-  }), [values, designValues, constants]);
+    maltInputMode,
+  }), [values, designValues, constants, maltInputMode]);
 
   const handleSave = useCallback(async (): Promise<void> => {
     if (!validate()) return;
@@ -634,6 +681,34 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     [id]
   );
 
+  // Malt percentage change (UX-11)
+  const handlePercentChange = useCallback(
+    (itemId: string, percent: number, computedKg: number): void => {
+      setLocalItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, amountG: String(computedKg), percent: String(percent) }
+            : item
+        )
+      );
+      void updateRecipeItem(itemId, {
+        amountG: String(computedKg),
+        percent: String(percent),
+      });
+    },
+    []
+  );
+
+  const handleMaltInputModeChange = useCallback(
+    (mode: "kg" | "percent"): void => {
+      setMaltInputMode(mode);
+      if (!isNew) {
+        void updateRecipe(id, { maltInputMode: mode });
+      }
+    },
+    [isNew, id]
+  );
+
   const handleAddIngredient = useCallback(
     (category: string): void => {
       setAddCategory(category);
@@ -728,7 +803,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             <ArrowLeft className="size-4" />
           </Button>
           <div className="flex items-center gap-3">
-            {headerEbc !== null && <BeerGlass ebc={headerEbc} size="sm" />}
+            {headerEbc !== null ? (
+              <BeerGlass ebc={headerEbc} size="sm" />
+            ) : (
+              <BeerGlass ebc={0} size="sm" placeholder />
+            )}
             <div>
               <h1 className="text-lg font-semibold">{title}</h1>
               {selectedStyle && (
@@ -838,6 +917,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               maltPlanKg={calcResult.maltRequiredKg ?? 0}
               ibuTarget={ibuTarget}
               ebcTarget={ebcTarget}
+              targetEbc={designValues.targetEbc}
+              calculatedEbc={calcResult.ebc}
+              maltInputMode={maltInputMode}
+              onMaltInputModeChange={handleMaltInputModeChange}
+              onPercentChange={handlePercentChange}
               constants={constants}
               systemDefaults={systemDefaults}
               systemName={systemName}
@@ -912,6 +996,39 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Brewing System Change Confirmation Dialog (UX-02) */}
+      <AlertDialog
+        open={pendingSystemChange !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSystemChange(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("designer.systemChangeTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("designer.systemChangeDesc", {
+                name: pendingSystemChange
+                  ? brewingSystemOpts.find((b) => b.id === pendingSystemChange)?.name ?? ""
+                  : "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="outline"
+              onClick={() => handleSystemChangeConfirm(false)}
+            >
+              {t("designer.systemChangeNo")}
+            </AlertDialogAction>
+            <AlertDialogAction onClick={() => handleSystemChangeConfirm(true)}>
+              {t("designer.systemChangeYes")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

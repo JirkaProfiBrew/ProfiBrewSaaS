@@ -592,3 +592,121 @@ export function calculateAll(
     brewingSystemUsed: brewingSystem != null,
   };
 }
+
+// ── Malt Percentage Utilities ──────────────────────────────────
+
+/**
+ * Compute default percentages when adding a new malt.
+ * 1 malt → [100]
+ * 2 malts → [70, 30]
+ * 3+ malts → split smallest in half for new entry
+ */
+export function getDefaultPercentages(currentPercentages: number[]): number[] {
+  if (currentPercentages.length === 0) {
+    return [100];
+  }
+  if (currentPercentages.length === 1) {
+    return [70, 30];
+  }
+  const percents = [...currentPercentages];
+  const minPct = Math.min(...percents);
+  const minIndex = percents.lastIndexOf(minPct);
+  const newPct = Math.max(1, Math.round(minPct / 2));
+  const reducedMinPct = minPct - newPct;
+  percents[minIndex] = reducedMinPct;
+  percents.push(newPct);
+  return percents;
+}
+
+/**
+ * Proportionally redistribute percentages when one slider changes.
+ * Preserves relative ratios among the other malts.
+ */
+export function redistributePercentages(
+  percentages: number[],
+  changedIndex: number,
+  newPercent: number,
+): number[] {
+  const remaining = 100 - newPercent;
+  const othersSum = percentages.reduce(
+    (sum, p, i) => (i === changedIndex ? sum : sum + p),
+    0,
+  );
+
+  if (othersSum <= 0) {
+    const otherCount = percentages.length - 1;
+    if (otherCount <= 0) return [newPercent];
+    const each = Math.round((remaining / otherCount) * 10) / 10;
+    return percentages.map((_, i) => (i === changedIndex ? newPercent : each));
+  }
+
+  const result = percentages.map((p, i) => {
+    if (i === changedIndex) return newPercent;
+    return Math.round((p / othersSum) * remaining * 10) / 10;
+  });
+
+  // Rounding correction — adjust largest other to make sum exactly 100
+  const sum = result.reduce((a, b) => a + b, 0);
+  const diff = Math.round((100 - sum) * 10) / 10;
+  if (diff !== 0) {
+    let largestOtherIdx = changedIndex === 0 ? 1 : 0;
+    for (let i = 0; i < result.length; i++) {
+      if (i !== changedIndex && result[i]! > result[largestOtherIdx]!) {
+        largestOtherIdx = i;
+      }
+    }
+    result[largestOtherIdx] = Math.round((result[largestOtherIdx]! + diff) * 10) / 10;
+  }
+
+  return result;
+}
+
+/**
+ * Remove one entry and inflate remaining percentages to 100%.
+ */
+export function removeAndRedistribute(
+  percentages: number[],
+  removeIndex: number,
+): number[] {
+  const remaining = percentages.filter((_, i) => i !== removeIndex);
+  if (remaining.length === 0) return [];
+  const sum = remaining.reduce((a, b) => a + b, 0);
+  if (sum <= 0) {
+    const each = Math.round((100 / remaining.length) * 10) / 10;
+    return remaining.map(() => each);
+  }
+  const result = remaining.map((p) => Math.round((p / sum) * 100 * 10) / 10);
+  // Rounding correction
+  const totalSum = result.reduce((a, b) => a + b, 0);
+  const correction = Math.round((100 - totalSum) * 10) / 10;
+  if (correction !== 0 && result.length > 0) {
+    result[0] = Math.round((result[0]! + correction) * 10) / 10;
+  }
+  return result;
+}
+
+/**
+ * Convert kg amounts to percentages.
+ */
+export function kgToPercent(amounts: number[]): number[] {
+  const sum = amounts.reduce((a, b) => a + b, 0);
+  if (sum <= 0) {
+    if (amounts.length === 0) return [];
+    return amounts.map(() => Math.round((100 / amounts.length) * 10) / 10);
+  }
+  const result = amounts.map((a) => Math.round((a / sum) * 100 * 10) / 10);
+  // Rounding correction
+  const totalSum = result.reduce((a, b) => a + b, 0);
+  const correction = Math.round((100 - totalSum) * 10) / 10;
+  if (correction !== 0 && result.length > 0) {
+    result[0] = Math.round((result[0]! + correction) * 10) / 10;
+  }
+  return result;
+}
+
+/**
+ * Convert percentages to kg amounts based on total malt required.
+ */
+export function percentToKg(percentages: number[], maltRequiredKg: number): number[] {
+  return percentages.map((p) => Math.round((maltRequiredKg * p) / 100 * 100) / 100);
+}

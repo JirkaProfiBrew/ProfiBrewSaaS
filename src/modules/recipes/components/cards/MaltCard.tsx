@@ -2,17 +2,31 @@
 
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { IngredientCard } from "./IngredientCard";
 import type { RecipeItem } from "../../types";
 
 interface MaltCardProps {
   item: RecipeItem;
   totalMaltKg: number;
+  mode: "kg" | "percent";
+  percent: number;
+  maltRequiredKg: number;
   onAmountChange: (id: string, amount: string) => void;
+  onPercentChange: (id: string, percent: number) => void;
   onRemove: (id: string) => void;
 }
 
-export function MaltCard({ item, totalMaltKg, onAmountChange, onRemove }: MaltCardProps): React.ReactNode {
+export function MaltCard({
+  item,
+  totalMaltKg,
+  mode,
+  percent,
+  maltRequiredKg,
+  onAmountChange,
+  onPercentChange,
+  onRemove,
+}: MaltCardProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   const amountNum = parseFloat(item.amountG) || 0;
@@ -22,6 +36,55 @@ export function MaltCard({ item, totalMaltKg, onAmountChange, onRemove }: MaltCa
   const extractPct = item.itemExtractPercent ? parseFloat(item.itemExtractPercent) : null;
   const ebcVal = item.itemEbc ? parseFloat(item.itemEbc) : null;
   const unitSymbol = item.unitSymbol ?? "kg";
+  const computedKg = maltRequiredKg * percent / 100;
+
+  if (mode === "percent") {
+    return (
+      <IngredientCard
+        id={item.id}
+        title={item.itemName ?? item.itemId}
+        subtitle={item.itemBrand ?? undefined}
+        onRemove={() => onRemove(item.id)}
+      >
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-3">
+            <Slider
+              value={[percent]}
+              onValueChange={(vals) => onPercentChange(item.id, vals[0] ?? 0)}
+              min={0}
+              max={100}
+              step={0.5}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              value={percent}
+              onChange={(e) => onPercentChange(item.id, parseFloat(e.target.value) || 0)}
+              className="h-7 w-20 text-sm text-right"
+              step="0.5"
+              min={0}
+              max={100}
+            />
+            <span className="text-xs text-muted-foreground">%</span>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span>
+              = <span className="font-medium text-foreground">{computedKg.toFixed(1)}</span> kg
+              {maltRequiredKg > 0 && (
+                <> ({t("designer.maltMode.fromTotal")} {maltRequiredKg.toFixed(1)} kg)</>
+              )}
+            </span>
+            {ebcVal != null && (
+              <span>{t("designer.cards.ebc")}: <span className="font-medium text-foreground">{ebcVal}</span></span>
+            )}
+            {extractPct != null && (
+              <span>{t("designer.cards.extract")}: <span className="font-medium text-foreground">{extractPct}%</span></span>
+            )}
+          </div>
+        </div>
+      </IngredientCard>
+    );
+  }
 
   return (
     <IngredientCard

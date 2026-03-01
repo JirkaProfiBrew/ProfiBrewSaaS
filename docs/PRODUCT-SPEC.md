@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 27.02.2026 | Poslední sprint: Sprint 7
+### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (UX patch)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -225,20 +225,23 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 UI receptury je třísekční designer s aktivními designovými slidery a real-time zpětnou vazbou:
 
 **Sekce 1 — Návrh piva (RecipeDesignSection):**
-- Pivní styl (select) + batch size (input) — hlavní designové parametry
-- 4 aktivní DesignSlidery: OG (°P), FG (°P), IBU, EBC — sládek nejprve NAVRHNE cílové parametry piva
+- Název + status + pivní styl (select) + batch size (input) — hlavní designové parametry
+- 5 aktivních DesignSliderů: OG (°P), FG (°P), IBU, EBC, Water/malt (L/kg) — sládek nejprve NAVRHNE cílové parametry piva
 - Každý slider: vizualizace rozsahu pivního stylu (zelená zóna), barevný thumb (zelená = v rozsahu, oranžová = mírně mimo, červená = daleko), marker ▲ pro kalkulovanou hodnotu
 - ABV readonly výpočet (Balling formule), SG konverze pro OG/FG
 - Výběr stylu → auto midpoint: při výběru stylu se slidery nastaví na střed rozsahu (pokud jsou na 0)
-- BeerGlass vizualizace: SVG pivní půllitr s barvou dle EBC v card view i header
+- Collapsed view: vizuální MetricBoxy (OG/FG/IBU/EBC/ABV) s barevným kódováním dle rozsahu stylu (zelená/oranžová/červená)
+- BeerGlass vizualizace: "tuplák" SVG s barvou dle EBC — header priorita: kalkulované EBC → target → midpoint stylu; placeholder pro prázdné
 
 **Sekce 2 — Výroba (RecipeExecutionSection):**
-- Kolabovatelný panel s výrobními parametry (název, kód, varní soustava, rmutovací profil, status, výrobní položka, čas varu, kvašení, dokvašování, trvanlivost)
+- Kolabovatelný panel s výrobními parametry (kód, varní soustava, rmutovací profil, výrobní položka, čas varu, kvašení, dokvašování, trvanlivost)
+- Nová receptura automaticky předvyplní primární varní soustavu
+- Změna soustavy na existující receptuře → potvrzovací dialog (aktualizovat konstanty vs. jen změnit odkaz)
 - V kolapsnutém stavu: jednořádkový souhrn "{název} | {soustava}"
 
 **Sekce 3 — Editor (RecipeEditor) s 7 sub-taby:**
-- **Slady:** drag & drop kartičky (MaltCard) — množství, podíl%, EBC, extrakt%. Souhrn: celkem vs plán, surplus/deficit.
-- **Chmel:** HopCard — množství, alpha, fáze (var/whirlpool/dry hop), čas, IBU příspěvek. Souhrn: IBU breakdown.
+- **Slady:** drag & drop kartičky (MaltCard) — toggle kg/% mód. V % módu: posuvníky s proporcionálním přerozdělením, auto výchozí % při vkládání (100→70/30→split). Dual BeerGlass (cíl vs. recept). Souhrn: celkem vs plán, surplus/deficit.
+- **Chmel:** Auto-sort dle fáze (rmut→FWH→var→whirlpool→dry hop) a času, vizuální separátory. HopCard — množství, alpha, fáze, čas, IBU příspěvek. Souhrn: IBU breakdown.
 - **Kvasnice:** YeastCard — množství, odhad FG/ABV.
 - **Ostatní:** AdjunctCard — množství, fáze, čas, poznámka.
 - **Rmutování:** wrapper kolem RecipeStepsTab (rmutovací kroky + profily).
@@ -403,18 +406,22 @@ planned → brewing → fermenting → conditioning → carbonating → packagin
 - Import: `scripts/import-beer-styles.mjs` z Bubble CSV exportu (`docs/BeerStyles/`)
 
 **Vizualizace — BeerGlass:**
-- SVG komponenta pivního půllitru (`src/components/ui/beer-glass/BeerGlass.tsx`)
-- Barva piva dle EBC hodnoty: `ebcToColor()` — 16-bodová SRM color mapa s lineární RGB interpolací
-- Obrys sklenice: `currentColor` (funguje v light/dark mode)
-- Velikosti: sm (40px), md (64px), lg (96px)
+- SVG komponenta "tuplák" (český půllitr) — `src/components/ui/beer-glass/BeerGlass.tsx`
+- viewBox 64×80, trapézové tělo, vlnitá pěna se 4 bubliny, ucho (arc), skleněný efekt, highlight
+- Barva piva dle EBC hodnoty: `ebcToColor()` — EBC-native 16-bodová RGB mapa s lineární interpolací (nahrazuje SRM konverzi)
+- Exporty: `ebcToColor(ebc)` (hex), `ebcToColorRgb(ebc)` (rgb()), `ebcToColorLight(ebc, opacity)` (rgba())
+- Placeholder mód: `placeholder={true}` — tečkovaný vzor bez barvy piva
+- `useId()` hook pro unikátní SVG gradient/clip IDs (více BeerGlass na stránce)
+- Velikosti: sm (32px), md (48px), lg (64px)
 - Použití v UI:
-  - RecipeBrowser card view — renderImage zobrazí BeerGlass dle EBC receptury
-  - RecipeDetail header — malý BeerGlass vedle názvu (dle EBC receptury nebo midpoint stylu)
+  - RecipeBrowser card view — renderImage zobrazí BeerGlass dle EBC + levý border s EBC barvou
+  - RecipeDetail header — BeerGlass dle kalkulovaného EBC → target EBC → midpoint stylu; placeholder pokud žádné EBC
+  - MaltTab — dual BeerGlass: cíl EBC → kalkulované EBC
+  - BeerStyleBrowser card view — dual BeerGlass (min→max EBC) + group foto
 
 **Konverze:**
-- SRM → EBC: `EBC = SRM × 1.97`
 - SG → Plato: `°P ≈ 259 - (259 / SG)`
-- V DB uloženy obě varianty (SRM i EBC)
+- V DB uloženy obě varianty (SRM i EBC) pro Beer Styles
 
 ### 4.6d Rmutovací profily (Mashing Profiles) ✅
 

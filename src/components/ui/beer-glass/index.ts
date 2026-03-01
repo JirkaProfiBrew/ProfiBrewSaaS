@@ -1,2 +1,2 @@
 export { BeerGlass } from "./BeerGlass";
-export { ebcToColor } from "./ebc-to-color";
+export { ebcToColor, ebcToColorRgb, ebcToColorLight } from "./ebc-to-color";

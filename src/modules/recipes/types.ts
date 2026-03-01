@@ -38,6 +38,7 @@ export interface Recipe {
   itemId: string | null;
   brewingSystemId: string | null;
   constantsOverride: RecipeConstantsOverride | null;
+  maltInputMode: string | null;
   isFromLibrary: boolean;
   sourceRecipeId: string | null;
   createdBy: string | null;
@@ -60,6 +61,7 @@ export interface RecipeItem {
   temperatureC: string | null;
   hopPhase: string | null;
   notes: string | null;
+  percent: string | null;
   sortOrder: number;
   // Joined from items table:
   itemName?: string;

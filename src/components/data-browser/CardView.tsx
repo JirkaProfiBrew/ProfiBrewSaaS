@@ -147,6 +147,7 @@ function DataCard({
         onClick && "cursor-pointer hover:shadow-md",
         isSelected && "ring-primary ring-2",
       )}
+      style={cardConfig.renderCardStyle?.(row)}
       onClick={onClick ? handleCardClick : undefined}
     >
       {/* Selection checkbox — visible on hover or when selected */}

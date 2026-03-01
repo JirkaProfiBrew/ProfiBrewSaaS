@@ -70,6 +70,7 @@ function mapRecipeRow(
     itemId: row.itemId,
     brewingSystemId: row.brewingSystemId ?? null,
     constantsOverride: (row.constantsOverride as RecipeConstantsOverride) ?? null,
+    maltInputMode: row.maltInputMode ?? null,
     isFromLibrary: row.isFromLibrary ?? false,
     sourceRecipeId: row.sourceRecipeId ?? null,
     createdBy: row.createdBy,
@@ -110,6 +111,7 @@ function mapRecipeItemRow(
     temperatureC: row.temperatureC ?? null,
     hopPhase: row.hopPhase,
     notes: row.notes,
+    percent: row.percent ?? null,
     sortOrder: row.sortOrder ?? 0,
     itemName: itemRow?.name,
     itemCode: itemRow?.code,
@@ -318,6 +320,7 @@ export async function createRecipe(
         itemId: parsed.itemId ?? null,
         brewingSystemId: parsed.brewingSystemId ?? null,
         constantsOverride: parsed.constantsOverride ?? null,
+        maltInputMode: parsed.maltInputMode ?? null,
       })
       .returning();
 
@@ -436,6 +439,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
           itemId: orig.itemId,
           brewingSystemId: orig.brewingSystemId,
           constantsOverride: orig.constantsOverride,
+          maltInputMode: orig.maltInputMode,
         })
         .returning();
 
@@ -463,6 +467,7 @@ export async function duplicateRecipe(recipeId: string): Promise<Recipe> {
             useTimeMin: item.useTimeMin,
             hopPhase: item.hopPhase,
             notes: item.notes,
+            percent: item.percent,
             sortOrder: item.sortOrder,
           }))
         );
@@ -531,6 +536,7 @@ export async function addRecipeItem(
         useTimeMin: parsed.useTimeMin ?? null,
         hopPhase: parsed.hopPhase ?? null,
         notes: parsed.notes ?? null,
+        percent: parsed.percent ?? null,
         sortOrder: nextOrder,
       })
       .returning();
@@ -1147,6 +1153,7 @@ export interface BrewingSystemOption {
   name: string;
   batchSizeL: string;
   efficiencyPct: string;
+  isPrimary: boolean;
 }
 
 /** Get active brewing systems for the tenant (for select dropdown). */
@@ -1158,6 +1165,7 @@ export async function getBrewingSystemOptions(): Promise<BrewingSystemOption[]> 
         name: brewingSystems.name,
         batchSizeL: brewingSystems.batchSizeL,
         efficiencyPct: brewingSystems.efficiencyPct,
+        isPrimary: brewingSystems.isPrimary,
       })
       .from(brewingSystems)
       .where(
@@ -1166,9 +1174,12 @@ export async function getBrewingSystemOptions(): Promise<BrewingSystemOption[]> 
           eq(brewingSystems.isActive, true)
         )
       )
-      .orderBy(asc(brewingSystems.name));
+      .orderBy(desc(brewingSystems.isPrimary), asc(brewingSystems.name));
 
-    return rows;
+    return rows.map((r) => ({
+      ...r,
+      isPrimary: r.isPrimary ?? false,
+    }));
   });
 }
 

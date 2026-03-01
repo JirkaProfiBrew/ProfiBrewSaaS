@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { BeerGlass } from "@/components/ui/beer-glass";
+import { ebcToColor } from "@/components/ui/beer-glass/ebc-to-color";
 import { cn } from "@/lib/utils";
 import { DesignSlider } from "./DesignSlider";
 
@@ -26,6 +27,53 @@ interface DesignValues {
   fg: number;
   targetIbu: number;
   targetEbc: number;
+  waterPerKgMalt: number;
+}
+
+// ── Metric Box (collapsed summary) ──────────────────────────────
+
+type MetricVariant = "ok" | "warn" | "danger" | "neutral";
+
+const VARIANT_CLASSES: Record<MetricVariant, string> = {
+  ok: "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40",
+  warn: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40",
+  danger: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40",
+  neutral: "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40",
+};
+
+function MetricBox({
+  value,
+  label,
+  variant = "neutral",
+  ebcColor,
+}: {
+  value: string;
+  label: string;
+  variant?: MetricVariant;
+  ebcColor?: string;
+}): React.ReactElement {
+  return (
+    <div
+      className={cn("border rounded-lg px-3 py-1.5 text-center min-w-[80px]", VARIANT_CLASSES[variant])}
+      style={ebcColor ? { borderLeftWidth: "4px", borderLeftColor: ebcColor } : undefined}
+    >
+      <div className="text-sm font-semibold tabular-nums leading-tight">{value}</div>
+      <div className="text-[10px] text-muted-foreground leading-tight">{label}</div>
+    </div>
+  );
+}
+
+function getMetricVariant(
+  calcValue: number,
+  range: [number, number] | null,
+): MetricVariant {
+  if (!range) return "neutral";
+  const [min, max] = range;
+  if (calcValue >= min && calcValue <= max) return "ok";
+  const span = max - min;
+  const distance = calcValue < min ? min - calcValue : calcValue - max;
+  if (distance <= span * 0.15) return "warn";
+  return "danger";
 }
 
 interface RecipeDesignSectionProps {
@@ -98,18 +146,10 @@ export function RecipeDesignSection({
   const ogSG = useMemo(() => platoToSG(values.og), [values.og]);
   const fgSG = useMemo(() => platoToSG(values.fg), [values.fg]);
 
-  // Collapsed summary
-  const collapsedSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (name) parts.push(name);
-    if (styleName) parts.push(styleName);
-    if (values.batchSizeL > 0) parts.push(`${values.batchSizeL} L`);
-    if (values.og > 0) parts.push(`OG ${values.og}°P`);
-    if (values.targetIbu > 0) parts.push(`IBU ${values.targetIbu}`);
-    if (values.targetEbc > 0) parts.push(`EBC ${values.targetEbc}`);
-    if (designAbv > 0) parts.push(`ABV ${designAbv.toFixed(1)}%`);
-    return parts.join(" | ") || "—";
-  }, [name, styleName, values, designAbv]);
+  // Metric variants for collapsed view (based on calc values vs style ranges)
+  const ogVariant = useMemo(() => getMetricVariant(calcOg > 0 ? calcOg : values.og, styleRanges.og), [calcOg, values.og, styleRanges.og]);
+  const ibuVariant = useMemo(() => getMetricVariant(calcIbu > 0 ? calcIbu : values.targetIbu, styleRanges.ibu), [calcIbu, values.targetIbu, styleRanges.ibu]);
+  const ebcVariant = useMemo(() => getMetricVariant(calcEbc > 0 ? calcEbc : values.targetEbc, styleRanges.ebc), [calcEbc, values.targetEbc, styleRanges.ebc]);
 
   return (
     <div>
@@ -132,13 +172,31 @@ export function RecipeDesignSection({
           <ChevronDown className="size-5 text-muted-foreground shrink-0" />
         )}
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold">
-            {t("designer.design.title")}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">
+              {t("designer.design.title")}
+            </h2>
+            {isCollapsed && name && (
+              <span className="text-xs text-muted-foreground truncate">{name}</span>
+            )}
+            {isCollapsed && styleName && (
+              <span className="text-xs text-muted-foreground truncate">· {styleName}</span>
+            )}
+          </div>
           {isCollapsed && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {collapsedSummary}
-            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <MetricBox value={`${values.batchSizeL} L`} label={t("designer.design.batchSizeLabel")} />
+              <MetricBox value={`${values.og.toFixed(1)} °P`} label="OG" variant={ogVariant} />
+              <MetricBox value={`${values.fg.toFixed(1)} °P`} label="FG" />
+              <MetricBox value={`${values.targetIbu}`} label="IBU" variant={ibuVariant} />
+              <MetricBox
+                value={`${values.targetEbc}`}
+                label="EBC"
+                variant={ebcVariant}
+                ebcColor={values.targetEbc > 0 ? ebcToColor(values.targetEbc) : undefined}
+              />
+              <MetricBox value={designAbv > 0 ? `${designAbv.toFixed(1)}%` : "—"} label="ABV" />
+            </div>
           )}
         </div>
       </div>
@@ -291,6 +349,23 @@ export function RecipeDesignSection({
               ) : undefined
             }
             calculatedValue={calcEbc > 0 ? calcEbc : undefined}
+          />
+
+          {/* Water/malt slider (UX-06) */}
+          <DesignSlider
+            label={t("designer.design.waterPerKgLabel")}
+            value={values.waterPerKgMalt}
+            onChange={(v) => onChange("waterPerKgMalt", v)}
+            min={1.5}
+            max={6.0}
+            step={0.1}
+            styleRange={[2.5, 4.0]}
+            unit={t("designer.design.waterPerKgUnit")}
+            secondary={
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {t("designer.design.mashThickness", { value: values.waterPerKgMalt.toFixed(1) })}
+              </span>
+            }
           />
 
           {/* ABV readonly */}

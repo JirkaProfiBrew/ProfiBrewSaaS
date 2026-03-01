@@ -66,6 +66,7 @@ export const recipes = pgTable(
       () => brewingSystems.id
     ),
     constantsOverride: jsonb("constants_override"),
+    maltInputMode: text("malt_input_mode").default("percent"),
     isFromLibrary: boolean("is_from_library").default(false),
     sourceLibraryId: uuid("source_library_id"),
     sourceRecipeId: uuid("source_recipe_id"),
@@ -102,6 +103,7 @@ export const recipeItems = pgTable(
     temperatureC: decimal("temperature_c"),
     hopPhase: text("hop_phase"),
     notes: text("notes"),
+    percent: decimal("percent"),
     sortOrder: integer("sort_order").default(0),
     reservedQty: decimal("reserved_qty").default("0"), // post-MVP prep, unused in MVP
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

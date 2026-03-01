@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams, QuickFilter } from "@/components/data-browser";
@@ -111,12 +112,37 @@ export function BeerStyleBrowser(): React.ReactNode {
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
         const ebcMin = row.ebcMin != null ? Number(row.ebcMin) : null;
         const ebcMax = row.ebcMax != null ? Number(row.ebcMax) : null;
-        if (ebcMin == null && ebcMax == null) return null;
-        const midEbc =
-          ebcMin != null && ebcMax != null
-            ? (ebcMin + ebcMax) / 2
-            : (ebcMin ?? ebcMax ?? 0);
-        return <BeerGlass ebc={midEbc} size="lg" />;
+        const groupImageUrl = row.groupImageUrl as string | null;
+
+        return (
+          <div className="flex flex-col items-center gap-2 py-2">
+            {groupImageUrl && (
+              <Image
+                src={groupImageUrl}
+                alt=""
+                width={80}
+                height={80}
+                className="h-20 w-20 object-contain"
+              />
+            )}
+            {ebcMin != null && ebcMax != null && (
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center">
+                  <BeerGlass ebc={ebcMin} size="sm" />
+                  <span className="text-[10px] text-muted-foreground">{ebcMin.toFixed(1)}</span>
+                </div>
+                <span className="text-muted-foreground text-xs">&rarr;</span>
+                <div className="flex flex-col items-center">
+                  <BeerGlass ebc={ebcMax} size="sm" />
+                  <span className="text-[10px] text-muted-foreground">{ebcMax.toFixed(1)}</span>
+                </div>
+              </div>
+            )}
+            {!groupImageUrl && ebcMin == null && ebcMax == null && (
+              <BeerGlass ebc={8} size="lg" />
+            )}
+          </div>
+        );
       },
     };
   }, []);

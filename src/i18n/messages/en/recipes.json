@@ -197,6 +197,10 @@
       "ibuLabel": "IBU",
       "ebcLabel": "EBC",
       "abvLabel": "ABV",
+      "batchSizeLabel": "volume",
+      "waterPerKgLabel": "L/kg",
+      "waterPerKgUnit": "L/kg",
+      "mashThickness": "Mash thickness: {value} L/kg",
       "abvReadonly": "Calculated from OG and FG",
       "gravityFormat": "({sg} SG)",
       "styleRange": "{min}–{max}",
@@ -242,6 +246,10 @@
       "costTotal": "Total",
       "costPerLiter": "Per Liter"
     },
+    "systemChangeTitle": "Change Brewing System",
+    "systemChangeDesc": "Update constants and recalculate from the new system \"{name}\"? This will overwrite manually adjusted constants.",
+    "systemChangeYes": "Yes, update",
+    "systemChangeNo": "No, just change reference",
     "volumeChange": {
       "title": "Batch Volume Changed",
       "message": "Volume changed from {old}L to {new}L. Recalculate ingredient amounts proportionally?",
@@ -287,7 +295,15 @@
       "dryHopIbu": "Dry Hop",
       "temperature": "Temperature (°C)",
       "fwhIbu": "FWH",
-      "mashIbu": "Mash"
+      "mashIbu": "Mash",
+      "stage_mash": "Mash Hop",
+      "stage_fwh": "First Wort Hop",
+      "stage_boil": "Boil",
+      "stage_whirlpool": "Whirlpool",
+      "stage_dry_hop_warm": "Dry Hop (Warm)",
+      "stage_dry_hop_cold": "Dry Hop (Cold)",
+      "target": "target",
+      "recipe": "recipe"
     },
     "constants": {
       "title": "Calculation Constants",
@@ -319,6 +335,14 @@
       "totalProduction": "Total Production",
       "perLiter": "Price per Liter",
       "perHl": "Price per hl"
+    },
+    "maltMode": {
+      "kg": "kg",
+      "percent": "%",
+      "totalPlan": "Plan from OG",
+      "fromTotal": "of total",
+      "allOthersZero": "All other malts are at 0%",
+      "share": "Share"
     }
   },
   "detail": {

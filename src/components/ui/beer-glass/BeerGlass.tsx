@@ -1,44 +1,53 @@
+"use client";
+
+import { useId } from "react";
 import { cn } from "@/lib/utils";
-import { ebcToColor } from "./ebc-to-color";
+import { ebcToColorRgb } from "./ebc-to-color";
 
 interface BeerGlassProps {
   /** EBC value (beer color). 0 = very pale, 80+ = black */
   ebc: number;
-  /** Size: sm=40px, md=64px, lg=96px (height) */
+  /** Size: sm=32px, md=48px, lg=64px (height) */
   size?: "sm" | "md" | "lg";
+  /** Placeholder mode — shows dot pattern instead of beer */
+  placeholder?: boolean;
   /** Optional className for the root SVG element */
   className?: string;
 }
 
 const SIZE_MAP: Record<NonNullable<BeerGlassProps["size"]>, number> = {
-  sm: 40,
-  md: 64,
-  lg: 96,
+  sm: 32,
+  md: 48,
+  lg: 64,
 };
 
 /**
- * Beer mug (půllitr/krýgl) SVG component.
- * Displays a Czech beer mug filled with beer colored according to EBC value.
+ * Czech pint glass (tuplák) SVG component.
+ * Displays a glass filled with beer colored according to EBC value.
  *
- * viewBox: 0 0 72 64  (wider aspect ratio — resembles a real pub half-liter)
- * - Glass body: rounded bottom, straight sides, wider shape
- * - Handle: right side
- * - Beer fill: colored by EBC
- * - Foam: white bumps on top
+ * viewBox: 0 0 64 80 (taller aspect ratio ~4:5)
+ * - Glass body: trapezoid (narrower bottom, wider top), rounded bottom
+ * - Handle: right side arc
+ * - Beer fill: EBC-colored gradient, clipped to glass
+ * - Foam: wavy path with bubbles
+ * - Glass effect: transparency gradient + highlight streak
+ * - Placeholder: dot pattern when no beer color available
  */
 export function BeerGlass({
   ebc,
   size = "md",
+  placeholder = false,
   className,
 }: BeerGlassProps): React.ReactElement {
+  const uid = useId();
   const height = SIZE_MAP[size];
-  const width = Math.round((height * 72) / 64);
-  const beerColor = ebcToColor(ebc);
+  const width = Math.round(height * 0.8);
+  const beerColor = ebcToColorRgb(ebc);
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 72 64"
+      viewBox="0 0 64 80"
       width={width}
       height={height}
       fill="none"
@@ -46,56 +55,85 @@ export function BeerGlass({
       role="img"
       aria-label="Beer glass"
     >
-      {/* Glass body clip path - defines the interior fill area */}
       <defs>
-        <clipPath id={`glass-clip-${size}`}>
-          <path d="M12 14 L12 52 Q12 58 20 58 L44 58 Q52 58 52 52 L52 14 Z" />
+        {/* Glass transparency gradient */}
+        <linearGradient id={`${uid}-glass`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="white" stopOpacity="0.15" />
+          <stop offset="40%" stopColor="white" stopOpacity="0.25" />
+          <stop offset="60%" stopColor="white" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="white" stopOpacity="0.12" />
+        </linearGradient>
+        {/* Beer body gradient (subtle depth) */}
+        <linearGradient id={`${uid}-beer`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={beerColor} stopOpacity="0.9" />
+          <stop offset="100%" stopColor={beerColor} stopOpacity="1" />
+        </linearGradient>
+        {/* Foam gradient */}
+        <linearGradient id={`${uid}-foam`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFFEF5" />
+          <stop offset="100%" stopColor="#F5EDD6" />
+        </linearGradient>
+        {/* Placeholder dot pattern */}
+        <pattern id={`${uid}-dots`} x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="3" r="0.8" fill="#999" opacity="0.4" />
+        </pattern>
+        {/* Clip for glass body */}
+        <clipPath id={`${uid}-clip`}>
+          <path d="M12 8 L10 70 Q10 76 16 76 L48 76 Q54 76 54 70 L52 8 Z" />
         </clipPath>
       </defs>
 
-      {/* Beer fill (clipped to glass interior) */}
-      <rect
-        x="12"
-        y="18"
-        width="40"
-        height="40"
-        rx="4"
-        fill={beerColor}
-        clipPath={`url(#glass-clip-${size})`}
+      {/* Glass body outline */}
+      <path
+        d="M12 8 L10 70 Q10 76 16 76 L48 76 Q54 76 54 70 L52 8 Z"
+        fill="white"
+        fillOpacity="0.08"
+        stroke="#C0B8A8"
+        strokeWidth="1.5"
       />
 
-      {/* Foam - white bubbles on top */}
-      <ellipse cx="19" cy="18" rx="7" ry="4.5" fill="white" opacity="0.92" />
-      <ellipse cx="32" cy="16" rx="8" ry="5" fill="white" opacity="0.95" />
-      <ellipse cx="45" cy="18" rx="7" ry="4.5" fill="white" opacity="0.92" />
-      <ellipse cx="25" cy="15" rx="5" ry="3.5" fill="white" opacity="0.88" />
-      <ellipse cx="39" cy="15" rx="5" ry="3.5" fill="white" opacity="0.88" />
+      {/* Beer fill (clipped to glass) */}
+      <g clipPath={`url(#${uid}-clip)`}>
+        {placeholder ? (
+          <rect x="10" y="14" width="44" height="62" fill={`url(#${uid}-dots)`} />
+        ) : (
+          <>
+            {/* Beer body */}
+            <rect x="10" y="18" width="44" height="58" fill={`url(#${uid}-beer)`} />
+            {/* Glass transparency overlay */}
+            <rect x="10" y="18" width="44" height="58" fill={`url(#${uid}-glass)`} />
+            {/* Highlight streak (glass reflection) */}
+            <rect x="16" y="22" width="3" height="48" rx="1.5" fill="white" opacity="0.18" />
+          </>
+        )}
 
-      {/* Glass outline - the mug body */}
+        {/* Foam */}
+        {!placeholder && (
+          <>
+            <path
+              d="M10 18 Q18 21 24 17 Q30 14 38 18 Q44 21 54 17 L54 8 L10 8 Z"
+              fill={`url(#${uid}-foam)`}
+            />
+            {/* Foam bubbles */}
+            <circle cx="20" cy="14" r="1.5" fill="white" opacity="0.5" />
+            <circle cx="32" cy="12" r="1.2" fill="white" opacity="0.4" />
+            <circle cx="42" cy="14" r="1" fill="white" opacity="0.45" />
+            <circle cx="26" cy="16" r="0.8" fill="white" opacity="0.35" />
+          </>
+        )}
+      </g>
+
+      {/* Handle */}
       <path
-        d="M12 12 L12 52 Q12 58 20 58 L44 58 Q52 58 52 52 L52 12 Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
+        d="M52 24 Q62 24 62 38 Q62 52 52 52"
         fill="none"
-      />
-
-      {/* Glass rim (top edge, slightly wider) */}
-      <path
-        d="M10 12 L54 12"
-        stroke="currentColor"
+        stroke="#C0B8A8"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
 
-      {/* Handle */}
-      <path
-        d="M52 20 Q62 20 62 30 Q62 40 52 40"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        fill="none"
-      />
+      {/* Rim highlight */}
+      <line x1="14" y1="8" x2="50" y2="8" stroke="white" strokeWidth="0.5" opacity="0.5" />
     </svg>
   );
 }

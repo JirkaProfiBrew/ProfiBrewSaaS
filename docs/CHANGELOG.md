@@ -413,6 +413,39 @@
 
 ---
 
+## [0.7.3] — Sprint 7 Patch: Recipe Designer UX Improvements
+**Období:** T15 (01.03.2026)
+**Status:** ✅ Done
+
+### Přidáno
+- [x] **UX-01:** Nová receptura automaticky předvyplní primární varní soustavu
+- [x] **UX-02:** Potvrzovací dialog při změně varní soustavy na existující receptuře (aktualizovat konstanty vs. jen změnit odkaz)
+- [x] **UX-04:** Auto-sort chmelů dle fáze (rmut→FWH→chmelovar→whirlpool→dry hop) a času, vizuální separátory mezi fázemi, odstraněn DnD
+- [x] **UX-05:** Collapsed Design sekce zobrazuje vizuální metriky (OG/FG/IBU/EBC/ABV) s barevným kódováním dle rozsahu stylu
+- [x] **UX-06:** Water/malt slider v Design sekci (1.5–6.0 L/kg, synchronizovaný s konstantami receptury)
+- [x] **UX-07:** Dual BeerGlass na tabu Slady — cíl EBC vs. kalkulované EBC
+- [x] **UX-08:** Header BeerGlass priorita: kalkulované EBC → target → midpoint stylu; placeholder pro prázdné
+- [x] **UX-09:** Recept karty v DataBrowser — levý border s dynamickou EBC barvou
+- [x] **UX-10:** Beer style tiles — dual BeerGlass (min→max EBC) + group foto
+- [x] **UX-11:** Slady — procentuální mód s posuvníky, toggle kg/%, proporcionální přerozdělení, auto výchozí % při vkládání
+
+### BeerGlass SVG Redesign
+- [x] `ebc-to-color.ts` — kompletní přepis: EBC-native 16-bodová barevná mapa (nahrazuje SRM konverzi), nové exporty `ebcToColorRgb()`, `ebcToColorLight()`
+- [x] `BeerGlass.tsx` — kompletní přepis: "tuplák" design (viewBox 64×80), trapézové tělo, vlnitá pěna, ucho, skleněný efekt, placeholder mód (tečkovaný vzor), `useId()` pro unikátní SVG IDs
+
+### Schema
+- [x] `recipe_items.percent` (NUMERIC, nullable) — procento sladu v receptuře
+- [x] `recipes.malt_input_mode` (TEXT, default 'percent') — preference módu zadávání sladů
+- [x] Migrace `0020_malt_percentage_mode.sql`
+
+### Architektonická rozhodnutí
+- Auto-sort chmelů nahrazuje DnD — přehlednější UX, eliminuje nekonzistentní ruční řazení
+- Malt percentage: state řízený lokálně v MaltTab, synchronizace s DB přes onPercentChange callback
+- MetricBox varianta (ok/warn/danger/neutral) dle vzdálenosti od rozsahu stylu (in-range / ±15% / far outside)
+- Water/malt slider synchronizovaný s constantsOverride.waterPerKgMalt
+
+---
+
 ## [0.7.1] — Sprint 7 Fáze C patch: Design Sliders
 **Období:** T14 (27.02.2026)
 **Status:** ✅ Done

@@ -44,10 +44,17 @@ interface RecipeEditorProps {
   // Style targets
   ibuTarget: { min: number; max: number } | null;
   ebcTarget: { min: number; max: number } | null;
+  // EBC for dual BeerGlass
+  targetEbc: number;
+  calculatedEbc: number;
   // Constants
   constants: RecipeConstantsOverride;
   systemDefaults: BrewingSystemInput;
   systemName: string | null;
+  // Malt input mode (UX-11)
+  maltInputMode: "kg" | "percent";
+  onMaltInputModeChange: (mode: "kg" | "percent") => void;
+  onPercentChange: (id: string, percent: number, computedKg: number) => void;
   // Callbacks
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
@@ -88,6 +95,11 @@ export function RecipeEditor({
   maltPlanKg,
   ibuTarget,
   ebcTarget,
+  targetEbc,
+  calculatedEbc,
+  maltInputMode,
+  onMaltInputModeChange,
+  onPercentChange,
   constants,
   systemDefaults,
   systemName,
@@ -148,7 +160,12 @@ export function RecipeEditor({
               items={maltItems}
               maltPlanKg={maltPlanKg}
               ebcTarget={ebcTarget}
+              targetEbc={targetEbc}
+              calculatedEbc={calculatedEbc}
+              maltInputMode={maltInputMode}
+              onMaltInputModeChange={onMaltInputModeChange}
               onAmountChange={onAmountChange}
+              onPercentChange={onPercentChange}
               onRemove={onRemove}
               onReorder={onReorder}
               onAdd={() => onAddIngredient("malt")}
@@ -168,7 +185,6 @@ export function RecipeEditor({
               onTimeChange={onTimeChange}
               onTemperatureChange={onTemperatureChange}
               onRemove={onRemove}
-              onReorder={onReorder}
               onAdd={() => onAddIngredient("hop")}
             />
           </TabsContent>

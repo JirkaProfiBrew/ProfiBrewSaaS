@@ -11,6 +11,7 @@ import type { DataBrowserParams } from "@/components/data-browser";
 import Image from "next/image";
 
 import { BeerGlass } from "@/components/ui/beer-glass";
+import { ebcToColor } from "@/components/ui/beer-glass/ebc-to-color";
 
 import { recipeBrowserConfig } from "../config";
 import { useRecipeList, useBeerStyles } from "../hooks";
@@ -165,6 +166,12 @@ export function RecipeBrowser(): React.ReactNode {
     if (base === false) return false as const;
     return {
       ...base,
+      renderCardStyle: (row: Record<string, unknown>): React.CSSProperties => {
+        const ebc = row.ebc != null ? Number(row.ebc) : 0;
+        return ebc > 0
+          ? { borderLeftWidth: '5px', borderLeftColor: ebcToColor(ebc) }
+          : {};
+      },
       renderImage: (row: Record<string, unknown>): React.ReactNode => {
         const styleId = row.beerStyleId as string | null;
 
