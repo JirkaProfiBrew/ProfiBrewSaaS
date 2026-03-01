@@ -493,7 +493,18 @@
       "finance": "Finance",
       "ingredientCost": "Ingredient Cost",
       "costPerLiter": "Per Liter",
-      "duplicateBatch": "Duplicate Batch"
+      "duplicateBatch": "Duplicate Batch",
+      "finishBatch": "Finish batch",
+      "finishConfirm": "Finish and close this batch?",
+      "og": "OG (°P)",
+      "fg": "FG (°P)",
+      "abv": "ABV (%)",
+      "ibu": "IBU",
+      "ebc": "EBC",
+      "volume": "Volume (L)",
+      "efficiency": "Efficiency (%)",
+      "noActualData": "No actual data available",
+      "batchCompleted": "Batch completed"
     },
     "sidebar": {
       "recipePreview": "Recipe Preview",

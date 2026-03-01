@@ -493,7 +493,18 @@
       "finance": "Finance",
       "ingredientCost": "Náklady suroviny",
       "costPerLiter": "Na litr",
-      "duplicateBatch": "Duplikovat var"
+      "duplicateBatch": "Duplikovat var",
+      "finishBatch": "Ukončit var",
+      "finishConfirm": "Opravdu ukončit a uzavřít tuto várku?",
+      "og": "OG (°P)",
+      "fg": "FG (°P)",
+      "abv": "ABV (%)",
+      "ibu": "IBU",
+      "ebc": "EBC",
+      "volume": "Objem (L)",
+      "efficiency": "Efektivita (%)",
+      "noActualData": "Nejsou k dispozici naměřené hodnoty",
+      "batchCompleted": "Várka je ukončena"
     },
     "sidebar": {
       "recipePreview": "Náhled receptu",
