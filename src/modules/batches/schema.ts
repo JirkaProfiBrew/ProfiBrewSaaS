@@ -42,6 +42,8 @@ export const batchMeasurementSchema = z.object({
   temperatureC: z.string().nullable().optional(),
   isStart: z.boolean().optional().default(false),
   isEnd: z.boolean().optional().default(false),
+  phase: z.string().nullable().optional(),
+  volumeL: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   measuredAt: z.string().optional(), // ISO string
 });

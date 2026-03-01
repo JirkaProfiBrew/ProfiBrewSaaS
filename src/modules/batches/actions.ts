@@ -1147,6 +1147,8 @@ export async function addBatchMeasurement(
         temperatureC: data.temperatureC ?? null,
         isStart: data.isStart ?? false,
         isEnd: data.isEnd ?? false,
+        phase: data.phase ?? null,
+        volumeL: data.volumeL ?? null,
         notes: data.notes ?? null,
         measuredAt: data.measuredAt ? new Date(data.measuredAt) : sql`now()`,
       })
@@ -1172,6 +1174,8 @@ export async function updateBatchMeasurement(
     if (data.temperatureC !== undefined) values.temperatureC = data.temperatureC;
     if (data.isStart !== undefined) values.isStart = data.isStart;
     if (data.isEnd !== undefined) values.isEnd = data.isEnd;
+    if (data.phase !== undefined) values.phase = data.phase;
+    if (data.volumeL !== undefined) values.volumeL = data.volumeL;
     if (data.notes !== undefined) values.notes = data.notes;
     if (data.measuredAt !== undefined) values.measuredAt = data.measuredAt ? new Date(data.measuredAt) : null;
     values.updatedAt = sql`now()`;
