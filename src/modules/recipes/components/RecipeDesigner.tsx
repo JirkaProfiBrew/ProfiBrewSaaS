@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, Archive, Trash2, FlaskConical, Save, ArrowLeft } from "lucide-react";
+import { Copy, Archive, Trash2, FlaskConical, Save, ArrowLeft, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BeerGlass } from "@/components/ui/beer-glass";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 import {
   useRecipeDetail,
@@ -864,6 +871,34 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
                 </AlertDialog>
               )}
             </>
+          )}
+          {/* Sidebar toggle (visible when sidebar is hidden) */}
+          {!isNew && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="xl:hidden">
+                  <BarChart3 className="size-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80 p-0">
+                <SheetHeader className="px-4 pt-4 pb-2">
+                  <SheetTitle>{t("designer.sidebar.title")}</SheetTitle>
+                </SheetHeader>
+                <RecipeFeedbackSidebar
+                  designIbu={designValues.targetIbu}
+                  designEbc={designValues.targetEbc}
+                  calcIbu={calcResult.ibu}
+                  calcEbc={calcResult.ebc}
+                  maltPlanKg={calcResult.maltRequiredKg}
+                  maltActualKg={calcResult.maltActualKg}
+                  pipeline={calcResult.pipeline}
+                  water={calcResult.water}
+                  totalCost={calcResult.totalProductionCost}
+                  costPerLiter={calcResult.costPerLiter}
+                  className="block w-full border-l-0"
+                />
+              </SheetContent>
+            </Sheet>
           )}
           <Button size="sm" onClick={() => void handleSave()}>
             <Save className="mr-1 size-4" />

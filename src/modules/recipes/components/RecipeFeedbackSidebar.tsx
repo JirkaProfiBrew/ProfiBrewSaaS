@@ -25,7 +25,7 @@ function fmtCost(v: number): string {
 
 // ── Props ────────────────────────────────────────────────────────
 
-interface RecipeFeedbackSidebarProps {
+export interface RecipeFeedbackSidebarProps {
   // Design targets (from sliders)
   designIbu: number;
   designEbc: number;
@@ -42,6 +42,8 @@ interface RecipeFeedbackSidebarProps {
   // Cost
   totalCost: number;
   costPerLiter: number;
+  // Optional class override (for Sheet variant)
+  className?: string;
 }
 
 // ── Comparison helpers ──────────────────────────────────────────
@@ -122,6 +124,7 @@ export function RecipeFeedbackSidebar({
   water,
   totalCost,
   costPerLiter,
+  className,
 }: RecipeFeedbackSidebarProps): React.ReactNode {
   const t = useTranslations("recipes");
 
@@ -158,7 +161,7 @@ export function RecipeFeedbackSidebar({
           : "text-red-500";
 
   return (
-    <div className="w-72 shrink-0 border-l bg-muted/30 p-4 space-y-4 overflow-y-auto hidden xl:block">
+    <div className={cn("w-72 shrink-0 border-l bg-muted/30 p-4 space-y-4 overflow-y-auto hidden xl:block", className)}>
       {/* Section 1: Design vs Reality */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
