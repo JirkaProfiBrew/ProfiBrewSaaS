@@ -25,11 +25,13 @@ interface ConstantRow {
 
 const CONSTANT_ROWS: ConstantRow[] = [
   { key: "efficiencyPct", systemKey: "efficiencyPct", labelKey: "efficiency" },
-  { key: "kettleLossPct", systemKey: "kettleLossPct", labelKey: "kettleLoss" },
+  { key: "evaporationRatePctPerHour", systemKey: "evaporationRatePctPerHour", labelKey: "evaporationRate" },
+  { key: "kettleTrubLossL", systemKey: "kettleTrubLossL", labelKey: "kettleTrubLoss" },
   { key: "whirlpoolLossPct", systemKey: "whirlpoolLossPct", labelKey: "whirlpoolLoss" },
   { key: "fermentationLossPct", systemKey: "fermentationLossPct", labelKey: "fermentationLoss" },
   { key: "extractEstimate", systemKey: "extractEstimate", labelKey: "extractEstimate" },
   { key: "waterPerKgMalt", systemKey: "waterPerKgMalt", labelKey: "waterPerKg" },
+  { key: "grainAbsorptionLPerKg", systemKey: "grainAbsorptionLPerKg", labelKey: "grainAbsorption" },
   { key: "waterReserveL", systemKey: "waterReserveL", labelKey: "waterReserve" },
 ];
 

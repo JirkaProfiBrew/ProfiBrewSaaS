@@ -933,12 +933,14 @@ export async function calculateAndSaveRecipe(
           batchSizeL: parseFloat(bs.batchSizeL) || 100,
           efficiencyPct: parseFloat(bs.efficiencyPct) || 75,
           kettleVolumeL: parseFloat(bs.kettleVolumeL ?? "") || 120,
-          kettleLossPct: parseFloat(bs.kettleLossPct ?? "") || 10,
+          evaporationRatePctPerHour: parseFloat(bs.evaporationRatePctPerHour ?? "") || 8,
+          kettleTrubLossL: parseFloat(bs.kettleTrubLossL ?? "") || 5,
           whirlpoolLossPct: parseFloat(bs.whirlpoolLossPct ?? "") || 5,
           fermenterVolumeL: parseFloat(bs.fermenterVolumeL ?? "") || 120,
           fermentationLossPct: parseFloat(bs.fermentationLossPct ?? "") || 5,
           extractEstimate: parseFloat(bs.extractEstimate ?? "") || 80,
-          waterPerKgMalt: parseFloat(bs.waterPerKgMalt ?? "") || 4,
+          waterPerKgMalt: parseFloat(bs.waterPerKgMalt ?? "") || 3,
+          grainAbsorptionLPerKg: parseFloat(bs.grainAbsorptionLPerKg ?? "") || 0.8,
           waterReserveL: parseFloat(bs.waterReserveL ?? "") || 10,
         };
       } else {
@@ -949,27 +951,32 @@ export async function calculateAndSaveRecipe(
     const constantsOverride = recipe.constantsOverride as RecipeConstantsOverride | null;
     if (constantsOverride && brewingSystemInput) {
       if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
-      if (constantsOverride.kettleLossPct != null) brewingSystemInput.kettleLossPct = constantsOverride.kettleLossPct;
+      if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
+      if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
       if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
       if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;
+      if (constantsOverride.grainAbsorptionLPerKg != null) brewingSystemInput.grainAbsorptionLPerKg = constantsOverride.grainAbsorptionLPerKg;
       if (constantsOverride.waterReserveL != null) brewingSystemInput.waterReserveL = constantsOverride.waterReserveL;
     } else if (constantsOverride && !brewingSystemInput) {
       const { DEFAULT_BREWING_SYSTEM } = await import("./types");
       brewingSystemInput = { ...DEFAULT_BREWING_SYSTEM };
       if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
-      if (constantsOverride.kettleLossPct != null) brewingSystemInput.kettleLossPct = constantsOverride.kettleLossPct;
+      if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
+      if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
       if (constantsOverride.extractEstimate != null) brewingSystemInput.extractEstimate = constantsOverride.extractEstimate;
       if (constantsOverride.waterPerKgMalt != null) brewingSystemInput.waterPerKgMalt = constantsOverride.waterPerKgMalt;
+      if (constantsOverride.grainAbsorptionLPerKg != null) brewingSystemInput.grainAbsorptionLPerKg = constantsOverride.grainAbsorptionLPerKg;
       if (constantsOverride.waterReserveL != null) brewingSystemInput.waterReserveL = constantsOverride.waterReserveL;
     }
 
     const volumeL = recipe.batchSizeL ? parseFloat(recipe.batchSizeL) : 0;
     const fgPlato = recipe.fg ? parseFloat(recipe.fg) : undefined;
     const targetOgPlato = recipe.og ? parseFloat(recipe.og) : undefined;
+    const boilTime = constantsOverride?.boilTimeMin ?? recipe.boilTimeMin ?? 60;
 
     // Build overhead inputs from shop settings
     const overhead: OverheadInputs = {
@@ -978,7 +985,7 @@ export async function calculateAndSaveRecipe(
       brewCostCzk: shopSettings?.brew_cost_czk ?? 0,
     };
 
-    const result = calculateAll(ingredientInputs, volumeL, fgPlato, overhead, brewingSystemInput, targetOgPlato);
+    const result = calculateAll(ingredientInputs, volumeL, boilTime, fgPlato, overhead, brewingSystemInput, targetOgPlato);
 
     // Enrich result with pricing mode + per-ingredient price source
     result.pricingMode = pricingMode;

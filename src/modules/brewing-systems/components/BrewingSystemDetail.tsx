@@ -62,12 +62,14 @@ export function BrewingSystemDetail({
     efficiencyPct: "75",
     shopId: "__none__",
     kettleVolumeL: "617",
-    kettleLossPct: "10",
+    evaporationRatePctPerHour: "8",
+    kettleTrubLossL: "5",
     whirlpoolLossPct: "10",
     fermenterVolumeL: "800",
     fermentationLossPct: "10",
     extractEstimate: "0.80",
     waterPerKgMalt: "1.0",
+    grainAbsorptionLPerKg: "0.8",
     waterReserveL: "0",
     timePreparation: 30,
     timeLautering: 60,
@@ -90,12 +92,14 @@ export function BrewingSystemDetail({
         efficiencyPct: systemItem.efficiencyPct,
         shopId: systemItem.shopId ?? "__none__",
         kettleVolumeL: systemItem.kettleVolumeL ?? "",
-        kettleLossPct: systemItem.kettleLossPct ?? "10",
+        evaporationRatePctPerHour: systemItem.evaporationRatePctPerHour ?? "8",
+        kettleTrubLossL: systemItem.kettleTrubLossL ?? "5",
         whirlpoolLossPct: systemItem.whirlpoolLossPct ?? "10",
         fermenterVolumeL: systemItem.fermenterVolumeL ?? "",
         fermentationLossPct: systemItem.fermentationLossPct ?? "10",
         extractEstimate: systemItem.extractEstimate ?? "0.80",
         waterPerKgMalt: systemItem.waterPerKgMalt ?? "1.0",
+        grainAbsorptionLPerKg: systemItem.grainAbsorptionLPerKg ?? "0.8",
         waterReserveL: systemItem.waterReserveL ?? "0",
         timePreparation: systemItem.timePreparation ?? 30,
         timeLautering: systemItem.timeLautering ?? 60,
@@ -113,13 +117,15 @@ export function BrewingSystemDetail({
   const volumes: BrewingSystemVolumes = useMemo(() => {
     return calculateVolumes({
       batchSizeL: String(values.batchSizeL || "0"),
-      kettleLossPct: String(values.kettleLossPct || "0"),
+      evaporationRatePctPerHour: String(values.evaporationRatePctPerHour || "0"),
+      kettleTrubLossL: String(values.kettleTrubLossL || "0"),
       whirlpoolLossPct: String(values.whirlpoolLossPct || "0"),
       fermentationLossPct: String(values.fermentationLossPct || "0"),
     });
   }, [
     values.batchSizeL,
-    values.kettleLossPct,
+    values.evaporationRatePctPerHour,
+    values.kettleTrubLossL,
     values.whirlpoolLossPct,
     values.fermentationLossPct,
   ]);
@@ -188,7 +194,7 @@ export function BrewingSystemDetail({
   const constantsSection: FormSectionDef = useMemo(
     () => ({
       title: t("detail.sections.constants"),
-      columns: 3,
+      columns: 4,
       fields: [
         {
           key: "extractEstimate",
@@ -202,6 +208,13 @@ export function BrewingSystemDetail({
           type: "decimal",
           suffix: "L/kg",
           placeholder: "1.0",
+        },
+        {
+          key: "grainAbsorptionLPerKg",
+          label: t("detail.fields.grainAbsorptionLPerKg"),
+          type: "decimal",
+          suffix: "L/kg",
+          placeholder: "0.8",
         },
         {
           key: "waterReserveL",
@@ -285,8 +298,11 @@ export function BrewingSystemDetail({
       kettleVolumeL: values.kettleVolumeL
         ? String(values.kettleVolumeL)
         : null,
-      kettleLossPct: values.kettleLossPct
-        ? String(values.kettleLossPct)
+      evaporationRatePctPerHour: values.evaporationRatePctPerHour
+        ? String(values.evaporationRatePctPerHour)
+        : null,
+      kettleTrubLossL: values.kettleTrubLossL
+        ? String(values.kettleTrubLossL)
         : null,
       whirlpoolLossPct: values.whirlpoolLossPct
         ? String(values.whirlpoolLossPct)
@@ -302,6 +318,9 @@ export function BrewingSystemDetail({
         : null,
       waterPerKgMalt: values.waterPerKgMalt
         ? String(values.waterPerKgMalt)
+        : null,
+      grainAbsorptionLPerKg: values.grainAbsorptionLPerKg
+        ? String(values.grainAbsorptionLPerKg)
         : null,
       waterReserveL: values.waterReserveL
         ? String(values.waterReserveL)
@@ -379,7 +398,8 @@ export function BrewingSystemDetail({
 
   const kettleVolumeL = Number(values.kettleVolumeL) || 0;
   const fermenterVolumeL = Number(values.fermenterVolumeL) || 0;
-  const kettleLossPct = Number(values.kettleLossPct) || 0;
+  const evaporationRatePctPerHour = Number(values.evaporationRatePctPerHour) || 0;
+  const kettleTrubLossL = Number(values.kettleTrubLossL) || 0;
   const whirlpoolLossPct = Number(values.whirlpoolLossPct) || 0;
   const fermentationLossPct = Number(values.fermentationLossPct) || 0;
 
@@ -433,13 +453,26 @@ export function BrewingSystemDetail({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">
-                    {t("detail.fields.kettleLossPct")}
+                    {t("detail.fields.evaporationRatePctPerHour")}
                   </Label>
                   <Input
                     type="number"
-                    value={String(values.kettleLossPct ?? "")}
+                    value={String(values.evaporationRatePctPerHour ?? "")}
                     onChange={(e) =>
-                      handleChange("kettleLossPct", e.target.value)
+                      handleChange("evaporationRatePctPerHour", e.target.value)
+                    }
+                    className="h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    {t("detail.fields.kettleTrubLossL")}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={String(values.kettleTrubLossL ?? "")}
+                    onChange={(e) =>
+                      handleChange("kettleTrubLossL", e.target.value)
                     }
                     className="h-8"
                   />
@@ -459,8 +492,8 @@ export function BrewingSystemDetail({
                       label: t("detail.volumeLabels.postBoil"),
                       liquidColor: "bg-yellow-400",
                     }}
-                    lossLabel={t("detail.fields.kettleLossPct")}
-                    lossPct={kettleLossPct}
+                    lossLabel={t("detail.fields.evaporationRatePctPerHour")}
+                    lossPct={evaporationRatePctPerHour}
                   />
                 </div>
               </div>

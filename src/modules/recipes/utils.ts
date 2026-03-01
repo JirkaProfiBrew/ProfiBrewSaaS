@@ -2,14 +2,14 @@
  * Brewing calculation utilities — pure functions, no server dependency.
  *
  * Formulas used:
- * - OG (Plato): from malt extract contribution, assumes brewhouse efficiency
- * - IBU (Tinseth): hop utilization based on boil time and wort gravity
- * - EBC (Morey): color estimate from malt color contributions
+ * - OG (Plato): from malt extract through pre-boil, concentrated by boil
+ * - IBU (Tinseth): hop utilization based on boil time and wort gravity, on post-boil volume
+ * - EBC (Morey): color estimate from malt color contributions, on batch size
  * - ABV (Balling): alcohol by volume from OG and FG in Plato
  * - Cost: sum of ingredient costs based on amount and unit price
  */
 
-import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline } from "./types";
+import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation } from "./types";
 import { DEFAULT_BREWING_SYSTEM } from "./types";
 
 // ── Input interface ─────────────────────────────────────────
@@ -50,44 +50,109 @@ function toKg(ingredient: IngredientInput): number {
   return ingredient.amountG;
 }
 
+// ── Helpers ─────────────────────────────────────────────────
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function platoToSG(plato: number): number {
+  if (plato <= 0) return 1.0;
+  return 1 + plato / (258.6 - 227.1 * (plato / 258.2));
+}
+
+// ── Volume pipeline ─────────────────────────────────────────
+
+/**
+ * Calculate volumes through the entire brewing process.
+ * Anchor point: batchSizeL = volume INTO FERMENTER.
+ *
+ * Backward (how much to brew):
+ *   post-boil = batchSize / (1 - whirlpool%)
+ *   pre-boil = (post-boil + kettleTrub) / (1 - evapRate * boilHours)
+ *
+ * Forward (how much remains):
+ *   finishedBeer = batchSize * (1 - fermentation%)
+ */
+export function calculateVolumePipeline(
+  batchSizeL: number,
+  boilTimeMin: number,
+  system: BrewingSystemInput
+): VolumePipeline {
+  // Backward from batch_size (into fermenter)
+  const whirlpoolFactor = 1 - system.whirlpoolLossPct / 100;
+  const postBoilL = whirlpoolFactor > 0
+    ? batchSizeL / whirlpoolFactor
+    : batchSizeL;
+
+  const boilHours = boilTimeMin / 60;
+  const evapFactor = 1 - (system.evaporationRatePctPerHour / 100) * boilHours;
+  const preBoilL = evapFactor > 0
+    ? (postBoilL + system.kettleTrubLossL) / evapFactor
+    : postBoilL + system.kettleTrubLossL;
+
+  const evaporationL = preBoilL * (system.evaporationRatePctPerHour / 100) * boilHours;
+
+  // Forward from batch_size
+  const finishedBeerL = batchSizeL * (1 - system.fermentationLossPct / 100);
+
+  return {
+    preBoilL: round1(preBoilL),
+    postBoilL: round1(postBoilL),
+    intoFermenterL: round1(batchSizeL),
+    finishedBeerL: round1(finishedBeerL),
+    losses: {
+      evaporationL: round1(evaporationL),
+      kettleTrubL: round1(system.kettleTrubLossL),
+      whirlpoolL: round1(postBoilL - batchSizeL),
+      fermentationL: round1(batchSizeL - finishedBeerL),
+      totalL: round1(preBoilL - finishedBeerL),
+    },
+  };
+}
+
 // ── OG (Plato) ──────────────────────────────────────────────
 
 /**
  * Calculate Original Gravity in degrees Plato.
+ * Two-step: extract in pre-boil → concentrate by boil.
  *
- * OG (°P) = total_extract_kg / (volume_L * wort_density_approx) * 100
- * Simplified: total_extract = sum(weight_kg * extractPercent/100 * efficiency)
- * Plato = total_extract / (total_extract + volume_L) * 100
+ * 1. totalExtractKg = Σ(malt_kg × extractPercent × efficiency)
+ * 2. OG = totalExtractKg / (totalExtractKg + postBoilL) × 100
  *
- * @param ingredients - list of ingredients with category, amountG, extractPercent
- * @param volumeL - final batch volume in liters
- * @param efficiency - brewhouse efficiency (default 0.75 = 75%)
- * @returns OG in degrees Plato
+ * The extract is dissolved in pre-boil volume but water evaporates during boil,
+ * concentrating the wort. OG is measured post-boil (= into fermenter gravity).
  */
 export function calculateOG(
   ingredients: IngredientInput[],
-  volumeL: number,
-  efficiency: number = 0.75
+  preBoilL: number,
+  postBoilL: number,
+  efficiencyPct: number
 ): number {
-  if (volumeL <= 0) return 0;
+  if (preBoilL <= 0 || postBoilL <= 0) return 0;
 
+  const efficiency = efficiencyPct / 100;
   const malts = ingredients.filter(
     (i) => i.category === "malt" || i.category === "adjunct"
   );
 
-  // Total extract mass in kg
   const totalExtractKg = malts.reduce((sum, malt) => {
     const weightKg = toKg(malt);
     const extractFraction = (malt.extractPercent ?? 80) / 100;
     return sum + weightKg * extractFraction * efficiency;
   }, 0);
 
-  // Plato = extract_mass / (extract_mass + water_mass) * 100
-  // Approximate water mass as volumeL (1 kg/L for water)
-  if (totalExtractKg + volumeL <= 0) return 0;
-  const plato = (totalExtractKg / (totalExtractKg + volumeL)) * 100;
+  if (totalExtractKg <= 0) return 0;
 
-  return Math.round(plato * 10) / 10;
+  // Post-boil gravity: extract dissolved in post-boil water mass
+  const postBoilWaterKg = postBoilL; // ≈ density of wort close to water
+  const ogPlato = totalExtractKg / (totalExtractKg + postBoilWaterKg) * 100;
+
+  return round1(ogPlato);
 }
 
 // ── IBU (Tinseth) ───────────────────────────────────────────
@@ -97,14 +162,7 @@ export function calculateOG(
  * U = bigness_factor * boil_time_factor
  * bigness_factor = 1.65 * 0.000125^(SG - 1)
  * boil_time_factor = (1 - e^(-0.04 * time)) / 4.15
- *
- * SG is approximated from Plato: SG = 1 + (plato / (258.6 - 227.1 * plato / 258.2))
  */
-function platoToSG(plato: number): number {
-  if (plato <= 0) return 1.0;
-  return 1 + plato / (258.6 - 227.1 * (plato / 258.2));
-}
-
 function tinsethUtilization(boilTimeMin: number, sgWort: number): number {
   const bignessFactor = 1.65 * Math.pow(0.000125, sgWort - 1);
   const boilTimeFactor = (1 - Math.exp(-0.04 * boilTimeMin)) / 4.15;
@@ -112,22 +170,15 @@ function tinsethUtilization(boilTimeMin: number, sgWort: number): number {
 }
 
 /**
- * Calculate IBU using Tinseth formula.
- * IBU = sum( (W_g * U * A * 1000) / V )
- * where W_g = hop weight in grams (we convert to kg in formula),
- * U = utilization, A = alpha acid (decimal), V = volume (L)
- *
- * @param ingredients - list with hop alpha and useTimeMin
- * @param volumeL - batch volume in liters
- * @param ogPlato - OG in Plato (for utilization calc)
- * @returns IBU value
+ * Calculate IBU using Tinseth formula on POST-BOIL volume.
+ * IBU = Σ(W_kg × U × alpha × 1,000,000) / V_postBoil
  */
 export function calculateIBU(
   ingredients: IngredientInput[],
-  volumeL: number,
+  postBoilL: number,
   ogPlato: number
 ): number {
-  if (volumeL <= 0) return 0;
+  if (postBoilL <= 0) return 0;
 
   const sg = platoToSG(ogPlato);
   const hops = ingredients.filter((i) => i.category === "hop");
@@ -142,44 +193,37 @@ export function calculateIBU(
     const utilization = tinsethUtilization(boilTime, sg);
     const weightKg = toKg(hop);
 
-    // Tinseth: IBU = (W_kg * U * alpha * 1000) / V
-    const ibu = (weightKg * utilization * alphaDecimal * 1000000) / volumeL;
+    // Tinseth: IBU = (W_kg * U * alpha * 1000000) / V
+    const ibu = (weightKg * utilization * alphaDecimal * 1000000) / postBoilL;
     return sum + ibu;
   }, 0);
 
-  return Math.round(totalIBU * 10) / 10;
+  return round1(totalIBU);
 }
 
 // ── EBC (Morey) ─────────────────────────────────────────────
 
 /**
- * Calculate beer color in EBC using Morey formula.
- * MCU = sum(weight_kg * Lovibond) / volume_L
- * Lovibond ~= EBC / 1.97
- * SRM = 1.4922 * MCU^0.6859
- * EBC = SRM * 1.97
- *
- * @param ingredients - list with malt ebc values
- * @param volumeL - batch volume in liters
- * @returns EBC value
+ * Calculate beer color in EBC using Morey formula on BATCH SIZE (into fermenter).
+ * MCU = Σ(weight_lbs × Lovibond) / volume_gal
+ * SRM = 1.4922 × MCU^0.6859
+ * EBC = SRM × 1.97
  */
 export function calculateEBC(
   ingredients: IngredientInput[],
-  volumeL: number
+  batchSizeL: number
 ): number {
-  if (volumeL <= 0) return 0;
+  if (batchSizeL <= 0) return 0;
 
   const malts = ingredients.filter(
     (i) => i.category === "malt" || i.category === "adjunct"
   );
 
-  // MCU uses Lovibond, and volume in gallons for the original Morey
-  // We convert: Lovibond = EBC / 1.97, gallons = liters / 3.78541
-  const volumeGal = volumeL / 3.78541;
+  const volumeGal = batchSizeL / 3.78541;
   if (volumeGal <= 0) return 0;
 
   const mcu = malts.reduce((sum, malt) => {
-    const weightLbs = toKg(malt) * 2.20462; // kg to lbs
+    const weightLbs = toKg(malt) * 2.20462;
     const lovibond = (malt.ebc ?? 0) / 1.97;
     return sum + (weightLbs * lovibond) / volumeGal;
   }, 0);
@@ -189,7 +233,7 @@ export function calculateEBC(
   const srm = 1.4922 * Math.pow(mcu, 0.6859);
   const ebc = srm * 1.97;
 
-  return Math.round(ebc * 10) / 10;
+  return round1(ebc);
 }
 
 // ── ABV (Balling) ───────────────────────────────────────────
@@ -197,17 +241,13 @@ export function calculateEBC(
 /**
  * Calculate ABV using the Balling formula.
  * ABV = (OG_plato - FG_plato) / (2.0665 - 0.010665 * OG_plato)
- *
- * @param ogPlato - Original gravity in Plato
- * @param fgPlato - Final gravity in Plato
- * @returns ABV percentage
  */
 export function calculateABV(ogPlato: number, fgPlato: number): number {
   const denominator = 2.0665 - 0.010665 * ogPlato;
   if (denominator <= 0) return 0;
 
   const abv = (ogPlato - fgPlato) / denominator;
-  return Math.round(Math.max(0, abv) * 100) / 100;
+  return round2(Math.max(0, abv));
 }
 
 // ── Cost ────────────────────────────────────────────────────
@@ -216,9 +256,6 @@ export function calculateABV(ogPlato: number, fgPlato: number): number {
  * Calculate total and per-item cost.
  * Quantities and prices are taken 1:1 in stock units.
  * Only hops need conversion (recipe unit g → stock unit kg).
- *
- * @param ingredients - list with amountG and costPrice (per stock unit)
- * @returns total cost and breakdown per item
  */
 export function calculateCost(
   ingredients: IngredientInput[]
@@ -226,8 +263,6 @@ export function calculateCost(
   const perItem = ingredients.map((ing) => {
     const rawCostPrice = ing.costPrice ?? 0;
 
-    // Hops: recipe unit (g) ≠ stock unit (kg) — convert amount to stock unit
-    // Everything else: 1:1 (recipe unit = stock unit), no conversion
     let stockAmount: number;
     if (ing.category === "hop" && ing.stockUnitToBaseFactor != null) {
       const recipeUnitFactor = ing.unitToBaseFactor ?? 1;
@@ -245,8 +280,8 @@ export function calculateCost(
       recipeItemId: ing.recipeItemId,
       name: ing.name,
       amount: stockAmount,
-      cost: Math.round(cost * 100) / 100,
-      costPerUnit: Math.round(rawCostPrice * 100) / 100,
+      cost: round2(cost),
+      costPerUnit: round2(rawCostPrice),
       unitSymbol: ing.stockUnitSymbol ?? undefined,
     };
   });
@@ -254,88 +289,74 @@ export function calculateCost(
   const total = perItem.reduce((sum, item) => sum + item.cost, 0);
 
   return {
-    total: Math.round(total * 100) / 100,
+    total: round2(total),
     perItem,
   };
 }
 
-// ── Volume pipeline ─────────────────────────────────────────
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
-}
+// ── Malt requirements ───────────────────────────────────────
 
 /**
- * Calculate volumes through the entire brewing process (reverse calculation).
- * Starting from finished beer volume, working backwards to pre-boil.
- */
-export function calculateVolumePipeline(
-  targetVolumeL: number,
-  system: BrewingSystemInput
-): VolumePipeline {
-  const finishedBeerL = targetVolumeL;
-
-  const fermLossFactor = 1 - system.fermentationLossPct / 100;
-  const intoFermenterL = fermLossFactor > 0 ? finishedBeerL / fermLossFactor : finishedBeerL;
-
-  const whirlpoolLossFactor = 1 - system.whirlpoolLossPct / 100;
-  const postBoilL = whirlpoolLossFactor > 0 ? intoFermenterL / whirlpoolLossFactor : intoFermenterL;
-
-  const kettleLossFactor = 1 - system.kettleLossPct / 100;
-  const preBoilL = kettleLossFactor > 0 ? postBoilL / kettleLossFactor : postBoilL;
-
-  return {
-    preBoilL: round1(preBoilL),
-    postBoilL: round1(postBoilL),
-    intoFermenterL: round1(intoFermenterL),
-    finishedBeerL: round1(finishedBeerL),
-    losses: {
-      kettleL: round1(preBoilL - postBoilL),
-      whirlpoolL: round1(postBoilL - intoFermenterL),
-      fermentationL: round1(intoFermenterL - finishedBeerL),
-      totalL: round1(preBoilL - finishedBeerL),
-    },
-  };
-}
-
-// ── Malt & water requirements ───────────────────────────────
-
-/**
- * Calculate total malt required in kg.
- * extract_needed = (plato/100) × pre_boil_volume × wort_density
- * malt_kg = extract_needed / (extract_estimate/100) / (efficiency/100)
+ * Calculate total malt required in kg (from target OG).
+ * Reverse of OG formula:
+ *   OG/100 = extractKg / (extractKg + postBoilL)
+ *   extractKg = (OG/100 × postBoilL) / (1 - OG/100)
+ *   maltKg = extractKg / (extractPct/100) / (efficiency/100)
  */
 export function calculateMaltRequired(
-  targetPlato: number,
-  preBoilVolumeL: number,
-  system: BrewingSystemInput
+  targetOgPlato: number,
+  postBoilL: number,
+  efficiencyPct: number,
+  extractEstimatePct: number
 ): number {
-  if (targetPlato <= 0 || preBoilVolumeL <= 0) return 0;
+  if (targetOgPlato <= 0 || postBoilL <= 0) return 0;
 
-  const wortDensity = 1 + targetPlato / 258;
-  const extractNeededKg = (targetPlato / 100) * preBoilVolumeL * wortDensity;
+  const ogFraction = targetOgPlato / 100;
+  if (ogFraction >= 1) return 0;
 
-  const extractFraction = (system.extractEstimate || 80) / 100;
-  const efficiencyFraction = (system.efficiencyPct || 75) / 100;
+  const extractNeededKg = (ogFraction * postBoilL) / (1 - ogFraction);
+  const extractFraction = (extractEstimatePct || 80) / 100;
+  const efficiency = (efficiencyPct || 75) / 100;
 
-  if (extractFraction <= 0 || efficiencyFraction <= 0) return 0;
+  if (extractFraction <= 0 || efficiency <= 0) return 0;
 
-  const maltKg = extractNeededKg / extractFraction / efficiencyFraction;
-  return Math.round(maltKg * 100) / 100;
+  const maltKg = extractNeededKg / extractFraction / efficiency;
+  return round2(maltKg);
 }
 
-/**
- * Calculate total water required in liters.
- * water_L = malt_kg × water_per_kg_malt + water_reserve_L
- */
-export function calculateWaterRequired(
-  maltKg: number,
-  system: BrewingSystemInput
-): number {
-  if (maltKg <= 0) return 0;
+// ── Water calculation ───────────────────────────────────────
 
-  const waterL = maltKg * (system.waterPerKgMalt || 4) + (system.waterReserveL || 0);
-  return Math.round(waterL * 10) / 10;
+/**
+ * Calculate water requirements with mash/sparge split.
+ *
+ * Mash water = maltKg × waterPerKgMalt
+ * Grain absorption = maltKg × grainAbsorptionLPerKg
+ * Volume after mash = mashWater - grainAbsorption
+ * Sparge water = preBoilL - volumeAfterMash (fill kettle to pre-boil level)
+ * Total = mashWater + spargeWater
+ */
+export function calculateWater(
+  maltKg: number,
+  preBoilL: number,
+  waterPerKgMalt: number,
+  grainAbsorptionLPerKg: number
+): WaterCalculation {
+  if (maltKg <= 0 || preBoilL <= 0) {
+    return { mashWaterL: 0, spargeWaterL: 0, totalWaterL: 0, grainAbsorptionL: 0 };
+  }
+
+  const mashWaterL = maltKg * waterPerKgMalt;
+  const grainAbsorptionL = maltKg * grainAbsorptionLPerKg;
+  const volumeAfterMashL = mashWaterL - grainAbsorptionL;
+  const spargeWaterL = Math.max(0, preBoilL - volumeAfterMashL);
+  const totalWaterL = mashWaterL + spargeWaterL;
+
+  return {
+    mashWaterL: round1(mashWaterL),
+    spargeWaterL: round1(spargeWaterL),
+    totalWaterL: round1(totalWaterL),
+    grainAbsorptionL: round1(grainAbsorptionL),
+  };
 }
 
 // ── Combined calculation ────────────────────────────────────
@@ -344,15 +365,18 @@ export function calculateWaterRequired(
  * Run all calculations at once and return a RecipeCalculationResult.
  *
  * @param ingredients - all recipe ingredients with parsed numeric values
- * @param volumeL - batch volume in liters
+ * @param batchSizeL - batch volume in liters (= into fermenter, anchor point)
+ * @param boilTimeMin - boil time in minutes (from recipe or constants)
  * @param fgPlato - Final gravity in Plato (optional, defaults to 25% of OG for estimate)
  * @param overhead - optional overhead inputs (pct, fixed costs)
  * @param brewingSystem - optional brewing system parameters (null = use defaults)
+ * @param targetOgPlato - target OG from design slider (for malt plan calculation)
  * @returns RecipeCalculationResult with all calculated values
  */
 export function calculateAll(
   ingredients: IngredientInput[],
-  volumeL: number,
+  batchSizeL: number,
+  boilTimeMin: number,
   fgPlato?: number,
   overhead?: OverheadInputs,
   brewingSystem?: BrewingSystemInput | null,
@@ -360,37 +384,59 @@ export function calculateAll(
 ): RecipeCalculationResult {
   const system = brewingSystem ?? DEFAULT_BREWING_SYSTEM;
 
-  // Volume pipeline
-  const pipeline = calculateVolumePipeline(volumeL, system);
+  // 1. Pipeline — uses boilTimeMin for evaporation
+  const pipeline = calculateVolumePipeline(batchSizeL, boilTimeMin, system);
 
-  // OG — use efficiency from brewing system
-  const og = calculateOG(ingredients, volumeL, system.efficiencyPct / 100);
+  // 2. OG — extract through pre-boil, concentrated by boil
+  const og = calculateOG(ingredients, pipeline.preBoilL, pipeline.postBoilL, system.efficiencyPct);
 
-  // Default FG estimate: ~25% of OG (typical apparent attenuation ~75%)
-  const fg = fgPlato ?? Math.round(og * 0.25 * 10) / 10;
+  // 3. FG — from design target, or estimate 25% of OG
+  const fg = fgPlato ?? round1(og * 0.25);
 
+  // 4. ABV
   const abv = calculateABV(og, fg);
-  const ibu = calculateIBU(ingredients, volumeL, og);
-  const ebc = calculateEBC(ingredients, volumeL);
+
+  // 5. IBU — Tinseth on post-boil volume
+  const ibu = calculateIBU(ingredients, pipeline.postBoilL, og);
+
+  // 6. EBC — Morey on batch size (into fermenter)
+  const ebc = calculateEBC(ingredients, batchSizeL);
+
+  // 7. Cost
   const { total: ingredientsCost, perItem } = calculateCost(ingredients);
 
-  // Overhead computation
+  // 8. Overhead
   const oh = overhead ?? { overheadPct: 0, overheadCzk: 0, brewCostCzk: 0 };
-  const ingredientOverheadCost =
-    Math.round(ingredientsCost * oh.overheadPct) / 100;
-  const totalProductionCost =
-    Math.round(
-      (ingredientsCost + ingredientOverheadCost + oh.brewCostCzk + oh.overheadCzk) * 100
-    ) / 100;
-  const costPerLiter =
-    volumeL > 0
-      ? Math.round((totalProductionCost / volumeL) * 100) / 100
-      : 0;
+  const ingredientOverheadCost = round2(ingredientsCost * oh.overheadPct / 100);
+  const totalProductionCost = round2(
+    ingredientsCost + ingredientOverheadCost + oh.brewCostCzk + oh.overheadCzk
+  );
+  const costPerLiter = batchSizeL > 0
+    ? round2(totalProductionCost / batchSizeL)
+    : 0;
 
-  // Malt & water requirements — use design target OG (not calculated OG from ingredients)
+  // 9. Malt — plan from target OG (design), actual from ingredients
   const ogForPlan = targetOgPlato ?? og;
-  const maltRequiredKg = calculateMaltRequired(ogForPlan, pipeline.preBoilL, system);
-  const waterRequiredL = calculateWaterRequired(maltRequiredKg, system);
+  const maltRequiredKg = calculateMaltRequired(
+    ogForPlan,
+    pipeline.postBoilL,
+    system.efficiencyPct,
+    system.extractEstimate
+  );
+
+  const maltActualKg = round2(
+    ingredients
+      .filter((i) => i.category === "malt" || i.category === "adjunct")
+      .reduce((sum, m) => sum + toKg(m), 0)
+  );
+
+  // 10. Water — based on malt plan, split into mash + sparge
+  const water = calculateWater(
+    maltRequiredKg > 0 ? maltRequiredKg : maltActualKg,
+    pipeline.preBoilL,
+    system.waterPerKgMalt,
+    system.grainAbsorptionLPerKg
+  );
 
   return {
     og,
@@ -410,7 +456,8 @@ export function calculateAll(
     costPrice: totalProductionCost,
     pipeline,
     maltRequiredKg,
-    waterRequiredL,
+    maltActualKg,
+    water,
     brewingSystemUsed: brewingSystem != null,
   };
 }

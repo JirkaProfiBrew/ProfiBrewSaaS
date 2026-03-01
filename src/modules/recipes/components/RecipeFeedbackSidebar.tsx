@@ -6,6 +6,7 @@ import { Check, AlertTriangle, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import type { VolumePipeline, WaterCalculation } from "../types";
 
 // ── Props ────────────────────────────────────────────────────────
 
@@ -20,14 +21,9 @@ interface RecipeFeedbackSidebarProps {
   maltPlanKg: number;
   maltActualKg: number;
   // Pipeline
-  pipeline: {
-    preBoilL: number;
-    postBoilL: number;
-    intoFermenterL: number;
-    finishedBeerL: number;
-  } | null;
+  pipeline: VolumePipeline;
   // Water
-  waterRequiredL: number;
+  water: WaterCalculation;
   // Cost
   totalCost: number;
   costPerLiter: number;
@@ -108,7 +104,7 @@ export function RecipeFeedbackSidebar({
   maltPlanKg,
   maltActualKg,
   pipeline,
-  waterRequiredL,
+  water,
   totalCost,
   costPerLiter,
 }: RecipeFeedbackSidebarProps): React.ReactNode {
@@ -203,45 +199,64 @@ export function RecipeFeedbackSidebar({
       <Separator />
 
       {/* Section 3: Pipeline */}
-      {pipeline && (
-        <>
-          <div>
-            <h3 className="text-sm font-semibold mb-2">
-              {t("designer.feedback.pipeline")}
-            </h3>
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>{t("calculation.pipeline.preBoil")}:</span>
-                <span>{pipeline.preBoilL.toFixed(1)} L</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("calculation.pipeline.postBoil")}:</span>
-                <span>{pipeline.postBoilL.toFixed(1)} L</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("calculation.pipeline.intoFermenter")}:</span>
-                <span>{pipeline.intoFermenterL.toFixed(1)} L</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t("calculation.pipeline.finishedBeer")}:</span>
-                <span className="font-semibold">
-                  {pipeline.finishedBeerL.toFixed(1)} L
-                </span>
-              </div>
-            </div>
+      <div>
+        <h3 className="text-sm font-semibold mb-2">
+          {t("designer.feedback.pipeline")}
+        </h3>
+        <div className="text-xs space-y-1">
+          <div className="flex justify-between">
+            <span>{t("calculation.pipeline.preBoil")}:</span>
+            <span>{pipeline.preBoilL.toFixed(1)} L</span>
           </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span className="pl-2">– {t("designer.feedback.evaporation")}:</span>
+            <span>{pipeline.losses.evaporationL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span className="pl-2">– {t("designer.feedback.kettleTrub")}:</span>
+            <span>{pipeline.losses.kettleTrubL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{t("calculation.pipeline.postBoil")}:</span>
+            <span>{pipeline.postBoilL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{t("calculation.pipeline.intoFermenter")}:</span>
+            <span>{pipeline.intoFermenterL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{t("calculation.pipeline.finishedBeer")}:</span>
+            <span className="font-semibold">
+              {pipeline.finishedBeerL.toFixed(1)} L
+            </span>
+          </div>
+        </div>
+      </div>
 
-          <Separator />
-        </>
-      )}
+      <Separator />
 
       {/* Section 4: Water */}
       <div>
         <h3 className="text-sm font-semibold mb-2">
           {t("designer.feedback.water")}
         </h3>
-        <div className="text-xs">
-          {t("designer.feedback.waterRequired")}: {waterRequiredL.toFixed(0)} L
+        <div className="text-xs space-y-1">
+          <div className="flex justify-between">
+            <span>{t("designer.feedback.mashWater")}:</span>
+            <span>{water.mashWaterL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span className="pl-2">– {t("designer.feedback.grainAbsorption")}:</span>
+            <span>{water.grainAbsorptionL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{t("designer.feedback.spargeWater")}:</span>
+            <span>{water.spargeWaterL.toFixed(1)} L</span>
+          </div>
+          <div className="flex justify-between font-semibold">
+            <span>{t("designer.feedback.totalWater")}:</span>
+            <span>{water.totalWaterL.toFixed(1)} L</span>
+          </div>
         </div>
       </div>
 

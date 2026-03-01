@@ -97,22 +97,26 @@ export interface BrewingSystemInput {
   batchSizeL: number;
   efficiencyPct: number;
   kettleVolumeL: number;
-  kettleLossPct: number;
+  evaporationRatePctPerHour: number;
+  kettleTrubLossL: number;
   whirlpoolLossPct: number;
   fermenterVolumeL: number;
   fermentationLossPct: number;
   extractEstimate: number;
   waterPerKgMalt: number;
+  grainAbsorptionLPerKg: number;
   waterReserveL: number;
 }
 
 export interface RecipeConstantsOverride {
   efficiencyPct?: number;
-  kettleLossPct?: number;
+  evaporationRatePctPerHour?: number;
+  kettleTrubLossL?: number;
   whirlpoolLossPct?: number;
   fermentationLossPct?: number;
   extractEstimate?: number;
   waterPerKgMalt?: number;
+  grainAbsorptionLPerKg?: number;
   waterReserveL?: number;
   boilTimeMin?: number;
 }
@@ -121,26 +125,36 @@ export const DEFAULT_BREWING_SYSTEM: BrewingSystemInput = {
   batchSizeL: 100,
   efficiencyPct: 75,
   kettleVolumeL: 120,
-  kettleLossPct: 10,
+  evaporationRatePctPerHour: 8,
+  kettleTrubLossL: 5,
   whirlpoolLossPct: 5,
   fermenterVolumeL: 120,
   fermentationLossPct: 5,
   extractEstimate: 80,
-  waterPerKgMalt: 4,
+  waterPerKgMalt: 3.0,
+  grainAbsorptionLPerKg: 0.8,
   waterReserveL: 10,
 };
 
 export interface VolumePipeline {
   preBoilL: number;
   postBoilL: number;
-  intoFermenterL: number;
+  intoFermenterL: number;   // = batch_size (anchor point)
   finishedBeerL: number;
   losses: {
-    kettleL: number;
+    evaporationL: number;
+    kettleTrubL: number;
     whirlpoolL: number;
     fermentationL: number;
     totalL: number;
   };
+}
+
+export interface WaterCalculation {
+  mashWaterL: number;
+  spargeWaterL: number;
+  totalWaterL: number;
+  grainAbsorptionL: number;
 }
 
 export interface RecipeCalculationResult {
@@ -171,10 +185,11 @@ export interface RecipeCalculationResult {
   /** @deprecated Alias for totalProductionCost (backward compat). */
   costPrice: number;
   // Volume pipeline (Phase B)
-  pipeline?: VolumePipeline;
-  maltRequiredKg?: number;
-  waterRequiredL?: number;
-  brewingSystemUsed?: boolean;
+  pipeline: VolumePipeline;
+  maltRequiredKg: number;
+  maltActualKg: number;
+  water: WaterCalculation;
+  brewingSystemUsed: boolean;
 }
 
 export interface BeerStyle {

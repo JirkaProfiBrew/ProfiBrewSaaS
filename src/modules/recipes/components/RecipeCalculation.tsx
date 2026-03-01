@@ -295,7 +295,7 @@ export function RecipeCalculation({
               <div className="space-y-3">
                 {[
                   { label: t("calculation.pipeline.preBoil"), value: calcSnapshot.pipeline.preBoilL },
-                  { label: t("calculation.pipeline.postBoil"), value: calcSnapshot.pipeline.postBoilL, loss: calcSnapshot.pipeline.losses.kettleL, lossLabel: t("calculation.pipeline.kettleLoss") },
+                  { label: t("calculation.pipeline.postBoil"), value: calcSnapshot.pipeline.postBoilL, loss: calcSnapshot.pipeline.losses.evaporationL + calcSnapshot.pipeline.losses.kettleTrubL, lossLabel: t("calculation.pipeline.kettleLoss") },
                   { label: t("calculation.pipeline.intoFermenter"), value: calcSnapshot.pipeline.intoFermenterL, loss: calcSnapshot.pipeline.losses.whirlpoolL, lossLabel: t("calculation.pipeline.whirlpoolLoss") },
                   { label: t("calculation.pipeline.finishedBeer"), value: calcSnapshot.pipeline.finishedBeerL, loss: calcSnapshot.pipeline.losses.fermentationL, lossLabel: t("calculation.pipeline.fermentationLoss") },
                 ].map((row) => (
@@ -340,7 +340,7 @@ export function RecipeCalculation({
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <span className="text-sm">{t("calculation.requirements.waterRequired")}</span>
                   <span className="text-2xl font-bold">
-                    {calcSnapshot.waterRequiredL ?? 0} {t("calculation.requirements.waterUnit")}
+                    {calcSnapshot.water?.totalWaterL ?? 0} {t("calculation.requirements.waterUnit")}
                   </span>
                 </div>
               </div>

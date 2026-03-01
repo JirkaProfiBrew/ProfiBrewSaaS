@@ -246,8 +246,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     const merged = { ...systemDefaults };
     if (constants.efficiencyPct != null)
       merged.efficiencyPct = constants.efficiencyPct;
-    if (constants.kettleLossPct != null)
-      merged.kettleLossPct = constants.kettleLossPct;
+    if (constants.evaporationRatePctPerHour != null)
+      merged.evaporationRatePctPerHour = constants.evaporationRatePctPerHour;
+    if (constants.kettleTrubLossL != null)
+      merged.kettleTrubLossL = constants.kettleTrubLossL;
     if (constants.whirlpoolLossPct != null)
       merged.whirlpoolLossPct = constants.whirlpoolLossPct;
     if (constants.fermentationLossPct != null)
@@ -256,6 +258,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       merged.extractEstimate = constants.extractEstimate;
     if (constants.waterPerKgMalt != null)
       merged.waterPerKgMalt = constants.waterPerKgMalt;
+    if (constants.grainAbsorptionLPerKg != null)
+      merged.grainAbsorptionLPerKg = constants.grainAbsorptionLPerKg;
     if (constants.waterReserveL != null)
       merged.waterReserveL = constants.waterReserveL;
     return merged;
@@ -285,6 +289,9 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   // Volume
   const volumeL = designValues.batchSizeL;
 
+  // Effective boil time (from constants override or recipe values)
+  const boilTimeMin = constants.boilTimeMin ?? (values.boilTimeMin ? Number(values.boilTimeMin) : 60);
+
   // Real-time calculation (client-side)
   const calcResult = useMemo(() => {
     const ingredients: IngredientInput[] = localItems.map((item) => ({
@@ -303,17 +310,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       name: item.itemName ?? item.itemId,
     }));
 
-    return calculateAll(ingredients, volumeL, undefined, undefined, effectiveSystem, designValues.og || undefined);
-  }, [localItems, volumeL, effectiveSystem, designValues.og]);
-
-  // Malt actual kg
-  const maltActualKg = useMemo(() => {
-    return maltItems.reduce((sum, item) => {
-      const amount = parseFloat(item.amountG) || 0;
-      const factor = item.unitToBaseFactor ?? 1;
-      return sum + amount * factor;
-    }, 0);
-  }, [maltItems]);
+    return calculateAll(ingredients, volumeL, boilTimeMin, undefined, undefined, effectiveSystem, designValues.og || undefined);
+  }, [localItems, volumeL, boilTimeMin, effectiveSystem, designValues.og]);
 
   // Style targets
   const ibuTarget = useMemo(() => {
@@ -843,10 +841,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           designEbc={designValues.targetEbc}
           calcIbu={calcResult.ibu}
           calcEbc={calcResult.ebc}
-          maltPlanKg={calcResult.maltRequiredKg ?? 0}
-          maltActualKg={maltActualKg}
-          pipeline={calcResult.pipeline ?? null}
-          waterRequiredL={calcResult.waterRequiredL ?? 0}
+          maltPlanKg={calcResult.maltRequiredKg}
+          maltActualKg={calcResult.maltActualKg}
+          pipeline={calcResult.pipeline}
+          water={calcResult.water}
           totalCost={calcResult.totalProductionCost}
           costPerLiter={calcResult.costPerLiter}
         />

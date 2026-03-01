@@ -32,7 +32,8 @@ export const brewingSystems = pgTable(
 
     // Hot zone — Kettle
     kettleVolumeL: decimal("kettle_volume_l"),
-    kettleLossPct: decimal("kettle_loss_pct").default("10"),
+    evaporationRatePctPerHour: decimal("evaporation_rate_pct_per_hour").default("8"),
+    kettleTrubLossL: decimal("kettle_trub_loss_l").default("5"),
 
     // Hot zone — Whirlpool
     whirlpoolLossPct: decimal("whirlpool_loss_pct").default("10"),
@@ -44,6 +45,7 @@ export const brewingSystems = pgTable(
     // Constants
     extractEstimate: decimal("extract_estimate").default("0.80"),
     waterPerKgMalt: decimal("water_per_kg_malt").default("1.0"),
+    grainAbsorptionLPerKg: decimal("grain_absorption_l_per_kg").default("0.8"),
     waterReserveL: decimal("water_reserve_l").default("0"),
 
     // Step times (minutes)
