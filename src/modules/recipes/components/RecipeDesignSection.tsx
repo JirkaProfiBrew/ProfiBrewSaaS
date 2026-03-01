@@ -204,9 +204,9 @@ export function RecipeDesignSection({
       {/* Content — hidden when collapsed */}
       {!isCollapsed && (
         <div className="rounded-b-lg border border-t-0 bg-card p-4 space-y-4">
-          {/* Row 1: Name + Status + Beer Style + Batch Size */}
-          <div className="grid grid-cols-1 sm:grid-cols-[2fr_auto_3fr_auto] gap-4">
-            <div className="space-y-1.5">
+          {/* Row 1: Name + Status + Beer Style + Batch Size — flex-wrap for fluid layout */}
+          <div className="flex flex-wrap gap-4">
+            <div className="space-y-1.5 min-w-[160px] flex-[2_1_160px]">
               <Label htmlFor="design-name">{t("form.name")}</Label>
               <Input
                 id="design-name"
@@ -223,7 +223,7 @@ export function RecipeDesignSection({
             <div className="space-y-1.5">
               <Label>{t("form.status")}</Label>
               <Select value={status} onValueChange={onStatusChange}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[130px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -236,7 +236,7 @@ export function RecipeDesignSection({
               </Select>
             </div>
 
-            <div className="space-y-1.5 min-w-0">
+            <div className="space-y-1.5 min-w-0 flex-[3_1_200px]">
               <Label>{t("form.beerStyle")}</Label>
               <Select
                 value={values.beerStyleId ?? "__none__"}
@@ -244,7 +244,7 @@ export function RecipeDesignSection({
                   onChange("beerStyleId", v === "__none__" ? null : v)
                 }
               >
-                <SelectTrigger className="truncate">
+                <SelectTrigger className="w-full truncate">
                   <SelectValue placeholder={t("form.beerStyle")} />
                 </SelectTrigger>
                 <SelectContent>
