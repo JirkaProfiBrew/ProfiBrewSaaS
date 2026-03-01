@@ -158,6 +158,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       const defaultSystem = primary ?? brewingSystemOpts[0];
       if (defaultSystem) {
         setValues((prev) => ({ ...prev, brewingSystemId: defaultSystem.id }));
+        const batchSize = parseFloat(defaultSystem.batchSizeL) || 0;
+        if (batchSize > 0) {
+          setDesignValues((prev) => ({ ...prev, batchSizeL: batchSize }));
+        }
       }
     }
   }, [isNew, brewingSystemOpts, values.brewingSystemId]);
