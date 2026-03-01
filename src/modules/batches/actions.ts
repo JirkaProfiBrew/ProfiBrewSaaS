@@ -18,6 +18,7 @@ import { beerStyles } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
 import { units } from "@/../drizzle/schema/system";
 import { equipment } from "@/../drizzle/schema/equipment";
+import { brewingSystems } from "@/../drizzle/schema/brewing-systems";
 import {
   stockIssues,
   stockIssueLines,
@@ -2853,6 +2854,213 @@ export async function updateBatchStep(
     const row = rows[0];
     if (!row) throw new Error("BATCH_STEP_NOT_FOUND");
     return mapStepRow(row);
+  });
+}
+
+// ── Plan & Preparation phase actions ─────────────────────────
+
+/** Return vessels (fermenters, brite tanks, conditioning tanks) with occupancy info. */
+export async function getAvailableVessels(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    equipmentType: string;
+    volumeL: string | null;
+    status: string;
+    currentBatchId: string | null;
+    currentBatchNumber: string | null;
+  }>
+> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: equipment.id,
+        name: equipment.name,
+        equipmentType: equipment.equipmentType,
+        volumeL: equipment.volumeL,
+        status: equipment.status,
+        currentBatchId: equipment.currentBatchId,
+        currentBatchNumber: batches.batchNumber,
+      })
+      .from(equipment)
+      .leftJoin(batches, eq(equipment.currentBatchId, batches.id))
+      .where(
+        and(
+          eq(equipment.tenantId, tenantId),
+          eq(equipment.isActive, true),
+          inArray(equipment.equipmentType, [
+            "fermenter",
+            "brite_tank",
+            "conditioning",
+          ])
+        )
+      )
+      .orderBy(equipment.name);
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      equipmentType: r.equipmentType,
+      volumeL: r.volumeL,
+      status: r.status ?? "available",
+      currentBatchId: r.currentBatchId,
+      currentBatchNumber: r.currentBatchNumber,
+    }));
+  });
+}
+
+/** Update editable fields from the Plan phase. */
+export async function updateBatchPlanData(
+  batchId: string,
+  data: {
+    plannedDate?: string | null;
+    fermentationDays?: number | null;
+    conditioningDays?: number | null;
+    equipmentId?: string | null;
+    conditioningEquipmentId?: string | null;
+  }
+): Promise<Batch> {
+  return withTenant(async (tenantId) => {
+    const updates: Record<string, unknown> = { updatedAt: sql`now()` };
+
+    if (data.plannedDate !== undefined) {
+      updates.plannedDate = data.plannedDate
+        ? new Date(data.plannedDate)
+        : null;
+    }
+    if (data.fermentationDays !== undefined) {
+      updates.fermentationDays = data.fermentationDays;
+    }
+    if (data.conditioningDays !== undefined) {
+      updates.conditioningDays = data.conditioningDays;
+    }
+    if (data.equipmentId !== undefined) {
+      updates.equipmentId = data.equipmentId;
+    }
+    if (data.conditioningEquipmentId !== undefined) {
+      updates.conditioningEquipmentId = data.conditioningEquipmentId;
+    }
+
+    // Compute estimatedEnd if we have enough data
+    if (
+      data.fermentationDays !== undefined ||
+      data.conditioningDays !== undefined ||
+      data.plannedDate !== undefined
+    ) {
+      // Load current batch to fill in missing data
+      const batchRows = await db
+        .select()
+        .from(batches)
+        .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+        .limit(1);
+      const batch = batchRows[0];
+      if (batch) {
+        const pDate =
+          data.plannedDate !== undefined
+            ? data.plannedDate
+              ? new Date(data.plannedDate)
+              : null
+            : batch.plannedDate;
+        const fermDays =
+          data.fermentationDays !== undefined
+            ? data.fermentationDays
+            : batch.fermentationDays;
+        const condDays =
+          data.conditioningDays !== undefined
+            ? data.conditioningDays
+            : batch.conditioningDays;
+
+        if (pDate && fermDays != null && condDays != null) {
+          const end = new Date(pDate);
+          end.setDate(end.getDate() + fermDays + condDays + 1); // +1 for brew day
+          updates.estimatedEnd = end.toISOString().split("T")[0];
+        }
+      }
+    }
+
+    const rows = await db
+      .update(batches)
+      .set(updates)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .returning();
+
+    const row = rows[0];
+    if (!row) throw new Error("BATCH_NOT_FOUND");
+    return mapBatchRow(row);
+  });
+}
+
+/** Get the brewing system data for a batch (via batch → brewingSystemId or recipe → brewingSystemId). */
+export async function getBrewingSystemForBatch(
+  batchId: string
+): Promise<{
+  name: string;
+  batchSizeL: string;
+  efficiencyPct: string;
+  kettleVolumeL: string | null;
+  evaporationRatePctPerHour: string | null;
+  kettleTrubLossL: string | null;
+  whirlpoolLossPct: string | null;
+  waterPerKgMalt: string | null;
+  grainAbsorptionLPerKg: string | null;
+  waterReserveL: string | null;
+  fermentationLossPct: string | null;
+  timePreparation: number | null;
+  timeLautering: number | null;
+  timeWhirlpool: number | null;
+  timeTransfer: number | null;
+  timeCleanup: number | null;
+} | null> {
+  return withTenant(async (tenantId) => {
+    // Load batch → recipe → brewing system chain
+    const batchRows = await db
+      .select({
+        brewingSystemId: batches.brewingSystemId,
+        recipeBrewingSystemId: recipes.brewingSystemId,
+      })
+      .from(batches)
+      .leftJoin(recipes, eq(batches.recipeId, recipes.id))
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const batch = batchRows[0];
+    if (!batch) return null;
+
+    const systemId = batch.brewingSystemId ?? batch.recipeBrewingSystemId;
+    if (!systemId) return null;
+
+    const sysRows = await db
+      .select()
+      .from(brewingSystems)
+      .where(
+        and(
+          eq(brewingSystems.tenantId, tenantId),
+          eq(brewingSystems.id, systemId)
+        )
+      )
+      .limit(1);
+
+    const sys = sysRows[0];
+    if (!sys) return null;
+
+    return {
+      name: sys.name,
+      batchSizeL: sys.batchSizeL,
+      efficiencyPct: sys.efficiencyPct ?? "75",
+      kettleVolumeL: sys.kettleVolumeL,
+      evaporationRatePctPerHour: sys.evaporationRatePctPerHour,
+      kettleTrubLossL: sys.kettleTrubLossL,
+      whirlpoolLossPct: sys.whirlpoolLossPct,
+      waterPerKgMalt: sys.waterPerKgMalt,
+      grainAbsorptionLPerKg: sys.grainAbsorptionLPerKg,
+      waterReserveL: sys.waterReserveL,
+      fermentationLossPct: sys.fermentationLossPct,
+      timePreparation: sys.timePreparation,
+      timeLautering: sys.timeLautering,
+      timeWhirlpool: sys.timeWhirlpool,
+      timeTransfer: sys.timeTransfer,
+      timeCleanup: sys.timeCleanup,
+    };
   });
 }
 
