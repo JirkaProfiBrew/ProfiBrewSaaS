@@ -210,7 +210,12 @@ export function RecipeBrowser(): React.ReactNode {
       },
       columns: recipeBrowserConfig.columns.map((col) => {
         const valueLabels = col.key === "status" ? statusLabels : undefined;
-        return { ...col, label: t(`columns.${col.key}`), valueLabels };
+        let render: ((value: unknown, row: Record<string, unknown>) => React.ReactNode) | undefined;
+        if (col.key === "batchSizeL" || col.key === "costPrice") {
+          render = (v: unknown): React.ReactNode =>
+            v != null ? Math.round(Number(v)).toLocaleString("cs-CZ") : "—";
+        }
+        return { ...col, label: t(`columns.${col.key}`), valueLabels, ...(render ? { render } : {}) };
       }),
       quickFilters: recipeBrowserConfig.quickFilters?.map((qf) => ({
         ...qf,
