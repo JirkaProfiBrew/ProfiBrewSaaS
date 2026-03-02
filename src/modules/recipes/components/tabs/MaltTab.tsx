@@ -137,8 +137,8 @@ export function MaltTab({
     [percentages]
   );
 
-  // Reference total for % → kg: use actual total, fallback to plan
-  const referenceKg = totalMaltKg > 0 ? totalMaltKg : maltPlanKg;
+  // Reference total for % → kg: use plan (from OG target), fallback to actual total
+  const referenceKg = maltPlanKg > 0 ? maltPlanKg : totalMaltKg;
 
   // Handle percent slider change — redistribute others proportionally
   const handlePercentChange = useCallback(
