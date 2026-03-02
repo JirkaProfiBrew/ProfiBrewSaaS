@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Copy, Archive, Trash2, FlaskConical, Save, ArrowLeft, BarChart3 } from "lucide-react";
@@ -603,6 +603,31 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   // ── Ingredient handlers ────────────────────────────────────────
 
+  // Amount change — debounced server persistence (same pattern as percent)
+  const pendingAmtSavesRef = useRef<Map<string, { amountG: string }>>(new Map());
+  const amtSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushAmtSaves = useCallback((): void => {
+    const saves = new Map(pendingAmtSavesRef.current);
+    pendingAmtSavesRef.current.clear();
+    for (const [itemId, data] of saves) {
+      void updateRecipeItem(itemId, data);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (amtSaveTimerRef.current) {
+        clearTimeout(amtSaveTimerRef.current);
+        const saves = pendingAmtSavesRef.current;
+        pendingAmtSavesRef.current = new Map();
+        for (const [itemId, data] of saves) {
+          void updateRecipeItem(itemId, data);
+        }
+      }
+    };
+  }, []);
+
   const handleAmountChange = useCallback(
     (itemId: string, amount: string): void => {
       setLocalItems((prev) =>
@@ -610,10 +635,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           item.id === itemId ? { ...item, amountG: amount } : item
         )
       );
-      // Persist to server (debounced would be ideal, but simple approach here)
-      void updateRecipeItem(itemId, { amountG: amount });
+      pendingAmtSavesRef.current.set(itemId, { amountG: amount });
+      if (amtSaveTimerRef.current) clearTimeout(amtSaveTimerRef.current);
+      amtSaveTimerRef.current = setTimeout(flushAmtSaves, 300);
     },
-    []
+    [flushAmtSaves]
   );
 
   const handleStageChange = useCallback(
@@ -699,9 +725,37 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     [id]
   );
 
-  // Malt percentage change (UX-11)
+  // Malt percentage change (UX-11) — debounced server persistence
+  // Local state updates immediately (responsive UI + live calc), server saves batch after 300ms
+  const pendingPctSavesRef = useRef<Map<string, { amountG: string; percent: string }>>(new Map());
+  const pctSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPctSaves = useCallback((): void => {
+    const saves = new Map(pendingPctSavesRef.current);
+    pendingPctSavesRef.current.clear();
+    for (const [itemId, data] of saves) {
+      void updateRecipeItem(itemId, data);
+    }
+  }, []);
+
+  // Flush pending saves on unmount
+  useEffect(() => {
+    return () => {
+      if (pctSaveTimerRef.current) {
+        clearTimeout(pctSaveTimerRef.current);
+        // Flush synchronously before unmount so we don't lose data
+        const saves = pendingPctSavesRef.current;
+        pendingPctSavesRef.current = new Map();
+        for (const [itemId, data] of saves) {
+          void updateRecipeItem(itemId, data);
+        }
+      }
+    };
+  }, []);
+
   const handlePercentChange = useCallback(
     (itemId: string, percent: number, computedKg: number): void => {
+      // Immediate: update local state for responsive UI + calculations
       setLocalItems((prev) =>
         prev.map((item) =>
           item.id === itemId
@@ -709,12 +763,15 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             : item
         )
       );
-      void updateRecipeItem(itemId, {
+      // Deferred: batch server saves — only the last value per item is persisted
+      pendingPctSavesRef.current.set(itemId, {
         amountG: String(computedKg),
         percent: String(percent),
       });
+      if (pctSaveTimerRef.current) clearTimeout(pctSaveTimerRef.current);
+      pctSaveTimerRef.current = setTimeout(flushPctSaves, 300);
     },
-    []
+    [flushPctSaves]
   );
 
   const handleMaltInputModeChange = useCallback(
