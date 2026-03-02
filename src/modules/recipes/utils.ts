@@ -121,22 +121,21 @@ export function calculateVolumePipeline(
 
 /**
  * Calculate Original Gravity in degrees Plato.
- * Two-step: extract in pre-boil → concentrate by boil.
  *
  * 1. totalExtractKg = Σ(malt_kg × extractPercent × efficiency)
- * 2. Iterative: P = totalExtractKg / (postBoilL × SG) × 100
+ * 2. Iterative: P = totalExtractKg / (batchSizeL × SG) × 100
  *
- * The extract is dissolved in pre-boil volume but water evaporates during boil,
- * concentrating the wort. OG is measured post-boil (= into fermenter gravity).
- * Uses SG-corrected Plato: the wort mass = volume × SG, not just volume.
+ * Uses batchSizeL (= into fermenter, same as calculateMaltRequired) because
+ * brewhouse efficiency already accounts for all losses (mash → fermenter).
+ * totalExtractKg represents extract that reaches the fermenter.
+ * SG-corrected Plato: wort mass = volume × SG, not just volume.
  */
 export function calculateOG(
   ingredients: IngredientInput[],
-  preBoilL: number,
-  postBoilL: number,
+  batchSizeL: number,
   efficiencyPct: number
 ): number {
-  if (preBoilL <= 0 || postBoilL <= 0) return 0;
+  if (batchSizeL <= 0) return 0;
 
   const efficiency = efficiencyPct / 100;
   const malts = ingredients.filter(
@@ -153,10 +152,10 @@ export function calculateOG(
 
   // Iterative SG-corrected Plato: P = extractKg / (V × SG) × 100
   // Start with rough estimate, then refine using SG
-  let plato = totalExtractKg / (totalExtractKg + postBoilL) * 100;
+  let plato = totalExtractKg / (totalExtractKg + batchSizeL) * 100;
   for (let i = 0; i < 3; i++) {
     const sg = platoToSG(plato);
-    plato = totalExtractKg / (postBoilL * sg) * 100;
+    plato = totalExtractKg / (batchSizeL * sg) * 100;
   }
 
   return round1(plato);
@@ -658,8 +657,8 @@ export function calculateAll(
   // 1. Pipeline — uses boilTimeMin for evaporation
   const pipeline = calculateVolumePipeline(batchSizeL, boilTimeMin, system);
 
-  // 2. OG — extract through pre-boil, concentrated by boil
-  const og = calculateOG(ingredients, pipeline.preBoilL, pipeline.postBoilL, system.efficiencyPct);
+  // 2. OG — extract into fermenter, using batchSizeL (consistent with malt plan)
+  const og = calculateOG(ingredients, batchSizeL, system.efficiencyPct);
 
   // 3. FG — from design target, or estimate 25% of OG
   const fg = fgPlato ?? round1(og * 0.25);
