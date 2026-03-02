@@ -91,7 +91,7 @@ export function MaltTab({
       if (items.length > 0 && [...next.values()].every((v) => v === undefined || v === null)) {
         const amounts = items.map((item) => {
           const amount = parseFloat(item.amountG) || 0;
-          const factor = item.unitToBaseFactor ?? 0.001;
+          const factor = item.unitToBaseFactor ?? 1;
           return amount * factor;
         });
         const pcts = kgToPercent(amounts);
@@ -108,7 +108,7 @@ export function MaltTab({
     () =>
       items.reduce((sum, item) => {
         const amount = parseFloat(item.amountG) || 0;
-        const factor = item.unitToBaseFactor ?? 0.001;
+        const factor = item.unitToBaseFactor ?? 1;
         return sum + amount * factor;
       }, 0),
     [items]
@@ -145,7 +145,7 @@ export function MaltTab({
       orderedIds.forEach((id, i) => {
         const item = items.find((it) => it.id === id);
         if (item) {
-          const factor = item.unitToBaseFactor ?? 0.001;
+          const factor = item.unitToBaseFactor ?? 1;
           const amountInUnit = factor !== 0 ? (kgs[i] ?? 0) / factor : 0;
           onPercentChange(id, newPcts[i] ?? 0, amountInUnit);
         }
@@ -174,7 +174,7 @@ export function MaltTab({
         remainingIds.forEach((id, i) => {
           const item = items.find((it) => it.id === id);
           if (item) {
-            const factor = item.unitToBaseFactor ?? 0.001;
+            const factor = item.unitToBaseFactor ?? 1;
             const amountInUnit = factor !== 0 ? (kgs[i] ?? 0) / factor : 0;
             onPercentChange(id, newPcts[i] ?? 0, amountInUnit);
           }
@@ -193,7 +193,7 @@ export function MaltTab({
         // kg → %: compute percentages from current kg amounts
         const amounts = items.map((item) => {
           const amount = parseFloat(item.amountG) || 0;
-          const factor = item.unitToBaseFactor ?? 0.001;
+          const factor = item.unitToBaseFactor ?? 1;
           return amount * factor;
         });
         const pcts = kgToPercent(amounts);
@@ -208,7 +208,7 @@ export function MaltTab({
         orderedIds.forEach((id, i) => {
           const item = items.find((it) => it.id === id);
           if (item) {
-            const factor = item.unitToBaseFactor ?? 0.001;
+            const factor = item.unitToBaseFactor ?? 1;
             const amountInUnit = factor !== 0 ? (kgs[i] ?? 0) / factor : 0;
             onAmountChange(id, amountInUnit.toFixed(2));
           }
@@ -234,7 +234,7 @@ export function MaltTab({
       // Update kg for existing items — use actual total, not plan
       const kgs = percentToKg(newPcts.slice(0, items.length), referenceKg);
       items.forEach((item, i) => {
-        const factor = item.unitToBaseFactor ?? 0.001;
+        const factor = item.unitToBaseFactor ?? 1;
         const amountInUnit = factor !== 0 ? (kgs[i] ?? 0) / factor : 0;
         onPercentChange(item.id, newPcts[i] ?? 0, amountInUnit);
       });
@@ -269,7 +269,7 @@ export function MaltTab({
       });
 
       // Update kg for the new item
-      const factor = newItem.unitToBaseFactor ?? 0.001;
+      const factor = newItem.unitToBaseFactor ?? 1;
       const kg = refKg * (allPcts[allPcts.length - 1] ?? 0) / 100;
       const amountInUnit = factor !== 0 ? kg / factor : 0;
       onPercentChange(newItem.id, allPcts[allPcts.length - 1] ?? 0, amountInUnit);

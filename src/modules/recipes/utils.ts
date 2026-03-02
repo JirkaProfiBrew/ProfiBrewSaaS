@@ -41,15 +41,15 @@ export interface OverheadInputs {
 /**
  * Convert ingredient amount to kg using the unit's toBaseFactor.
  * - factor present (e.g. 0.001 for grams, 1 for kg): amountG * factor → kg
- * - factor null/0: no unit resolved — DB column is amount_g (grams), divide by 1000
+ * - factor null/0: no unit resolved — assume value is already in base unit (kg)
  */
 function toKg(ingredient: IngredientInput): number {
   const factor = ingredient.unitToBaseFactor;
   if (factor != null && factor !== 0) {
     return ingredient.amountG * factor;
   }
-  // No unit resolved → amount_g stores grams by convention
-  return ingredient.amountG / 1000;
+  // No unit resolved → assume value is already in base unit (kg)
+  return ingredient.amountG;
 }
 
 // ── Helpers ─────────────────────────────────────────────────

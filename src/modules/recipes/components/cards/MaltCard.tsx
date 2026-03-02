@@ -30,7 +30,7 @@ export function MaltCard({
   const t = useTranslations("recipes");
 
   const amountNum = parseFloat(item.amountG) || 0;
-  const factor = item.unitToBaseFactor ?? 0.001;
+  const factor = item.unitToBaseFactor ?? 1;
   const amountKg = amountNum * factor;
   const sharePct = totalMaltKg > 0 ? (amountKg / totalMaltKg * 100).toFixed(1) : "0";
   const extractPct = item.itemExtractPercent ? parseFloat(item.itemExtractPercent) : null;
