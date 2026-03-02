@@ -666,9 +666,9 @@ export function calculateAll(
   // 4. ABV
   const abv = calculateABV(og, fg);
 
-  // 5. IBU — Tinseth on post-boil volume, using calculated OG from malts
-  const ibu = calculateIBU(ingredients, pipeline.postBoilL, og, boilTimeMin, system.whirlpoolTemperatureC);
-  const ibuBreakdown = calculateIBUBreakdown(ingredients, pipeline.postBoilL, og, boilTimeMin, system.whirlpoolTemperatureC);
+  // 5. IBU — Tinseth on batch size (into fermenter), using calculated OG from malts
+  const ibu = calculateIBU(ingredients, batchSizeL, og, boilTimeMin, system.whirlpoolTemperatureC);
+  const ibuBreakdown = calculateIBUBreakdown(ingredients, batchSizeL, og, boilTimeMin, system.whirlpoolTemperatureC);
 
   // 6. EBC — Morey on batch size (into fermenter)
   const ebc = calculateEBC(ingredients, batchSizeL);

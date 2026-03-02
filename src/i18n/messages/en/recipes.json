@@ -303,7 +303,7 @@
       "stage_dry_hop_warm": "Dry Hop (Warm)",
       "stage_dry_hop_cold": "Dry Hop (Cold)",
       "ibuDetailTitle": "IBU Calculation — Tinseth",
-      "ibuPostBoilVolume": "Post-boil volume",
+      "ibuPostBoilVolume": "Into fermenter volume",
       "ibuBoilTime": "Boil time",
       "ibuWeight": "Weight",
       "ibuStage": "Stage",
