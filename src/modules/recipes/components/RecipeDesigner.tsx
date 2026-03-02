@@ -956,7 +956,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               steps={recipeDetail?.steps ?? []}
               recipe={recipeDetail?.recipe ?? null}
               allItems={localItems}
-              ogPlato={calcResult.og}
+              ogPlato={designValues.og || calcResult.og}
               volumeL={calcResult.pipeline.postBoilL}
               boilTimeMin={boilTimeMin}
               whirlpoolTempC={effectiveSystem.whirlpoolTemperatureC}
