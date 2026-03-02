@@ -960,6 +960,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               allItems={localItems}
               ogPlato={calcResult.og}
               volumeL={calcResult.pipeline.postBoilL}
+              batchSizeL={volumeL}
               boilTimeMin={boilTimeMin}
               whirlpoolTempC={effectiveSystem.whirlpoolTemperatureC}
               maltPlanKg={calcResult.maltRequiredKg ?? 0}

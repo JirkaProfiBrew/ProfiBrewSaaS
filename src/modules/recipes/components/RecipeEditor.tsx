@@ -38,6 +38,7 @@ interface RecipeEditorProps {
   // Calculated values for tabs
   ogPlato: number;
   volumeL: number;
+  batchSizeL: number;
   boilTimeMin: number;
   whirlpoolTempC: number;
   maltPlanKg: number;
@@ -93,6 +94,7 @@ export function RecipeEditor({
   allItems,
   ogPlato,
   volumeL,
+  batchSizeL,
   boilTimeMin,
   whirlpoolTempC,
   maltPlanKg,
@@ -169,7 +171,7 @@ export function RecipeEditor({
               calculatedEbc={calculatedEbc}
               targetOg={targetOg}
               calculatedOg={calculatedOg}
-              batchSizeL={volumeL}
+              batchSizeL={batchSizeL}
               efficiencyPct={systemDefaults.efficiencyPct}
               extractEstimatePct={systemDefaults.extractEstimate}
               maltInputMode={maltInputMode}
