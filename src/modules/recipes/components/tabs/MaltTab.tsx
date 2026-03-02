@@ -75,9 +75,9 @@ export function MaltTab({
   // Local percentage state — tracks percentages for each item
   const [percentages, setPercentages] = useState<Map<string, number>>(new Map());
 
-  // Ref: prevents the new-item effect from firing on initial mount
-  // (on mount, ALL items appear "new" because percentages map is empty in the closure)
-  const initializedRef = useRef(false);
+  // Tracks known item IDs — used to detect truly new items (added via onAdd)
+  // vs items present on initial load. Starts null to signal "first render".
+  const knownItemIdsRef = useRef<Set<string> | null>(null);
 
   // Initialize percentages from items when items change
   useEffect(() => {
@@ -124,7 +124,6 @@ export function MaltTab({
 
       return changed ? next : prev;
     });
-    initializedRef.current = true;
   }, [items]);
 
   // Total malt in kg — sum of all items' amounts converted via unitToBaseFactor
@@ -266,35 +265,46 @@ export function MaltTab({
     onAdd();
   }, [items, percentages, maltInputMode, referenceKg, onPercentChange, onAdd]);
 
-  // When a new item appears after onAdd in percent mode, set its default percentage.
-  // Uses a ref to skip the initial mount (where ALL items appear "new" due to empty
-  // percentages closure), preventing unnecessary server action calls.
+  // Detect truly new items added via onAdd (not initial-load items).
+  // On first render knownItemIdsRef is null → we just record IDs, no processing.
+  // On subsequent renders we compare against known IDs to find additions.
   useEffect(() => {
-    if (!initializedRef.current) return;
-    if (maltInputMode !== "percent") return;
-    const newItems = items.filter((i) => !percentages.has(i.id));
-    if (newItems.length === 0) return;
+    const currentIds = new Set(items.map((i) => i.id));
 
+    if (knownItemIdsRef.current === null) {
+      // First render — just record, never call onPercentChange
+      knownItemIdsRef.current = currentIds;
+      return;
+    }
+
+    if (maltInputMode !== "percent") {
+      knownItemIdsRef.current = currentIds;
+      return;
+    }
+
+    const addedItems = items.filter((i) => !knownItemIdsRef.current!.has(i.id));
+    knownItemIdsRef.current = currentIds;
+    if (addedItems.length === 0) return;
+
+    // Process genuinely new items (just added by user)
     const currentPcts = items
-      .filter((i) => percentages.has(i.id))
+      .filter((i) => !addedItems.some((a) => a.id === i.id))
       .map((i) => percentages.get(i.id) ?? 0);
 
     const refKg = maltPlanKg > 0 ? maltPlanKg : totalMaltKg;
 
-    for (const newItem of newItems) {
+    for (const newItem of addedItems) {
       const allPcts = getDefaultPercentages(currentPcts);
       const newPct = allPcts[allPcts.length - 1] ?? 0;
 
       setPercentages((prev) => {
         const next = new Map(prev);
-        // Redistribute existing
         const existingIds = items.filter((i) => prev.has(i.id)).map((i) => i.id);
         existingIds.forEach((id, i) => next.set(id, allPcts[i] ?? 0));
         next.set(newItem.id, newPct);
         return next;
       });
 
-      // Update kg for the new item
       const factor = newItem.unitToBaseFactor ?? 1;
       const kg = refKg * newPct / 100;
       const amountInUnit = factor !== 0 ? kg / factor : 0;
@@ -302,7 +312,7 @@ export function MaltTab({
       currentPcts.push(newPct);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, percentages, maltInputMode, maltPlanKg, onPercentChange]);
+  }, [items, maltInputMode]);
 
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event;
