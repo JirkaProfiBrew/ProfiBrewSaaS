@@ -229,7 +229,7 @@ export async function getRecipeDetail(
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
-      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId})`)
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
       .where(
         and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.recipeId, recipeId))
       )
@@ -870,7 +870,7 @@ export async function calculateAndSaveRecipe(
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
-      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId})`)
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
       .leftJoin(stockUnit, eq(items.unitId, stockUnit.id))
       .where(
         and(eq(recipeItems.tenantId, tenantId), eq(recipeItems.recipeId, recipeId))
