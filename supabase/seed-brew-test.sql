@@ -183,12 +183,12 @@ BEGIN
   -- 5. Items
   -- ============================================================
 
-  -- ----- MALTS (stock unit: kg, recipe unit: kg) -----
+  -- ----- MALTS (stock unit: kg, recipe_unit: NULL — malts use unit_id directly) -----
   -- Český světlý
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'CESKY-SVETLY', 'Český světlý', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_kg, 3.5, 80, true)
+          v_unit_kg, NULL, 3.5, 80, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_cesky_svetly FROM items WHERE tenant_id = v_tenant_id AND code = 'CESKY-SVETLY' LIMIT 1;
@@ -197,7 +197,7 @@ BEGIN
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'VIDENSKY', 'Vídeňský', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_kg, 7, 79, true)
+          v_unit_kg, NULL, 7, 79, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_vidensky FROM items WHERE tenant_id = v_tenant_id AND code = 'VIDENSKY' LIMIT 1;
@@ -206,17 +206,17 @@ BEGIN
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'MNICHOVSKY-II', 'Mnichovský II', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_kg, 20, 78, true)
+          v_unit_kg, NULL, 20, 78, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_mnichovsky FROM items WHERE tenant_id = v_tenant_id AND code = 'MNICHOVSKY-II' LIMIT 1;
 
-  -- ----- HOPS -----
+  -- ----- HOPS (stock unit: kg, recipe_unit: g — hops are stocked in kg but dosed in grams) -----
   -- Premiant
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, alpha, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'PREMIANT', 'Premiant', true, 'raw_material', 'hop',
-          v_unit_g, v_unit_g, 8.5, true)
+          v_unit_kg, v_unit_g, 8.5, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_premiant FROM items WHERE tenant_id = v_tenant_id AND code = 'PREMIANT' LIMIT 1;
@@ -225,17 +225,17 @@ BEGIN
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, alpha, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'ZAT-CERVENAK', 'Žatecký červeňák', true, 'raw_material', 'hop',
-          v_unit_g, v_unit_g, 3.5, true)
+          v_unit_kg, v_unit_g, 3.5, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_zat_cervenak FROM items WHERE tenant_id = v_tenant_id AND code = 'ZAT-CERVENAK' LIMIT 1;
 
-  -- ----- YEAST -----
+  -- ----- YEAST (stock unit: g, recipe_unit: NULL — yeast uses unit_id directly) -----
   -- Saflager S-189
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'SAFLAGER-S189', 'Saflager S-189', true, 'raw_material', 'yeast',
-          v_unit_g, v_unit_g, true)
+          v_unit_g, NULL, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_saflager FROM items WHERE tenant_id = v_tenant_id AND code = 'SAFLAGER-S189' LIMIT 1;

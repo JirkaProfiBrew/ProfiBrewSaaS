@@ -797,9 +797,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     if (!addItemId) return;
 
     try {
-      // Determine default unit for the selected item
+      // Determine default unit for the selected item.
+      // Only hops use recipeUnitId (grams); all others use unitId directly.
       const selectedItem = brewMaterialItems.find((i) => i.id === addItemId);
-      const defaultUnitId = selectedItem?.recipeUnitId ?? selectedItem?.unitId ?? null;
+      const defaultUnitId = addCategory === "hop"
+        ? (selectedItem?.recipeUnitId ?? selectedItem?.unitId ?? null)
+        : (selectedItem?.unitId ?? null);
 
       await addRecipeItem(id, {
         itemId: addItemId,

@@ -1345,7 +1345,7 @@ export async function getRecipeIngredients(
       })
       .from(recipeItems)
       .leftJoin(items, eq(recipeItems.itemId, items.id))
-      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, CASE WHEN ${recipeItems.category} = 'hop' THEN ${items.recipeUnitId} END, ${items.unitId})`)
       .where(
         and(
           eq(recipeItems.tenantId, tenantId),
@@ -1715,7 +1715,7 @@ export async function createProductionIssue(
       })
       .from(recipeItems)
       .innerJoin(items, eq(recipeItems.itemId, items.id))
-      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, CASE WHEN ${recipeItems.category} = 'hop' THEN ${items.recipeUnitId} END, ${items.unitId})`)
       .leftJoin(stockUnit, eq(items.unitId, stockUnit.id))
       .where(
         and(
@@ -1892,7 +1892,7 @@ export async function prefillIssueFromBatch(
         })
         .from(recipeItems)
         .innerJoin(items, eq(recipeItems.itemId, items.id))
-        .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
+        .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, CASE WHEN ${recipeItems.category} = 'hop' THEN ${items.recipeUnitId} END, ${items.unitId})`)
         .leftJoin(stockUnit2, eq(items.unitId, stockUnit2.id))
         .where(
           and(
@@ -2108,7 +2108,7 @@ export async function getBatchIngredients(
       })
       .from(recipeItems)
       .leftJoin(items, eq(recipeItems.itemId, items.id))
-      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId}, ${items.unitId})`)
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, CASE WHEN ${recipeItems.category} = 'hop' THEN ${items.recipeUnitId} END, ${items.unitId})`)
       .leftJoin(stockUnit3, eq(items.unitId, stockUnit3.id))
       .where(
         and(
