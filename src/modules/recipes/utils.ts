@@ -40,16 +40,16 @@ export interface OverheadInputs {
 
 /**
  * Convert ingredient amount to kg using the unit's toBaseFactor.
- * - factor present (e.g. 0.001 for grams): amountG * factor → kg
- * - factor null: unit IS the base unit (kg), amount already in kg
+ * - factor present (e.g. 0.001 for grams, 1 for kg): amountG * factor → kg
+ * - factor null/0: no unit resolved — DB column is amount_g (grams), divide by 1000
  */
 function toKg(ingredient: IngredientInput): number {
   const factor = ingredient.unitToBaseFactor;
   if (factor != null && factor !== 0) {
     return ingredient.amountG * factor;
   }
-  // null/0 = already in base unit (kg for weight)
-  return ingredient.amountG;
+  // No unit resolved → amount_g stores grams by convention
+  return ingredient.amountG / 1000;
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -394,7 +394,7 @@ export function calculateCost(
 
     let stockAmount: number;
     if (ing.category === "hop" && ing.stockUnitToBaseFactor != null) {
-      const recipeUnitFactor = ing.unitToBaseFactor ?? 1;
+      const recipeUnitFactor = ing.unitToBaseFactor ?? 0.001;
       const stockUnitFactor = ing.stockUnitToBaseFactor;
       stockAmount = stockUnitFactor !== 0
         ? ing.amountG * recipeUnitFactor / stockUnitFactor

@@ -44,15 +44,15 @@ async function seedCountries(): Promise<void> {
 async function seedUnits(): Promise<void> {
   const unitData = [
     // Weight units
-    { code: "kg", nameCs: "kilogram", nameEn: "kilogram", symbol: "kg", category: "weight", baseUnitCode: null, toBaseFactor: null, sortOrder: 1 },
+    { code: "kg", nameCs: "kilogram", nameEn: "kilogram", symbol: "kg", category: "weight", baseUnitCode: null, toBaseFactor: "1", sortOrder: 1 },
     { code: "g", nameCs: "gram", nameEn: "gram", symbol: "g", category: "weight", baseUnitCode: "kg", toBaseFactor: "0.001", sortOrder: 2 },
     // Volume units
-    { code: "l", nameCs: "litr", nameEn: "liter", symbol: "l", category: "volume", baseUnitCode: null, toBaseFactor: null, sortOrder: 3 },
+    { code: "l", nameCs: "litr", nameEn: "liter", symbol: "l", category: "volume", baseUnitCode: null, toBaseFactor: "1", sortOrder: 3 },
     { code: "ml", nameCs: "mililitr", nameEn: "milliliter", symbol: "ml", category: "volume", baseUnitCode: "l", toBaseFactor: "0.001", sortOrder: 4 },
     { code: "hl", nameCs: "hektolitr", nameEn: "hectoliter", symbol: "hl", category: "volume", baseUnitCode: "l", toBaseFactor: "100", sortOrder: 5 },
     // Count units
-    { code: "ks", nameCs: "kus", nameEn: "piece", symbol: "ks", category: "count", baseUnitCode: null, toBaseFactor: null, sortOrder: 6 },
-    { code: "bal", nameCs: "balení", nameEn: "package", symbol: "bal", category: "count", baseUnitCode: null, toBaseFactor: null, sortOrder: 7 },
+    { code: "ks", nameCs: "kus", nameEn: "piece", symbol: "ks", category: "count", baseUnitCode: null, toBaseFactor: "1", sortOrder: 6 },
+    { code: "bal", nameCs: "balení", nameEn: "package", symbol: "bal", category: "count", baseUnitCode: null, toBaseFactor: "1", sortOrder: 7 },
   ];
 
   // System units have no tenant_id, isSystem defaults to true

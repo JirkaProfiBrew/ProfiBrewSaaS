@@ -73,8 +73,11 @@ BEGIN
   END IF;
 
   -- ============================================================
-  -- 0b. Resolve units
+  -- 0b. Resolve units + fix base unit factors
   -- ============================================================
+  -- Ensure base units have to_base_factor = 1 (not NULL) so calculations work
+  UPDATE units SET to_base_factor = 1 WHERE to_base_factor IS NULL AND base_unit_code IS NULL;
+
   SELECT id INTO v_unit_kg FROM units WHERE code = 'kg';
   SELECT id INTO v_unit_g  FROM units WHERE code = 'g';
   SELECT id INTO v_unit_l  FROM units WHERE code = 'l';
