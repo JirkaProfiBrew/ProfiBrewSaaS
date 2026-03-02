@@ -183,12 +183,12 @@ BEGIN
   -- 5. Items
   -- ============================================================
 
-  -- ----- MALTS -----
+  -- ----- MALTS (stock unit: kg, recipe unit: kg) -----
   -- Český světlý
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'CESKY-SVETLY', 'Český světlý', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_g, 3.5, 80, true)
+          v_unit_kg, v_unit_kg, 3.5, 80, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_cesky_svetly FROM items WHERE tenant_id = v_tenant_id AND code = 'CESKY-SVETLY' LIMIT 1;
@@ -197,7 +197,7 @@ BEGIN
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'VIDENSKY', 'Vídeňský', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_g, 7, 79, true)
+          v_unit_kg, v_unit_kg, 7, 79, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_vidensky FROM items WHERE tenant_id = v_tenant_id AND code = 'VIDENSKY' LIMIT 1;
@@ -206,7 +206,7 @@ BEGIN
   INSERT INTO items (id, tenant_id, code, name, is_brew_material, stock_category, material_type,
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'MNICHOVSKY-II', 'Mnichovský II', true, 'raw_material', 'malt',
-          v_unit_kg, v_unit_g, 20, 78, true)
+          v_unit_kg, v_unit_kg, 20, 78, true)
   ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_mnichovsky FROM items WHERE tenant_id = v_tenant_id AND code = 'MNICHOVSKY-II' LIMIT 1;
@@ -269,57 +269,57 @@ BEGIN
   -- 6a. Recipe Items (ingredients)
   -- ============================================================
 
-  -- Český světlý — malt — mash — 21200g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_cesky_svetly, 'malt', 21200, 'mash', NULL, 0)
+  -- Český světlý — malt — mash — 21.2 kg
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_cesky_svetly, 'malt', 21.2, v_unit_kg, 'mash', NULL, 0)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_cesky_svetly
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_cesky_svetly LIMIT 1;
 
-  -- Vídeňský — malt — mash — 6100g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_vidensky, 'malt', 6100, 'mash', NULL, 1)
+  -- Vídeňský — malt — mash — 6.1 kg
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_vidensky, 'malt', 6.1, v_unit_kg, 'mash', NULL, 1)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_vidensky
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_vidensky LIMIT 1;
 
-  -- Mnichovský II — malt — mash — 3000g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_mnichovsky, 'malt', 3000, 'mash', NULL, 2)
+  -- Mnichovský II — malt — mash — 3.0 kg
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_mnichovsky, 'malt', 3.0, v_unit_kg, 'mash', NULL, 2)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_mnichovsky
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_mnichovsky LIMIT 1;
 
-  -- Premiant — hop — boil 90min — 120g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_premiant, 'hop', 120, 'boil', 90, 3)
+  -- Premiant — hop — boil 90min — 120 g
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_premiant, 'hop', 120, v_unit_g, 'boil', 90, 3)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_premiant
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_premiant AND use_time_min = 90 LIMIT 1;
 
-  -- Žatecký červeňák — hop — boil 45min — 100g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_zat_cervenak, 'hop', 100, 'boil', 45, 4)
+  -- Žatecký červeňák — hop — boil 45min — 100 g
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_zat_cervenak, 'hop', 100, v_unit_g, 'boil', 45, 4)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_zat1
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_zat_cervenak AND use_time_min = 45 LIMIT 1;
 
-  -- Žatecký červeňák — hop — boil 10min — 100g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_zat_cervenak, 'hop', 100, 'boil', 10, 5)
+  -- Žatecký červeňák — hop — boil 10min — 100 g
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_zat_cervenak, 'hop', 100, v_unit_g, 'boil', 10, 5)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_zat2
     FROM recipe_items WHERE recipe_id = v_recipe_id AND item_id = v_item_zat_cervenak AND use_time_min = 10 LIMIT 1;
 
-  -- Saflager S-189 — yeast — fermentation — 100g
-  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, use_stage, use_time_min, sort_order)
-  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_saflager, 'yeast', 100, 'fermentation', NULL, 6)
+  -- Saflager S-189 — yeast — fermentation — 100 g
+  INSERT INTO recipe_items (id, tenant_id, recipe_id, item_id, category, amount_g, unit_id, use_stage, use_time_min, sort_order)
+  VALUES (gen_random_uuid(), v_tenant_id, v_recipe_id, v_item_saflager, 'yeast', 100, v_unit_g, 'fermentation', NULL, 6)
   ON CONFLICT DO NOTHING;
 
   SELECT id INTO v_ri_saflager
@@ -361,29 +361,29 @@ BEGIN
 
   -- ----- Stock Issue Lines + Movements -----
 
-  -- Český světlý: 259000g
+  -- Český světlý: 259 kg
   v_sil_cesky_svetly := gen_random_uuid();
   INSERT INTO stock_issue_lines (id, tenant_id, stock_issue_id, item_id, line_no, requested_qty, issued_qty, remaining_qty, sort_order)
-  VALUES (v_sil_cesky_svetly, v_tenant_id, v_receipt_id, v_item_cesky_svetly, 1, 259000, 259000, 259000, 0);
+  VALUES (v_sil_cesky_svetly, v_tenant_id, v_receipt_id, v_item_cesky_svetly, 1, 259, 259, 259, 0);
 
   INSERT INTO stock_movements (id, tenant_id, item_id, warehouse_id, movement_type, quantity, stock_issue_id, stock_issue_line_id, receipt_line_id, date)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_cesky_svetly, v_wh_suroviny_id, 'in', 259000, v_receipt_id, v_sil_cesky_svetly, v_sil_cesky_svetly, CURRENT_DATE);
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_cesky_svetly, v_wh_suroviny_id, 'in', 259, v_receipt_id, v_sil_cesky_svetly, v_sil_cesky_svetly, CURRENT_DATE);
 
-  -- Vídeňský: 27000g
+  -- Vídeňský: 27 kg
   v_sil_vidensky := gen_random_uuid();
   INSERT INTO stock_issue_lines (id, tenant_id, stock_issue_id, item_id, line_no, requested_qty, issued_qty, remaining_qty, sort_order)
-  VALUES (v_sil_vidensky, v_tenant_id, v_receipt_id, v_item_vidensky, 2, 27000, 27000, 27000, 1);
+  VALUES (v_sil_vidensky, v_tenant_id, v_receipt_id, v_item_vidensky, 2, 27, 27, 27, 1);
 
   INSERT INTO stock_movements (id, tenant_id, item_id, warehouse_id, movement_type, quantity, stock_issue_id, stock_issue_line_id, receipt_line_id, date)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_vidensky, v_wh_suroviny_id, 'in', 27000, v_receipt_id, v_sil_vidensky, v_sil_vidensky, CURRENT_DATE);
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_vidensky, v_wh_suroviny_id, 'in', 27, v_receipt_id, v_sil_vidensky, v_sil_vidensky, CURRENT_DATE);
 
-  -- Mnichovský II: 164000g
+  -- Mnichovský II: 164 kg
   v_sil_mnichovsky := gen_random_uuid();
   INSERT INTO stock_issue_lines (id, tenant_id, stock_issue_id, item_id, line_no, requested_qty, issued_qty, remaining_qty, sort_order)
-  VALUES (v_sil_mnichovsky, v_tenant_id, v_receipt_id, v_item_mnichovsky, 3, 164000, 164000, 164000, 2);
+  VALUES (v_sil_mnichovsky, v_tenant_id, v_receipt_id, v_item_mnichovsky, 3, 164, 164, 164, 2);
 
   INSERT INTO stock_movements (id, tenant_id, item_id, warehouse_id, movement_type, quantity, stock_issue_id, stock_issue_line_id, receipt_line_id, date)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_mnichovsky, v_wh_suroviny_id, 'in', 164000, v_receipt_id, v_sil_mnichovsky, v_sil_mnichovsky, CURRENT_DATE);
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_mnichovsky, v_wh_suroviny_id, 'in', 164, v_receipt_id, v_sil_mnichovsky, v_sil_mnichovsky, CURRENT_DATE);
 
   -- Žatecký červeňák: 390g
   v_sil_zat_cervenak := gen_random_uuid();
@@ -415,19 +415,19 @@ BEGIN
   -- Use ON CONFLICT to update if already exists (idempotent)
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_cesky_svetly, v_wh_suroviny_id, 259000, 0)
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_cesky_svetly, v_wh_suroviny_id, 259, 0)
   ON CONFLICT (tenant_id, item_id, warehouse_id)
-    DO UPDATE SET quantity = 259000, reserved_qty = 0, updated_at = now();
+    DO UPDATE SET quantity = 259, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_vidensky, v_wh_suroviny_id, 27000, 0)
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_vidensky, v_wh_suroviny_id, 27, 0)
   ON CONFLICT (tenant_id, item_id, warehouse_id)
-    DO UPDATE SET quantity = 27000, reserved_qty = 0, updated_at = now();
+    DO UPDATE SET quantity = 27, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
-  VALUES (gen_random_uuid(), v_tenant_id, v_item_mnichovsky, v_wh_suroviny_id, 164000, 0)
+  VALUES (gen_random_uuid(), v_tenant_id, v_item_mnichovsky, v_wh_suroviny_id, 164, 0)
   ON CONFLICT (tenant_id, item_id, warehouse_id)
-    DO UPDATE SET quantity = 164000, reserved_qty = 0, updated_at = now();
+    DO UPDATE SET quantity = 164, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_zat_cervenak, v_wh_suroviny_id, 390, 0)
