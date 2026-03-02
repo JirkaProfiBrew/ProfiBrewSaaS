@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
+import { Copy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +31,12 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { Batch } from "../../../types";
-import { getBatchBrewData, getBrewingSystemForBatch } from "../../../actions";
+import {
+  getBatchBrewData,
+  getBrewingSystemForBatch,
+  updateBrewingSystemEfficiency,
+  duplicateBatch,
+} from "../../../actions";
 
 interface Props {
   batchId: string;
@@ -54,6 +60,7 @@ export function CompletedPhase({ batchId }: Props): React.ReactNode {
     number | null
   >(null);
   const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     let cancelled = false;
@@ -236,7 +243,16 @@ export function CompletedPhase({ batchId }: Props): React.ReactNode {
                   <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => {
-                      toast.success(t("brew.completed.applied"));
+                      startTransition(async () => {
+                        try {
+                          const newEff = recipeEfficiency + efficiencyDelta!;
+                          await updateBrewingSystemEfficiency(batchId, newEff);
+                          setBrewSystemEfficiency(newEff);
+                          toast.success(t("brew.completed.applied"));
+                        } catch {
+                          toast.error("Error");
+                        }
+                      });
                     }}
                   >
                     {t("brew.completed.applyToSystem")}
@@ -275,6 +291,26 @@ export function CompletedPhase({ batchId }: Props): React.ReactNode {
 
       {/* Actions */}
       <div className="flex gap-2 justify-end">
+        <Button
+          variant="outline"
+          disabled={isPending}
+          onClick={() => {
+            startTransition(async () => {
+              try {
+                const newBatch = await duplicateBatch(batchId);
+                toast.success(t("brew.completed.duplicateBatch"));
+                router.push(
+                  `/${locale}/brewery/batches/${newBatch.id}/brew`
+                );
+              } catch {
+                toast.error("Error");
+              }
+            });
+          }}
+        >
+          <Copy className="mr-1 size-4" />
+          {t("brew.completed.duplicateBatch")}
+        </Button>
         <Button
           variant="outline"
           onClick={() =>

@@ -38,9 +38,10 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-import type { BatchStep, HopAddition, BatchPhase } from "../../../types";
+import type { Batch, BatchStep, HopAddition, BatchPhase } from "../../../types";
 import {
   getBatchBrewData,
+  getBrewingSystemForBatch,
   updateBatchStep,
   updateBatch,
   advanceBatchPhase,
@@ -240,6 +241,14 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [loading, setLoading] = useState(true);
   const [localActuals, setLocalActuals] = useState<Record<string, string>>({});
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
+  const [plannedValues, setPlannedValues] = useState<Record<MeasurementKey, string>>({
+    mashWater: "",
+    spargeWater: "",
+    preBoilVolume: "",
+    postBoilVolume: "",
+    fermenterVolume: "",
+    ogMeasured: "",
+  });
   const [measurements, setMeasurements] = useState<Record<MeasurementKey, string>>({
     mashWater: "",
     spargeWater: "",
@@ -260,7 +269,10 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     let cancelled = false;
     async function load(): Promise<void> {
       try {
-        const data = await getBatchBrewData(batchId);
+        const [data, sys] = await Promise.all([
+          getBatchBrewData(batchId),
+          getBrewingSystemForBatch(batchId),
+        ]);
         if (cancelled || !data) return;
         setSteps(data.steps);
 
@@ -277,6 +289,46 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         }
         setLocalActuals(actuals);
         setLocalNotes(notes);
+
+        // Compute planned measurement values from batch + brewing system
+        const batch = data.batch;
+        const batchSizeL = batch.recipeBatchSizeL
+          ? Number(batch.recipeBatchSizeL)
+          : null;
+        const recipeOg = batch.recipeOg ? Number(batch.recipeOg) : null;
+
+        if (batchSizeL && sys) {
+          const whirlpoolLossPct = Number(sys.whirlpoolLossPct ?? 10) / 100;
+          const kettleTrubLossL = Number(sys.kettleTrubLossL ?? 5);
+          const evapRatePctHr = Number(sys.evaporationRatePctPerHour ?? 8) / 100;
+          // Get boil time from the boil steps
+          const boilSteps = data.steps.filter((s) => s.brewPhase === "boiling");
+          const boilTimeMin = boilSteps.reduce((sum, s) => sum + (s.timeMin ?? 0), 0) || 60;
+          const boilTimeHr = boilTimeMin / 60;
+
+          // fermenter = batch size
+          const fermenterVol = batchSizeL;
+          // post-boil = fermenter / (1 - whirlpool loss)
+          const postBoilVol = fermenterVol / (1 - whirlpoolLossPct);
+          // pre-boil = (post-boil + kettle trub) / (1 - evap * hours)
+          const preBoilVol = (postBoilVol + kettleTrubLossL) / (1 - evapRatePctHr * boilTimeHr);
+
+
+          setPlannedValues({
+            mashWater: "",
+            spargeWater: "",
+            preBoilVolume: preBoilVol.toFixed(1),
+            postBoilVolume: postBoilVol.toFixed(1),
+            fermenterVolume: fermenterVol.toFixed(1),
+            ogMeasured: recipeOg ? recipeOg.toFixed(1) : "",
+          });
+        } else if (batchSizeL) {
+          setPlannedValues((prev) => ({
+            ...prev,
+            fermenterVolume: batchSizeL.toFixed(1),
+            ogMeasured: recipeOg ? recipeOg.toFixed(1) : "",
+          }));
+        }
       } catch {
         toast.error("Failed to load brew data");
       } finally {
@@ -779,7 +831,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                     )}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">
-                    —
+                    {plannedValues[key] || "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Input

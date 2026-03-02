@@ -3008,6 +3008,7 @@ export async function updateBatchPlanData(
 export async function getBrewingSystemForBatch(
   batchId: string
 ): Promise<{
+  id: string;
   name: string;
   batchSizeL: string;
   efficiencyPct: string;
@@ -3058,6 +3059,7 @@ export async function getBrewingSystemForBatch(
     if (!sys) return null;
 
     return {
+      id: sys.id,
       name: sys.name,
       batchSizeL: sys.batchSizeL,
       efficiencyPct: sys.efficiencyPct ?? "75",
@@ -3160,6 +3162,67 @@ export async function getBatchExciseSummary(
       currentVolumeHl: (totalVolumeIn - totalVolumeOut) / 100,
       movements: movementList,
     };
+  });
+}
+
+/** Update brewing system efficiency from completed batch. */
+export async function updateBrewingSystemEfficiency(
+  batchId: string,
+  newEfficiency: number
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    // Resolve brewing system via batch → recipe chain
+    const sys = await getBrewingSystemForBatch(batchId);
+    if (!sys) throw new Error("No brewing system found for batch");
+
+    await db
+      .update(brewingSystems)
+      .set({ efficiencyPct: String(newEfficiency) })
+      .where(
+        and(
+          eq(brewingSystems.tenantId, tenantId),
+          eq(brewingSystems.id, sys.id)
+        )
+      );
+  });
+}
+
+/** Duplicate a completed batch — creates a new batch from the same source recipe. */
+export async function duplicateBatch(batchId: string): Promise<Batch> {
+  return withTenant(async (tenantId) => {
+    // Load original batch
+    const batchRows = await db
+      .select()
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+
+    const origBatch = batchRows[0];
+    if (!origBatch) throw new Error("Batch not found");
+
+    // Find the source recipe (not the snapshot)
+    let sourceRecipeId: string | null = null;
+    if (origBatch.recipeId) {
+      const recipeRow = await db
+        .select({ sourceRecipeId: recipes.sourceRecipeId })
+        .from(recipes)
+        .where(
+          and(
+            eq(recipes.tenantId, tenantId),
+            eq(recipes.id, origBatch.recipeId)
+          )
+        )
+        .limit(1);
+      sourceRecipeId = recipeRow[0]?.sourceRecipeId ?? origBatch.recipeId;
+    }
+
+    // Create new batch via existing createBatch (which handles snapshot + steps)
+    return createBatch({
+      recipeId: sourceRecipeId,
+      plannedDate: new Date().toISOString().split("T")[0],
+      equipmentId: null,
+      notes: null,
+    });
   });
 }
 
