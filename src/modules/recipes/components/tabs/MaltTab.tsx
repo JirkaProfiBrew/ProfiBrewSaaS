@@ -4,10 +4,17 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Plus } from "lucide-react";
+import { Plus, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BeerGlass } from "@/components/ui/beer-glass";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { MaltCard } from "../cards/MaltCard";
 import type { RecipeItem } from "../../types";
@@ -17,6 +24,7 @@ import {
   removeAndRedistribute,
   kgToPercent,
   percentToKg,
+  calculateMaltRequiredDetail,
 } from "../../utils";
 
 // ── Props ────────────────────────────────────────────────────────
@@ -29,6 +37,9 @@ interface MaltTabProps {
   calculatedEbc: number;
   targetOg: number;
   calculatedOg: number;
+  batchSizeL: number;
+  efficiencyPct: number;
+  extractEstimatePct: number;
   maltInputMode: "kg" | "percent";
   onMaltInputModeChange: (mode: "kg" | "percent") => void;
   onAmountChange: (id: string, amount: string) => void;
@@ -48,6 +59,9 @@ export function MaltTab({
   calculatedEbc,
   targetOg,
   calculatedOg,
+  batchSizeL,
+  efficiencyPct,
+  extractEstimatePct,
   maltInputMode,
   onMaltInputModeChange,
   onAmountChange,
@@ -389,8 +403,16 @@ export function MaltTab({
                 <span>{t("designer.cards.total")}:</span>
                 <span className="font-medium">{totalPct.toFixed(1)}% = {totalMaltKg.toFixed(1)} kg</span>
               </div>
-              <div className="flex justify-between">
-                <span>{t("designer.maltMode.totalPlan")}:</span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  {t("designer.maltMode.totalPlan")}:
+                  <MaltPlanInfoButton
+                    targetOg={targetOg}
+                    batchSizeL={batchSizeL}
+                    efficiencyPct={efficiencyPct}
+                    extractEstimatePct={extractEstimatePct}
+                  />
+                </span>
                 <span className="font-medium">{maltPlanKg.toFixed(1)} kg</span>
               </div>
             </>
@@ -400,8 +422,16 @@ export function MaltTab({
                 <span>{t("designer.cards.total")}:</span>
                 <span className="font-medium">{totalMaltKg.toFixed(1)} kg</span>
               </div>
-              <div className="flex justify-between">
-                <span>{t("designer.cards.plan")}:</span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  {t("designer.cards.plan")}:
+                  <MaltPlanInfoButton
+                    targetOg={targetOg}
+                    batchSizeL={batchSizeL}
+                    efficiencyPct={efficiencyPct}
+                    extractEstimatePct={extractEstimatePct}
+                  />
+                </span>
                 <span className="font-medium">{maltPlanKg.toFixed(1)} kg</span>
               </div>
               {maltPlanKg > 0 && (
@@ -431,6 +461,118 @@ export function MaltTab({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Malt Plan Info Button + Detail Modal ────────────────────────
+
+function MaltPlanInfoButton({
+  targetOg,
+  batchSizeL,
+  efficiencyPct,
+  extractEstimatePct,
+}: {
+  targetOg: number;
+  batchSizeL: number;
+  efficiencyPct: number;
+  extractEstimatePct: number;
+}): React.ReactNode {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full size-5 hover:bg-muted-foreground/20 transition-colors"
+        >
+          <Info className="size-3.5 text-muted-foreground" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            <MaltDetailTitle />
+          </DialogTitle>
+        </DialogHeader>
+        <MaltDetailContent
+          targetOg={targetOg}
+          batchSizeL={batchSizeL}
+          efficiencyPct={efficiencyPct}
+          extractEstimatePct={extractEstimatePct}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MaltDetailTitle(): React.ReactNode {
+  const t = useTranslations("recipes");
+  return <>{t("designer.cards.maltDetailTitle")}</>;
+}
+
+function MaltDetailContent({
+  targetOg,
+  batchSizeL,
+  efficiencyPct,
+  extractEstimatePct,
+}: {
+  targetOg: number;
+  batchSizeL: number;
+  efficiencyPct: number;
+  extractEstimatePct: number;
+}): React.ReactNode {
+  const t = useTranslations("recipes");
+  const detail = useMemo(
+    () => calculateMaltRequiredDetail(targetOg, batchSizeL, efficiencyPct, extractEstimatePct),
+    [targetOg, batchSizeL, efficiencyPct, extractEstimatePct]
+  );
+
+  return (
+    <div className="space-y-4 text-sm">
+      {/* Input parameters */}
+      <div className="rounded-lg border p-3 bg-muted/30 space-y-1 font-mono text-xs">
+        <div>{t("designer.cards.maltDetailOg")} = {detail.targetOgPlato.toFixed(1)} °P</div>
+        <div>SG = {detail.targetSg.toFixed(4)}</div>
+        <div>{t("designer.cards.maltDetailBatchSize")} = {detail.batchSizeL.toFixed(1)} L</div>
+        <div>{t("designer.cards.maltDetailEfficiency")} = {detail.efficiencyPct}%</div>
+        <div>{t("designer.cards.maltDetailExtract")} = {detail.extractEstimatePct}%</div>
+      </div>
+
+      {/* Formula */}
+      <div className="text-xs text-muted-foreground">
+        <div className="font-medium mb-1">{t("designer.cards.maltDetailFormula")}:</div>
+        <div className="font-mono space-y-1">
+          <div>SG = platoToSG(OG) = {detail.targetSg.toFixed(4)}</div>
+          <div>E<sub>kg</sub> = V × SG × OG / 100</div>
+          <div>M<sub>kg</sub> = E<sub>kg</sub> / (extract/100) / (efficiency/100)</div>
+        </div>
+      </div>
+
+      {/* Step-by-step calculation */}
+      <div className="rounded-lg border p-3 space-y-2">
+        <div className="font-medium">{t("designer.cards.maltDetailSteps")}</div>
+        <div className="font-mono text-xs space-y-1 bg-muted/50 rounded p-2">
+          <div>
+            E<sub>kg</sub> = {detail.batchSizeL.toFixed(1)} × {detail.targetSg.toFixed(4)} × {detail.targetOgPlato.toFixed(1)} / 100
+          </div>
+          <div>
+            E<sub>kg</sub> = <span className="font-medium text-foreground">{detail.extractNeededKg.toFixed(2)} kg</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            M<sub>kg</sub> = {detail.extractNeededKg.toFixed(2)} / ({detail.extractEstimatePct}/100) / ({detail.efficiencyPct}/100)
+          </div>
+          <div>
+            M<sub>kg</sub> = {detail.extractNeededKg.toFixed(2)} / {(detail.extractEstimatePct / 100).toFixed(2)} / {(detail.efficiencyPct / 100).toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {/* Result */}
+      <div className="rounded-lg border-2 border-primary/30 p-3 font-mono text-sm">
+        <span className="font-medium">
+          {t("designer.cards.maltDetailResult")} = <span className="text-primary text-base">{detail.maltRequiredKg.toFixed(2)} kg</span>
+        </span>
+      </div>
     </div>
   );
 }

@@ -169,6 +169,9 @@ export function RecipeEditor({
               calculatedEbc={calculatedEbc}
               targetOg={targetOg}
               calculatedOg={calculatedOg}
+              batchSizeL={volumeL}
+              efficiencyPct={systemDefaults.efficiencyPct}
+              extractEstimatePct={systemDefaults.extractEstimate}
               maltInputMode={maltInputMode}
               onMaltInputModeChange={onMaltInputModeChange}
               onAmountChange={onAmountChange}

@@ -124,10 +124,11 @@ export function calculateVolumePipeline(
  * Two-step: extract in pre-boil → concentrate by boil.
  *
  * 1. totalExtractKg = Σ(malt_kg × extractPercent × efficiency)
- * 2. OG = totalExtractKg / (totalExtractKg + postBoilL) × 100
+ * 2. Iterative: P = totalExtractKg / (postBoilL × SG) × 100
  *
  * The extract is dissolved in pre-boil volume but water evaporates during boil,
  * concentrating the wort. OG is measured post-boil (= into fermenter gravity).
+ * Uses SG-corrected Plato: the wort mass = volume × SG, not just volume.
  */
 export function calculateOG(
   ingredients: IngredientInput[],
@@ -150,11 +151,15 @@ export function calculateOG(
 
   if (totalExtractKg <= 0) return 0;
 
-  // Post-boil gravity: extract dissolved in post-boil water mass
-  const postBoilWaterKg = postBoilL; // ≈ density of wort close to water
-  const ogPlato = totalExtractKg / (totalExtractKg + postBoilWaterKg) * 100;
+  // Iterative SG-corrected Plato: P = extractKg / (V × SG) × 100
+  // Start with rough estimate, then refine using SG
+  let plato = totalExtractKg / (totalExtractKg + postBoilL) * 100;
+  for (let i = 0; i < 3; i++) {
+    const sg = platoToSG(plato);
+    plato = totalExtractKg / (postBoilL * sg) * 100;
+  }
 
-  return round1(ogPlato);
+  return round1(plato);
 }
 
 // ── IBU (Tinseth) ───────────────────────────────────────────
@@ -521,23 +526,25 @@ export function calculateCost(
 
 /**
  * Calculate total malt required in kg (from target OG).
- * Reverse of OG formula:
- *   OG/100 = extractKg / (extractKg + postBoilL)
- *   extractKg = (OG/100 × postBoilL) / (1 - OG/100)
+ * Standard brewing formula (matches Brewfather, BeerSmith):
+ *   SG = platoToSG(targetOgPlato)
+ *   extractKg = batchSizeL × SG × (targetOgPlato / 100)
  *   maltKg = extractKg / (extractPct/100) / (efficiency/100)
+ *
+ * Uses batchSizeL (= into fermenter) because efficiency already accounts
+ * for all losses (mash, lauter, kettle trub, whirlpool).
  */
 export function calculateMaltRequired(
   targetOgPlato: number,
-  postBoilL: number,
+  batchSizeL: number,
   efficiencyPct: number,
   extractEstimatePct: number
 ): number {
-  if (targetOgPlato <= 0 || postBoilL <= 0) return 0;
+  if (targetOgPlato <= 0 || batchSizeL <= 0) return 0;
+  if (targetOgPlato >= 100) return 0;
 
-  const ogFraction = targetOgPlato / 100;
-  if (ogFraction >= 1) return 0;
-
-  const extractNeededKg = (ogFraction * postBoilL) / (1 - ogFraction);
+  const sg = platoToSG(targetOgPlato);
+  const extractNeededKg = batchSizeL * sg * targetOgPlato / 100;
   const extractFraction = (extractEstimatePct || 80) / 100;
   const efficiency = (efficiencyPct || 75) / 100;
 
@@ -545,6 +552,47 @@ export function calculateMaltRequired(
 
   const maltKg = extractNeededKg / extractFraction / efficiency;
   return round2(maltKg);
+}
+
+/**
+ * Detailed malt requirement calculation with step-by-step breakdown.
+ * Used for the info modal to show the full formula.
+ */
+export interface MaltCalculationDetail {
+  targetOgPlato: number;
+  targetSg: number;
+  batchSizeL: number;
+  efficiencyPct: number;
+  extractEstimatePct: number;
+  extractNeededKg: number;
+  maltRequiredKg: number;
+}
+
+export function calculateMaltRequiredDetail(
+  targetOgPlato: number,
+  batchSizeL: number,
+  efficiencyPct: number,
+  extractEstimatePct: number
+): MaltCalculationDetail {
+  const sg = targetOgPlato > 0 ? platoToSG(targetOgPlato) : 1.0;
+  const extractNeededKg = targetOgPlato > 0 && batchSizeL > 0
+    ? batchSizeL * sg * targetOgPlato / 100
+    : 0;
+  const extractFraction = (extractEstimatePct || 80) / 100;
+  const efficiency = (efficiencyPct || 75) / 100;
+  const maltRequiredKg = extractFraction > 0 && efficiency > 0
+    ? extractNeededKg / extractFraction / efficiency
+    : 0;
+
+  return {
+    targetOgPlato,
+    targetSg: sg,
+    batchSizeL,
+    efficiencyPct: efficiencyPct || 75,
+    extractEstimatePct: extractEstimatePct || 80,
+    extractNeededKg: round2(extractNeededKg),
+    maltRequiredKg: round2(maltRequiredKg),
+  };
 }
 
 // ── Water calculation ───────────────────────────────────────
@@ -640,10 +688,11 @@ export function calculateAll(
     : 0;
 
   // 9. Malt — plan from target OG (design), actual from ingredients
+  // Uses batchSizeL (into fermenter) — efficiency accounts for all losses
   const ogForPlan = targetOgPlato ?? og;
   const maltRequiredKg = calculateMaltRequired(
     ogForPlan,
-    pipeline.postBoilL,
+    batchSizeL,
     system.efficiencyPct,
     system.extractEstimate
   );
