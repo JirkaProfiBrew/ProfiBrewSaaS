@@ -1,6 +1,9 @@
 {
   "title": "Batches",
   "create": "Batch",
+  "validation": {
+    "recipeRequired": "Select a recipe to create a batch"
+  },
   "quickFilters": {
     "all": "All",
     "inProgress": "In Progress",

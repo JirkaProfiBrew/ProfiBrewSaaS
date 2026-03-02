@@ -1,6 +1,9 @@
 {
   "title": "Vary / Šarže",
   "create": "Várka",
+  "validation": {
+    "recipeRequired": "Vyberte recepturu pro založení varu"
+  },
   "quickFilters": {
     "all": "Vše",
     "inProgress": "Probíhající",

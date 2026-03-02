@@ -1,0 +1,7 @@
+generovat časový plán již při založení
+
+přístup k receptuře i u dalších fází
+
+zobrazit rmutovací schéma u plánu
+
+Slady - zaokrouhlit na 1 desetinné místo

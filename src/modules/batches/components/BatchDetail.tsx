@@ -95,7 +95,7 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   const [values, setValues] = useState<Record<string, unknown>>({
     recipeId: null,
     itemId: null,
-    plannedDate: null,
+    plannedDate: isNew ? new Date().toISOString().split("T")[0] : null,
     equipmentId: null,
     notes: null,
   });
@@ -170,22 +170,9 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
           label: t("form.plannedDate"),
           type: "date",
         },
-        {
-          key: "equipmentId",
-          label: t("form.equipment"),
-          type: "select",
-          options: equipmentOptions,
-          placeholder: t("form.equipmentPlaceholder"),
-        },
-        {
-          key: "notes",
-          label: t("form.notes"),
-          type: "textarea",
-          gridSpan: 2,
-        },
       ],
     }),
-    [t, recipeOptions, equipmentOptions]
+    [t, recipeOptions]
   );
 
   // ── Edit form section (overview tab) ────────────────────────
@@ -285,15 +272,13 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
     try {
       if (isNew) {
         const result = await createBatch({
-          recipeId: values.recipeId ? String(values.recipeId) : null,
+          recipeId: String(values.recipeId),
           plannedDate: values.plannedDate ? String(values.plannedDate) : null,
-          equipmentId: values.equipmentId
-            ? String(values.equipmentId)
-            : null,
-          notes: values.notes ? String(values.notes) : null,
+          equipmentId: null,
+          notes: null,
         });
         toast.success(tCommon("saved"));
-        router.push(`/brewery/batches/${result.id}`);
+        router.push(`/${locale}/brewery/batches/${result.id}/brew`);
       } else {
         await updateBatch(id, {
           itemId: values.itemId ? String(values.itemId) : null,
@@ -319,6 +304,12 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
   }, [isNew, id, values, router, tCommon, mutate]);
 
   const handleSave = useCallback(async (): Promise<void> => {
+    // Validate recipeId on create
+    if (isNew && !values.recipeId) {
+      setErrors({ recipeId: t("validation.recipeRequired") });
+      return;
+    }
+
     // Check if OG changed — show confirmation or block dialog
     if (
       !isNew &&

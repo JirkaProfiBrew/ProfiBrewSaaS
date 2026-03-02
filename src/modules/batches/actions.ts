@@ -642,6 +642,13 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
           recipeId: snapshotRecipeId ?? null,
           itemId: data.itemId ?? recipeItemId,
           status: "planned",
+          currentPhase: "plan",
+          phaseHistory: {
+            plan: {
+              started_at: new Date().toISOString(),
+              completed_at: null,
+            },
+          },
           plannedDate: data.plannedDate ? new Date(data.plannedDate) : null,
           equipmentId: data.equipmentId ?? null,
           brewerId: data.brewerId ?? null,

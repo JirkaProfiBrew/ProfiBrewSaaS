@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 
 import { DataBrowser, useDataBrowserParams } from "@/components/data-browser";
 import type { DataBrowserParams } from "@/components/data-browser";
@@ -150,6 +150,8 @@ function sortBatches(
 export function BatchBrowser(): React.ReactNode {
   const t = useTranslations("batches");
   const router = useRouter();
+  const routeParams = useParams();
+  const locale = routeParams.locale as string;
   const { params } = useDataBrowserParams(batchBrowserConfig);
   const { data: batchData, isLoading } = useBatchList();
 
@@ -230,6 +232,17 @@ export function BatchBrowser(): React.ReactNode {
     };
   }, [batchData, params]);
 
+  // Navigate to brew management view on row click
+  const handleRowClick = useCallback(
+    (row: Record<string, unknown>): void => {
+      const rowId = String(row["id"] ?? "");
+      if (rowId) {
+        router.push(`/${locale}/brewery/batches/${rowId}/brew`);
+      }
+    },
+    [router, locale]
+  );
+
   // onParamsChange is called by DataBrowser on search change;
   // URL state is managed by useDataBrowserParams internally.
   const handleParamsChange = useCallback(
@@ -251,6 +264,7 @@ export function BatchBrowser(): React.ReactNode {
         totalCount={totalCount}
         isLoading={isLoading}
         onParamsChange={handleParamsChange}
+        onRowClick={handleRowClick}
       />
     </div>
   );
