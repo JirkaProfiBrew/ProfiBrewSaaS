@@ -35,7 +35,7 @@ export function MaltCard({
   const sharePct = totalMaltKg > 0 ? (amountKg / totalMaltKg * 100).toFixed(1) : "0";
   const extractPct = item.itemExtractPercent ? parseFloat(item.itemExtractPercent) : null;
   const ebcVal = item.itemEbc ? parseFloat(item.itemEbc) : null;
-  const unitSymbol = item.unitSymbol ?? "kg";
+  const unitSymbol = item.unitSymbol ?? "g";
   const computedKg = maltRequiredKg * percent / 100;
 
   if (mode === "percent") {

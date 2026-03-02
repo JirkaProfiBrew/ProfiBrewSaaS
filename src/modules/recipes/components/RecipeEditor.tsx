@@ -47,6 +47,9 @@ interface RecipeEditorProps {
   // EBC for dual BeerGlass
   targetEbc: number;
   calculatedEbc: number;
+  // OG for target vs calculated comparison
+  targetOg: number;
+  calculatedOg: number;
   // Constants
   constants: RecipeConstantsOverride;
   systemDefaults: BrewingSystemInput;
@@ -97,6 +100,8 @@ export function RecipeEditor({
   ebcTarget,
   targetEbc,
   calculatedEbc,
+  targetOg,
+  calculatedOg,
   maltInputMode,
   onMaltInputModeChange,
   onPercentChange,
@@ -162,6 +167,8 @@ export function RecipeEditor({
               ebcTarget={ebcTarget}
               targetEbc={targetEbc}
               calculatedEbc={calculatedEbc}
+              targetOg={targetOg}
+              calculatedOg={calculatedOg}
               maltInputMode={maltInputMode}
               onMaltInputModeChange={onMaltInputModeChange}
               onAmountChange={onAmountChange}

@@ -28,9 +28,11 @@ function fmtCost(v: number): string {
 
 export interface RecipeFeedbackSidebarProps {
   // Design targets (from sliders)
+  designOg: number;
   designIbu: number;
   designEbc: number;
   // Calculated values (from ingredients via calculateAll)
+  calcOg: number;
   calcIbu: number;
   calcEbc: number;
   // Malt plan
@@ -115,8 +117,10 @@ function ComparisonRow({ row }: { row: ComparisonRowDef }): React.ReactNode {
 // ── Component ────────────────────────────────────────────────────
 
 export function RecipeFeedbackSidebar({
+  designOg,
   designIbu,
   designEbc,
+  calcOg,
   calcIbu,
   calcEbc,
   maltPlanKg,
@@ -130,9 +134,15 @@ export function RecipeFeedbackSidebar({
   const t = useTranslations("recipes");
   const { collapsed: sidebarCollapsed } = useSidebar();
 
-  // Comparison rows — only IBU and EBC (OG/FG/ABV not influenced by recipe ingredients)
+  // Comparison rows — OG, IBU, EBC
   const rows: ComparisonRowDef[] = useMemo(
     () => [
+      {
+        label: t("designer.feedback.og"),
+        designValue: designOg > 0 ? designOg.toFixed(1) : "—",
+        calcValue: calcOg > 0 ? calcOg.toFixed(1) : "—",
+        status: getComparisonStatus(designOg, calcOg),
+      },
       {
         label: t("designer.feedback.ibu"),
         designValue: designIbu.toFixed(0),
@@ -146,7 +156,7 @@ export function RecipeFeedbackSidebar({
         status: getComparisonStatus(designEbc, calcEbc),
       },
     ],
-    [t, designIbu, designEbc, calcIbu, calcEbc]
+    [t, designOg, designIbu, designEbc, calcOg, calcIbu, calcEbc]
   );
 
   // Malt diff

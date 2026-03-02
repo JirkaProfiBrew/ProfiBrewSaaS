@@ -887,8 +887,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
                   <SheetTitle>{t("designer.sidebar.title")}</SheetTitle>
                 </SheetHeader>
                 <RecipeFeedbackSidebar
+                  designOg={designValues.og}
                   designIbu={designValues.targetIbu}
                   designEbc={designValues.targetEbc}
+                  calcOg={calcResult.og}
                   calcIbu={calcResult.ibu}
                   calcEbc={calcResult.ebc}
                   maltPlanKg={calcResult.maltRequiredKg}
@@ -956,7 +958,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               steps={recipeDetail?.steps ?? []}
               recipe={recipeDetail?.recipe ?? null}
               allItems={localItems}
-              ogPlato={designValues.og || calcResult.og}
+              ogPlato={calcResult.og}
               volumeL={calcResult.pipeline.postBoilL}
               boilTimeMin={boilTimeMin}
               whirlpoolTempC={effectiveSystem.whirlpoolTemperatureC}
@@ -965,6 +967,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               ebcTarget={ebcTarget}
               targetEbc={designValues.targetEbc}
               calculatedEbc={calcResult.ebc}
+              targetOg={designValues.og}
+              calculatedOg={calcResult.og}
               maltInputMode={maltInputMode}
               onMaltInputModeChange={handleMaltInputModeChange}
               onPercentChange={handlePercentChange}
@@ -988,8 +992,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
         {/* Detail sidebar (xl+ screens) */}
         <RecipeFeedbackSidebar
+          designOg={designValues.og}
           designIbu={designValues.targetIbu}
           designEbc={designValues.targetEbc}
+          calcOg={calcResult.og}
           calcIbu={calcResult.ibu}
           calcEbc={calcResult.ebc}
           maltPlanKg={calcResult.maltRequiredKg}

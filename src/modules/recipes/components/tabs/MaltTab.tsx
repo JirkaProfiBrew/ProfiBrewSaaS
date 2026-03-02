@@ -27,6 +27,8 @@ interface MaltTabProps {
   ebcTarget: { min: number; max: number } | null;
   targetEbc: number;
   calculatedEbc: number;
+  targetOg: number;
+  calculatedOg: number;
   maltInputMode: "kg" | "percent";
   onMaltInputModeChange: (mode: "kg" | "percent") => void;
   onAmountChange: (id: string, amount: string) => void;
@@ -44,6 +46,8 @@ export function MaltTab({
   ebcTarget,
   targetEbc,
   calculatedEbc,
+  targetOg,
+  calculatedOg,
   maltInputMode,
   onMaltInputModeChange,
   onAmountChange,
@@ -119,6 +123,9 @@ export function MaltTab({
     [percentages]
   );
 
+  // Reference total for % → kg: use actual total, fallback to plan
+  const referenceKg = totalMaltKg > 0 ? totalMaltKg : maltPlanKg;
+
   // Handle percent slider change — redistribute others proportionally
   const handlePercentChange = useCallback(
     (itemId: string, newPercent: number): void => {
@@ -133,8 +140,8 @@ export function MaltTab({
       orderedIds.forEach((id, i) => nextMap.set(id, newPcts[i] ?? 0));
       setPercentages(nextMap);
 
-      // Compute kg and propagate to parent
-      const kgs = percentToKg(newPcts, maltPlanKg);
+      // Compute kg and propagate to parent — use actual total, not plan
+      const kgs = percentToKg(newPcts, referenceKg);
       orderedIds.forEach((id, i) => {
         const item = items.find((it) => it.id === id);
         if (item) {
@@ -144,7 +151,7 @@ export function MaltTab({
         }
       });
     },
-    [items, percentages, maltPlanKg, onPercentChange]
+    [items, percentages, referenceKg, onPercentChange]
   );
 
   // Handle remove — redistribute remaining percentages
@@ -162,8 +169,8 @@ export function MaltTab({
         remainingIds.forEach((id, i) => nextMap.set(id, newPcts[i] ?? 0));
         setPercentages(nextMap);
 
-        // Update kg for remaining items
-        const kgs = percentToKg(newPcts, maltPlanKg);
+        // Update kg for remaining items — use actual total, not plan
+        const kgs = percentToKg(newPcts, referenceKg);
         remainingIds.forEach((id, i) => {
           const item = items.find((it) => it.id === id);
           if (item) {
@@ -176,7 +183,7 @@ export function MaltTab({
 
       onRemove(itemId);
     },
-    [items, percentages, maltInputMode, maltPlanKg, onPercentChange, onRemove]
+    [items, percentages, maltInputMode, referenceKg, onPercentChange, onRemove]
   );
 
   // Handle mode switch
@@ -194,10 +201,10 @@ export function MaltTab({
         items.forEach((item, i) => nextMap.set(item.id, pcts[i] ?? 0));
         setPercentages(nextMap);
       } else if (mode === "kg" && maltInputMode === "percent") {
-        // % → kg: compute kg from percentages and maltPlanKg
+        // % → kg: compute kg from percentages and actual total (not plan)
         const orderedIds = items.map((i) => i.id);
         const pcts = orderedIds.map((id) => percentages.get(id) ?? 0);
-        const kgs = percentToKg(pcts, maltPlanKg);
+        const kgs = percentToKg(pcts, referenceKg);
         orderedIds.forEach((id, i) => {
           const item = items.find((it) => it.id === id);
           if (item) {
@@ -209,7 +216,7 @@ export function MaltTab({
       }
       onMaltInputModeChange(mode);
     },
-    [items, percentages, maltInputMode, maltPlanKg, onAmountChange, onMaltInputModeChange]
+    [items, percentages, maltInputMode, referenceKg, onAmountChange, onMaltInputModeChange]
   );
 
   // Handle add — update percentages for the new item
@@ -224,8 +231,8 @@ export function MaltTab({
       items.forEach((item, i) => nextMap.set(item.id, newPcts[i] ?? 0));
       setPercentages(nextMap);
 
-      // Update kg for existing items
-      const kgs = percentToKg(newPcts.slice(0, items.length), maltPlanKg);
+      // Update kg for existing items — use actual total, not plan
+      const kgs = percentToKg(newPcts.slice(0, items.length), referenceKg);
       items.forEach((item, i) => {
         const factor = item.unitToBaseFactor ?? 0.001;
         const amountInUnit = factor !== 0 ? (kgs[i] ?? 0) / factor : 0;
@@ -233,7 +240,7 @@ export function MaltTab({
       });
     }
     onAdd();
-  }, [items, percentages, maltInputMode, maltPlanKg, onPercentChange, onAdd]);
+  }, [items, percentages, maltInputMode, referenceKg, onPercentChange, onAdd]);
 
   // When a new item appears after onAdd in percent mode, set its default percentage
   useEffect(() => {
@@ -244,6 +251,9 @@ export function MaltTab({
     const currentPcts = items
       .filter((i) => percentages.has(i.id))
       .map((i) => percentages.get(i.id) ?? 0);
+
+    // Use actual total for kg computation, fallback to plan for empty recipes
+    const refKg = totalMaltKg > 0 ? totalMaltKg : maltPlanKg;
 
     for (const newItem of newItems) {
       const allPcts = getDefaultPercentages(currentPcts);
@@ -260,12 +270,12 @@ export function MaltTab({
 
       // Update kg for the new item
       const factor = newItem.unitToBaseFactor ?? 0.001;
-      const kg = maltPlanKg * (allPcts[allPcts.length - 1] ?? 0) / 100;
+      const kg = refKg * (allPcts[allPcts.length - 1] ?? 0) / 100;
       const amountInUnit = factor !== 0 ? kg / factor : 0;
       onPercentChange(newItem.id, allPcts[allPcts.length - 1] ?? 0, amountInUnit);
       currentPcts.push(allPcts[allPcts.length - 1] ?? 0);
     }
-  }, [items, percentages, maltInputMode, maltPlanKg, onPercentChange]);
+  }, [items, percentages, maltInputMode, totalMaltKg, maltPlanKg, onPercentChange]);
 
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event;
@@ -321,7 +331,7 @@ export function MaltTab({
               totalMaltKg={totalMaltKg}
               mode={maltInputMode}
               percent={getPercent(item.id)}
-              maltRequiredKg={maltPlanKg}
+              maltRequiredKg={referenceKg}
               onAmountChange={onAmountChange}
               onPercentChange={handlePercentChange}
               onRemove={handleRemove}
@@ -339,6 +349,26 @@ export function MaltTab({
       {/* Summary */}
       {items.length > 0 && (
         <div className="rounded-lg border bg-muted/50 p-3 text-sm space-y-1">
+          {/* OG target vs calculated */}
+          <div className="flex justify-between">
+            <span>OG:</span>
+            <span className="flex items-center gap-2">
+              <span className="text-muted-foreground">{t("designer.cards.target")} {targetOg > 0 ? `${targetOg.toFixed(1)} °P` : "—"}</span>
+              <span className="text-muted-foreground">&rarr;</span>
+              <span className={cn(
+                "font-medium",
+                targetOg > 0 && calculatedOg > 0
+                  ? Math.abs(calculatedOg - targetOg) / targetOg <= 0.05
+                    ? "text-green-600"
+                    : Math.abs(calculatedOg - targetOg) / targetOg <= 0.15
+                      ? "text-amber-600"
+                      : "text-red-600"
+                  : ""
+              )}>
+                {calculatedOg > 0 ? `${calculatedOg.toFixed(1)} °P` : "—"}
+              </span>
+            </span>
+          </div>
           {/* Dual BeerGlass — target vs calculated */}
           <div className="flex items-center justify-center gap-4 py-2">
             <div className="flex flex-col items-center">
