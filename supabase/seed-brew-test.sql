@@ -159,7 +159,7 @@ BEGIN
   -- Sklad surovin (raw materials)
   INSERT INTO warehouses (id, tenant_id, code, name, is_excise_relevant, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'SUROVINY', 'Sklad surovin', false, true)
-  ON CONFLICT ON CONSTRAINT warehouses_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_wh_suroviny_id
     FROM warehouses
@@ -169,7 +169,7 @@ BEGIN
   -- Sklad piva (beer storage, excise-relevant)
   INSERT INTO warehouses (id, tenant_id, code, name, is_excise_relevant, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'PIVO', 'Sklad piva', true, true)
-  ON CONFLICT ON CONSTRAINT warehouses_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_wh_pivo_id
     FROM warehouses
@@ -186,7 +186,7 @@ BEGIN
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'CESKY-SVETLY', 'Český světlý', true, 'raw_material', 'malt',
           v_unit_kg, v_unit_g, 3.5, 80, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_cesky_svetly FROM items WHERE tenant_id = v_tenant_id AND code = 'CESKY-SVETLY' LIMIT 1;
 
@@ -195,7 +195,7 @@ BEGIN
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'VIDENSKY', 'Vídeňský', true, 'raw_material', 'malt',
           v_unit_kg, v_unit_g, 7, 79, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_vidensky FROM items WHERE tenant_id = v_tenant_id AND code = 'VIDENSKY' LIMIT 1;
 
@@ -204,7 +204,7 @@ BEGIN
                      unit_id, recipe_unit_id, ebc, extract_percent, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'MNICHOVSKY-II', 'Mnichovský II', true, 'raw_material', 'malt',
           v_unit_kg, v_unit_g, 20, 78, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_mnichovsky FROM items WHERE tenant_id = v_tenant_id AND code = 'MNICHOVSKY-II' LIMIT 1;
 
@@ -214,7 +214,7 @@ BEGIN
                      unit_id, recipe_unit_id, alpha, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'PREMIANT', 'Premiant', true, 'raw_material', 'hop',
           v_unit_g, v_unit_g, 8.5, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_premiant FROM items WHERE tenant_id = v_tenant_id AND code = 'PREMIANT' LIMIT 1;
 
@@ -223,7 +223,7 @@ BEGIN
                      unit_id, recipe_unit_id, alpha, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'ZAT-CERVENAK', 'Žatecký červeňák', true, 'raw_material', 'hop',
           v_unit_g, v_unit_g, 3.5, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_zat_cervenak FROM items WHERE tenant_id = v_tenant_id AND code = 'ZAT-CERVENAK' LIMIT 1;
 
@@ -233,7 +233,7 @@ BEGIN
                      unit_id, recipe_unit_id, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'SAFLAGER-S189', 'Saflager S-189', true, 'raw_material', 'yeast',
           v_unit_g, v_unit_g, true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_saflager FROM items WHERE tenant_id = v_tenant_id AND code = 'SAFLAGER-S189' LIMIT 1;
 
@@ -241,7 +241,7 @@ BEGIN
   -- Ležák 13°P
   INSERT INTO items (id, tenant_id, code, name, is_production_item, is_excise_relevant, stock_category, is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'LEZAK-13', 'Ležák 13°P', true, true, 'finished_product', true)
-  ON CONFLICT ON CONSTRAINT items_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   SELECT id INTO v_item_lezak13 FROM items WHERE tenant_id = v_tenant_id AND code = 'LEZAK-13' LIMIT 1;
 
@@ -344,7 +344,7 @@ BEGIN
   INSERT INTO stock_issues (id, tenant_id, code, movement_type, movement_purpose, date, status, warehouse_id, notes)
   VALUES (v_receipt_id, v_tenant_id, 'SEED-RCP-001', 'receipt', 'purchase', CURRENT_DATE, 'confirmed', v_wh_suroviny_id,
           'Seed: initial stock for brew lifecycle test')
-  ON CONFLICT ON CONSTRAINT stock_issues_tenant_code DO NOTHING;
+  ON CONFLICT (tenant_id, code) DO NOTHING;
 
   -- Re-select in case it already existed
   SELECT id INTO v_receipt_id
@@ -413,32 +413,32 @@ BEGIN
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_cesky_svetly, v_wh_suroviny_id, 259000, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 259000, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_vidensky, v_wh_suroviny_id, 27000, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 27000, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_mnichovsky, v_wh_suroviny_id, 164000, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 164000, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_zat_cervenak, v_wh_suroviny_id, 390, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 390, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_premiant, v_wh_suroviny_id, 53, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 53, reserved_qty = 0, updated_at = now();
 
   INSERT INTO stock_status (id, tenant_id, item_id, warehouse_id, quantity, reserved_qty)
   VALUES (gen_random_uuid(), v_tenant_id, v_item_saflager, v_wh_suroviny_id, 100, 0)
-  ON CONFLICT ON CONSTRAINT stock_status_tenant_item_warehouse
+  ON CONFLICT (tenant_id, item_id, warehouse_id)
     DO UPDATE SET quantity = 100, reserved_qty = 0, updated_at = now();
 
   -- ============================================================
