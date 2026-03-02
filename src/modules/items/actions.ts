@@ -497,7 +497,8 @@ export async function getItemsWithStock(
         batches,
         and(eq(batches.recipeId, recipes.id), eq(batches.tenantId, tenantId))
       )
-      .leftJoin(units, eq(recipeItems.unitId, units.id))
+      .leftJoin(items, eq(recipeItems.itemId, items.id))
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId})`)
       .where(
         and(
           eq(recipeItems.tenantId, tenantId),
@@ -903,7 +904,8 @@ export async function getDemandBreakdown(
           eq(recipeItems.itemId, itemId)
         )
       )
-      .leftJoin(units, eq(recipeItems.unitId, units.id))
+      .leftJoin(items, eq(recipeItems.itemId, items.id))
+      .leftJoin(units, sql`${units.id} = COALESCE(${recipeItems.unitId}, ${items.recipeUnitId})`)
       .where(
         and(
           eq(batches.tenantId, tenantId),
