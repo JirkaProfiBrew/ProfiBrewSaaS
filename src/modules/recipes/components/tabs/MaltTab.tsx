@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -75,20 +75,24 @@ export function MaltTab({
   // Local percentage state — tracks percentages for each item
   const [percentages, setPercentages] = useState<Map<string, number>>(new Map());
 
+  // Ref: prevents the new-item effect from firing on initial mount
+  // (on mount, ALL items appear "new" because percentages map is empty in the closure)
+  const initializedRef = useRef(false);
+
   // Initialize percentages from items when items change
   useEffect(() => {
     setPercentages((prev) => {
       const next = new Map(prev);
       let changed = false;
 
-      // Add percentages for new items
+      // Add percentages for items with stored percent values
       for (const item of items) {
         if (!next.has(item.id)) {
           const pct = item.percent ? parseFloat(item.percent) : null;
           if (pct != null) {
             next.set(item.id, pct);
+            changed = true;
           }
-          changed = true;
         }
       }
 
@@ -101,20 +105,26 @@ export function MaltTab({
         }
       }
 
-      // If we have items but no percentages computed yet, derive from kg
-      if (items.length > 0 && [...next.values()].every((v) => v === undefined || v === null)) {
+      // For items still not in the map (no stored percent), derive from kg amounts
+      const unmapped = items.filter((i) => !next.has(i.id));
+      if (unmapped.length > 0) {
         const amounts = items.map((item) => {
           const amount = parseFloat(item.amountG) || 0;
           const factor = item.unitToBaseFactor ?? 1;
           return amount * factor;
         });
         const pcts = kgToPercent(amounts);
-        items.forEach((item, i) => next.set(item.id, pcts[i] ?? 0));
+        items.forEach((item, i) => {
+          if (!next.has(item.id)) {
+            next.set(item.id, pcts[i] ?? 0);
+          }
+        });
         changed = true;
       }
 
       return changed ? next : prev;
     });
+    initializedRef.current = true;
   }, [items]);
 
   // Total malt in kg — sum of all items' amounts converted via unitToBaseFactor
@@ -256,8 +266,11 @@ export function MaltTab({
     onAdd();
   }, [items, percentages, maltInputMode, referenceKg, onPercentChange, onAdd]);
 
-  // When a new item appears after onAdd in percent mode, set its default percentage
+  // When a new item appears after onAdd in percent mode, set its default percentage.
+  // Uses a ref to skip the initial mount (where ALL items appear "new" due to empty
+  // percentages closure), preventing unnecessary server action calls.
   useEffect(() => {
+    if (!initializedRef.current) return;
     if (maltInputMode !== "percent") return;
     const newItems = items.filter((i) => !percentages.has(i.id));
     if (newItems.length === 0) return;
@@ -266,8 +279,7 @@ export function MaltTab({
       .filter((i) => percentages.has(i.id))
       .map((i) => percentages.get(i.id) ?? 0);
 
-    // Use actual total for kg computation, fallback to plan for empty recipes
-    const refKg = totalMaltKg > 0 ? totalMaltKg : maltPlanKg;
+    const refKg = maltPlanKg > 0 ? maltPlanKg : totalMaltKg;
 
     for (const newItem of newItems) {
       const allPcts = getDefaultPercentages(currentPcts);
@@ -284,12 +296,13 @@ export function MaltTab({
 
       // Update kg for the new item
       const factor = newItem.unitToBaseFactor ?? 1;
-      const kg = refKg * (allPcts[allPcts.length - 1] ?? 0) / 100;
+      const kg = refKg * newPct / 100;
       const amountInUnit = factor !== 0 ? kg / factor : 0;
-      onPercentChange(newItem.id, allPcts[allPcts.length - 1] ?? 0, amountInUnit);
-      currentPcts.push(allPcts[allPcts.length - 1] ?? 0);
+      onPercentChange(newItem.id, newPct, amountInUnit);
+      currentPcts.push(newPct);
     }
-  }, [items, percentages, maltInputMode, totalMaltKg, maltPlanKg, onPercentChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, percentages, maltInputMode, maltPlanKg, onPercentChange]);
 
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event;
