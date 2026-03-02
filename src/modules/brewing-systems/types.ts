@@ -59,19 +59,25 @@ export function calculateVolumes(system: {
   const whirlpoolLoss = Number(system.whirlpoolLossPct) || 0;
   const fermentationLoss = Number(system.fermentationLossPct) || 0;
 
-  // batch_size_l = post-boil volume (mladina)
-  const postBoilVolumeL = batchSizeL;
-  // pre-boil: account for evaporation (assume 1h boil) + trub loss
+  // batch_size_l = into fermenter (anchor point)
+  const intoFermenterL = batchSizeL;
+
+  // Backward: post-boil = into fermenter / (1 - whirlpool%)
+  const whirlpoolFactor = 1 - whirlpoolLoss / 100;
+  const postBoilVolumeL = whirlpoolFactor > 0
+    ? batchSizeL / whirlpoolFactor
+    : batchSizeL;
+
+  // Backward: pre-boil = (post-boil + trub) / (1 - evap%) — assume 1h boil
   const evapFraction = evapRatePctHr / 100;
-  const preboilVolumeL =
-    evapFraction < 1
-      ? (batchSizeL + trubLossL) / (1 - evapFraction)
-      : batchSizeL + trubLossL;
-  // post-whirlpool
-  const postWhirlpoolL = batchSizeL * (1 - whirlpoolLoss / 100);
-  // into fermenter = post-whirlpool
-  const intoFermenterL = postWhirlpoolL;
-  // finished beer
+  const preboilVolumeL = evapFraction < 1
+    ? (postBoilVolumeL + trubLossL) / (1 - evapFraction)
+    : postBoilVolumeL + trubLossL;
+
+  // post-whirlpool = into fermenter (same point)
+  const postWhirlpoolL = intoFermenterL;
+
+  // Forward: finished beer = into fermenter × (1 - fermentation%)
   const finishedBeerL = intoFermenterL * (1 - fermentationLoss / 100);
 
   return {
