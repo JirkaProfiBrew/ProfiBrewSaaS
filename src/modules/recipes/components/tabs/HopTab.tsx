@@ -1,14 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Check, AlertTriangle } from "lucide-react";
+import { Plus, Check, AlertTriangle, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { HopCard } from "../cards/HopCard";
 import type { RecipeItem } from "../../types";
-import { calculateIBUBreakdown } from "../../utils";
+import { calculateIBUBreakdown, calculateIBUDetail } from "../../utils";
 import type { IngredientInput } from "../../utils";
 
 // ── Stage ordering for auto-sort ─────────────────────────────────
@@ -195,8 +202,31 @@ export function HopTab({
       {items.length > 0 && (
         <div className="rounded-lg border bg-muted/50 p-3 text-sm space-y-1">
           <div className="flex items-center justify-between">
-            <span>
+            <span className="flex items-center gap-1">
               {t("designer.cards.total")} IBU: <span className="font-medium">{totalIbu.toFixed(1)}</span>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-full size-5 hover:bg-muted-foreground/20 transition-colors"
+                    title={t("designer.cards.ibuDetailTitle")}
+                  >
+                    <Info className="size-3.5 text-muted-foreground" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{t("designer.cards.ibuDetailTitle")}</DialogTitle>
+                  </DialogHeader>
+                  <IBUDetailContent
+                    ingredientInputs={ingredientInputs}
+                    volumeL={volumeL}
+                    ogPlato={ogPlato}
+                    boilTimeMin={boilTimeMin}
+                    whirlpoolTempC={whirlpoolTempC}
+                  />
+                </DialogContent>
+              </Dialog>
             </span>
             {ibuTarget && (
               <span className="flex items-center gap-1">
@@ -222,6 +252,86 @@ export function HopTab({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── IBU Detail Modal Content ─────────────────────────────────
+
+function IBUDetailContent({
+  ingredientInputs,
+  volumeL,
+  ogPlato,
+  boilTimeMin,
+  whirlpoolTempC,
+}: {
+  ingredientInputs: IngredientInput[];
+  volumeL: number;
+  ogPlato: number;
+  boilTimeMin: number;
+  whirlpoolTempC: number;
+}): React.ReactNode {
+  const t = useTranslations("recipes");
+  const detail = useMemo(
+    () => calculateIBUDetail(ingredientInputs, volumeL, ogPlato, boilTimeMin, whirlpoolTempC),
+    [ingredientInputs, volumeL, ogPlato, boilTimeMin, whirlpoolTempC]
+  );
+
+  return (
+    <div className="space-y-4 text-sm">
+      {/* Global parameters */}
+      <div className="rounded-lg border p-3 bg-muted/30 space-y-1 font-mono text-xs">
+        <div>OG = {detail.ogPlato.toFixed(1)} °P → SG = {detail.sgWort.toFixed(4)}</div>
+        <div>{t("designer.cards.ibuPostBoilVolume")} = {detail.postBoilL.toFixed(1)} L</div>
+        <div>{t("designer.cards.ibuBoilTime")} = {detail.boilTimeMin} min</div>
+      </div>
+
+      {/* Tinseth formula */}
+      <div className="text-xs text-muted-foreground">
+        <div className="font-medium mb-1">Tinseth (1997):</div>
+        <div className="font-mono">
+          IBU = (W<sub>kg</sub> × U × α × 1 000 000) / V<sub>postBoil</sub>
+        </div>
+        <div className="font-mono mt-1">
+          U = bigness × boilTime
+        </div>
+        <div className="font-mono">
+          bigness = 1.65 × 0.000125<sup>(SG−1)</sup> = {detail.hops[0]?.bignessFactor.toFixed(4) ?? "—"}
+        </div>
+        <div className="font-mono">
+          boilTime = (1 − e<sup>−0.04×t</sup>) / 4.15
+        </div>
+      </div>
+
+      {/* Per-hop breakdown */}
+      {detail.hops.map((hop, i) => (
+        <div key={i} className="rounded-lg border p-3 space-y-2">
+          <div className="font-medium">{hop.name}</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>{t("designer.cards.ibuWeight")}: {hop.weightG} g ({hop.weightKg.toFixed(4)} kg)</span>
+            <span>α: {hop.alphaPct}% ({hop.alphaDecimal})</span>
+            <span>{t("designer.cards.ibuStage")}: {hop.stage}</span>
+            <span>{t("designer.cards.ibuTime")}: {hop.timeMin} min</span>
+          </div>
+          <div className="font-mono text-xs space-y-1 bg-muted/50 rounded p-2">
+            <div>boilTimeFactor = (1 − e<sup>−0.04×{hop.timeMin}</sup>) / 4.15 = {hop.boilTimeFactor.toFixed(4)}</div>
+            <div>U = {hop.bignessFactor.toFixed(4)} × {hop.boilTimeFactor.toFixed(4)} = {hop.utilization.toFixed(4)}</div>
+            {hop.stageFactor !== 1.0 && (
+              <div>{t("designer.cards.ibuStageFactor")}: × {hop.stageFactor.toFixed(2)}</div>
+            )}
+            <div className="font-medium text-foreground pt-1 border-t">
+              IBU = ({hop.weightKg.toFixed(4)} × {hop.utilization.toFixed(4)} × {hop.alphaDecimal} × 1000000) / {hop.postBoilL.toFixed(1)}{hop.stageFactor !== 1.0 ? ` × ${hop.stageFactor.toFixed(2)}` : ""} = <span className="text-primary">{hop.ibu.toFixed(1)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Total */}
+      <div className="rounded-lg border-2 border-primary/30 p-3 font-mono text-sm">
+        <span className="font-medium">
+          {t("designer.cards.total")} IBU = {detail.hops.map(h => h.ibu.toFixed(1)).join(" + ")} = <span className="text-primary text-base">{detail.totalIbu.toFixed(1)}</span>
+        </span>
+      </div>
     </div>
   );
 }

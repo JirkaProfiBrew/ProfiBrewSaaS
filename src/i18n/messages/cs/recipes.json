@@ -302,6 +302,13 @@
       "stage_whirlpool": "Whirlpool",
       "stage_dry_hop_warm": "Dry hop (teplý)",
       "stage_dry_hop_cold": "Dry hop (studený)",
+      "ibuDetailTitle": "Výpočet IBU — Tinseth",
+      "ibuPostBoilVolume": "Post-boil objem",
+      "ibuBoilTime": "Doba varu",
+      "ibuWeight": "Hmotnost",
+      "ibuStage": "Fáze",
+      "ibuTime": "Čas",
+      "ibuStageFactor": "Korekce fáze",
       "target": "cíl",
       "recipe": "recept"
     },

@@ -9,7 +9,7 @@
  * - Cost: sum of ingredient costs based on amount and unit price
  */
 
-import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation, IBUBreakdown } from "./types";
+import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation, IBUBreakdown, IBUCalculationDetail, IBUHopDetail } from "./types";
 import { DEFAULT_BREWING_SYSTEM } from "./types";
 
 // ── Input interface ─────────────────────────────────────────
@@ -328,6 +328,100 @@ export function calculateIBU(
   }, 0);
 
   return round1(totalIBU);
+}
+
+/**
+ * Calculate IBU with full detail for each hop — for the math breakdown modal.
+ */
+export function calculateIBUDetail(
+  ingredients: IngredientInput[],
+  postBoilL: number,
+  ogPlato: number,
+  boilTimeMin: number,
+  whirlpoolTempC: number = 85
+): IBUCalculationDetail {
+  if (postBoilL <= 0) {
+    return { ogPlato, sgWort: 1.0, postBoilL, boilTimeMin, hops: [], totalIbu: 0 };
+  }
+
+  const sg = platoToSG(ogPlato);
+  const hops = ingredients.filter(i => i.category === "hop");
+  const hopDetails: IBUHopDetail[] = [];
+
+  for (const hop of hops) {
+    const weightKg = toKg(hop);
+    const alphaPct = hop.alpha ?? 0;
+    const alphaDecimal = alphaPct / 100;
+    const stage = hop.useStage ?? "boil";
+    const timeMin = hop.useTimeMin ?? 0;
+
+    if (alphaDecimal <= 0 || weightKg <= 0) continue;
+
+    const bignessFactor = 1.65 * Math.pow(0.000125, sg - 1);
+    let effectiveTime = timeMin;
+    let stageFactor = 1.0;
+    let stageNote = "";
+
+    switch (stage) {
+      case "fwh":
+        effectiveTime = boilTimeMin;
+        stageFactor = 1.1;
+        stageNote = " × 1.1 (FWH)";
+        break;
+      case "mash":
+        stageFactor = 0.3;
+        stageNote = " × 0.3 (mash)";
+        break;
+      case "whirlpool": {
+        const tempC = hop.temperatureC ?? whirlpoolTempC;
+        stageFactor = temperatureFactor(tempC);
+        stageNote = ` × ${stageFactor.toFixed(2)} (whirlpool ${tempC}°C)`;
+        break;
+      }
+      case "dry_hop_cold":
+        stageFactor = 0;
+        break;
+      case "dry_hop_warm": {
+        const tempC = hop.temperatureC ?? 20;
+        stageFactor = tempC >= 20 ? 0.02 * (tempC - 20) / 10 : 0;
+        stageNote = ` (dry hop ${tempC}°C)`;
+        break;
+      }
+    }
+
+    const boilTimeFactor = (1 - Math.exp(-0.04 * effectiveTime)) / 4.15;
+    const utilization = bignessFactor * boilTimeFactor;
+    const ibu = round1((weightKg * utilization * alphaDecimal * 1_000_000) / postBoilL * stageFactor);
+    const weightG = round1(weightKg * 1000);
+
+    const formula = `(${weightKg.toFixed(4)} × ${utilization.toFixed(4)} × ${alphaDecimal} × 1000000) / ${postBoilL.toFixed(1)}${stageNote} = ${ibu.toFixed(1)}`;
+
+    hopDetails.push({
+      name: hop.name,
+      weightG,
+      weightKg,
+      alphaPct,
+      alphaDecimal,
+      stage,
+      timeMin: effectiveTime,
+      sgWort: sg,
+      bignessFactor: round4(bignessFactor),
+      boilTimeFactor: round4(boilTimeFactor),
+      utilization: round4(utilization),
+      stageFactor,
+      postBoilL,
+      ibu,
+      formula,
+    });
+  }
+
+  const totalIbu = round1(hopDetails.reduce((sum, h) => sum + h.ibu, 0));
+
+  return { ogPlato, sgWort: round4(sg), postBoilL, boilTimeMin, hops: hopDetails, totalIbu };
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
 }
 
 // ── EBC (Morey) ─────────────────────────────────────────────

@@ -173,6 +173,33 @@ export interface IBUBreakdown {
   total: number;
 }
 
+export interface IBUHopDetail {
+  name: string;
+  weightG: number;
+  weightKg: number;
+  alphaPct: number;
+  alphaDecimal: number;
+  stage: string;
+  timeMin: number;
+  sgWort: number;
+  bignessFactor: number;
+  boilTimeFactor: number;
+  utilization: number;
+  stageFactor: number;       // 1.0 for boil, 1.1 for fwh, 0.3 for mash, etc.
+  postBoilL: number;
+  ibu: number;
+  formula: string;           // human-readable formula string
+}
+
+export interface IBUCalculationDetail {
+  ogPlato: number;
+  sgWort: number;
+  postBoilL: number;
+  boilTimeMin: number;
+  hops: IBUHopDetail[];
+  totalIbu: number;
+}
+
 export interface RecipeCalculationResult {
   og: number;
   fg: number;
