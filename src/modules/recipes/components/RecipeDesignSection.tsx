@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { BeerGlass } from "@/components/ui/beer-glass";
 import { ebcToColor } from "@/components/ui/beer-glass/ebc-to-color";
 import { cn } from "@/lib/utils";
@@ -77,7 +76,6 @@ function getMetricVariant(
 }
 
 interface RecipeDesignSectionProps {
-  isNew: boolean;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   values: DesignValues;
@@ -100,7 +98,6 @@ interface RecipeDesignSectionProps {
   onStatusChange: (value: string) => void;
   nameError?: string;
   styleName: string | null;
-  onContinue?: () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -114,7 +111,6 @@ function platoToSG(plato: number): string {
 // ── Component ────────────────────────────────────────────────────
 
 export function RecipeDesignSection({
-  isNew,
   isCollapsed,
   onToggleCollapse,
   values,
@@ -130,7 +126,6 @@ export function RecipeDesignSection({
   onStatusChange,
   nameError,
   styleName,
-  onContinue,
 }: RecipeDesignSectionProps): React.ReactNode {
   const t = useTranslations("recipes");
 
@@ -380,14 +375,6 @@ export function RecipeDesignSection({
             </span>
           </div>
 
-          {/* Continue button (only for new recipe) */}
-          {isNew && onContinue && (
-            <div className="mt-4 flex justify-end">
-              <Button onClick={onContinue}>
-                {t("designer.target.continue")}
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>

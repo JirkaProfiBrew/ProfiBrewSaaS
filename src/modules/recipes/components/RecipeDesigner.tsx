@@ -155,6 +155,9 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   const [addCategory, setAddCategory] = useState<string>("malt");
   const [addItemId, setAddItemId] = useState("");
 
+  // Mashing profile selection (stored without applying for new recipes)
+  const [mashingProfileId, setMashingProfileId] = useState<string | null>(null);
+
   // Brewing system change confirmation dialog (UX-02)
   const [pendingSystemChange, setPendingSystemChange] = useState<string | null>(null);
 
@@ -479,12 +482,21 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         });
       }
 
-      // When selecting a mashing profile, apply it
-      if (key === "mashingProfileId" && value && !isNew) {
-        void applyMashProfile(id, String(value)).then(() => {
-          toast.success(tCommon("saved"));
-          mutate();
-        });
+      // When selecting a mashing profile
+      if (key === "mashingProfileId") {
+        if (isNew) {
+          // New recipe: just store the selection, apply after creation
+          setMashingProfileId(value ? String(value) : null);
+        } else {
+          // Existing recipe: apply immediately
+          if (value) {
+            void applyMashProfile(id, String(value)).then(() => {
+              toast.success(tCommon("saved"));
+              mutate();
+            });
+          }
+        }
+        return;
       }
     },
     [errors, isNew, id, tCommon, mutate, localItems.length]
@@ -616,13 +628,17 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     try {
       const data = buildSaveData();
       const created = await createRecipe(data);
+      // Apply mashing profile if one was selected during wizard
+      if (mashingProfileId) {
+        await applyMashProfile(created.id, mashingProfileId);
+      }
       toast.success(tCommon("saved"));
       router.push(`/brewery/recipes/${created.id}`);
     } catch (error: unknown) {
       console.error("Failed to create recipe:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [buildSaveData, validate, router, tCommon]);
+  }, [buildSaveData, validate, router, tCommon, mashingProfileId]);
 
   // ── Ingredient handlers ────────────────────────────────────────
 
@@ -993,10 +1009,16 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               </SheetContent>
             </Sheet>
           )}
-          <Button size="sm" onClick={() => void handleSave()}>
-            <Save className="mr-1 size-4" />
-            {t("detail.actions.save")}
-          </Button>
+          {isNew ? (
+            <Button size="sm" onClick={() => void handleContinue()}>
+              {t("designer.target.continue")}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => void handleSave()}>
+              <Save className="mr-1 size-4" />
+              {t("detail.actions.save")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1005,7 +1027,6 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Section 1: Design (collapsible) */}
           <RecipeDesignSection
-            isNew={isNew}
             isCollapsed={designCollapsed}
             onToggleCollapse={() => setDesignCollapsed((p) => !p)}
             values={designValues}
@@ -1021,7 +1042,6 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             onStatusChange={(v) => handleChange("status", v)}
             nameError={errors.name}
             styleName={styleName}
-            onContinue={isNew ? () => void handleContinue() : undefined}
           />
 
           {/* Section 2: Execution (collapsible) */}
@@ -1034,6 +1054,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             mashingProfileOptions={mashingProfileOptions}
             productionItemOptions={productionItemOptions}
             systemName={systemName}
+            mashingProfileId={mashingProfileId}
           />
 
           {/* Section 3: Editor (only shown for existing recipes) */}
@@ -1080,27 +1101,29 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           )}
         </div>
 
-        {/* Detail sidebar (xl+ screens) */}
-        <RecipeFeedbackSidebar
-          designOg={designValues.og}
-          designIbu={designValues.targetIbu}
-          designEbc={designValues.targetEbc}
-          calcOg={calcResult.og}
-          calcIbu={calcResult.ibu}
-          calcEbc={calcResult.ebc}
-          maltPlanKg={calcResult.maltRequiredKg}
-          maltActualKg={calcResult.maltActualKg}
-          pipeline={calcResult.pipeline}
-          water={calcResult.water}
-          waterParams={{
-            maltKg: calcResult.maltRequiredKg > 0 ? calcResult.maltRequiredKg : calcResult.maltActualKg,
-            waterPerKgMalt: effectiveSystem.waterPerKgMalt,
-            grainAbsorptionLPerKg: effectiveSystem.grainAbsorptionLPerKg,
-            preBoilL: calcResult.pipeline.preBoilL,
-          }}
-          totalCost={calcResult.totalProductionCost}
-          costPerLiter={calcResult.costPerLiter}
-        />
+        {/* Detail sidebar (xl+ screens) — hidden for new recipe wizard */}
+        {!isNew && (
+          <RecipeFeedbackSidebar
+            designOg={designValues.og}
+            designIbu={designValues.targetIbu}
+            designEbc={designValues.targetEbc}
+            calcOg={calcResult.og}
+            calcIbu={calcResult.ibu}
+            calcEbc={calcResult.ebc}
+            maltPlanKg={calcResult.maltRequiredKg}
+            maltActualKg={calcResult.maltActualKg}
+            pipeline={calcResult.pipeline}
+            water={calcResult.water}
+            waterParams={{
+              maltKg: calcResult.maltRequiredKg > 0 ? calcResult.maltRequiredKg : calcResult.maltActualKg,
+              waterPerKgMalt: effectiveSystem.waterPerKgMalt,
+              grainAbsorptionLPerKg: effectiveSystem.grainAbsorptionLPerKg,
+              preBoilL: calcResult.pipeline.preBoilL,
+            }}
+            totalCost={calcResult.totalProductionCost}
+            costPerLiter={calcResult.costPerLiter}
+          />
+        )}
       </div>
 
       {/* Add Ingredient Dialog */}

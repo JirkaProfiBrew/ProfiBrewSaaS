@@ -82,7 +82,7 @@
       "boiling": "Chmelovar",
       "post_boil": "Po varu",
       "fermentation": "Kvašení",
-      "conditioning": "Dokvašování",
+      "conditioning": "Ležení",
       "other": "Ostatní"
     },
     "name": "Název",
@@ -475,7 +475,7 @@
       "measurementError": "Chyba při ukládání měření",
       "deleteConfirm": "Smazat toto měření?",
       "confirmMoveTitle": "Přesun do další fáze",
-      "confirmMoveDesc": "Chcete přejít do fáze ležení/dokvašování?",
+      "confirmMoveDesc": "Chcete přejít do fáze ležení?",
       "confirmMoveCondTitle": "Přesun na stáčení",
       "confirmMoveCondDesc": "Chcete přejít na stáčení?",
       "noMeasurements": "Zatím žádná měření",

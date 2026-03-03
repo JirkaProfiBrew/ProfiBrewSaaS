@@ -47,7 +47,8 @@
     "shelfLifeDays": "Shelf Life",
     "brewingSystem": "Brewing System",
     "brewingSystemPlaceholder": "Select brewing system",
-    "noBrewingSystem": "No brewing system (default parameters)"
+    "noBrewingSystem": "No brewing system (default parameters)",
+    "mashingProfile": "Mashing profile"
   },
   "ingredients": {
     "add": "Ingredient",

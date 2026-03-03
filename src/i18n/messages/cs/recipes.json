@@ -40,14 +40,15 @@
     "beerVolume": "Hotové pivo (L)",
     "boilTime": "Doba varu (min)",
     "fermentationDays": "Kvašení (dní)",
-    "conditioningDays": "Dokvašování (dní)",
+    "conditioningDays": "Ležení (dní)",
     "notes": "Poznámky",
     "itemId": "Výrobní položka",
     "itemIdPlaceholder": "Vyberte výrobní položku",
     "shelfLifeDays": "Trvanlivost",
     "brewingSystem": "Varní soustava",
     "brewingSystemPlaceholder": "Vyberte varní soustavu",
-    "noBrewingSystem": "Bez varní soustavy (výchozí parametry)"
+    "noBrewingSystem": "Bez varní soustavy (výchozí parametry)",
+    "mashingProfile": "Rmutovací profil"
   },
   "ingredients": {
     "add": "Surovina",
@@ -111,7 +112,7 @@
       "mashing": "Rmutování",
       "boiling": "Vaření",
       "fermentation": "Kvašení",
-      "conditioning": "Dokvašování"
+      "conditioning": "Ležení"
     },
     "dialog": {
       "title": "Přidat krok",

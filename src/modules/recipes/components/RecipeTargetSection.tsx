@@ -25,6 +25,8 @@ interface RecipeExecutionSectionProps {
   productionItemOptions: Array<{ value: string; label: string }>;
   // Computed display values for collapsed view
   systemName: string | null;
+  // Selected mashing profile (stored without immediate application for new recipes)
+  mashingProfileId?: string | null;
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -38,6 +40,7 @@ export function RecipeExecutionSection({
   mashingProfileOptions,
   productionItemOptions,
   systemName,
+  mashingProfileId,
 }: RecipeExecutionSectionProps): React.ReactNode {
   const t = useTranslations("recipes");
 
@@ -122,9 +125,9 @@ export function RecipeExecutionSection({
 
             {/* Mashing Profile */}
             <div className="space-y-1.5">
-              <Label>{t("steps.loadProfile")}</Label>
+              <Label>{t("form.mashingProfile")}</Label>
               <Select
-                value=""
+                value={mashingProfileId ?? ""}
                 onValueChange={(v) => onChange("mashingProfileId", v || null)}
               >
                 <SelectTrigger>
