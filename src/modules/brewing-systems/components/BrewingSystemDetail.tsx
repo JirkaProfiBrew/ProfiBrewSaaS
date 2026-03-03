@@ -63,7 +63,6 @@ export function BrewingSystemDetail({
     shopId: "__none__",
     kettleVolumeL: "617",
     evaporationRatePctPerHour: "8",
-    kettleTrubLossL: "5",
     whirlpoolLossPct: "10",
     whirlpoolTemperatureC: "85",
     fermenterVolumeL: "800",
@@ -94,7 +93,6 @@ export function BrewingSystemDetail({
         shopId: systemItem.shopId ?? "__none__",
         kettleVolumeL: systemItem.kettleVolumeL ?? "",
         evaporationRatePctPerHour: systemItem.evaporationRatePctPerHour ?? "8",
-        kettleTrubLossL: systemItem.kettleTrubLossL ?? "5",
         whirlpoolLossPct: systemItem.whirlpoolLossPct ?? "10",
         whirlpoolTemperatureC: systemItem.whirlpoolTemperatureC ?? "85",
         fermenterVolumeL: systemItem.fermenterVolumeL ?? "",
@@ -120,14 +118,12 @@ export function BrewingSystemDetail({
     return calculateVolumes({
       batchSizeL: String(values.batchSizeL || "0"),
       evaporationRatePctPerHour: String(values.evaporationRatePctPerHour || "0"),
-      kettleTrubLossL: String(values.kettleTrubLossL || "0"),
       whirlpoolLossPct: String(values.whirlpoolLossPct || "0"),
       fermentationLossPct: String(values.fermentationLossPct || "0"),
     });
   }, [
     values.batchSizeL,
     values.evaporationRatePctPerHour,
-    values.kettleTrubLossL,
     values.whirlpoolLossPct,
     values.fermentationLossPct,
   ]);
@@ -303,9 +299,6 @@ export function BrewingSystemDetail({
       evaporationRatePctPerHour: values.evaporationRatePctPerHour
         ? String(values.evaporationRatePctPerHour)
         : null,
-      kettleTrubLossL: values.kettleTrubLossL
-        ? String(values.kettleTrubLossL)
-        : null,
       whirlpoolLossPct: values.whirlpoolLossPct
         ? String(values.whirlpoolLossPct)
         : null,
@@ -404,7 +397,6 @@ export function BrewingSystemDetail({
   const kettleVolumeL = Number(values.kettleVolumeL) || 0;
   const fermenterVolumeL = Number(values.fermenterVolumeL) || 0;
   const evaporationRatePctPerHour = Number(values.evaporationRatePctPerHour) || 0;
-  const kettleTrubLossL = Number(values.kettleTrubLossL) || 0;
   const whirlpoolLossPct = Number(values.whirlpoolLossPct) || 0;
   const fermentationLossPct = Number(values.fermentationLossPct) || 0;
 
@@ -465,19 +457,6 @@ export function BrewingSystemDetail({
                     value={String(values.evaporationRatePctPerHour ?? "")}
                     onChange={(e) =>
                       handleChange("evaporationRatePctPerHour", e.target.value)
-                    }
-                    className="h-8"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    {t("detail.fields.kettleTrubLossL")}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={String(values.kettleTrubLossL ?? "")}
-                    onChange={(e) =>
-                      handleChange("kettleTrubLossL", e.target.value)
                     }
                     className="h-8"
                   />

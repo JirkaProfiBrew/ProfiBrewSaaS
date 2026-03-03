@@ -9,7 +9,6 @@ export const brewingSystemCreateSchema = z.object({
   shopId: z.string().uuid().nullable().optional(),
   kettleVolumeL: z.string().nullable().optional(),
   evaporationRatePctPerHour: z.string().nullable().optional(),
-  kettleTrubLossL: z.string().nullable().optional(),
   whirlpoolLossPct: z.string().nullable().optional(),
   fermenterVolumeL: z.string().nullable().optional(),
   fermentationLossPct: z.string().nullable().optional(),

@@ -943,7 +943,6 @@ export async function calculateAndSaveRecipe(
           efficiencyPct: parseFloat(bs.efficiencyPct) || 75,
           kettleVolumeL: parseFloat(bs.kettleVolumeL ?? "") || 120,
           evaporationRatePctPerHour: parseFloat(bs.evaporationRatePctPerHour ?? "") || 8,
-          kettleTrubLossL: parseFloat(bs.kettleTrubLossL ?? "") || 5,
           whirlpoolLossPct: parseFloat(bs.whirlpoolLossPct ?? "") || 5,
           whirlpoolTemperatureC: parseFloat(bs.whirlpoolTemperatureC ?? "") || 85,
           fermenterVolumeL: parseFloat(bs.fermenterVolumeL ?? "") || 120,
@@ -962,7 +961,6 @@ export async function calculateAndSaveRecipe(
     if (constantsOverride && brewingSystemInput) {
       if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
       if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
-      if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
       if (constantsOverride.whirlpoolTemperatureC != null) brewingSystemInput.whirlpoolTemperatureC = constantsOverride.whirlpoolTemperatureC;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;
@@ -975,7 +973,6 @@ export async function calculateAndSaveRecipe(
       brewingSystemInput = { ...DEFAULT_BREWING_SYSTEM };
       if (constantsOverride.efficiencyPct != null) brewingSystemInput.efficiencyPct = constantsOverride.efficiencyPct;
       if (constantsOverride.evaporationRatePctPerHour != null) brewingSystemInput.evaporationRatePctPerHour = constantsOverride.evaporationRatePctPerHour;
-      if (constantsOverride.kettleTrubLossL != null) brewingSystemInput.kettleTrubLossL = constantsOverride.kettleTrubLossL;
       if (constantsOverride.whirlpoolLossPct != null) brewingSystemInput.whirlpoolLossPct = constantsOverride.whirlpoolLossPct;
       if (constantsOverride.whirlpoolTemperatureC != null) brewingSystemInput.whirlpoolTemperatureC = constantsOverride.whirlpoolTemperatureC;
       if (constantsOverride.fermentationLossPct != null) brewingSystemInput.fermentationLossPct = constantsOverride.fermentationLossPct;

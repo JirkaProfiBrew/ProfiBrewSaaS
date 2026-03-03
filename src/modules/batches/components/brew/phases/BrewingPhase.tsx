@@ -299,7 +299,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
         if (batchSizeL && sys) {
           const whirlpoolLossPct = Number(sys.whirlpoolLossPct ?? 10) / 100;
-          const kettleTrubLossL = Number(sys.kettleTrubLossL ?? 5);
           const evapRatePctHr = Number(sys.evaporationRatePctPerHour ?? 8) / 100;
           // Get boil time from the boil steps
           const boilSteps = data.steps.filter((s) => s.brewPhase === "boiling");
@@ -311,7 +310,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           // post-boil = fermenter / (1 - whirlpool loss)
           const postBoilVol = fermenterVol / (1 - whirlpoolLossPct);
           // pre-boil = (post-boil + kettle trub) / (1 - evap * hours)
-          const preBoilVol = (postBoilVol + kettleTrubLossL) / (1 - evapRatePctHr * boilTimeHr);
+          const preBoilVol = postBoilVol / (1 - evapRatePctHr * boilTimeHr);
 
 
           setPlannedValues({

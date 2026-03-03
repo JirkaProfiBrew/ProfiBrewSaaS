@@ -15,7 +15,6 @@ export interface BrewingSystem {
   efficiencyPct: string;
   kettleVolumeL: string | null;
   evaporationRatePctPerHour: string | null;
-  kettleTrubLossL: string | null;
   whirlpoolLossPct: string | null;
   whirlpoolTemperatureC: string | null;
   fermenterVolumeL: string | null;
@@ -49,13 +48,11 @@ export interface BrewingSystemVolumes {
 export function calculateVolumes(system: {
   batchSizeL: string;
   evaporationRatePctPerHour: string | null;
-  kettleTrubLossL: string | null;
   whirlpoolLossPct: string | null;
   fermentationLossPct: string | null;
 }): BrewingSystemVolumes {
   const batchSizeL = Number(system.batchSizeL) || 0;
   const evapRatePctHr = Number(system.evaporationRatePctPerHour) || 0;
-  const trubLossL = Number(system.kettleTrubLossL) || 0;
   const whirlpoolLoss = Number(system.whirlpoolLossPct) || 0;
   const fermentationLoss = Number(system.fermentationLossPct) || 0;
 
@@ -63,16 +60,17 @@ export function calculateVolumes(system: {
   const intoFermenterL = batchSizeL;
 
   // Backward: post-boil = into fermenter / (1 - whirlpool%)
+  // Post-boil = physically measurable volume in kettle (includes trub/hop matter)
   const whirlpoolFactor = 1 - whirlpoolLoss / 100;
   const postBoilVolumeL = whirlpoolFactor > 0
     ? batchSizeL / whirlpoolFactor
     : batchSizeL;
 
-  // Backward: pre-boil = (post-boil + trub) / (1 - evap%) — assume 1h boil
+  // Backward: pre-boil = post-boil / (1 - evap%) — assume 1h boil
   const evapFraction = evapRatePctHr / 100;
   const preboilVolumeL = evapFraction < 1
-    ? (postBoilVolumeL + trubLossL) / (1 - evapFraction)
-    : postBoilVolumeL + trubLossL;
+    ? postBoilVolumeL / (1 - evapFraction)
+    : postBoilVolumeL;
 
   // post-whirlpool = into fermenter (same point)
   const postWhirlpoolL = intoFermenterL;

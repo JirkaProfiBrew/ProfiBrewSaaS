@@ -241,7 +241,6 @@
       "grainAbsorption": "Absorpce zrnem",
       "totalWater": "Celkem",
       "evaporation": "Odpařování",
-      "kettleTrub": "Kalovina",
       "cost": "Náklady",
       "costTotal": "Celkem",
       "costPerLiter": "Za litr"
@@ -331,7 +330,6 @@
       "recipeHeader": "Receptura",
       "efficiency": "Efektivita varny (%)",
       "evaporationRate": "Odpařování (%/hod)",
-      "kettleTrubLoss": "Ztráta kalovina (L)",
       "whirlpoolLoss": "Ztráta whirlpool (%)",
       "fermentationLoss": "Ztráta fermentace (%)",
       "extractEstimate": "Extrakt sladu (%)",

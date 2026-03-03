@@ -75,7 +75,9 @@ function platoToSG(plato: number): number {
  *
  * Backward (how much to brew):
  *   post-boil = batchSize / (1 - whirlpool%)
- *   pre-boil = (post-boil + kettleTrub) / (1 - evapRate * boilHours)
+ *   pre-boil = post-boil / (1 - evapRate * boilHours)
+ *
+ * Post-boil = physically measurable volume in the kettle (includes trub/hop matter).
  *
  * Forward (how much remains):
  *   finishedBeer = batchSize * (1 - fermentation%)
@@ -94,8 +96,8 @@ export function calculateVolumePipeline(
   const boilHours = boilTimeMin / 60;
   const evapFactor = 1 - (system.evaporationRatePctPerHour / 100) * boilHours;
   const preBoilL = evapFactor > 0
-    ? (postBoilL + system.kettleTrubLossL) / evapFactor
-    : postBoilL + system.kettleTrubLossL;
+    ? postBoilL / evapFactor
+    : postBoilL;
 
   const evaporationL = preBoilL * (system.evaporationRatePctPerHour / 100) * boilHours;
 
@@ -109,7 +111,6 @@ export function calculateVolumePipeline(
     finishedBeerL: round1(finishedBeerL),
     losses: {
       evaporationL: round1(evaporationL),
-      kettleTrubL: round1(system.kettleTrubLossL),
       whirlpoolL: round1(postBoilL - batchSizeL),
       fermentationL: round1(batchSizeL - finishedBeerL),
       totalL: round1(preBoilL - finishedBeerL),

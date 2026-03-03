@@ -246,10 +246,6 @@ export function RecipeFeedbackSidebar({
             <span className="pl-2">– {t("designer.feedback.evaporation")}:</span>
             <span>{fmtVol(pipeline.losses.evaporationL)} L</span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span className="pl-2">– {t("designer.feedback.kettleTrub")}:</span>
-            <span>{fmtVol(pipeline.losses.kettleTrubL)} L</span>
-          </div>
           <div className="flex justify-between">
             <span>{t("calculation.pipeline.postBoil")}:</span>
             <span>{fmtVol(pipeline.postBoilL)} L</span>

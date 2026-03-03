@@ -20,7 +20,6 @@ function systemToRecord(item: BrewingSystem): Record<string, unknown> {
   const volumes = calculateVolumes({
     batchSizeL: item.batchSizeL,
     evaporationRatePctPerHour: item.evaporationRatePctPerHour,
-    kettleTrubLossL: item.kettleTrubLossL,
     whirlpoolLossPct: item.whirlpoolLossPct,
     fermentationLossPct: item.fermentationLossPct,
   });

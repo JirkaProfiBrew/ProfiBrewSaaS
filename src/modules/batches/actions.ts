@@ -3014,7 +3014,6 @@ export async function getBrewingSystemForBatch(
   efficiencyPct: string;
   kettleVolumeL: string | null;
   evaporationRatePctPerHour: string | null;
-  kettleTrubLossL: string | null;
   whirlpoolLossPct: string | null;
   waterPerKgMalt: string | null;
   grainAbsorptionLPerKg: string | null;
@@ -3065,7 +3064,6 @@ export async function getBrewingSystemForBatch(
       efficiencyPct: sys.efficiencyPct ?? "75",
       kettleVolumeL: sys.kettleVolumeL,
       evaporationRatePctPerHour: sys.evaporationRatePctPerHour,
-      kettleTrubLossL: sys.kettleTrubLossL,
       whirlpoolLossPct: sys.whirlpoolLossPct,
       waterPerKgMalt: sys.waterPerKgMalt,
       grainAbsorptionLPerKg: sys.grainAbsorptionLPerKg,

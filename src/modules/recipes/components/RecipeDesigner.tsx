@@ -281,8 +281,6 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       merged.efficiencyPct = constants.efficiencyPct;
     if (constants.evaporationRatePctPerHour != null)
       merged.evaporationRatePctPerHour = constants.evaporationRatePctPerHour;
-    if (constants.kettleTrubLossL != null)
-      merged.kettleTrubLossL = constants.kettleTrubLossL;
     if (constants.whirlpoolLossPct != null)
       merged.whirlpoolLossPct = constants.whirlpoolLossPct;
     if (constants.whirlpoolTemperatureC != null)

@@ -59,7 +59,6 @@ interface BrewingSystem {
   efficiencyPct: string;
   kettleVolumeL: string | null;
   evaporationRatePctPerHour: string | null;
-  kettleTrubLossL: string | null;
   whirlpoolLossPct: string | null;
   waterPerKgMalt: string | null;
   grainAbsorptionLPerKg: string | null;

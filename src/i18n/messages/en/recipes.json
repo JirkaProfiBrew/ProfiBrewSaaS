@@ -241,7 +241,6 @@
       "grainAbsorption": "Grain Absorption",
       "totalWater": "Total",
       "evaporation": "Evaporation",
-      "kettleTrub": "Kettle Trub",
       "cost": "Cost",
       "costTotal": "Total",
       "costPerLiter": "Per Liter"
@@ -331,7 +330,6 @@
       "recipeHeader": "Recipe",
       "efficiency": "Brewhouse Efficiency (%)",
       "evaporationRate": "Evaporation Rate (%/hr)",
-      "kettleTrubLoss": "Kettle Trub Loss (L)",
       "whirlpoolLoss": "Whirlpool Loss (%)",
       "fermentationLoss": "Fermentation Loss (%)",
       "extractEstimate": "Malt Extract (%)",

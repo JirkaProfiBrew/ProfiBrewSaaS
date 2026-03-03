@@ -26,7 +26,6 @@ interface ConstantRow {
 const CONSTANT_ROWS: ConstantRow[] = [
   { key: "efficiencyPct", systemKey: "efficiencyPct", labelKey: "efficiency" },
   { key: "evaporationRatePctPerHour", systemKey: "evaporationRatePctPerHour", labelKey: "evaporationRate" },
-  { key: "kettleTrubLossL", systemKey: "kettleTrubLossL", labelKey: "kettleTrubLoss" },
   { key: "whirlpoolLossPct", systemKey: "whirlpoolLossPct", labelKey: "whirlpoolLoss" },
   { key: "whirlpoolTemperatureC", systemKey: "whirlpoolTemperatureC", labelKey: "whirlpoolTemp" },
   { key: "fermentationLossPct", systemKey: "fermentationLossPct", labelKey: "fermentationLoss" },

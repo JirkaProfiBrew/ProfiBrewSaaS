@@ -101,7 +101,6 @@ export interface BrewingSystemInput {
   efficiencyPct: number;
   kettleVolumeL: number;
   evaporationRatePctPerHour: number;
-  kettleTrubLossL: number;
   whirlpoolLossPct: number;
   whirlpoolTemperatureC: number;
   fermenterVolumeL: number;
@@ -115,7 +114,6 @@ export interface BrewingSystemInput {
 export interface RecipeConstantsOverride {
   efficiencyPct?: number;
   evaporationRatePctPerHour?: number;
-  kettleTrubLossL?: number;
   whirlpoolLossPct?: number;
   whirlpoolTemperatureC?: number;
   fermentationLossPct?: number;
@@ -131,7 +129,6 @@ export const DEFAULT_BREWING_SYSTEM: BrewingSystemInput = {
   efficiencyPct: 75,
   kettleVolumeL: 120,
   evaporationRatePctPerHour: 8,
-  kettleTrubLossL: 5,
   whirlpoolLossPct: 5,
   whirlpoolTemperatureC: 85,
   fermenterVolumeL: 120,
@@ -149,7 +146,6 @@ export interface VolumePipeline {
   finishedBeerL: number;
   losses: {
     evaporationL: number;
-    kettleTrubL: number;
     whirlpoolL: number;
     fermentationL: number;
     totalL: number;

@@ -118,11 +118,11 @@ BEGIN
   -- 2. Brewing System: "Varna 120L"
   -- ============================================================
   INSERT INTO brewing_systems (id, tenant_id, name, is_primary, batch_size_l, efficiency_pct,
-                               kettle_trub_loss_l, whirlpool_loss_pct,
+                               whirlpool_loss_pct,
                                time_preparation, time_lautering, time_whirlpool, time_transfer, time_cleanup,
                                is_active)
   VALUES (gen_random_uuid(), v_tenant_id, 'Varna 120L', true, 120, 71,
-          12, 11,
+          11,
           1, 60, 90, 15, 60,
           true)
   ON CONFLICT DO NOTHING;

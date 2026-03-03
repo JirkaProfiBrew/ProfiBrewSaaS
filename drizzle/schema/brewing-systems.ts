@@ -33,7 +33,6 @@ export const brewingSystems = pgTable(
     // Hot zone — Kettle
     kettleVolumeL: decimal("kettle_volume_l"),
     evaporationRatePctPerHour: decimal("evaporation_rate_pct_per_hour").default("8"),
-    kettleTrubLossL: decimal("kettle_trub_loss_l").default("5"),
 
     // Hot zone — Whirlpool
     whirlpoolLossPct: decimal("whirlpool_loss_pct").default("10"),
