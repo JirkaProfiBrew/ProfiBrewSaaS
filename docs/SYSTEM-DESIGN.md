@@ -965,6 +965,8 @@ CREATE TABLE items (
   alpha             DECIMAL,                   -- Alpha acids (hops)
   ebc               DECIMAL,                   -- Color EBC (malt)
   extract_percent   DECIMAL,                   -- Yield % (malt)
+  hop_form          TEXT REFERENCES hop_forms(id),   -- Hop form (pellet/leaf/plug/cryo) — affects IBU utilization
+  yeast_form        TEXT REFERENCES yeast_forms(id), -- Yeast form (dry/liquid) — determines default unit
 
   -- === PRODUCT-SPECIFIC ===
   packaging_type    TEXT,                       -- 'keg_30' | 'keg_50' | 'bottle_500' | 'can_330'...
@@ -1156,6 +1158,24 @@ CREATE TABLE countries (
   name_cs         TEXT NOT NULL,                -- 'Česko'
   name_en         TEXT NOT NULL,                -- 'Czech Republic'
   created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- === HOP_FORMS (system codebook — hop form utilization factors) ===
+CREATE TABLE hop_forms (
+  id                TEXT PRIMARY KEY,           -- 'pellet' | 'leaf' | 'plug' | 'cryo'
+  name_cs           TEXT NOT NULL,
+  name_en           TEXT NOT NULL,
+  utilization_factor DECIMAL NOT NULL DEFAULT 1.0,  -- IBU calc multiplier (pellet=1.10, leaf=1.00)
+  sort_order        INTEGER DEFAULT 0
+);
+
+-- === YEAST_FORMS (system codebook — yeast form with default unit) ===
+CREATE TABLE yeast_forms (
+  id                TEXT PRIMARY KEY,           -- 'dry' | 'liquid'
+  name_cs           TEXT NOT NULL,
+  name_en           TEXT NOT NULL,
+  default_unit      TEXT NOT NULL,              -- 'g' for dry, 'ml' for liquid
+  sort_order        INTEGER DEFAULT 0
 );
 ```
 

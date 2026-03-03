@@ -5,6 +5,42 @@
 
 ---
 
+## [0.7.6] — Sprint 7 Patch: Hop Form Factor + Yeast Form + Whirlpool IBU Fix
+**Období:** T16 (03.03.2026)
+**Status:** ✅ Done
+
+### Přidáno — Hop Form Factor (IBU utilization)
+- [x] Migrace 0023: systémový číselník `hop_forms` (pellet/leaf/plug/cryo) s `utilization_factor`
+- [x] Migrace 0023: ALTER TABLE items ADD COLUMN `hop_form` TEXT REFERENCES hop_forms(id)
+- [x] Backfill: existující chmelové položky nastaveny na `pellet`
+- [x] Drizzle schema: `hopForms` table v `system.ts`, `hopForm` column v `items.ts`
+- [x] IBU výpočet (Tinseth): `hop_form.utilization_factor` se aplikuje jako multiplikátor (pellet=1.10, leaf=1.00, plug=1.02, cryo=1.10)
+- [x] ItemDetail: select pole "Forma chmele" viditelné pouze pro `materialType === "hop"`
+- [x] IBU Detail modal: zobrazení hop form factoru v per-hop breakdown
+
+### Přidáno — Yeast Form (forma kvasnic s výchozí MJ)
+- [x] Migrace 0024: systémový číselník `yeast_forms` (dry/liquid) s `default_unit`
+- [x] Migrace 0024: ALTER TABLE items ADD COLUMN `yeast_form` TEXT REFERENCES yeast_forms(id)
+- [x] Backfill: existující kvasnicové položky nastaveny na `dry`
+- [x] Drizzle schema: `yeastForms` table v `system.ts`, `yeastForm` column v `items.ts`
+- [x] ItemDetail: select pole "Forma kvasnic" viditelné pouze pro `materialType === "yeast"`, default `dry`
+- [x] Auto-switch MJ: dry→g, liquid→ml při změně formy
+- [x] ALLOWED_UNITS rozšířen: kvasnice nyní podporují g, kg, ml, l, ks
+- [x] Recipe: `itemYeastForm` joinován z items, zobrazen jako badge na YeastCard
+- [x] i18n: yeastForm překlady (cs + en) v items.json
+
+### Opraveno — Whirlpool IBU = 0 bug
+- [x] Fix: `??` (nullish coalescing) nahrazeno `||` pro temperature fallback v whirlpool IBU kalkulaci
+- [x] Fix: `parseFloat(temperatureC) || undefined` pattern v HopTab, RecipeDesigner, actions
+- [x] IBU Detail modal: přidáno zobrazení whirlpool teploty
+
+### Architektonická rozhodnutí
+- Hop/Yeast forms: systémové číselníky (TEXT PK, no tenant_id) — stejný pattern jako countries, units
+- Yeast form auto-unit: auto-set při změně formy (ne strict filtrování) — jednodušší, uživatel může ručně přepsat
+- Whirlpool temp: `temperatureFactor(0) = 0` je korektní (0°C = žádná extrakce), ale 0 nesmí být fallback
+
+---
+
 ## [Unreleased] — Sprint 0: Infrastruktura
 **Období:** T1-T2 (zahájení 17.02.2026)
 **Status:** ✅ Done

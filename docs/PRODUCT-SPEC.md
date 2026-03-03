@@ -199,9 +199,11 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Flagy: Surovina na výrobu piva ✓, Položka pro evidenci výroby ☐, Prodávat položku ✓
 - Kategorie skladu, spotřební daň (toggle), mód výdeje (FIFO / Ruční výběr šarže)
 - Material-specific: typ suroviny (dropdown), alpha (chmel), EBC (slad)
-- Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/ks, přísady=kg/g/l/ml)
+- Forma chmele (`hop_form`): select viditelný pouze pro chmel — pellet/leaf/plug/cryo. Ovlivňuje IBU výpočet (utilization_factor: pellet=1.10, leaf=1.00, plug=1.02, cryo=1.10). Výchozí: pellet.
+- Forma kvasnic (`yeast_form`): select viditelný pouze pro kvasnice — dry/liquid. Při změně formy auto-switch MJ (dry→g, liquid→ml). Výchozí: dry. V receptuře zobrazeno jako badge na YeastCard.
+- Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/kg/ml/l/ks, přísady=kg/g/l/ml)
 - Měrná jednotka receptury (MJ receptury): viditelné pouze pro chmel — odlišná MJ pro skladovou evidenci (kg) vs recepturu (g)
-- Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, adjunct→kg)
+- Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, adjunct→kg). Kvasnice: forma navíc ovlivňuje výchozí MJ (dry→g, liquid→ml).
 - Cenotvorba: kalkulační cena, průměrná skladová, prodejní cena, režie
 - Cenotvorba balených položek (viditelná pouze pro sale item s base_item): náklady na obal (`packaging_cost`), náklady na stočení (`filling_cost`), kalkulovaná cena = `(výrobní_cena_za_litr × objem) + obal + stočení`
 - POS: zpřístupnit na pokladně, nabízet na webu
@@ -1034,7 +1036,8 @@ Přístup k modulům závisí na subscription tenantu. Free tier = jen Pivovar. 
 - Systémový číselník `units` (kg, g, l, ml, hl, ks, bal) — globální, tenant_id=NULL
 - Položky (items): `unit_id` FK → skladová MJ, `recipe_unit_id` FK → recepturová MJ (jen pro chmel)
 - Recepturové řádky (recipe_items): `unit_id` FK → MJ konkrétního řádku
-- Povolené MJ dle typu suroviny: slad=kg (readonly), chmel=kg/g, kvasnice=g/ks, přísady=kg/g/l/ml
+- Povolené MJ dle typu suroviny: slad=kg (readonly), chmel=kg/g, kvasnice=g/kg/ml/l/ks, přísady=kg/g/l/ml
+- Systémové číselníky forem: `hop_forms` (pellet/leaf/plug/cryo s utilization_factor), `yeast_forms` (dry/liquid s default_unit)
 - Konverze v kalkulacích přes `toBaseFactor` (g→kg = 0.001, ml→l = 0.001)
 - DB ukládá hodnoty v uživatelsky zvolené MJ (ne vždy v base units)
 - Kalkulace vždy přepočítají na base unit (kg) před výpočtem
