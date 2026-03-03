@@ -267,10 +267,25 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     if (!bsId) return DEFAULT_BREWING_SYSTEM;
     const bs = brewingSystemOpts.find((b) => b.id === bsId);
     if (!bs) return DEFAULT_BREWING_SYSTEM;
+    // Parse decimal string → number, fallback to default only if null/NaN
+    const p = (v: string | null, fallback: number): number => {
+      if (v == null) return fallback;
+      const n = parseFloat(v);
+      return Number.isNaN(n) ? fallback : n;
+    };
     return {
-      ...DEFAULT_BREWING_SYSTEM,
-      batchSizeL: parseFloat(bs.batchSizeL) || 100,
-      efficiencyPct: parseFloat(bs.efficiencyPct) || 75,
+      batchSizeL: p(bs.batchSizeL, DEFAULT_BREWING_SYSTEM.batchSizeL),
+      efficiencyPct: p(bs.efficiencyPct, DEFAULT_BREWING_SYSTEM.efficiencyPct),
+      kettleVolumeL: p(bs.kettleVolumeL, DEFAULT_BREWING_SYSTEM.kettleVolumeL),
+      evaporationRatePctPerHour: p(bs.evaporationRatePctPerHour, DEFAULT_BREWING_SYSTEM.evaporationRatePctPerHour),
+      whirlpoolLossPct: p(bs.whirlpoolLossPct, DEFAULT_BREWING_SYSTEM.whirlpoolLossPct),
+      whirlpoolTemperatureC: p(bs.whirlpoolTemperatureC, DEFAULT_BREWING_SYSTEM.whirlpoolTemperatureC),
+      fermenterVolumeL: p(bs.fermenterVolumeL, DEFAULT_BREWING_SYSTEM.fermenterVolumeL),
+      fermentationLossPct: p(bs.fermentationLossPct, DEFAULT_BREWING_SYSTEM.fermentationLossPct),
+      extractEstimate: p(bs.extractEstimate, DEFAULT_BREWING_SYSTEM.extractEstimate),
+      waterPerKgMalt: p(bs.waterPerKgMalt, DEFAULT_BREWING_SYSTEM.waterPerKgMalt),
+      grainAbsorptionLPerKg: p(bs.grainAbsorptionLPerKg, DEFAULT_BREWING_SYSTEM.grainAbsorptionLPerKg),
+      waterReserveL: p(bs.waterReserveL, DEFAULT_BREWING_SYSTEM.waterReserveL),
     };
   }, [values.brewingSystemId, brewingSystemOpts]);
 

@@ -1151,6 +1151,16 @@ export interface BrewingSystemOption {
   batchSizeL: string;
   efficiencyPct: string;
   isPrimary: boolean;
+  kettleVolumeL: string | null;
+  evaporationRatePctPerHour: string | null;
+  whirlpoolLossPct: string | null;
+  whirlpoolTemperatureC: string | null;
+  fermenterVolumeL: string | null;
+  fermentationLossPct: string | null;
+  extractEstimate: string | null;
+  waterPerKgMalt: string | null;
+  grainAbsorptionLPerKg: string | null;
+  waterReserveL: string | null;
 }
 
 /** Get active brewing systems for the tenant (for select dropdown). */
@@ -1163,6 +1173,16 @@ export async function getBrewingSystemOptions(): Promise<BrewingSystemOption[]> 
         batchSizeL: brewingSystems.batchSizeL,
         efficiencyPct: brewingSystems.efficiencyPct,
         isPrimary: brewingSystems.isPrimary,
+        kettleVolumeL: brewingSystems.kettleVolumeL,
+        evaporationRatePctPerHour: brewingSystems.evaporationRatePctPerHour,
+        whirlpoolLossPct: brewingSystems.whirlpoolLossPct,
+        whirlpoolTemperatureC: brewingSystems.whirlpoolTemperatureC,
+        fermenterVolumeL: brewingSystems.fermenterVolumeL,
+        fermentationLossPct: brewingSystems.fermentationLossPct,
+        extractEstimate: brewingSystems.extractEstimate,
+        waterPerKgMalt: brewingSystems.waterPerKgMalt,
+        grainAbsorptionLPerKg: brewingSystems.grainAbsorptionLPerKg,
+        waterReserveL: brewingSystems.waterReserveL,
       })
       .from(brewingSystems)
       .where(
