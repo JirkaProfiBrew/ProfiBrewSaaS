@@ -282,7 +282,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       whirlpoolTemperatureC: p(bs.whirlpoolTemperatureC, DEFAULT_BREWING_SYSTEM.whirlpoolTemperatureC),
       fermenterVolumeL: p(bs.fermenterVolumeL, DEFAULT_BREWING_SYSTEM.fermenterVolumeL),
       fermentationLossPct: p(bs.fermentationLossPct, DEFAULT_BREWING_SYSTEM.fermentationLossPct),
-      extractEstimate: p(bs.extractEstimate, DEFAULT_BREWING_SYSTEM.extractEstimate),
+      // DB stores extract_estimate as decimal (0.80 = 80%), code expects percentage (80)
+      extractEstimate: (() => {
+        const raw = p(bs.extractEstimate, DEFAULT_BREWING_SYSTEM.extractEstimate);
+        return raw <= 1 ? raw * 100 : raw;
+      })(),
       waterPerKgMalt: p(bs.waterPerKgMalt, DEFAULT_BREWING_SYSTEM.waterPerKgMalt),
       grainAbsorptionLPerKg: p(bs.grainAbsorptionLPerKg, DEFAULT_BREWING_SYSTEM.grainAbsorptionLPerKg),
       waterReserveL: p(bs.waterReserveL, DEFAULT_BREWING_SYSTEM.waterReserveL),

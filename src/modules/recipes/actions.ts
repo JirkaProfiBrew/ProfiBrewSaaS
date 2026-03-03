@@ -947,7 +947,11 @@ export async function calculateAndSaveRecipe(
           whirlpoolTemperatureC: parseFloat(bs.whirlpoolTemperatureC ?? "") || 85,
           fermenterVolumeL: parseFloat(bs.fermenterVolumeL ?? "") || 120,
           fermentationLossPct: parseFloat(bs.fermentationLossPct ?? "") || 5,
-          extractEstimate: parseFloat(bs.extractEstimate ?? "") || 80,
+          // DB stores extract_estimate as decimal (0.80 = 80%), code expects percentage (80)
+          extractEstimate: (() => {
+            const raw = parseFloat(bs.extractEstimate ?? "") || 80;
+            return raw <= 1 ? raw * 100 : raw;
+          })(),
           waterPerKgMalt: parseFloat(bs.waterPerKgMalt ?? "") || 3,
           grainAbsorptionLPerKg: parseFloat(bs.grainAbsorptionLPerKg ?? "") || 0.8,
           waterReserveL: parseFloat(bs.waterReserveL ?? "") || 10,
