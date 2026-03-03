@@ -158,6 +158,9 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   // Mashing profile selection (stored without applying for new recipes)
   const [mashingProfileId, setMashingProfileId] = useState<string | null>(null);
 
+  // Track whether the initial data population has happened (to avoid resetting state on mutate)
+  const initialLoadDoneRef = useRef(false);
+
   // Brewing system change confirmation dialog (UX-02)
   const [pendingSystemChange, setPendingSystemChange] = useState<string | null>(null);
 
@@ -185,32 +188,39 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   useEffect(() => {
     if (recipeDetail?.recipe) {
       const r = recipeDetail.recipe;
-      setValues({
-        name: r.name,
-        code: r.code,
-        itemId: r.itemId,
-        brewingSystemId: r.brewingSystemId,
-        status: r.status,
-        boilTimeMin: r.boilTimeMin,
-        durationFermentationDays: r.durationFermentationDays,
-        durationConditioningDays: r.durationConditioningDays,
-        shelfLifeDays: r.shelfLifeDays,
-        notes: r.notes,
-      });
-      setDesignValues({
-        beerStyleId: r.beerStyleId,
-        batchSizeL: r.batchSizeL ? parseFloat(r.batchSizeL) : 0,
-        og: r.og ? parseFloat(r.og) : 0,
-        fg: r.fg ? parseFloat(r.fg) : 0,
-        targetIbu: r.targetIbu ? parseFloat(r.targetIbu) : 0,
-        targetEbc: r.targetEbc ? parseFloat(r.targetEbc) : 0,
-        waterPerKgMalt: r.constantsOverride?.waterPerKgMalt ?? 3.0,
-      });
-      setConstants(r.constantsOverride ?? {});
-      setMaltInputMode((r.maltInputMode as "kg" | "percent") ?? "percent");
+
+      if (!initialLoadDoneRef.current) {
+        // First load: populate all form state
+        initialLoadDoneRef.current = true;
+        setValues({
+          name: r.name,
+          code: r.code,
+          itemId: r.itemId,
+          brewingSystemId: r.brewingSystemId,
+          status: r.status,
+          boilTimeMin: r.boilTimeMin,
+          durationFermentationDays: r.durationFermentationDays,
+          durationConditioningDays: r.durationConditioningDays,
+          shelfLifeDays: r.shelfLifeDays,
+          notes: r.notes,
+        });
+        setDesignValues({
+          beerStyleId: r.beerStyleId,
+          batchSizeL: r.batchSizeL ? parseFloat(r.batchSizeL) : 0,
+          og: r.og ? parseFloat(r.og) : 0,
+          fg: r.fg ? parseFloat(r.fg) : 0,
+          targetIbu: r.targetIbu ? parseFloat(r.targetIbu) : 0,
+          targetEbc: r.targetEbc ? parseFloat(r.targetEbc) : 0,
+          waterPerKgMalt: r.constantsOverride?.waterPerKgMalt ?? 3.0,
+        });
+        setConstants(r.constantsOverride ?? {});
+        setMaltInputMode((r.maltInputMode as "kg" | "percent") ?? "percent");
+        setDesignCollapsed(true);
+        setTargetCollapsed(true);
+      }
+
+      // Always update items (revalidation after add/remove ingredient)
       setLocalItems(recipeDetail.items);
-      setDesignCollapsed(true);
-      setTargetCollapsed(true);
     }
   }, [recipeDetail]);
 
