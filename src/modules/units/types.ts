@@ -20,7 +20,7 @@ export const ALLOWED_UNITS: Record<string, string[]> = {
   malt: ["kg"],
   grain: ["kg"],
   hop: ["kg", "g"],
-  yeast: ["g", "ks"],
+  yeast: ["g", "kg", "ml", "l", "ks"],
   adjunct: ["kg", "g", "l", "ml"],
   other: ["kg", "g", "l", "ml", "ks"],
 };

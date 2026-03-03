@@ -29,6 +29,7 @@ interface RecipeCalculationProps {
   recipeId: string;
   recipe: Recipe | null;
   items: RecipeItem[];
+  liveCalcResult?: RecipeCalculationResult | null;
   onMutate: () => void;
 }
 
@@ -57,12 +58,29 @@ function formatDecimal(value: string | null, decimals: number = 1): string {
   return n.toFixed(decimals);
 }
 
+/** Format a number with Czech locale: space as thousands separator, comma as decimal. */
+function fmtNum(value: number, decimals: number = 2): string {
+  return value.toLocaleString("cs-CZ", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/** Format a number with Czech locale, variable decimals (no trailing zeros). */
+function fmtAuto(value: number, maxDecimals: number = 2): string {
+  return value.toLocaleString("cs-CZ", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxDecimals,
+  });
+}
+
 // ── Component ──────────────────────────────────────────────────
 
 export function RecipeCalculation({
   recipeId,
   recipe,
   items,
+  liveCalcResult,
   onMutate,
 }: RecipeCalculationProps): React.ReactNode {
   const t = useTranslations("recipes");
@@ -280,8 +298,13 @@ export function RecipeCalculation({
         </CardContent>
       </Card>
 
-      {/* Volume pipeline + material requirements */}
-      {calcSnapshot?.pipeline && (
+      {/* Volume pipeline + material requirements — prefer live calc over snapshot */}
+      {(liveCalcResult?.pipeline ?? calcSnapshot?.pipeline) && (() => {
+        const pl = liveCalcResult?.pipeline ?? calcSnapshot!.pipeline;
+        const maltKg = liveCalcResult?.maltRequiredKg ?? calcSnapshot?.maltRequiredKg ?? 0;
+        const waterL = liveCalcResult?.water?.totalWaterL ?? calcSnapshot?.water?.totalWaterL ?? 0;
+        const systemUsed = liveCalcResult?.brewingSystemUsed ?? calcSnapshot?.brewingSystemUsed ?? false;
+        return (
         <div className="grid gap-6 md:grid-cols-2">
           {/* Volume pipeline */}
           <Card>
@@ -294,18 +317,18 @@ export function RecipeCalculation({
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { label: t("calculation.pipeline.preBoil"), value: calcSnapshot.pipeline.preBoilL },
-                  { label: t("calculation.pipeline.postBoil"), value: calcSnapshot.pipeline.postBoilL, loss: calcSnapshot.pipeline.losses.evaporationL, lossLabel: t("calculation.pipeline.kettleLoss") },
-                  { label: t("calculation.pipeline.intoFermenter"), value: calcSnapshot.pipeline.intoFermenterL, loss: calcSnapshot.pipeline.losses.whirlpoolL, lossLabel: t("calculation.pipeline.whirlpoolLoss") },
-                  { label: t("calculation.pipeline.finishedBeer"), value: calcSnapshot.pipeline.finishedBeerL, loss: calcSnapshot.pipeline.losses.fermentationL, lossLabel: t("calculation.pipeline.fermentationLoss") },
+                  { label: t("calculation.pipeline.preBoil"), value: pl.preBoilL },
+                  { label: t("calculation.pipeline.postBoil"), value: pl.postBoilL, loss: pl.losses.evaporationL, lossLabel: t("calculation.pipeline.kettleLoss") },
+                  { label: t("calculation.pipeline.intoFermenter"), value: pl.intoFermenterL, loss: pl.losses.whirlpoolL, lossLabel: t("calculation.pipeline.whirlpoolLoss") },
+                  { label: t("calculation.pipeline.finishedBeer"), value: pl.finishedBeerL, loss: pl.losses.fermentationL, lossLabel: t("calculation.pipeline.fermentationLoss") },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between">
                     <span className="text-sm">{row.label}</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{row.value} L</span>
+                      <span className="font-semibold">{fmtAuto(row.value, 1)} L</span>
                       {row.loss != null && row.loss > 0 && (
                         <span className="text-xs text-muted-foreground">
-                          (−{row.loss} L)
+                          (−{fmtAuto(row.loss, 1)} L)
                         </span>
                       )}
                     </div>
@@ -314,7 +337,7 @@ export function RecipeCalculation({
                 <div className="border-t pt-2 flex items-center justify-between">
                   <span className="text-sm font-medium">{t("calculation.pipeline.totalLoss")}</span>
                   <span className="font-semibold text-amber-600">
-                    {calcSnapshot.pipeline.losses.totalL} L
+                    {fmtAuto(pl.losses.totalL, 1)} L
                   </span>
                 </div>
               </div>
@@ -334,18 +357,18 @@ export function RecipeCalculation({
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <span className="text-sm">{t("calculation.requirements.maltRequired")}</span>
                   <span className="text-2xl font-bold">
-                    {calcSnapshot.maltRequiredKg ?? 0} {t("calculation.requirements.maltUnit")}
+                    {fmtAuto(maltKg, 1)} {t("calculation.requirements.maltUnit")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <span className="text-sm">{t("calculation.requirements.waterRequired")}</span>
                   <span className="text-2xl font-bold">
-                    {calcSnapshot.water?.totalWaterL ?? 0} {t("calculation.requirements.waterUnit")}
+                    {fmtAuto(waterL, 1)} {t("calculation.requirements.waterUnit")}
                   </span>
                 </div>
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                {calcSnapshot.brewingSystemUsed
+                {systemUsed
                   ? t("calculation.brewingSystemNote", {
                       name: brewingSystemOpts.find((bs) => bs.id === recipe?.brewingSystemId)?.name ?? "",
                     })
@@ -354,7 +377,8 @@ export function RecipeCalculation({
             </CardContent>
           </Card>
         </div>
-      )}
+        );
+      })()}
 
       {/* Cost breakdown */}
       <Card>
@@ -392,16 +416,16 @@ export function RecipeCalculation({
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.name}</TableCell>
                     <TableCell className="text-right">
-                      {`${row.amount % 1 === 0 ? row.amount : row.amount.toFixed(2)} ${row.unitSymbol}`}
+                      {`${fmtAuto(row.amount)} ${row.unitSymbol}`}
                     </TableCell>
                     <TableCell className="text-right">
                       {row.costPerUnit > 0
-                        ? `${row.costPerUnit.toFixed(2)} / ${row.unitSymbol}`
+                        ? `${fmtNum(row.costPerUnit)} / ${row.unitSymbol}`
                         : "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {row.totalCost > 0
-                        ? row.totalCost.toFixed(2)
+                        ? fmtNum(row.totalCost)
                         : "—"}
                     </TableCell>
                   </TableRow>
@@ -416,8 +440,8 @@ export function RecipeCalculation({
                   </TableCell>
                   <TableCell className="text-right font-semibold">
                     {calcSnapshot
-                      ? (calcSnapshot.ingredientsCost ?? calcSnapshot.costPrice ?? totalCost).toFixed(2)
-                      : totalCost.toFixed(2)}
+                      ? fmtNum(calcSnapshot.ingredientsCost ?? calcSnapshot.costPrice ?? totalCost)
+                      : fmtNum(totalCost)}
                   </TableCell>
                 </TableRow>
 
@@ -431,7 +455,7 @@ export function RecipeCalculation({
                         })}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {(calcSnapshot.ingredientOverheadCost ?? 0).toFixed(2)}
+                        {fmtNum(calcSnapshot.ingredientOverheadCost ?? 0)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -439,7 +463,7 @@ export function RecipeCalculation({
                         {t("calculation.brewCost")}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {(calcSnapshot.brewCost ?? 0).toFixed(2)}
+                        {fmtNum(calcSnapshot.brewCost ?? 0)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -447,7 +471,7 @@ export function RecipeCalculation({
                         {t("calculation.overheadCost")}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {(calcSnapshot.overheadCost ?? 0).toFixed(2)}
+                        {fmtNum(calcSnapshot.overheadCost ?? 0)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -455,7 +479,7 @@ export function RecipeCalculation({
                         {t("calculation.totalProductionCost")}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {calcSnapshot.totalProductionCost.toFixed(2)}
+                        {fmtNum(calcSnapshot.totalProductionCost)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -463,7 +487,7 @@ export function RecipeCalculation({
                         {t("calculation.productionCostPerLiter")}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {calcSnapshot.costPerLiter.toFixed(2)}
+                        {fmtNum(calcSnapshot.costPerLiter)}
                       </TableCell>
                     </TableRow>
                     {calcSnapshot.pricingMode && (
@@ -508,7 +532,7 @@ export function RecipeCalculation({
                         {t("calculation.totalProductionCost")}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {totalCost.toFixed(2)}
+                        {fmtNum(totalCost)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -516,7 +540,7 @@ export function RecipeCalculation({
                         {t("calculation.productionCostPerLiter")}
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {costPerLiter.toFixed(2)}
+                        {fmtNum(costPerLiter)}
                       </TableCell>
                     </TableRow>
                   </>

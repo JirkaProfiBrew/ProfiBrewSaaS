@@ -9,7 +9,7 @@ interface IngredientCardProps {
   id: string;
   onRemove: () => void;
   children: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
 }
 

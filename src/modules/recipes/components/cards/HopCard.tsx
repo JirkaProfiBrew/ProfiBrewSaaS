@@ -40,7 +40,14 @@ export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onSta
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="font-medium text-sm">{item.itemName ?? item.itemId}</div>
+              <div className="font-medium text-sm">
+                {item.itemName ?? item.itemId}
+                {item.itemHopForm && (
+                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                    ({t(`hopForm.${item.itemHopForm}`)})
+                  </span>
+                )}
+              </div>
               {alphaVal != null && (
                 <div className="text-xs text-muted-foreground">
                   {t("designer.cards.alpha")}: {alphaVal}%

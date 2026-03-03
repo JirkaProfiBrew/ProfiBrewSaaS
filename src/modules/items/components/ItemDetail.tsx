@@ -69,6 +69,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     alpha: null,
     ebc: null,
     extractPercent: null,
+    hopForm: null,
+    yeastForm: null,
     packagingType: null,
     volumeL: null,
     abv: null,
@@ -122,6 +124,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         alpha: item.alpha,
         ebc: item.ebc,
         extractPercent: item.extractPercent,
+        hopForm: item.hopForm,
+        yeastForm: item.yeastForm,
         packagingType: item.packagingType,
         volumeL: item.volumeL,
         abv: item.abv,
@@ -159,6 +163,15 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         next.baseItemQuantity = value.replace(",", ".");
       }
 
+      // Auto-switch unit when yeast form changes (dry→g, liquid→ml)
+      if (key === "yeastForm" && allUnits.length > 0) {
+        const form = value as string;
+        const targetUnit = form === "liquid"
+          ? allUnits.find((u) => u.code === "ml")
+          : allUnits.find((u) => u.code === "g");
+        if (targetUnit) next.unitId = targetUnit.id;
+      }
+
       // Auto-set unit defaults when materialType changes
       if (key === "materialType" && allUnits.length > 0) {
         const mt = value as string;
@@ -171,9 +184,11 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         } else if (mt === "hop") {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = gUnit?.id ?? null;
+          if (!next.hopForm) next.hopForm = "pellet";
         } else if (mt === "yeast") {
           next.unitId = gUnit?.id ?? null;
           next.recipeUnitId = null;
+          if (!next.yeastForm) next.yeastForm = "dry";
         } else if (mt === "adjunct") {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = null;
@@ -244,6 +259,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
           extractPercent: (values.extractPercent as string | null) ?? null,
+          hopForm: (values.hopForm as string | null) ?? null,
+          yeastForm: (values.yeastForm as string | null) ?? null,
           packagingType: (values.packagingType as string | null) ?? null,
           volumeL: (values.volumeL as string | null) ?? null,
           abv: (values.abv as string | null) ?? null,
@@ -282,6 +299,8 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
           extractPercent: (values.extractPercent as string | null) ?? null,
+          hopForm: (values.hopForm as string | null) ?? null,
+          yeastForm: (values.yeastForm as string | null) ?? null,
           packagingType: (values.packagingType as string | null) ?? null,
           volumeL: (values.volumeL as string | null) ?? null,
           abv: (values.abv as string | null) ?? null,
@@ -512,6 +531,30 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             suffix: "%",
             visible: (v: Record<string, unknown>) =>
               v.isBrewMaterial === true && v.materialType === "hop",
+          },
+          {
+            key: "hopForm",
+            label: t("detail.fields.hopForm"),
+            type: "select",
+            visible: (v: Record<string, unknown>) =>
+              v.isBrewMaterial === true && v.materialType === "hop",
+            options: [
+              { value: "pellet", label: t("hopForm.pellet") },
+              { value: "leaf", label: t("hopForm.leaf") },
+              { value: "plug", label: t("hopForm.plug") },
+              { value: "cryo", label: t("hopForm.cryo") },
+            ],
+          },
+          {
+            key: "yeastForm",
+            label: t("detail.fields.yeastForm"),
+            type: "select",
+            visible: (v: Record<string, unknown>) =>
+              v.isBrewMaterial === true && v.materialType === "yeast",
+            options: [
+              { value: "dry", label: t("yeastForm.dry") },
+              { value: "liquid", label: t("yeastForm.liquid") },
+            ],
           },
           {
             key: "ebc",

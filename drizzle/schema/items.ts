@@ -49,6 +49,8 @@ export const items = pgTable(
     alpha: decimal("alpha"),
     ebc: decimal("ebc"),
     extractPercent: decimal("extract_percent"),
+    hopForm: text("hop_form"), // FK to hop_forms — only for hops
+    yeastForm: text("yeast_form"), // FK to yeast_forms — only for yeast
 
     // === PRODUCT-SPECIFIC ===
     packagingType: text("packaging_type"), // 'keg_30' | 'keg_50' | 'bottle_500' | 'can_330'...

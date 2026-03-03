@@ -82,7 +82,10 @@ export function useRecipeDetail(id: string): UseRecipeDetailReturn {
       return;
     }
 
-    setIsLoading(true);
+    // Only show loading spinner on initial load, not on revalidation
+    if (!data) {
+      setIsLoading(true);
+    }
 
     getRecipeDetail(id)
       .then((result) => {
@@ -101,6 +104,7 @@ export function useRecipeDetail(id: string): UseRecipeDetailReturn {
     return (): void => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, refreshKey]);
 
   return { data, isLoading, mutate };

@@ -46,7 +46,7 @@ interface HopTabProps {
   ogPlato: number;
   boilTimeMin: number;
   whirlpoolTempC: number;
-  ibuTarget: { min: number; max: number } | null;
+  targetIbu: number;
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
@@ -63,7 +63,7 @@ export function HopTab({
   ogPlato,
   boilTimeMin,
   whirlpoolTempC,
-  ibuTarget,
+  targetIbu,
   onAmountChange,
   onStageChange,
   onTimeChange,
@@ -86,7 +86,8 @@ export function HopTab({
         alpha: item.itemAlpha ? parseFloat(item.itemAlpha) : null,
         useTimeMin: item.useTimeMin,
         useStage: item.useStage ?? "boil",
-        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
+        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) || undefined : undefined,
+        hopForm: item.itemHopForm ?? null,
         itemId: item.itemId,
         recipeItemId: item.id,
         name: item.itemName ?? item.itemId,
@@ -111,7 +112,8 @@ export function HopTab({
         alpha: item.itemAlpha ? parseFloat(item.itemAlpha) : null,
         useTimeMin: item.useTimeMin,
         useStage: item.useStage ?? "boil",
-        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
+        temperatureC: item.temperatureC ? parseFloat(item.temperatureC) || undefined : undefined,
+        hopForm: item.itemHopForm ?? null,
         itemId: item.itemId,
         recipeItemId: item.id,
         name: item.itemName ?? item.itemId,
@@ -124,11 +126,10 @@ export function HopTab({
 
   const totalIbu = ibuBreakdown.total;
 
-  // Check if total IBU is within target range
-  const isInRange =
-    ibuTarget != null &&
-    totalIbu >= ibuTarget.min &&
-    totalIbu <= ibuTarget.max;
+  // Check if total IBU matches design target (within ±10% tolerance)
+  const isOnTarget =
+    targetIbu > 0 &&
+    Math.abs(totalIbu - targetIbu) <= targetIbu * 0.1;
 
   // Breakdown entries to display (only show stages that have IBU > 0)
   const breakdownEntries = useMemo(() => {
@@ -228,12 +229,12 @@ export function HopTab({
                 </DialogContent>
               </Dialog>
             </span>
-            {ibuTarget && (
+            {targetIbu > 0 && (
               <span className="flex items-center gap-1">
                 <span className="text-muted-foreground">
-                  {t("designer.feedback.target")}: {ibuTarget.min}–{ibuTarget.max} IBU
+                  {t("designer.feedback.target")}: {targetIbu} IBU
                 </span>
-                {isInRange ? (
+                {isOnTarget ? (
                   <Check className={cn("size-4 text-green-600")} />
                 ) : (
                   <AlertTriangle className={cn("size-4 text-amber-600")} />
@@ -284,6 +285,7 @@ function IBUDetailContent({
         <div>OG = {detail.ogPlato.toFixed(1)} °P → SG = {detail.sgWort.toFixed(4)}</div>
         <div>{t("designer.cards.ibuPostBoilVolume")} = {detail.postBoilL.toFixed(1)} L</div>
         <div>{t("designer.cards.ibuBoilTime")} = {detail.boilTimeMin} min</div>
+        <div>{t("designer.cards.ibuWhirlpoolTemp")} = {whirlpoolTempC} °C</div>
       </div>
 
       {/* Tinseth formula */}
@@ -319,8 +321,11 @@ function IBUDetailContent({
             {hop.stageFactor !== 1.0 && (
               <div>{t("designer.cards.ibuStageFactor")}: × {hop.stageFactor.toFixed(2)}</div>
             )}
+            {hop.hopFormFactor !== 1.0 && (
+              <div>{t("designer.cards.ibuHopFormFactor")}: × {hop.hopFormFactor.toFixed(2)} ({t(`hopForm.${hop.hopForm}`)})</div>
+            )}
             <div className="font-medium text-foreground pt-1 border-t">
-              IBU = ({hop.weightKg.toFixed(4)} × {hop.utilization.toFixed(4)} × {hop.alphaDecimal} × 1000000) / {hop.postBoilL.toFixed(1)}{hop.stageFactor !== 1.0 ? ` × ${hop.stageFactor.toFixed(2)}` : ""} = <span className="text-primary">{hop.ibu.toFixed(1)}</span>
+              IBU = ({hop.weightKg.toFixed(4)} × {hop.utilization.toFixed(4)} × {hop.alphaDecimal} × 1000000) / {hop.postBoilL.toFixed(1)}{hop.stageFactor !== 1.0 ? ` × ${hop.stageFactor.toFixed(2)}` : ""}{hop.hopFormFactor !== 1.0 ? ` × ${hop.hopFormFactor.toFixed(2)}` : ""} = <span className="text-primary">{hop.ibu.toFixed(1)}</span>
             </div>
           </div>
         </div>

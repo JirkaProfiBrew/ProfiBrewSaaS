@@ -1,7 +1,13 @@
-generovat časový plán již při založení
+generovat celý časový plán již při založení, zobrazit ukončení varu, ukončení kvašení, ukončení ležení
 
 přístup k receptuře i u dalších fází
 
 zobrazit rmutovací schéma u plánu
 
 Slady - zaokrouhlit na 1 desetinné místo
+
+Var-plán - chybí možnost uložit ve fázi Plán
+
+Recipe - mj u kvasnic?
+
+Zobrazení obrázků u Items  

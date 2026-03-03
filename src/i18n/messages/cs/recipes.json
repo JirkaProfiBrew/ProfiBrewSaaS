@@ -1,4 +1,10 @@
 {
+  "hopForm": {
+    "pellet": "Granule",
+    "leaf": "Hlávkový",
+    "plug": "Plug",
+    "cryo": "Cryo"
+  },
   "title": "Receptury",
   "create": "Receptura",
   "quickFilters": {
@@ -38,13 +44,13 @@
     "batchSize": "Cílový objem (L)",
     "batchSizeBruto": "Brutto objem (L)",
     "beerVolume": "Hotové pivo (L)",
-    "boilTime": "Doba varu (min)",
+    "boilTime": "Chmelovar (min.)",
     "fermentationDays": "Kvašení (dní)",
     "conditioningDays": "Ležení (dní)",
     "notes": "Poznámky",
     "itemId": "Výrobní položka",
     "itemIdPlaceholder": "Vyberte výrobní položku",
-    "shelfLifeDays": "Trvanlivost",
+    "shelfLifeDays": "Trvanlivost (dní)",
     "brewingSystem": "Varní soustava",
     "brewingSystemPlaceholder": "Vyberte varní soustavu",
     "noBrewingSystem": "Bez varní soustavy (výchozí parametry)",
@@ -315,10 +321,12 @@
       "ibuDetailTitle": "Výpočet IBU — Tinseth",
       "ibuPostBoilVolume": "Objem do fermentoru",
       "ibuBoilTime": "Doba varu",
+      "ibuWhirlpoolTemp": "Teplota whirlpoolu",
       "ibuWeight": "Hmotnost",
       "ibuStage": "Fáze",
       "ibuTime": "Čas",
       "ibuStageFactor": "Korekce fáze",
+      "ibuHopFormFactor": "Forma chmele",
       "maltDetailTitle": "Výpočet potřeby sladu",
       "maltDetailOg": "Cílové OG",
       "maltDetailBatchSize": "Objem várky (do fermentoru)",
@@ -348,7 +356,7 @@
       "grainAbsorption": "Absorpce vody zrnem (L/kg)",
       "waterReserve": "Rezerva vody (L)",
       "whirlpoolTemp": "Teplota whirlpoolu (°C)",
-      "boilTime": "Čas chmelovaru (min)"
+      "boilTime": "Chmelovar (min.)"
     },
     "calculation": {
       "pipelineTitle": "Objemová pipeline",

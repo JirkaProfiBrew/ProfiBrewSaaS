@@ -15,12 +15,22 @@ interface YeastCardProps {
 
 export function YeastCard({ item, estimatedFg, estimatedAbv, onAmountChange, onRemove }: YeastCardProps): React.ReactNode {
   const t = useTranslations("recipes");
+  const tItems = useTranslations("items");
   const unitSymbol = item.unitSymbol ?? "ks";
 
   return (
     <IngredientCard
       id={item.id}
-      title={item.itemName ?? item.itemId}
+      title={
+        <>
+          {item.itemName ?? item.itemId}
+          {item.itemYeastForm && (
+            <span className="text-xs font-normal text-muted-foreground ml-1">
+              ({tItems(`yeastForm.${item.itemYeastForm}`)})
+            </span>
+          )}
+        </>
+      }
       subtitle={item.itemBrand ?? undefined}
       onRemove={() => onRemove(item.id)}
     >

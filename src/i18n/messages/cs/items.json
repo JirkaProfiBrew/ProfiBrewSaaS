@@ -37,6 +37,16 @@
     "adjunct": "Přísada",
     "other": "Ostatní"
   },
+  "hopForm": {
+    "pellet": "Granule (pelety)",
+    "leaf": "Hlávkový",
+    "plug": "Plug",
+    "cryo": "Cryo Hops"
+  },
+  "yeastForm": {
+    "dry": "Sušené",
+    "liquid": "Tekuté"
+  },
   "stockCategory": {
     "raw_material": "Surovina",
     "finished_product": "Hotový výrobek",
@@ -80,6 +90,8 @@
       "alpha": "Alpha kyseliny (%)",
       "ebc": "Barva EBC",
       "extractPercent": "Výtěžnost (%)",
+      "hopForm": "Forma chmele",
+      "yeastForm": "Forma kvasnic",
       "packagingType": "Typ balení",
       "volumeL": "Objem (l)",
       "abv": "Alkohol (%)",

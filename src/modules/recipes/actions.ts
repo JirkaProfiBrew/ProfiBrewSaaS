@@ -90,6 +90,8 @@ function mapRecipeItemRow(
     alpha: string | null;
     ebc: string | null;
     extractPercent: string | null;
+    hopForm: string | null;
+    yeastForm: string | null;
     costPrice: string | null;
   } | null,
   unitRow?: {
@@ -119,6 +121,8 @@ function mapRecipeItemRow(
     itemAlpha: itemRow?.alpha ?? null,
     itemEbc: itemRow?.ebc ?? null,
     itemExtractPercent: itemRow?.extractPercent ?? null,
+    itemHopForm: itemRow?.hopForm ?? null,
+    itemYeastForm: itemRow?.yeastForm ?? null,
     itemCostPrice: itemRow?.costPrice ?? null,
     unitSymbol: unitRow?.symbol ?? null,
     unitCode: unitRow?.code ?? null,
@@ -222,6 +226,8 @@ export async function getRecipeDetail(
         itemAlpha: items.alpha,
         itemEbc: items.ebc,
         itemExtractPercent: items.extractPercent,
+        itemHopForm: items.hopForm,
+        itemYeastForm: items.yeastForm,
         itemCostPrice: items.costPrice,
         unitSymbol: units.symbol,
         unitCode: units.code,
@@ -256,6 +262,8 @@ export async function getRecipeDetail(
             alpha: row.itemAlpha,
             ebc: row.itemEbc,
             extractPercent: row.itemExtractPercent,
+            hopForm: row.itemHopForm,
+            yeastForm: row.itemYeastForm,
             costPrice: row.itemCostPrice,
           },
           row.unitSymbol
@@ -773,6 +781,7 @@ export async function applyMashProfile(
         }))
       );
     }
+
   });
 }
 
@@ -863,6 +872,8 @@ export async function calculateAndSaveRecipe(
         itemAlpha: items.alpha,
         itemEbc: items.ebc,
         itemExtractPercent: items.extractPercent,
+        itemHopForm: items.hopForm,
+        itemYeastForm: items.yeastForm,
         itemCostPrice: items.costPrice,
         unitToBaseFactor: units.toBaseFactor,
         stockUnitToBaseFactor: stockUnit.toBaseFactor,
@@ -915,7 +926,8 @@ export async function calculateAndSaveRecipe(
         stockUnitSymbol: row.stockUnitSymbol ?? null,
         useTimeMin: row.recipeItem.useTimeMin,
         useStage: row.recipeItem.useStage ?? undefined,
-        temperatureC: row.recipeItem.temperatureC ? parseFloat(row.recipeItem.temperatureC) : undefined,
+        temperatureC: row.recipeItem.temperatureC ? parseFloat(row.recipeItem.temperatureC) || undefined : undefined,
+        hopForm: row.itemHopForm ?? null,
         itemId: row.recipeItem.itemId,
         recipeItemId: row.recipeItem.id,
         name: row.itemName,

@@ -37,6 +37,16 @@
     "adjunct": "Adjunct",
     "other": "Other"
   },
+  "hopForm": {
+    "pellet": "Pellet",
+    "leaf": "Leaf / Whole",
+    "plug": "Plug",
+    "cryo": "Cryo Hops"
+  },
+  "yeastForm": {
+    "dry": "Dry",
+    "liquid": "Liquid"
+  },
   "stockCategory": {
     "raw_material": "Raw Material",
     "finished_product": "Finished Product",
@@ -80,6 +90,8 @@
       "alpha": "Alpha acids (%)",
       "ebc": "Color EBC",
       "extractPercent": "Extract yield (%)",
+      "hopForm": "Hop Form",
+      "yeastForm": "Yeast Form",
       "packagingType": "Packaging type",
       "volumeL": "Volume (l)",
       "abv": "Alcohol (%)",

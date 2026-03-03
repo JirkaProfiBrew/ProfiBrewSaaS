@@ -65,6 +65,28 @@ export const countries = pgTable("countries", {
 });
 
 // ============================================================
+// HOP_FORMS (system codebook — hop form utilization factors)
+// ============================================================
+export const hopForms = pgTable("hop_forms", {
+  id: text("id").primaryKey(),
+  nameCs: text("name_cs").notNull(),
+  nameEn: text("name_en").notNull(),
+  utilizationFactor: decimal("utilization_factor").notNull().default("1.0"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+// ============================================================
+// YEAST_FORMS (system codebook — yeast form with default unit)
+// ============================================================
+export const yeastForms = pgTable("yeast_forms", {
+  id: text("id").primaryKey(),
+  nameCs: text("name_cs").notNull(),
+  nameEn: text("name_en").notNull(),
+  defaultUnit: text("default_unit").notNull(),
+  sortOrder: integer("sort_order").default(0),
+});
+
+// ============================================================
 // UNITS (units of measure — tenant_id nullable = system units)
 // ============================================================
 export const units = pgTable("units", {

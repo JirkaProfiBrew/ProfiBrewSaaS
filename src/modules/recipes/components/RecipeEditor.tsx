@@ -10,6 +10,7 @@ import type {
   RecipeStep,
   Recipe,
   RecipeConstantsOverride,
+  RecipeCalculationResult,
   BrewingSystemInput,
 } from "../types";
 
@@ -35,6 +36,7 @@ interface RecipeEditorProps {
   // Recipe data for calculation tab
   recipe: Recipe | null;
   allItems: RecipeItem[];
+  liveCalcResult?: RecipeCalculationResult | null;
   // Calculated values for tabs
   ogPlato: number;
   volumeL: number;
@@ -42,8 +44,9 @@ interface RecipeEditorProps {
   boilTimeMin: number;
   whirlpoolTempC: number;
   maltPlanKg: number;
-  // Style targets
-  ibuTarget: { min: number; max: number } | null;
+  effectiveExtractPct: number;
+  // Design targets
+  targetIbu: number;
   ebcTarget: { min: number; max: number } | null;
   // EBC for dual BeerGlass
   targetEbc: number;
@@ -92,13 +95,15 @@ export function RecipeEditor({
   steps,
   recipe,
   allItems,
+  liveCalcResult,
   ogPlato,
   volumeL,
   batchSizeL,
   boilTimeMin,
   whirlpoolTempC,
   maltPlanKg,
-  ibuTarget,
+  effectiveExtractPct,
+  targetIbu,
   ebcTarget,
   targetEbc,
   calculatedEbc,
@@ -173,7 +178,7 @@ export function RecipeEditor({
               calculatedOg={calculatedOg}
               batchSizeL={batchSizeL}
               efficiencyPct={systemDefaults.efficiencyPct}
-              extractEstimatePct={systemDefaults.extractEstimate}
+              extractEstimatePct={effectiveExtractPct}
               maltInputMode={maltInputMode}
               onMaltInputModeChange={onMaltInputModeChange}
               onAmountChange={onAmountChange}
@@ -191,7 +196,7 @@ export function RecipeEditor({
               ogPlato={ogPlato}
               boilTimeMin={boilTimeMin}
               whirlpoolTempC={whirlpoolTempC}
-              ibuTarget={ibuTarget}
+              targetIbu={targetIbu}
               onAmountChange={onAmountChange}
               onStageChange={onStageChange}
               onTimeChange={onTimeChange}
@@ -248,6 +253,7 @@ export function RecipeEditor({
               recipeId={recipeId}
               recipe={recipe}
               items={allItems}
+              liveCalcResult={liveCalcResult}
               onMutate={onMutate}
             />
           </TabsContent>

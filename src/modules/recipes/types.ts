@@ -70,6 +70,8 @@ export interface RecipeItem {
   itemAlpha?: string | null;
   itemEbc?: string | null;
   itemExtractPercent?: string | null;
+  itemHopForm?: string | null;
+  itemYeastForm?: string | null;
   itemCostPrice?: string | null;
   // Joined from units table:
   unitSymbol?: string | null;
@@ -198,6 +200,8 @@ export interface IBUHopDetail {
   boilTimeFactor: number;
   utilization: number;
   stageFactor: number;       // 1.0 for boil, 1.1 for fwh, 0.3 for mash, etc.
+  hopForm: string;           // 'pellet' | 'leaf' | 'plug' | 'cryo'
+  hopFormFactor: number;     // utilization multiplier (e.g. 1.10 for pellet)
   postBoilL: number;
   ibu: number;
   formula: string;           // human-readable formula string
@@ -244,6 +248,7 @@ export interface RecipeCalculationResult {
   pipeline: VolumePipeline;
   maltRequiredKg: number;
   maltActualKg: number;
+  effectiveExtractPct: number;
   water: WaterCalculation;
   brewingSystemUsed: boolean;
 }

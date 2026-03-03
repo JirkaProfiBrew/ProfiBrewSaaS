@@ -27,6 +27,7 @@ export interface IngredientInput {
   useTimeMin?: number | null;      // boil time (for hops)
   useStage?: string;               // boil | fwh | whirlpool | mash | dry_hop_cold | dry_hop_warm
   temperatureC?: number;           // temperature in °C (for whirlpool, dry_hop_warm)
+  hopForm?: string | null;         // 'pellet' | 'leaf' | 'plug' | 'cryo' — hop form for utilization factor
   itemId: string;
   recipeItemId?: string;           // unique recipe_items.id — for matching snapshot ↔ UI
   name: string;
@@ -134,7 +135,8 @@ export function calculateVolumePipeline(
 export function calculateOG(
   ingredients: IngredientInput[],
   batchSizeL: number,
-  efficiencyPct: number
+  efficiencyPct: number,
+  defaultExtractPct: number = 80
 ): number {
   if (batchSizeL <= 0) return 0;
 
@@ -145,7 +147,7 @@ export function calculateOG(
 
   const totalExtractKg = malts.reduce((sum, malt) => {
     const weightKg = toKg(malt);
-    const extractFraction = (malt.extractPercent ?? 80) / 100;
+    const extractFraction = (malt.extractPercent ?? defaultExtractPct) / 100;
     return sum + weightKg * extractFraction * efficiency;
   }, 0);
 
@@ -187,12 +189,21 @@ function temperatureFactor(tempC: number): number {
   return (tempC - 80) / 20;
 }
 
+// Hop form utilization factors — pellet hops have ~10% higher utilization
+const HOP_FORM_FACTORS: Record<string, number> = {
+  pellet: 1.10,
+  leaf: 1.00,
+  plug: 1.02,
+  cryo: 1.10,
+};
+
 interface HopInput {
   weightKg: number;
   alphaDecimal: number;
   useStage: string;
   useTimeMin: number;
   temperatureC?: number;
+  hopFormFactor: number;
 }
 
 interface IBUContext {
@@ -222,7 +233,8 @@ function calculateHopIBU(hop: HopInput, ctx: IBUContext): number {
     }
     case "whirlpool": {
       if (hop.useTimeMin <= 0) return 0;
-      const tempC = hop.temperatureC ?? ctx.whirlpoolTempC;
+      // Use || (not ??) so that 0 also falls back — 0°C whirlpool is never valid
+      const tempC = hop.temperatureC || ctx.whirlpoolTempC;
       const tempFact = temperatureFactor(tempC);
       if (tempFact <= 0) return 0;
       const util = tinsethUtilization(hop.useTimeMin, sg);
@@ -253,7 +265,7 @@ function calculateHopIBU(hop: HopInput, ctx: IBUContext): number {
       ibu = 0;
   }
 
-  return round1(ibu);
+  return round1(ibu * hop.hopFormFactor);
 }
 
 export function calculateIBUBreakdown(
@@ -277,7 +289,8 @@ export function calculateIBUBreakdown(
       alphaDecimal: (hop.alpha ?? 0) / 100,
       useStage: hop.useStage ?? "boil",
       useTimeMin: hop.useTimeMin ?? 0,
-      temperatureC: hop.temperatureC ?? undefined,
+      temperatureC: hop.temperatureC || undefined,
+      hopFormFactor: HOP_FORM_FACTORS[hop.hopForm ?? "pellet"] ?? 1.0,
     };
     const ibu = calculateHopIBU(hopInput, ctx);
 
@@ -327,7 +340,8 @@ export function calculateIBU(
       alphaDecimal: (hop.alpha ?? 0) / 100,
       useStage: hop.useStage ?? "boil",
       useTimeMin: hop.useTimeMin ?? 0,
-      temperatureC: hop.temperatureC ?? undefined,
+      temperatureC: hop.temperatureC || undefined,
+      hopFormFactor: HOP_FORM_FACTORS[hop.hopForm ?? "pellet"] ?? 1.0,
     };
     return sum + calculateHopIBU(hopInput, ctx);
   }, 0);
@@ -378,7 +392,8 @@ export function calculateIBUDetail(
         stageNote = " × 0.3 (mash)";
         break;
       case "whirlpool": {
-        const tempC = hop.temperatureC ?? whirlpoolTempC;
+        // Use || (not ??) so that 0 also falls back — 0°C whirlpool is never valid
+        const tempC = hop.temperatureC || whirlpoolTempC;
         stageFactor = temperatureFactor(tempC);
         stageNote = ` × ${stageFactor.toFixed(2)} (whirlpool ${tempC}°C)`;
         break;
@@ -396,10 +411,13 @@ export function calculateIBUDetail(
 
     const boilTimeFactor = (1 - Math.exp(-0.04 * effectiveTime)) / 4.15;
     const utilization = bignessFactor * boilTimeFactor;
-    const ibu = round1((weightKg * utilization * alphaDecimal * 1_000_000) / postBoilL * stageFactor);
+    const hopForm = hop.hopForm ?? "pellet";
+    const hopFormFactor = HOP_FORM_FACTORS[hopForm] ?? 1.0;
+    const ibu = round1((weightKg * utilization * alphaDecimal * 1_000_000) / postBoilL * stageFactor * hopFormFactor);
     const weightG = round1(weightKg * 1000);
 
-    const formula = `(${weightKg.toFixed(4)} × ${utilization.toFixed(4)} × ${alphaDecimal} × 1000000) / ${postBoilL.toFixed(1)}${stageNote} = ${ibu.toFixed(1)}`;
+    const hopFormNote = hopFormFactor !== 1.0 ? ` × ${hopFormFactor.toFixed(2)} (${hopForm})` : "";
+    const formula = `(${weightKg.toFixed(4)} × ${utilization.toFixed(4)} × ${alphaDecimal} × 1000000) / ${postBoilL.toFixed(1)}${stageNote}${hopFormNote} = ${ibu.toFixed(1)}`;
 
     hopDetails.push({
       name: hop.name,
@@ -414,6 +432,8 @@ export function calculateIBUDetail(
       boilTimeFactor: round4(boilTimeFactor),
       utilization: round4(utilization),
       stageFactor,
+      hopForm,
+      hopFormFactor,
       postBoilL,
       ibu,
       formula,
@@ -709,7 +729,7 @@ export function calculateAll(
   const pipeline = calculateVolumePipeline(batchSizeL, boilTimeMin, system);
 
   // 2. OG — extract into fermenter, using batchSizeL (consistent with malt plan)
-  const og = calculateOG(ingredients, batchSizeL, system.efficiencyPct);
+  const og = calculateOG(ingredients, batchSizeL, system.efficiencyPct, system.extractEstimate);
 
   // 3. FG — from design target, or estimate 25% of OG
   const fg = fgPlato ?? round1(og * 0.25);
@@ -740,18 +760,22 @@ export function calculateAll(
   // 9. Malt — plan from target OG (design), actual from ingredients
   // Uses batchSizeL (into fermenter) — efficiency accounts for all losses
   const ogForPlan = targetOgPlato ?? og;
+
+  // Use weighted average extract from actual ingredients so plan is consistent with OG calc
+  const maltsForExtract = ingredients.filter((i) => i.category === "malt" || i.category === "adjunct");
+  const totalMaltWeightKg = maltsForExtract.reduce((sum, m) => sum + toKg(m), 0);
+  const effectiveExtract = totalMaltWeightKg > 0
+    ? maltsForExtract.reduce((sum, m) => sum + toKg(m) * (m.extractPercent ?? system.extractEstimate), 0) / totalMaltWeightKg
+    : system.extractEstimate;
+
   const maltRequiredKg = calculateMaltRequired(
     ogForPlan,
     batchSizeL,
     system.efficiencyPct,
-    system.extractEstimate
+    effectiveExtract
   );
 
-  const maltActualKg = round2(
-    ingredients
-      .filter((i) => i.category === "malt" || i.category === "adjunct")
-      .reduce((sum, m) => sum + toKg(m), 0)
-  );
+  const maltActualKg = round2(totalMaltWeightKg);
 
   // 10. Water — based on malt plan, split into mash + sparge
   const water = calculateWater(
@@ -781,6 +805,7 @@ export function calculateAll(
     pipeline,
     maltRequiredKg,
     maltActualKg,
+    effectiveExtractPct: round1(effectiveExtract),
     water,
     brewingSystemUsed: brewingSystem != null,
   };

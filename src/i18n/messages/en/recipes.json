@@ -1,4 +1,10 @@
 {
+  "hopForm": {
+    "pellet": "Pellet",
+    "leaf": "Leaf",
+    "plug": "Plug",
+    "cryo": "Cryo"
+  },
   "title": "Recipes",
   "create": "Recipe",
   "quickFilters": {
@@ -38,13 +44,13 @@
     "batchSize": "Target Volume (L)",
     "batchSizeBruto": "Gross Volume (L)",
     "beerVolume": "Finished Beer (L)",
-    "boilTime": "Boil Time (min)",
+    "boilTime": "Hop Boil (min.)",
     "fermentationDays": "Fermentation (days)",
     "conditioningDays": "Conditioning (days)",
     "notes": "Notes",
     "itemId": "Production Item",
     "itemIdPlaceholder": "Select production item",
-    "shelfLifeDays": "Shelf Life",
+    "shelfLifeDays": "Shelf Life (days)",
     "brewingSystem": "Brewing System",
     "brewingSystemPlaceholder": "Select brewing system",
     "noBrewingSystem": "No brewing system (default parameters)",
@@ -315,10 +321,12 @@
       "ibuDetailTitle": "IBU Calculation — Tinseth",
       "ibuPostBoilVolume": "Into fermenter volume",
       "ibuBoilTime": "Boil time",
+      "ibuWhirlpoolTemp": "Whirlpool temperature",
       "ibuWeight": "Weight",
       "ibuStage": "Stage",
       "ibuTime": "Time",
       "ibuStageFactor": "Stage factor",
+      "ibuHopFormFactor": "Hop form",
       "maltDetailTitle": "Malt Requirement Calculation",
       "maltDetailOg": "Target OG",
       "maltDetailBatchSize": "Batch size (into fermenter)",
@@ -348,7 +356,7 @@
       "grainAbsorption": "Grain Absorption (L/kg)",
       "waterReserve": "Water Reserve (L)",
       "whirlpoolTemp": "Whirlpool Temperature (°C)",
-      "boilTime": "Boil Time (min)"
+      "boilTime": "Hop Boil (min.)"
     },
     "calculation": {
       "pipelineTitle": "Volume Pipeline",

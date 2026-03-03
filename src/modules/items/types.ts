@@ -25,6 +25,8 @@ export interface Item {
   alpha: string | null;
   ebc: string | null;
   extractPercent: string | null;
+  hopForm: string | null;
+  yeastForm: string | null;
   packagingType: string | null;
   volumeL: string | null;
   abv: string | null;

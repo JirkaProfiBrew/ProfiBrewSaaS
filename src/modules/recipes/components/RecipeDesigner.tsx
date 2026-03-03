@@ -215,6 +215,9 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         });
         setConstants(r.constantsOverride ?? {});
         setMaltInputMode((r.maltInputMode as "kg" | "percent") ?? "percent");
+        // Derive mashing profile from steps (steps store mashProfileId)
+        const profileFromSteps = recipeDetail.steps.find((s) => s.mashProfileId)?.mashProfileId ?? null;
+        setMashingProfileId(profileFromSteps);
         setDesignCollapsed(true);
         setTargetCollapsed(true);
       }
@@ -374,7 +377,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       costPrice: item.itemCostPrice ? parseFloat(item.itemCostPrice) : null,
       useTimeMin: item.useTimeMin,
       useStage: item.useStage ?? undefined,
-      temperatureC: item.temperatureC ? parseFloat(item.temperatureC) : undefined,
+      temperatureC: item.temperatureC ? parseFloat(item.temperatureC) || undefined : undefined,
+      hopForm: item.itemHopForm ?? null,
       itemId: item.itemId,
       recipeItemId: item.id,
       name: item.itemName ?? item.itemId,
@@ -384,14 +388,6 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   }, [localItems, volumeL, boilTimeMin, effectiveSystem, designValues.og]);
 
   // Style targets
-  const ibuTarget = useMemo(() => {
-    if (!selectedStyle?.ibuMin || !selectedStyle?.ibuMax) return null;
-    return {
-      min: parseFloat(selectedStyle.ibuMin),
-      max: parseFloat(selectedStyle.ibuMax),
-    };
-  }, [selectedStyle]);
-
   const ebcTarget = useMemo(() => {
     if (!selectedStyle?.ebcMin || !selectedStyle?.ebcMax) return null;
     return {
@@ -492,6 +488,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         });
       }
 
+      // Sync boilTimeMin → constants
+      if (key === "boilTimeMin") {
+        const numVal = value != null ? Number(value) : undefined;
+        setConstants((prev) => ({ ...prev, boilTimeMin: numVal }));
+      }
+
       // When selecting a mashing profile
       if (key === "mashingProfileId") {
         if (isNew) {
@@ -499,8 +501,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           setMashingProfileId(value ? String(value) : null);
         } else {
           // Existing recipe: apply immediately
-          if (value) {
-            void applyMashProfile(id, String(value)).then(() => {
+          const profileValue = value ? String(value) : null;
+          setMashingProfileId(profileValue);
+          if (profileValue) {
+            void applyMashProfile(id, profileValue).then(() => {
               toast.success(tCommon("saved"));
               mutate();
             });
@@ -853,7 +857,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         ? (selectedItem?.recipeUnitId ?? selectedItem?.unitId ?? null)
         : (selectedItem?.unitId ?? null);
 
-      await addRecipeItem(id, {
+      const created = await addRecipeItem(id, {
         itemId: addItemId,
         category: addCategory,
         amountG: "0",
@@ -862,17 +866,28 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
         useTimeMin: addCategory === "hop" ? 60 : null,
       });
 
+      // Optimistic update — add the new item to localItems immediately
+      // Enrich with item data from brewMaterialItems (name, code)
+      const enriched: RecipeItem = {
+        ...created,
+        itemName: selectedItem?.name,
+        itemCode: selectedItem?.code,
+      };
+      setLocalItems((prev) => [...prev, enriched]);
       setAddDialogOpen(false);
-      mutate();
     } catch (error: unknown) {
       console.error("Failed to add ingredient:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [addItemId, addCategory, id, brewMaterialItems, mutate, tCommon]);
+  }, [addItemId, addCategory, id, brewMaterialItems, tCommon]);
 
   const handleConstantsChange = useCallback(
     (newConstants: RecipeConstantsOverride): void => {
       setConstants(newConstants);
+      // Sync constants.boilTimeMin → values.boilTimeMin
+      if (newConstants.boilTimeMin != null) {
+        setValues((prev) => ({ ...prev, boilTimeMin: newConstants.boilTimeMin ?? null }));
+      }
     },
     []
   );
@@ -1078,13 +1093,15 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               steps={recipeDetail?.steps ?? []}
               recipe={recipeDetail?.recipe ?? null}
               allItems={localItems}
+              liveCalcResult={calcResult}
               ogPlato={calcResult.og}
               volumeL={volumeL}
               batchSizeL={volumeL}
               boilTimeMin={boilTimeMin}
               whirlpoolTempC={effectiveSystem.whirlpoolTemperatureC}
               maltPlanKg={calcResult.maltRequiredKg ?? 0}
-              ibuTarget={ibuTarget}
+              effectiveExtractPct={calcResult.effectiveExtractPct}
+              targetIbu={designValues.targetIbu}
               ebcTarget={ebcTarget}
               targetEbc={designValues.targetEbc}
               calculatedEbc={calcResult.ebc}
