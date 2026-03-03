@@ -154,9 +154,25 @@ export interface VolumePipeline {
 
 export interface WaterCalculation {
   mashWaterL: number;
+  mashVolumeL: number;       // physical volume in mash tun (water + grain displacement)
   spargeWaterL: number;
   totalWaterL: number;
   grainAbsorptionL: number;
+}
+
+export interface WaterCalculationDetail {
+  maltKg: number;
+  waterPerKgMalt: number;
+  grainAbsorptionLPerKg: number;
+  grainDisplacementLPerKg: number;
+  preBoilL: number;
+  mashWaterL: number;
+  grainVolumeL: number;
+  mashVolumeL: number;
+  grainAbsorptionL: number;
+  volumeAfterMashL: number;
+  spargeWaterL: number;
+  totalWaterL: number;
 }
 
 export interface IBUBreakdown {

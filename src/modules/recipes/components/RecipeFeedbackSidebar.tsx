@@ -2,12 +2,14 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Check, AlertTriangle, X } from "lucide-react";
+import { Check, AlertTriangle, X, Info } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useSidebar } from "@/components/layout/sidebar-context";
 import type { VolumePipeline, WaterCalculation } from "../types";
+import { calculateWaterDetail } from "../utils";
 
 // ── Formatting helpers ──────────────────────────────────────────
 
@@ -42,6 +44,12 @@ export interface RecipeFeedbackSidebarProps {
   pipeline: VolumePipeline;
   // Water
   water: WaterCalculation;
+  waterParams: {
+    maltKg: number;
+    waterPerKgMalt: number;
+    grainAbsorptionLPerKg: number;
+    preBoilL: number;
+  };
   // Cost
   totalCost: number;
   costPerLiter: number;
@@ -127,6 +135,7 @@ export function RecipeFeedbackSidebar({
   maltActualKg,
   pipeline,
   water,
+  waterParams,
   totalCost,
   costPerLiter,
   className,
@@ -267,13 +276,18 @@ export function RecipeFeedbackSidebar({
 
       {/* Section 4: Water */}
       <div>
-        <h3 className="text-sm font-semibold mb-2">
+        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1">
           {t("designer.feedback.water")}
+          <WaterInfoButton {...waterParams} />
         </h3>
         <div className="text-xs space-y-1">
           <div className="flex justify-between">
             <span>{t("designer.feedback.mashWater")}:</span>
             <span>{fmtVol(water.mashWaterL)} L</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span className="pl-2">{t("designer.feedback.mashVolume")}:</span>
+            <span>{fmtVol(water.mashVolumeL)} L</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span className="pl-2">– {t("designer.feedback.grainAbsorption")}:</span>
@@ -307,6 +321,128 @@ export function RecipeFeedbackSidebar({
             <span>{fmtCost(costPerLiter)} Kč</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Water Info Modal ──────────────────────────────────────────────
+
+function WaterInfoButton({
+  maltKg,
+  waterPerKgMalt,
+  grainAbsorptionLPerKg,
+  preBoilL,
+}: {
+  maltKg: number;
+  waterPerKgMalt: number;
+  grainAbsorptionLPerKg: number;
+  preBoilL: number;
+}): React.ReactNode {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-full size-5 hover:bg-muted-foreground/20 transition-colors"
+        >
+          <Info className="size-3.5 text-muted-foreground" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            <WaterDetailTitle />
+          </DialogTitle>
+        </DialogHeader>
+        <WaterDetailContent
+          maltKg={maltKg}
+          waterPerKgMalt={waterPerKgMalt}
+          grainAbsorptionLPerKg={grainAbsorptionLPerKg}
+          preBoilL={preBoilL}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function WaterDetailTitle(): React.ReactNode {
+  const t = useTranslations("recipes");
+  return <>{t("designer.feedback.waterDetailTitle")}</>;
+}
+
+function WaterDetailContent({
+  maltKg,
+  waterPerKgMalt,
+  grainAbsorptionLPerKg,
+  preBoilL,
+}: {
+  maltKg: number;
+  waterPerKgMalt: number;
+  grainAbsorptionLPerKg: number;
+  preBoilL: number;
+}): React.ReactNode {
+  const t = useTranslations("recipes");
+  const d = useMemo(
+    () => calculateWaterDetail(maltKg, preBoilL, waterPerKgMalt, grainAbsorptionLPerKg),
+    [maltKg, preBoilL, waterPerKgMalt, grainAbsorptionLPerKg]
+  );
+
+  return (
+    <div className="space-y-4 text-sm">
+      {/* Input parameters */}
+      <div className="rounded-lg border p-3 bg-muted/30 space-y-1 font-mono text-xs">
+        <div>{t("designer.feedback.waterDetailMaltKg")} = {d.maltKg.toFixed(2)} kg</div>
+        <div>{t("designer.feedback.waterDetailWaterRatio")} = {d.waterPerKgMalt} L/kg</div>
+        <div>{t("designer.feedback.waterDetailGrainAbsorption")} = {d.grainAbsorptionLPerKg} L/kg</div>
+        <div>{t("designer.feedback.waterDetailGrainDisplacement")} = {d.grainDisplacementLPerKg} L/kg</div>
+        <div>{t("designer.feedback.waterDetailPreBoil")} = {d.preBoilL.toFixed(1)} L</div>
+      </div>
+
+      {/* Formulas */}
+      <div className="text-xs text-muted-foreground">
+        <div className="font-medium mb-1">{t("designer.feedback.waterDetailFormula")}:</div>
+        <div className="font-mono space-y-1">
+          <div>V<sub>mash</sub> = M<sub>kg</sub> × R<sub>water</sub></div>
+          <div>V<sub>grain</sub> = M<sub>kg</sub> × D<sub>grain</sub></div>
+          <div>V<sub>mashTun</sub> = V<sub>mash</sub> + V<sub>grain</sub></div>
+          <div>V<sub>absorbed</sub> = M<sub>kg</sub> × A<sub>grain</sub></div>
+          <div>V<sub>afterMash</sub> = V<sub>mash</sub> − V<sub>absorbed</sub></div>
+          <div>V<sub>sparge</sub> = V<sub>preBoil</sub> − V<sub>afterMash</sub></div>
+          <div>V<sub>total</sub> = V<sub>mash</sub> + V<sub>sparge</sub></div>
+        </div>
+      </div>
+
+      {/* Step-by-step */}
+      <div className="rounded-lg border p-3 space-y-2">
+        <div className="font-medium">{t("designer.feedback.waterDetailSteps")}</div>
+        <div className="font-mono text-xs space-y-1 bg-muted/50 rounded p-2">
+          <div>
+            V<sub>mash</sub> = {d.maltKg.toFixed(2)} × {d.waterPerKgMalt} = <span className="font-medium text-foreground">{d.mashWaterL.toFixed(1)} L</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            V<sub>grain</sub> = {d.maltKg.toFixed(2)} × {d.grainDisplacementLPerKg} = <span className="font-medium text-foreground">{d.grainVolumeL.toFixed(1)} L</span>
+          </div>
+          <div>
+            V<sub>mashTun</sub> = {d.mashWaterL.toFixed(1)} + {d.grainVolumeL.toFixed(1)} = <span className="font-medium text-foreground">{d.mashVolumeL.toFixed(1)} L</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            V<sub>absorbed</sub> = {d.maltKg.toFixed(2)} × {d.grainAbsorptionLPerKg} = <span className="font-medium text-foreground">{d.grainAbsorptionL.toFixed(1)} L</span>
+          </div>
+          <div>
+            V<sub>afterMash</sub> = {d.mashWaterL.toFixed(1)} − {d.grainAbsorptionL.toFixed(1)} = <span className="font-medium text-foreground">{d.volumeAfterMashL.toFixed(1)} L</span>
+          </div>
+          <div className="border-t pt-1 mt-1">
+            V<sub>sparge</sub> = {d.preBoilL.toFixed(1)} − {d.volumeAfterMashL.toFixed(1)} = <span className="font-medium text-foreground">{d.spargeWaterL.toFixed(1)} L</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Result */}
+      <div className="rounded-lg border-2 border-primary/30 p-3 font-mono text-sm">
+        <span className="font-medium">
+          {t("designer.feedback.waterDetailResult")} = {d.mashWaterL.toFixed(1)} + {d.spargeWaterL.toFixed(1)} = <span className="text-primary text-base">{d.totalWaterL.toFixed(1)} L</span>
+        </span>
       </div>
     </div>
   );

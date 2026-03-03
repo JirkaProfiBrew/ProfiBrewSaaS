@@ -9,7 +9,7 @@
  * - Cost: sum of ingredient costs based on amount and unit price
  */
 
-import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation, IBUBreakdown, IBUCalculationDetail, IBUHopDetail } from "./types";
+import type { RecipeCalculationResult, BrewingSystemInput, VolumePipeline, WaterCalculation, WaterCalculationDetail, IBUBreakdown, IBUCalculationDetail, IBUHopDetail } from "./types";
 import { DEFAULT_BREWING_SYSTEM } from "./types";
 
 // ── Input interface ─────────────────────────────────────────
@@ -597,10 +597,15 @@ export function calculateMaltRequiredDetail(
 
 // ── Water calculation ───────────────────────────────────────
 
+/** Grain displacement factor — 1 kg of crushed malt displaces ~0.67 L of volume. */
+const GRAIN_DISPLACEMENT_L_PER_KG = 0.67;
+
 /**
  * Calculate water requirements with mash/sparge split.
  *
  * Mash water = maltKg × waterPerKgMalt
+ * Grain volume = maltKg × 0.67 (displacement)
+ * Mash volume = mashWater + grainVolume (physically measurable in mash tun)
  * Grain absorption = maltKg × grainAbsorptionLPerKg
  * Volume after mash = mashWater - grainAbsorption
  * Sparge water = preBoilL - volumeAfterMash (fill kettle to pre-boil level)
@@ -613,10 +618,12 @@ export function calculateWater(
   grainAbsorptionLPerKg: number
 ): WaterCalculation {
   if (maltKg <= 0 || preBoilL <= 0) {
-    return { mashWaterL: 0, spargeWaterL: 0, totalWaterL: 0, grainAbsorptionL: 0 };
+    return { mashWaterL: 0, mashVolumeL: 0, spargeWaterL: 0, totalWaterL: 0, grainAbsorptionL: 0 };
   }
 
   const mashWaterL = maltKg * waterPerKgMalt;
+  const grainVolumeL = maltKg * GRAIN_DISPLACEMENT_L_PER_KG;
+  const mashVolumeL = mashWaterL + grainVolumeL;
   const grainAbsorptionL = maltKg * grainAbsorptionLPerKg;
   const volumeAfterMashL = mashWaterL - grainAbsorptionL;
   const spargeWaterL = Math.max(0, preBoilL - volumeAfterMashL);
@@ -624,9 +631,52 @@ export function calculateWater(
 
   return {
     mashWaterL: round1(mashWaterL),
+    mashVolumeL: round1(mashVolumeL),
     spargeWaterL: round1(spargeWaterL),
     totalWaterL: round1(totalWaterL),
     grainAbsorptionL: round1(grainAbsorptionL),
+  };
+}
+
+/**
+ * Detailed water calculation with all intermediate steps — for the info modal.
+ */
+export function calculateWaterDetail(
+  maltKg: number,
+  preBoilL: number,
+  waterPerKgMalt: number,
+  grainAbsorptionLPerKg: number
+): WaterCalculationDetail {
+  if (maltKg <= 0 || preBoilL <= 0) {
+    return {
+      maltKg, waterPerKgMalt, grainAbsorptionLPerKg,
+      grainDisplacementLPerKg: GRAIN_DISPLACEMENT_L_PER_KG, preBoilL,
+      mashWaterL: 0, grainVolumeL: 0, mashVolumeL: 0,
+      grainAbsorptionL: 0, volumeAfterMashL: 0, spargeWaterL: 0, totalWaterL: 0,
+    };
+  }
+
+  const mashWaterL = maltKg * waterPerKgMalt;
+  const grainVolumeL = maltKg * GRAIN_DISPLACEMENT_L_PER_KG;
+  const mashVolumeL = mashWaterL + grainVolumeL;
+  const grainAbsorptionL = maltKg * grainAbsorptionLPerKg;
+  const volumeAfterMashL = mashWaterL - grainAbsorptionL;
+  const spargeWaterL = Math.max(0, preBoilL - volumeAfterMashL);
+  const totalWaterL = mashWaterL + spargeWaterL;
+
+  return {
+    maltKg: round2(maltKg),
+    waterPerKgMalt,
+    grainAbsorptionLPerKg,
+    grainDisplacementLPerKg: GRAIN_DISPLACEMENT_L_PER_KG,
+    preBoilL: round1(preBoilL),
+    mashWaterL: round1(mashWaterL),
+    grainVolumeL: round1(grainVolumeL),
+    mashVolumeL: round1(mashVolumeL),
+    grainAbsorptionL: round1(grainAbsorptionL),
+    volumeAfterMashL: round1(volumeAfterMashL),
+    spargeWaterL: round1(spargeWaterL),
+    totalWaterL: round1(totalWaterL),
   };
 }
 

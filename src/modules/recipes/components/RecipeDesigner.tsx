@@ -974,6 +974,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
                   maltActualKg={calcResult.maltActualKg}
                   pipeline={calcResult.pipeline}
                   water={calcResult.water}
+                  waterParams={{
+                    maltKg: calcResult.maltRequiredKg > 0 ? calcResult.maltRequiredKg : calcResult.maltActualKg,
+                    waterPerKgMalt: effectiveSystem.waterPerKgMalt,
+                    grainAbsorptionLPerKg: effectiveSystem.grainAbsorptionLPerKg,
+                    preBoilL: calcResult.pipeline.preBoilL,
+                  }}
                   totalCost={calcResult.totalProductionCost}
                   costPerLiter={calcResult.costPerLiter}
                   className="block w-full border-l-0"
@@ -1080,6 +1086,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
           maltActualKg={calcResult.maltActualKg}
           pipeline={calcResult.pipeline}
           water={calcResult.water}
+          waterParams={{
+            maltKg: calcResult.maltRequiredKg > 0 ? calcResult.maltRequiredKg : calcResult.maltActualKg,
+            waterPerKgMalt: effectiveSystem.waterPerKgMalt,
+            grainAbsorptionLPerKg: effectiveSystem.grainAbsorptionLPerKg,
+            preBoilL: calcResult.pipeline.preBoilL,
+          }}
           totalCost={calcResult.totalProductionCost}
           costPerLiter={calcResult.costPerLiter}
         />
