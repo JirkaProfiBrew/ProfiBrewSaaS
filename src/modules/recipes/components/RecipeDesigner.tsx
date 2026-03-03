@@ -168,8 +168,11 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       if (defaultSystem) {
         setValues((prev) => ({ ...prev, brewingSystemId: defaultSystem.id }));
         const batchSize = parseFloat(defaultSystem.batchSizeL) || 0;
+        const waterRatio = parseFloat(defaultSystem.waterPerKgMalt ?? "") || 3.0;
         if (batchSize > 0) {
-          setDesignValues((prev) => ({ ...prev, batchSizeL: batchSize }));
+          setDesignValues((prev) => ({ ...prev, batchSizeL: batchSize, waterPerKgMalt: waterRatio }));
+        } else {
+          setDesignValues((prev) => ({ ...prev, waterPerKgMalt: waterRatio }));
         }
       }
     }
@@ -495,11 +498,14 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       setValues((prev) => ({ ...prev, brewingSystemId: newId }));
       if (resetConstants) {
         setConstants({});
-        setDesignValues((prev) => ({ ...prev, waterPerKgMalt: 3.0 }));
+        // Reset waterPerKgMalt slider to new brewing system's value
+        const newBs = newId ? brewingSystemOpts.find((b) => b.id === newId) : null;
+        const waterRatio = newBs ? (parseFloat(newBs.waterPerKgMalt ?? "") || 3.0) : 3.0;
+        setDesignValues((prev) => ({ ...prev, waterPerKgMalt: waterRatio }));
       }
       setPendingSystemChange(null);
     },
-    [pendingSystemChange]
+    [pendingSystemChange, brewingSystemOpts]
   );
 
   const validate = useCallback((): boolean => {
