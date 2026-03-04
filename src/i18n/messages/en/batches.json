@@ -361,6 +361,8 @@
       "plannedStart": "Planned Start",
       "estimatedMashing": "Estimated Mashing",
       "estimatedTotal": "Estimated Total",
+      "estimatedBrewTime": "Total Brew Time Estimate",
+      "estimatedBrewEnd": "Estimated Brew End",
       "fermentationDays": "Fermentation (days)",
       "conditioningDays": "Conditioning (days)",
       "estimatedEnd": "Estimated End",
@@ -411,7 +413,15 @@
       "issueConfirm": "Create ingredient issue for this batch?",
       "issueSuccess": "Ingredient issue created",
       "issueError": "Error creating issue",
-      "allIssued": "All ingredients already issued"
+      "allIssued": "All ingredients already issued",
+      "stepStart": "Start",
+      "stepEnd": "End",
+      "timelinePrep": "Preparation (filling)",
+      "timelineLautering": "Lautering",
+      "timelineBoil": "Boil",
+      "timelineWhirlpool": "Whirlpool",
+      "timelineTransfer": "Cooling & Transfer",
+      "timelineCleanup": "Cleanup"
     },
     "brewing": {
       "brewSheet": "Brew Sheet",

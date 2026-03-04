@@ -34,6 +34,7 @@ import {
   advanceBatchPhase,
   getAvailableVessels,
   updateBatchPlanData,
+  getBrewingSystemForBatch,
 } from "../../../actions";
 
 // ── Vessel row from getAvailableVessels ─────────────────────
@@ -57,6 +58,10 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
   const [steps, setSteps] = useState<BatchStep[]>([]);
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [vessels, setVessels] = useState<VesselRow[]>([]);
+  const [brewSystemTimes, setBrewSystemTimes] = useState<{
+    preparation: number; lautering: number; whirlpool: number;
+    transfer: number; cleanup: number; boilMin: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Editable fields
@@ -85,9 +90,24 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
         );
         if (cancelled || !brewData) return;
 
+        // Load brewing system times in parallel
+        const sys = await getBrewingSystemForBatch(batchId);
+
         setBatch(brewData.batch);
         setSteps(brewData.steps);
         setVessels(vesselData);
+        if (sys) {
+          // Extract boil time from steps (boil step)
+          const boilStep = brewData.steps.find((s) => s.stepType === "boil");
+          setBrewSystemTimes({
+            preparation: sys.timePreparation ?? 0,
+            lautering: sys.timeLautering ?? 0,
+            whirlpool: sys.timeWhirlpool ?? 0,
+            transfer: sys.timeTransfer ?? 0,
+            cleanup: sys.timeCleanup ?? 0,
+            boilMin: boilStep?.timeMin ?? 60,
+          });
+        }
 
         // Init editable fields from batch
         if (brewData.batch.plannedDate) {
@@ -128,9 +148,30 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
   const mashingTimeMin = steps
     .filter((s) => s.brewPhase === "mashing")
     .reduce((sum, s) => sum + (s.timeMin ?? 0), 0);
-  const totalTimeMin = steps.reduce((sum, s) => sum + (s.timeMin ?? 0), 0);
 
-  // ── Estimated end ────────────────────────────────────────
+  // Total brew day time = mashing + brewing system stages
+  const sysTime = brewSystemTimes ?? {
+    preparation: 0, lautering: 0, whirlpool: 0,
+    transfer: 0, cleanup: 0, boilMin: 60,
+  };
+  const totalBrewTimeMin = mashingTimeMin
+    + sysTime.preparation + sysTime.lautering + sysTime.boilMin
+    + sysTime.whirlpool + sysTime.transfer + sysTime.cleanup;
+
+  // ── Estimated end of brew day ──────────────────────────
+  const estimatedBrewEnd =
+    plannedDate
+      ? (() => {
+          const d = new Date(plannedDate);
+          d.setMinutes(d.getMinutes() + totalBrewTimeMin);
+          return d.toLocaleString(locale === "cs" ? "cs-CZ" : "en-US", {
+            day: "numeric", month: "numeric", year: "numeric",
+            hour: "2-digit", minute: "2-digit",
+          });
+        })()
+      : "\u2014";
+
+  // ── Estimated completion (ferm + cond) ─────────────────
   const estimatedEnd =
     plannedDate && fermDays != null && condDays != null
       ? (() => {
@@ -343,18 +384,18 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  {t("brew.plan.estimatedMashing")}
+                  {t("brew.plan.estimatedBrewTime")}
                 </span>
-                <span>{mashingTimeMin} min</span>
+                <span>
+                  {totalBrewTimeMin} min ({Math.floor(totalBrewTimeMin / 60)}h{" "}
+                  {totalBrewTimeMin % 60}min)
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  {t("brew.plan.estimatedTotal")}
+                  {t("brew.plan.estimatedBrewEnd")}
                 </span>
-                <span>
-                  {totalTimeMin} min ({Math.floor(totalTimeMin / 60)}h{" "}
-                  {totalTimeMin % 60}min)
-                </span>
+                <span>{estimatedBrewEnd}</span>
               </div>
             </div>
 

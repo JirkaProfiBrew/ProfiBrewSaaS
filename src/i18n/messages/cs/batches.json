@@ -361,6 +361,8 @@
       "plannedStart": "Plánované zahájení",
       "estimatedMashing": "Odhad rmutování",
       "estimatedTotal": "Odhad celkem",
+      "estimatedBrewTime": "Odhad celkového času varu",
+      "estimatedBrewEnd": "Předpokládaný konec varu",
       "fermentationDays": "Kvašení (dny)",
       "conditioningDays": "Ležení (dny)",
       "estimatedEnd": "Odhadovaný konec",
@@ -411,7 +413,15 @@
       "issueConfirm": "Vytvořit výdejku surovin pro tuto várku?",
       "issueSuccess": "Výdejka surovin vytvořena",
       "issueError": "Chyba při vytváření výdejky",
-      "allIssued": "Všechny suroviny již vydány"
+      "allIssued": "Všechny suroviny již vydány",
+      "stepStart": "Začátek",
+      "stepEnd": "Konec",
+      "timelinePrep": "Příprava (napouštění)",
+      "timelineLautering": "Scezování",
+      "timelineBoil": "Chmelovar",
+      "timelineWhirlpool": "Whirlpool",
+      "timelineTransfer": "Chlazení a transfer",
+      "timelineCleanup": "Úklid"
     },
     "brewing": {
       "brewSheet": "Varný list",

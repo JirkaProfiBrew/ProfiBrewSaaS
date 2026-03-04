@@ -231,11 +231,17 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
     });
   }
 
-  // ── Total step time ──────────────────────────────────────
-  const totalStepTime = steps.reduce(
+  // ── Total step time (includes brewing system stages) ─────
+  const recipeStepTime = steps.reduce(
     (sum, s) => sum + (s.timeMin ?? 0),
     0
   );
+  const totalStepTime = recipeStepTime
+    + (brewSystem?.timePreparation ?? 0)
+    + (brewSystem?.timeLautering ?? 0)
+    + (brewSystem?.timeWhirlpool ?? 0)
+    + (brewSystem?.timeTransfer ?? 0)
+    + (brewSystem?.timeCleanup ?? 0);
 
   // ── Loading / empty ──────────────────────────────────────
   if (loading) {
@@ -394,7 +400,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
             </CardContent>
           </Card>
 
-          {/* Steps Preview */}
+          {/* Timeline Preview (E2) */}
           <Card>
             <CardHeader>
               <CardTitle>{t("brew.prep.stepsPreview")}</CardTitle>
@@ -404,53 +410,111 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10">
-                        {t("brew.prep.stepNo")}
-                      </TableHead>
                       <TableHead>
                         {t("brew.prep.stepName")}
                       </TableHead>
                       <TableHead className="text-right">
-                        {t("brew.prep.stepTemp")}
+                        {t("brew.prep.stepTime")}
                       </TableHead>
                       <TableHead className="text-right">
-                        {t("brew.prep.stepTime")}
+                        {t("brew.prep.stepStart")}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {t("brew.prep.stepEnd")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {steps.map((step, idx) => (
-                      <TableRow key={step.id}>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {idx + 1}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {step.name}
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {step.temperatureC
-                            ? `${Number(step.temperatureC).toFixed(0)}`
-                            : "\u2014"}
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {step.timeMin ?? "\u2014"} min
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {(() => {
+                      const timeFmt = (d: Date): string =>
+                        d.toLocaleTimeString(locale === "cs" ? "cs-CZ" : "en-US", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                      const start = batch.plannedDate
+                        ? new Date(batch.plannedDate)
+                        : null;
+                      let cursor = start ? new Date(start) : null;
+
+                      interface TimelineStep {
+                        name: string;
+                        durationMin: number;
+                        temp?: string;
+                        startTime: string;
+                        endTime: string;
+                      }
+
+                      const timeline: TimelineStep[] = [];
+
+                      const addStep = (name: string, min: number, temp?: string): void => {
+                        if (min <= 0) return;
+                        const s = cursor ? timeFmt(cursor) : "\u2014";
+                        if (cursor) cursor.setMinutes(cursor.getMinutes() + min);
+                        const e = cursor ? timeFmt(cursor) : "\u2014";
+                        timeline.push({ name, durationMin: min, temp, startTime: s, endTime: e });
+                      };
+
+                      // 1. Preparation
+                      addStep(t("brew.prep.timelinePrep"), brewSystem?.timePreparation ?? 0);
+
+                      // 2. Mashing steps (from recipe)
+                      for (const step of steps.filter((s) => s.brewPhase === "mashing")) {
+                        addStep(
+                          step.name,
+                          step.timeMin ?? 0,
+                          step.temperatureC ? `${Number(step.temperatureC).toFixed(0)}°C` : undefined
+                        );
+                      }
+
+                      // 3. Lautering
+                      addStep(t("brew.prep.timelineLautering"), brewSystem?.timeLautering ?? 0);
+
+                      // 4. Boil
+                      const boilStep = steps.find((s) => s.stepType === "boil");
+                      addStep(t("brew.prep.timelineBoil"), boilStep?.timeMin ?? 60);
+
+                      // 5. Whirlpool
+                      addStep(t("brew.prep.timelineWhirlpool"), brewSystem?.timeWhirlpool ?? 0);
+
+                      // 6. Transfer + Cooling
+                      addStep(t("brew.prep.timelineTransfer"), brewSystem?.timeTransfer ?? 0);
+
+                      // 7. Cleanup
+                      addStep(t("brew.prep.timelineCleanup"), brewSystem?.timeCleanup ?? 0);
+
+                      return timeline.map((tl, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="text-sm">
+                            {tl.name}
+                            {tl.temp && (
+                              <span className="text-muted-foreground ml-1">
+                                ({tl.temp})
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {tl.durationMin} min
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {tl.startTime}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground">
+                            {tl.endTime}
+                          </TableCell>
+                        </TableRow>
+                      ));
+                    })()}
                   </TableBody>
                   <TableFooter>
                     <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="font-medium text-sm"
-                      >
+                      <TableCell className="font-medium text-sm">
                         {t("brew.prep.totalTime")}
                       </TableCell>
                       <TableCell className="text-right font-medium text-sm">
-                        {totalStepTime} min (
-                        {Math.floor(totalStepTime / 60)}h{" "}
-                        {totalStepTime % 60}min)
+                        {totalStepTime} min
                       </TableCell>
+                      <TableCell />
+                      <TableCell />
                     </TableRow>
                   </TableFooter>
                 </Table>
