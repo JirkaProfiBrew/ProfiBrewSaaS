@@ -195,6 +195,7 @@
       "time": "Time",
       "original": "Original",
       "recipeQty": "Recipe",
+      "stock": "In Stock",
       "issued": "Issued",
       "missing": "Missing",
       "lots": "Lots"
@@ -386,7 +387,9 @@
       "volumesPreview": "Water & Volumes",
       "stepsPreview": "Brewing Steps",
       "issueIngredients": "Issue Ingredients",
+      "issueRemaining": "Issue Remaining",
       "ingredientsIssued": "Ingredients issued",
+      "ingredientsPartial": "Partially issued",
       "startBrewing": "Start Brewing",
       "confirmStartBrewing": "Start brewing? Brew steps will be generated.",
       "stockSufficient": "Sufficient stock available",

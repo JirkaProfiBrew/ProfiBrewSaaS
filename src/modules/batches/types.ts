@@ -198,6 +198,7 @@ export interface BatchIngredientRow {
   useStage: string | null;
   issuedQty: string; // from confirmed production issue lines
   missingQty: string; // recipeQty - issuedQty
+  currentStock: string; // current warehouse stock for this item
   lots: BatchIngredientLot[]; // lot breakdown from confirmed movements
 }
 

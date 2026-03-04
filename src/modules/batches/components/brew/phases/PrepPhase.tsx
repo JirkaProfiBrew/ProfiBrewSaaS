@@ -85,6 +85,14 @@ const INGREDIENT_CATEGORIES = [
   "other",
 ] as const;
 
+/** Format quantity — up to 3 decimals, strip trailing zeros */
+function fmtQty(val: string): string {
+  const n = Number(val);
+  if (Number.isNaN(n)) return val;
+  // Use max 3 decimal places, then strip trailing zeros
+  return parseFloat(n.toFixed(3)).toString();
+}
+
 export function PrepPhase({ batchId }: Props): React.ReactNode {
   const t = useTranslations("batches");
   const router = useRouter();
@@ -169,6 +177,12 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
 
   const isPrep = batch?.currentPhase === "preparation";
 
+  // ── Issue state (D4: partial/repeated issue) ────────────
+  const allIssued = ingredients.length > 0 && ingredients.every(
+    (i) => Number(i.missingQty) <= 0
+  );
+  const someIssued = ingredients.some((i) => Number(i.issuedQty) > 0);
+
   // ── Issue materials ──────────────────────────────────────
   function handleIssue(): void {
     startTransition(async () => {
@@ -183,10 +197,18 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
           return;
         }
         toast.success(t("brew.prep.issueSuccess"));
-        setHasConfirmedIssue(true);
         // Reload ingredients to update issued quantities
         const updated = await getBatchIngredients(batchId);
         setIngredients(updated);
+        // Reload issue status
+        const issues = await getProductionIssues(batchId);
+        setHasConfirmedIssue(
+          issues.some(
+            (i) =>
+              i.status === "confirmed" &&
+              i.movementPurpose === "production_out"
+          )
+        );
       } catch {
         toast.error(t("brew.prep.issueError"));
       }
@@ -236,25 +258,31 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>{t("brew.prep.ingredients")}</CardTitle>
-            {isPrep && (
+            {isPrep && !allIssued && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleIssue}
-                disabled={isPending || hasConfirmedIssue}
+                disabled={isPending}
               >
                 <Package className="mr-2 size-4" />
-                {hasConfirmedIssue
-                  ? t("brew.prep.ingredientsIssued")
+                {someIssued
+                  ? t("brew.prep.issueRemaining")
                   : t("brew.prep.issueIngredients")}
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            {hasConfirmedIssue && (
+            {allIssued && (
               <Badge variant="secondary" className="mb-3">
                 <CheckCircle2 className="mr-1 size-3" />
                 {t("brew.prep.ingredientsIssued")}
+              </Badge>
+            )}
+            {someIssued && !allIssued && (
+              <Badge variant="outline" className="mb-3 border-amber-500 text-amber-600">
+                <AlertTriangle className="mr-1 size-3" />
+                {t("brew.prep.ingredientsPartial")}
               </Badge>
             )}
 
@@ -267,6 +295,9 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                     </TableHead>
                     <TableHead className="text-right">
                       {t("ingredients.columns.recipeQty")}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t("ingredients.columns.stock")}
                     </TableHead>
                     <TableHead className="text-right">
                       {t("ingredients.columns.issued")}
@@ -282,7 +313,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                       {/* Category header row */}
                       <TableRow className="bg-muted/50">
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="font-medium text-sm py-1.5"
                         >
                           {t(
@@ -295,17 +326,23 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                       {group.items.map((item) => {
                         const missing = Number(item.missingQty);
                         const isSufficient = missing <= 0;
+                        const stock = Number(item.currentStock);
+                        const needsMore = stock < Number(item.recipeQty);
                         return (
                           <TableRow key={item.recipeItemId}>
                             <TableCell className="text-sm">
                               {item.itemName}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {Number(item.recipeQty).toFixed(1)}{" "}
+                              {fmtQty(item.recipeQty)}{" "}
+                              {item.unitSymbol}
+                            </TableCell>
+                            <TableCell className={`text-right text-sm ${needsMore ? "text-amber-600" : ""}`}>
+                              {fmtQty(item.currentStock)}{" "}
                               {item.unitSymbol}
                             </TableCell>
                             <TableCell className="text-right text-sm">
-                              {Number(item.issuedQty).toFixed(1)}{" "}
+                              {fmtQty(item.issuedQty)}{" "}
                               {item.unitSymbol}
                             </TableCell>
                             <TableCell className="text-right">
@@ -314,7 +351,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-sm text-destructive">
                                   <AlertTriangle className="size-4" />
-                                  {missing.toFixed(1)}
+                                  {fmtQty(String(missing))}
                                 </span>
                               )}
                             </TableCell>

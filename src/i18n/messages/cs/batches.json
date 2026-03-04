@@ -195,6 +195,7 @@
       "time": "Čas",
       "original": "Originál",
       "recipeQty": "Recept",
+      "stock": "Skladem",
       "issued": "Vydáno",
       "missing": "Chybí",
       "lots": "Šarže"
@@ -386,7 +387,9 @@
       "volumesPreview": "Voda a objemy",
       "stepsPreview": "Kroky vaření",
       "issueIngredients": "Vydat suroviny",
+      "issueRemaining": "Vydat zbývající",
       "ingredientsIssued": "Suroviny vydány",
+      "ingredientsPartial": "Suroviny vydány částečně",
       "startBrewing": "Zahájit var",
       "confirmStartBrewing": "Zahájit vaření? Kroky vaření budou vygenerovány.",
       "stockSufficient": "Na skladě dostatečné množství",

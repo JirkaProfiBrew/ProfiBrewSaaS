@@ -25,6 +25,7 @@ import {
   stockIssues,
   stockIssueLines,
   stockMovements,
+  stockStatus,
 } from "@/../drizzle/schema/stock";
 import { exciseMovements } from "@/../drizzle/schema/excise";
 import { warehouses } from "@/../drizzle/schema/warehouses";
@@ -1782,36 +1783,43 @@ export async function createProductionIssue(
     if (!warehouse) return { error: "NO_WAREHOUSE" };
 
     // f. Pre-compute remaining amounts in item's stock unit (recipe - already issued)
-    const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
+    //    Merge duplicate items (D1): same itemId → single line with summed amounts
+    const r3 = (n: number): number => Math.round(n * 1000) / 1000;
+    const mergedLines = new Map<string, { itemId: string; requestedQty: number; recipeItemId: string; sortOrder: number }>();
     for (let i = 0; i < recipeItemRows.length; i++) {
       const ri = recipeItemRows[i]!;
       const recipeUnitFactor = ri.toBaseFactor ? Number(ri.toBaseFactor) : 1;
-      // Stock unit exists (join returned a row) → use its factor (NULL = base unit = 1)
-      // No stock unit (item.unitId is null) → assume same as recipe unit
       const hasStockUnit = ri.stockUnitSymbol != null;
       const stockUnitFactor = hasStockUnit
         ? (ri.stockUnitToBaseFactor ? Number(ri.stockUnitToBaseFactor) : 1)
         : recipeUnitFactor;
       const rawAmount = Number(ri.amountG);
-      // Convert recipe-unit amount → item's stock unit via base unit
-      // e.g. hops: 350 g (0.001) → kg (1) = 350 * 0.001 / 1 = 0.35
-      // e.g. yeast: 500 g (0.001) → g (0.001) = 500 * 0.001 / 0.001 = 500
-      const stockAmount = stockUnitFactor !== 0
+      const stockAmount = r3(stockUnitFactor !== 0
         ? rawAmount * recipeUnitFactor / stockUnitFactor
-        : rawAmount;
+        : rawAmount);
 
-      const alreadyIssued = issuedMap.get(ri.id) ?? 0;
-      const remainingAmount = stockAmount - alreadyIssued;
+      const alreadyIssued = r3(issuedMap.get(ri.id) ?? 0);
+      const remainingAmount = r3(stockAmount - alreadyIssued);
 
       if (remainingAmount <= 0.0001) continue;
 
-      linesToCreate.push({
-        itemId: ri.itemId,
-        requestedQty: String(remainingAmount),
-        recipeItemId: ri.id,
-        sortOrder: ri.sortOrder ?? i,
-      });
+      const existing = mergedLines.get(ri.itemId);
+      if (existing) {
+        existing.requestedQty = r3(existing.requestedQty + remainingAmount);
+      } else {
+        mergedLines.set(ri.itemId, {
+          itemId: ri.itemId,
+          requestedQty: remainingAmount,
+          recipeItemId: ri.id,
+          sortOrder: ri.sortOrder ?? i,
+        });
+      }
     }
+
+    const linesToCreate = [...mergedLines.values()].map((l) => ({
+      ...l,
+      requestedQty: String(l.requestedQty),
+    }));
 
     if (linesToCreate.length === 0) return { error: "ALL_ISSUED" };
 
@@ -2204,34 +2212,53 @@ export async function getBatchIngredients(
       });
     }
 
-    // f. Build result rows — all quantities in item's STOCK unit
-    return riRows.map((row): BatchIngredientRow => {
+    // f. Query current stock levels for all ingredient items
+    const allItemIds = [...new Set(riRows.map((r) => r.recipeItem.itemId))];
+    const stockRows = allItemIds.length > 0 ? await db
+      .select({
+        itemId: stockStatus.itemId,
+        totalQty: sql<string>`COALESCE(SUM(${stockStatus.quantity}::decimal), 0)`,
+      })
+      .from(stockStatus)
+      .where(
+        and(
+          eq(stockStatus.tenantId, tenantId),
+          inArray(stockStatus.itemId, allItemIds)
+        )
+      )
+      .groupBy(stockStatus.itemId) : [];
+
+    const stockMap = new Map<string, number>();
+    for (const sr of stockRows) {
+      stockMap.set(sr.itemId, Number(sr.totalQty));
+    }
+
+    // Round helper — max 3 decimal places
+    const r3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+    // g. Build per-recipe-item rows — all quantities in item's STOCK unit
+    const rawRows = riRows.map((row) => {
       const recipeUnitFactor = row.toBaseFactor ? Number(row.toBaseFactor) : 1;
       const hasStockUnit = row.stockUnitSymbol != null;
       const stockUnitFactor = hasStockUnit
         ? (row.stockUnitToBaseFactor ? Number(row.stockUnitToBaseFactor) : 1)
         : recipeUnitFactor;
 
-      // Conversion ratio: recipe unit → stock unit
-      // hops: g→kg = 0.001/1 = 0.001; yeast g→g = 0.001/0.001 = 1; malt kg→kg = 1/1 = 1
       const toStockRatio = stockUnitFactor !== 0
         ? recipeUnitFactor / stockUnitFactor
         : 1;
 
       const recipeQtyRaw = Number(row.recipeItem.amountG);
-      const recipeQtyStock = recipeQtyRaw * toStockRatio;
+      const recipeQtyStock = r3(recipeQtyRaw * toStockRatio);
 
-      // Issued qty is already in stock units (stored that way on stock issue lines)
-      const issuedStock = issuedStockMap.get(row.recipeItem.id) ?? 0;
-      const missingQty = Math.max(0, recipeQtyStock - issuedStock);
+      const issuedStock = r3(issuedStockMap.get(row.recipeItem.id) ?? 0);
+      const missingQty = r3(Math.max(0, recipeQtyStock - issuedStock));
 
-      // Lot quantities are also in stock units
       const lots = lotsMap.get(row.recipeItem.id) ?? [];
 
-      // Convert originalQty (from source recipe, in recipe units) to stock units
       const origRaw = originalQtyMap?.get(row.recipeItem.itemId);
       const originalQtyStock = origRaw != null
-        ? String(Number(origRaw) * toStockRatio)
+        ? String(r3(Number(origRaw) * toStockRatio))
         : null;
 
       return {
@@ -2241,14 +2268,54 @@ export async function getBatchIngredients(
         itemCode: row.itemCode ?? null,
         category: row.recipeItem.category,
         originalQty: originalQtyStock,
-        recipeQty: String(recipeQtyStock),
+        recipeQty: recipeQtyStock,
         unitSymbol: hasStockUnit ? row.stockUnitSymbol : (row.unitSymbol ?? null),
         useStage: row.recipeItem.useStage,
-        issuedQty: String(issuedStock),
-        missingQty: String(missingQty),
+        issuedQty: issuedStock,
+        missingQty,
+        currentStock: r3(stockMap.get(row.recipeItem.itemId) ?? 0),
         lots,
       };
     });
+
+    // h. Merge duplicate items (D1): same itemId → single row with summed quantities
+    const merged = new Map<string, BatchIngredientRow>();
+    for (const row of rawRows) {
+      const existing = merged.get(row.itemId);
+      if (existing) {
+        // Sum quantities
+        const newRecipeQty = r3(Number(existing.recipeQty) + row.recipeQty);
+        const newIssuedQty = r3(Number(existing.issuedQty) + row.issuedQty);
+        const newMissingQty = r3(Math.max(0, newRecipeQty - newIssuedQty));
+        existing.recipeQty = String(newRecipeQty);
+        existing.issuedQty = String(newIssuedQty);
+        existing.missingQty = String(newMissingQty);
+        if (row.originalQty != null) {
+          existing.originalQty = existing.originalQty != null
+            ? String(r3(Number(existing.originalQty) + Number(row.originalQty)))
+            : row.originalQty;
+        }
+        existing.lots = [...existing.lots, ...row.lots];
+      } else {
+        merged.set(row.itemId, {
+          recipeItemId: row.recipeItemId,
+          itemId: row.itemId,
+          itemName: row.itemName,
+          itemCode: row.itemCode,
+          category: row.category,
+          originalQty: row.originalQty,
+          recipeQty: String(row.recipeQty),
+          unitSymbol: row.unitSymbol,
+          useStage: row.useStage,
+          issuedQty: String(row.issuedQty),
+          missingQty: String(row.missingQty),
+          currentStock: String(row.currentStock),
+          lots: row.lots,
+        });
+      }
+    }
+
+    return [...merged.values()];
   });
 }
 
