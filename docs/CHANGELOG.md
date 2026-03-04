@@ -5,6 +5,44 @@
 
 ---
 
+## [0.7.8] — Sprint 7 Patch: Brew Lifecycle Opravy
+**Období:** T16 (04.03.2026)
+**Status:** ✅ Done
+
+### Skupina A — Kritické bugy (P1 BUG)
+- [x] A1: Přechody fází — router.refresh() po advanceBatchPhase pro reaktivní UI
+- [x] A2: Tracking šarží — oprava sidebaru, zobrazuje lot entries ze skladových pohybů
+- [x] A3: Sidebar Voda a objemy — kompletní sada hodnot z recipe calculation pipeline
+
+### Skupina B — Kritické ENH (P1 ENH)
+- [x] B1: Odkaz na snapshot receptu ve všech fázích (záhlaví shell, nový tab)
+- [x] B2: Timeline-based dostupnost tanků při plánování (overlap check fermentation/conditioning)
+- [x] E4: CKT tanky ve výběru nádob + autofill ležení
+
+### Skupina C — Záhlaví varu a provozovna (P2)
+- [x] C1: Číslo šarže a provozovna v záhlaví varu (lot number + shop name)
+- [x] C2: Pole Provozovna povinné při zakládání zařízení (schema + UI validation)
+- [x] C3: Filtr zařízení dle provozovny z hlavičky varu (shopId filtering)
+
+### Skupina D — Suroviny, výdejka a sklad (P2)
+- [x] D1: Sloučení duplicitních řádků surovin (agregace dle item_id)
+- [x] D2: Zaokrouhlení floating point (r3 helper, max 3 des. místa)
+- [x] D3: Sloupec "Skladem" v tabulce surovin (stock_status query, amber highlight)
+- [x] D4: Částečný/opakovaný výdej surovin (allIssued/someIssued, issueRemaining)
+
+### Skupina E — UX a časový plán (P2/P3)
+- [x] E1: Oprava odhadu celkového času varu (suma brewing system stages + mashing)
+- [x] E2: Timeline kroků vaření s časy začátku/konce v F2 Příprava
+- [x] E3: UI pro přidání poznámky ve F2 Příprava (inline textarea + notes list)
+- [x] E5: Sidebar Náhled receptu — Brewfather-style redesign (metric grid, mash profile, malts %, hops timing, EBC swatch)
+
+### i18n
+- [x] CS + EN: notes.addError, notes.deleteError, sidebar.recipeFg/recipeAbv/mashProfile/boilMin/addAtMin/noIngredients
+- [x] CS + EN: brew.header.lot, ingredients.columns.stock, brew.prep.issueRemaining/ingredientsPartial
+- [x] CS + EN: brew.plan.estimatedBrewTime/estimatedBrewEnd, timeline step names
+
+---
+
 ## [0.7.7] — Sprint 7 Patch: Fermentable Types
 **Období:** T16 (03.03.2026)
 **Status:** ✅ Done

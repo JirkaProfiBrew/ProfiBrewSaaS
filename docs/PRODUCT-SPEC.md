@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 03.03.2026 | Poslední sprint: Sprint 7 Patch (Fermentable Types)
+### Aktualizováno: 04.03.2026 | Poslední sprint: Sprint 7 Patch (Brew Lifecycle Opravy)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -331,10 +331,10 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 **Route:** `/brewery/batches/[id]/brew` — sdílený layout `BatchBrewShell` + 7 fázových stránek.
 
 **Společné prvky:**
-- `BatchBrewShell` — layout wrapper: hlavička s číslem várky a názvem piva, fázová lišta, postranní panel
+- `BatchBrewShell` — layout wrapper: hlavička s číslem várky, šarží, provozovnou a názvem piva, fázová lišta, postranní panel
 - `BatchPhaseBar` — 7-krokový stepper vizuálně zobrazující aktuální pozici v procesu. Navigace mezi fázemi s validací povolených přechodů.
 - `BrewSidebar` — 7 kontextových panelů:
-  1. **Recept** — klíčové parametry z receptury (OG, FG, IBU, EBC, ABV, objem)
+  1. **Recept** — Brewfather-style: key-value grid (OG/FG/ABV/IBU/EBC/Volume), rmutovací profil s teplotami, suroviny s % (slady), chmel s časem přidání, EBC barevná tečka
   2. **Objemy** — plánované vs skutečné objemy v průběhu procesu
   3. **Měření** — seznam všech měření šarže s hodnotami
   4. **Poznámky** — poznámky ke krokům i celé šarži
@@ -344,14 +344,18 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 
 **F1 Plán (PlanPhase):**
 - 3-sloupcový layout: náhled receptury | plánování (datum vaření, fermentace dny, dokvašování dny) | výběr nádoby
-- Server action `getAvailableVessels` — seznam dostupných tanků/fermentorů
+- Server action `getAvailableVessels` — seznam dostupných tanků/fermentorů, filtrovaných dle provozovny (shopId) a timeline dostupnosti (žádný overlap s jinými várkami)
 - Server action `updateBatchPlanData` — uložení plánovacích dat
+- Odhad celkového času varu (suma brewing system stages + rmutovací profil) s předpokládaným koncem
+- CKT tanky dostupné ve výběru nádob; autofill ležení při výběru CKT pro kvašení
 
 **F2 Příprava (PrepPhase):**
-- Kontrola skladu surovin — porovnání potřebného vs dostupného množství
+- Kontrola skladu surovin — porovnání potřebného vs dostupného množství, sloupec "Skladem" s barevným zvýrazněním nedostatku
 - Výpočty vody (objem, teplota)
-- Náhled varních kroků z receptury
-- Výdej materiálu — napojení na existující material issue flow (draft výdejka)
+- Timeline kroků vaření s časy začátku/konce (příprava → rmut → scezování → chmelovar → whirlpool → transfer → úklid), odvozeno od `planned_start`
+- Inline poznámky — textarea pro přidání poznámky + chronologický seznam existujících poznámek
+- Výdej materiálu — napojení na existující material issue flow; částečný/opakovaný výdej (tlačítko "Vydat zbývající"), badge "Suroviny vydány částečně"
+- Sloučení duplicitních řádků surovin dle item_id s rounding (max 3 des. místa)
 
 **F3 Vaření (BrewingPhase):**
 - Tabulka kroků s editovatelnými skutečnými časy (plánovaný vs skutečný start/konec)
@@ -452,12 +456,13 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 **Typy tanků:**
 - fermenter (fermentor)
 - brite_tank (ležácký tank)
-- conditioning (CKT — cylindrokónický)
+- conditioning (kondicionér)
+- ckt (CKT — cylindrokónický tank, použitelný pro kvašení i ležení)
 
 *Odstraněné typy (Sprint 6):* brewhouse, bottling_line, keg_washer — nahrazeny modulem Varní soustavy.
 
 **Detail:**
-- Název, typ, kapacita (litry), provozovna
+- Název, typ, kapacita (litry), provozovna (**povinné pole**)
 - Stav: available | in_use | maintenance | retired
 - Aktuální šarže (pokud obsazený) — link na šarži
 - Poznámky
