@@ -10,12 +10,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Package,
+  Send,
+  StickyNote,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +44,7 @@ import type {
   Batch,
   BatchStep,
   BatchIngredientRow,
+  BatchNote,
   BatchPhase,
 } from "../../../types";
 import {
@@ -50,6 +54,7 @@ import {
   createProductionIssue,
   advanceBatchPhase,
   getBrewingSystemForBatch,
+  addBatchNote,
 } from "../../../actions";
 
 // ── Brewing system shape (from getBrewingSystemForBatch) ────
@@ -106,6 +111,8 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
   const [ingredients, setIngredients] = useState<BatchIngredientRow[]>([]);
   const [hasConfirmedIssue, setHasConfirmedIssue] = useState(false);
   const [brewSystem, setBrewSystem] = useState<BrewingSystem | null>(null);
+  const [notes, setNotes] = useState<BatchNote[]>([]);
+  const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(true);
 
   // ── Load data ────────────────────────────────────────────
@@ -126,6 +133,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         setSteps(brewData.steps);
         setIngredients(batchIngr);
         setBrewSystem(sys);
+        setNotes(brewData.notes);
 
         // Check if there's a confirmed production issue (ingredient issue-out)
         const hasConfirmed = issues.some(
@@ -227,6 +235,22 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         router.refresh();
       } catch {
         toast.error("Failed to start brewing");
+      }
+    });
+  }
+
+  // ── Add note ────────────────────────────────────────────
+  function handleAddNote(): void {
+    const text = newNote.trim();
+    if (!text) return;
+    startTransition(async () => {
+      try {
+        const note = await addBatchNote(batchId, text);
+        setNotes((prev) => [note, ...prev]);
+        setNewNote("");
+        toast.success(t("notes.added"));
+      } catch {
+        toast.error(t("notes.addError"));
       }
     });
   }
@@ -523,6 +547,69 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
           </Card>
         </div>
       </div>
+
+      {/* ── Notes ─────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center space-y-0 gap-2">
+          <StickyNote className="size-4 text-muted-foreground" />
+          <CardTitle>{t("tabs.notes")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Add note form */}
+          {isPrep && (
+            <div className="flex gap-2">
+              <Textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder={t("notes.placeholder")}
+                rows={2}
+                className="resize-none"
+              />
+              <Button
+                size="sm"
+                disabled={!newNote.trim() || isPending}
+                onClick={handleAddNote}
+                className="shrink-0 self-end"
+              >
+                <Send className="mr-1 size-4" />
+                {t("notes.add")}
+              </Button>
+            </div>
+          )}
+
+          {/* Notes list */}
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              {t("notes.empty")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {notes.map((note) => (
+                <div
+                  key={note.id}
+                  className="rounded-md border px-3 py-2 text-sm"
+                >
+                  <p className="whitespace-pre-wrap">{note.text}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {note.createdAt
+                      ? new Date(note.createdAt).toLocaleString(
+                          locale === "cs" ? "cs-CZ" : "en-US",
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Action: Start Brewing ──────────────────────────── */}
       {isPrep && (

@@ -288,7 +288,9 @@
     "placeholder": "Napište poznámku...",
     "empty": "Zatím žádné poznámky",
     "added": "Poznámka přidána",
-    "deleted": "Poznámka smazána"
+    "deleted": "Poznámka smazána",
+    "addError": "Chyba při přidávání poznámky",
+    "deleteError": "Chyba při mazání poznámky"
   },
   "actions": {
     "transition": "Posunout stav",
@@ -562,7 +564,13 @@
       "postBoilVolume": "Objem po chmelovaru",
       "intoFermenter": "Objem při zakvašení",
       "noNotes": "Žádné poznámky",
-      "noMeasurements": "Žádná měření"
+      "noMeasurements": "Žádná měření",
+      "recipeFg": "FG",
+      "recipeAbv": "ABV",
+      "mashProfile": "Rmutovací profil",
+      "boilMin": "{min} min var",
+      "addAtMin": "{min} min",
+      "noIngredients": "Žádné suroviny"
     }
   }
 }

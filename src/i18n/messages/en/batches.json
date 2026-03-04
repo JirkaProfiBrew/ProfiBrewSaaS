@@ -288,7 +288,9 @@
     "placeholder": "Write a note...",
     "empty": "No notes yet",
     "added": "Note added",
-    "deleted": "Note deleted"
+    "deleted": "Note deleted",
+    "addError": "Failed to add note",
+    "deleteError": "Failed to delete note"
   },
   "actions": {
     "transition": "Transition Status",
@@ -562,7 +564,13 @@
       "postBoilVolume": "Post-boil Volume",
       "intoFermenter": "Into Fermenter",
       "noNotes": "No notes",
-      "noMeasurements": "No measurements"
+      "noMeasurements": "No measurements",
+      "recipeFg": "FG",
+      "recipeAbv": "ABV",
+      "mashProfile": "Mashing Profile",
+      "boilMin": "{min} min boil",
+      "addAtMin": "{min} min",
+      "noIngredients": "No ingredients"
     }
   }
 }

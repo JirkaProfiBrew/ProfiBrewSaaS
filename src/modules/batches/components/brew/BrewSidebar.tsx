@@ -133,7 +133,7 @@ export function BrewSidebar({
           </SheetHeader>
           <div className="px-4 pb-4 overflow-y-auto h-[calc(100vh-5rem)]">
             {openPanel === "recipe" && (
-              <RecipePanel batch={batch} ingredients={ingredients} t={t} />
+              <RecipePanel batch={batch} steps={steps} ingredients={ingredients} t={t} />
             )}
             {openPanel === "volumes" && (
               <VolumesPanel batch={batch} calcResult={calcResult} t={t} />
@@ -164,37 +164,219 @@ export function BrewSidebar({
 
 type TFunc = ReturnType<typeof useTranslations>;
 
-function RecipePanel({ batch, ingredients, t }: { batch: Batch; ingredients: RecipeIngredient[] | null; t: TFunc }): React.ReactNode {
+function RecipePanel({ batch, steps, ingredients, t }: { batch: Batch; steps: BatchStep[]; ingredients: RecipeIngredient[] | null; t: TFunc }): React.ReactNode {
+  const mashSteps = steps.filter((s) => s.brewPhase === "mashing");
+  const boilStep = steps.find((s) => s.stepType === "boil");
+  const boilMin = boilStep?.timeMin ?? 60;
+
+  // Calculate total malt weight for percentages
+  const malts = ingredients?.filter((i) => i.category === "malt") ?? [];
+  const totalMaltG = malts.reduce((sum, i) => sum + Number(i.amountG), 0);
+
+  const hops = ingredients?.filter((i) => i.category === "hop") ?? [];
+  const yeasts = ingredients?.filter((i) => i.category === "yeast") ?? [];
+  const others = ingredients?.filter(
+    (i) => i.category === "fermentable" || i.category === "other"
+  ) ?? [];
+
+  const ebc = batch.recipeEbc ? Number(batch.recipeEbc) : 0;
+  // Approximate SRM → hex for a small color swatch
+  const ebcColor = ebc > 0
+    ? `hsl(${Math.max(0, 40 - ebc * 0.5)}, ${Math.min(100, 60 + ebc)}%, ${Math.max(8, 50 - ebc * 0.6)}%)`
+    : undefined;
+
   return (
-    <div className="space-y-3">
-      <p className="font-medium">{batch.recipeName ?? "\u2014"}</p>
-      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-        {batch.recipeOg && <span>{t("brew.sidebar.recipeOg")} {Number(batch.recipeOg).toFixed(1)}\u00b0P</span>}
-        {batch.recipeIbu && <span>{t("brew.sidebar.recipeIbu")} {Number(batch.recipeIbu).toFixed(0)}</span>}
-        {batch.recipeEbc && <span>{t("brew.sidebar.recipeEbc")} {Number(batch.recipeEbc).toFixed(0)}</span>}
-        {batch.recipeBatchSizeL && <span>{t("brew.sidebar.recipeVolume")} {Number(batch.recipeBatchSizeL).toFixed(0)} L</span>}
+    <div className="space-y-4">
+      {/* Recipe name */}
+      <p className="font-semibold">{batch.recipeName ?? "\u2014"}</p>
+
+      {/* Key values — compact grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {batch.recipeOg && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeOg")}
+            </p>
+            <p className="text-sm font-bold">{Number(batch.recipeOg).toFixed(1)}</p>
+          </div>
+        )}
+        {batch.recipeFg && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeFg")}
+            </p>
+            <p className="text-sm font-bold">{Number(batch.recipeFg).toFixed(1)}</p>
+          </div>
+        )}
+        {batch.recipeAbv && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeAbv")}
+            </p>
+            <p className="text-sm font-bold">{Number(batch.recipeAbv).toFixed(1)}%</p>
+          </div>
+        )}
+        {batch.recipeIbu && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeIbu")}
+            </p>
+            <p className="text-sm font-bold">{Number(batch.recipeIbu).toFixed(0)}</p>
+          </div>
+        )}
+        {batch.recipeEbc && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeEbc")}
+            </p>
+            <p className="text-sm font-bold flex items-center justify-center gap-1">
+              {Number(batch.recipeEbc).toFixed(0)}
+              {ebcColor && (
+                <span
+                  className="inline-block size-3 rounded-full border"
+                  style={{ backgroundColor: ebcColor }}
+                />
+              )}
+            </p>
+          </div>
+        )}
+        {batch.recipeBatchSizeL && (
+          <div className="rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
+              {t("brew.sidebar.recipeVolume")}
+            </p>
+            <p className="text-sm font-bold">{Number(batch.recipeBatchSizeL).toFixed(0)} L</p>
+          </div>
+        )}
       </div>
-      {ingredients && ingredients.length > 0 && (
+
+      {/* Mashing profile */}
+      {mashSteps.length > 0 && (
         <>
           <Separator />
-          {["malt", "hop", "yeast", "fermentable", "other"].map(cat => {
-            const items = ingredients.filter(i => i.category === cat);
-            if (items.length === 0) return null;
-            return (
-              <div key={cat} className="space-y-1">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  {t(`ingredients.category.${cat}` as Parameters<typeof t>[0])}
-                </p>
-                {items.map(item => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span>{item.itemName}</span>
-                    <span className="text-muted-foreground">{item.amountG} {item.unitSymbol ?? "g"}</span>
+          <div>
+            <p className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">
+              {t("brew.sidebar.mashProfile")}
+            </p>
+            <div className="space-y-0.5">
+              {mashSteps.map((step) => (
+                <div key={step.id} className="flex justify-between text-sm">
+                  <span>
+                    {step.name}
+                    {step.temperatureC && (
+                      <span className="text-muted-foreground ml-1">
+                        {Number(step.temperatureC).toFixed(0)}\u00b0C
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-muted-foreground shrink-0 ml-2">
+                    {step.timeMin ?? 0} min
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Boil */}
+      <Separator />
+      <p className="text-xs font-semibold uppercase text-muted-foreground">
+        {t("brew.sidebar.boilMin", { min: boilMin })}
+      </p>
+
+      {/* Ingredients */}
+      {ingredients && ingredients.length > 0 ? (
+        <div className="space-y-3">
+          {/* Malts with % */}
+          {malts.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                {t("ingredients.category.malt" as Parameters<typeof t>[0])}
+              </p>
+              <div className="space-y-0.5">
+                {malts.map((item) => {
+                  const pct = totalMaltG > 0 ? (Number(item.amountG) / totalMaltG) * 100 : 0;
+                  return (
+                    <div key={item.id} className="flex items-center text-sm gap-1">
+                      <span className="flex-1 truncate">{item.itemName}</span>
+                      <span className="text-muted-foreground shrink-0">
+                        {Number(item.amountG).toFixed(0)} {item.unitSymbol ?? "g"}
+                      </span>
+                      <span className="text-muted-foreground shrink-0 w-10 text-right text-xs">
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Hops with addition time */}
+          {hops.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                {t("ingredients.category.hop" as Parameters<typeof t>[0])}
+              </p>
+              <div className="space-y-0.5">
+                {hops.map((item) => (
+                  <div key={item.id} className="flex items-center text-sm gap-1">
+                    <span className="flex-1 truncate">{item.itemName}</span>
+                    <span className="text-muted-foreground shrink-0">
+                      {Number(item.amountG).toFixed(0)} {item.unitSymbol ?? "g"}
+                    </span>
+                    {item.useTimeMin != null && (
+                      <span className="text-muted-foreground shrink-0 w-14 text-right text-xs">
+                        @ {item.useTimeMin} min
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
-            );
-          })}
-        </>
+            </div>
+          )}
+
+          {/* Yeast */}
+          {yeasts.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                {t("ingredients.category.yeast" as Parameters<typeof t>[0])}
+              </p>
+              <div className="space-y-0.5">
+                {yeasts.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="truncate">{item.itemName}</span>
+                    <span className="text-muted-foreground shrink-0 ml-2">
+                      {Number(item.amountG).toFixed(0)} {item.unitSymbol ?? "g"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Other / Fermentable */}
+          {others.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                {t("ingredients.category.other" as Parameters<typeof t>[0])}
+              </p>
+              <div className="space-y-0.5">
+                {others.map((item) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="truncate">{item.itemName}</span>
+                    <span className="text-muted-foreground shrink-0 ml-2">
+                      {Number(item.amountG).toFixed(0)} {item.unitSymbol ?? "g"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("brew.sidebar.noIngredients")}</p>
       )}
     </div>
   );
