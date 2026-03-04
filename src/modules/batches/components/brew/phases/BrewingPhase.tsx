@@ -522,6 +522,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
         toast.success(t("brew.phaseAdvanced"));
         router.push(`/${locale}/brewery/batches/${batchId}/brew/ferm`);
+        router.refresh();
       } catch {
         toast.error("Failed to finish brewing phase");
       }

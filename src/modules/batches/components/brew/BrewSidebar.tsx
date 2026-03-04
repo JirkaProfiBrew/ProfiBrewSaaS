@@ -42,6 +42,8 @@ import {
   getBatchExciseSummary,
   getRecipeIngredients,
 } from "../../actions";
+import { getLatestRecipeCalculation } from "@/modules/recipes/actions";
+import type { RecipeCalculationResult } from "@/modules/recipes/types";
 
 const SIDEBAR_PANELS = [
   { key: "recipe",     icon: ScrollText,     labelKey: "sidebar.recipePreview" },
@@ -75,6 +77,7 @@ export function BrewSidebar({
   const [lotEntries, setLotEntries] = useState<BatchLotEntry[] | null>(null);
   const [exciseSummary, setExciseSummary] = useState<ExciseSummary | null>(null);
   const [ingredients, setIngredients] = useState<RecipeIngredient[] | null>(null);
+  const [calcResult, setCalcResult] = useState<RecipeCalculationResult | null>(null);
 
   // Load data when panels open
   useEffect(() => {
@@ -87,7 +90,10 @@ export function BrewSidebar({
     if (openPanel === "recipe" && ingredients === null && batch.recipeId) {
       getRecipeIngredients(batch.recipeId).then(setIngredients);
     }
-  }, [openPanel, batch.id, batch.recipeId, lotEntries, exciseSummary, ingredients]);
+    if (openPanel === "volumes" && calcResult === null && batch.recipeId) {
+      getLatestRecipeCalculation(batch.recipeId).then((r) => setCalcResult(r));
+    }
+  }, [openPanel, batch.id, batch.recipeId, lotEntries, exciseSummary, ingredients, calcResult]);
 
   return (
     <>
@@ -130,7 +136,7 @@ export function BrewSidebar({
               <RecipePanel batch={batch} ingredients={ingredients} t={t} />
             )}
             {openPanel === "volumes" && (
-              <VolumesPanel batch={batch} t={t} />
+              <VolumesPanel batch={batch} calcResult={calcResult} t={t} />
             )}
             {openPanel === "measured" && (
               <MeasuredPanel measurements={measurements} t={t} />
@@ -171,7 +177,7 @@ function RecipePanel({ batch, ingredients, t }: { batch: Batch; ingredients: Rec
       {ingredients && ingredients.length > 0 && (
         <>
           <Separator />
-          {["malt", "hop", "yeast", "adjunct", "other"].map(cat => {
+          {["malt", "hop", "yeast", "fermentable", "other"].map(cat => {
             const items = ingredients.filter(i => i.category === cat);
             if (items.length === 0) return null;
             return (
@@ -194,9 +200,67 @@ function RecipePanel({ batch, ingredients, t }: { batch: Batch; ingredients: Rec
   );
 }
 
-function VolumesPanel({ batch, t }: { batch: Batch; t: TFunc }): React.ReactNode {
+function VolumesPanel({ batch, calcResult, t }: { batch: Batch; calcResult: RecipeCalculationResult | null; t: TFunc }): React.ReactNode {
+  const fmt = (v: number | undefined | null): string =>
+    v != null ? `${v.toFixed(1)} L` : "\u2014";
+
+  const water = calcResult?.water;
+  const pipeline = calcResult?.pipeline;
+
   return (
-    <div className="space-y-2 text-sm">
+    <div className="space-y-3 text-sm">
+      {/* Water section */}
+      <div>
+        <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+          {t("brew.sidebar.volumes")}
+        </p>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("brew.sidebar.mashWater")}</span>
+            <span>{fmt(water?.mashWaterL)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("brew.sidebar.spargeWater")}</span>
+            <span>{fmt(water?.spargeWaterL)}</span>
+          </div>
+          <div className="flex justify-between font-medium">
+            <span className="text-muted-foreground">{t("brew.sidebar.totalWater")}</span>
+            <span>{fmt(water?.totalWaterL)}</span>
+          </div>
+          {water?.grainAbsorptionL != null && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t("brew.sidebar.waterReserve")}</span>
+              <span>{fmt(water.grainAbsorptionL)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Volumes section */}
+      <div className="space-y-1">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">{t("brew.sidebar.mashVolume")}</span>
+          <span>{fmt(water?.mashVolumeL)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">{t("brew.sidebar.preboilVolume")}</span>
+          <span>{fmt(pipeline?.preBoilL)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">{t("brew.sidebar.postBoilVolume")}</span>
+          <span>{fmt(pipeline?.postBoilL)}</span>
+        </div>
+        <div className="flex justify-between font-medium">
+          <span className="text-muted-foreground">{t("brew.sidebar.intoFermenter")}</span>
+          <span>{fmt(pipeline?.intoFermenterL)}</span>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Actual */}
       <div className="flex justify-between">
         <span className="text-muted-foreground">{t("brew.sidebar.recipeVolume")}</span>
         <span>{batch.recipeBatchSizeL ? `${Number(batch.recipeBatchSizeL).toFixed(1)} L` : "\u2014"}</span>

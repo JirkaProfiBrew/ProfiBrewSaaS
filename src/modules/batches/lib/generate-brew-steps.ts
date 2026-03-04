@@ -218,7 +218,7 @@ export async function generateBrewSteps(
 /**
  * Build hop additions array from recipe items.
  * Joins recipe_items with items table to get item names.
- * category = 'hop' (per schema: 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other')
+ * category = 'hop' (per schema: 'malt' | 'hop' | 'yeast' | 'fermentable' | 'other')
  */
 async function getHopAdditionsForBatch(
   tx: TxType,

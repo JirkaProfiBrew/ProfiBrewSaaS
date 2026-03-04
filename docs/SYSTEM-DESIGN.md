@@ -551,7 +551,7 @@ Supports two display modes: **List View** (table) and **Card View** (tiles).
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Quick Filters (tab-style) ──────────────────────────────────┐ │
-│ │ [All] [Malts & adjuncts] [Hops] [Yeast] [···▾]              │ │
+│ │ [All] [Malts & fermentables] [Hops] [Yeast] [···▾]          │ │
 │ └──────────────────────────────────────────────────────────────┘ │
 │                                                                  │
 │ ┌─ Active Filters (chips — if any active) ─────────────────────┐ │
@@ -631,7 +631,7 @@ const materialsBrowserConfig: DataBrowserConfig = {
   // === QUICK FILTERS (tabs in toolbar) ===
   quickFilters: [
     { label: "All",                filter: {} },
-    { label: "Malts & adjuncts",  filter: { material_type: ["malt", "adjunct"] } },
+    { label: "Malts & fermentables", filter: { material_type: ["malt", "fermentable"] } },
     { label: "Hops",              filter: { material_type: "hop" } },
     { label: "Yeast",             filter: { material_type: "yeast" } },
   ],
@@ -643,7 +643,7 @@ const materialsBrowserConfig: DataBrowserConfig = {
     { key: "is_sale_item",      label: "Sale item",         type: "boolean" },
     { key: "pos_available",     label: "At POS",            type: "boolean" },
     { key: "material_type",     label: "Material type",     type: "multiselect",
-      options: ["malt", "hop", "yeast", "adjunct", "other"] },
+      options: ["malt", "hop", "yeast", "fermentable", "other"] },
     { key: "is_base_product",   label: "Base production",   type: "boolean" },
     { key: "stock_category",    label: "Stock category",    type: "select", optionsFrom: "categories" },
   ],
@@ -961,10 +961,11 @@ CREATE TABLE items (
   base_unit_amount  DECIMAL,                   -- Conversion to base unit
 
   -- === MATERIAL-SPECIFIC ===
-  material_type     TEXT,                       -- 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
+  material_type     TEXT,                       -- 'malt' | 'hop' | 'yeast' | 'fermentable' | 'other'
+  fermentable_type  TEXT REFERENCES fermentable_types(id), -- Fermentable sub-type (grain/adjunct_grain/sugar/honey/dry_extract/liquid_extract)
   alpha             DECIMAL,                   -- Alpha acids (hops)
-  ebc               DECIMAL,                   -- Color EBC (malt)
-  extract_percent   DECIMAL,                   -- Yield % (malt)
+  ebc               DECIMAL,                   -- Color EBC (malt + fermentable)
+  extract_percent   DECIMAL,                   -- Yield % (malt + fermentable)
   hop_form          TEXT REFERENCES hop_forms(id),   -- Hop form (pellet/leaf/plug/cryo) — affects IBU utilization
   yeast_form        TEXT REFERENCES yeast_forms(id), -- Yeast form (dry/liquid) — determines default unit
 
@@ -1169,6 +1170,15 @@ CREATE TABLE hop_forms (
   sort_order        INTEGER DEFAULT 0
 );
 
+-- === FERMENTABLE_TYPES (system codebook — fermentable sub-types with default extract) ===
+CREATE TABLE fermentable_types (
+  id                TEXT PRIMARY KEY,           -- 'grain' | 'adjunct_grain' | 'sugar' | 'honey' | 'dry_extract' | 'liquid_extract'
+  name_cs           TEXT NOT NULL,
+  name_en           TEXT NOT NULL,
+  default_extract   DECIMAL NOT NULL DEFAULT 80, -- Default extract yield %
+  sort_order        INTEGER DEFAULT 0
+);
+
 -- === YEAST_FORMS (system codebook — yeast form with default unit) ===
 CREATE TABLE yeast_forms (
   id                TEXT PRIMARY KEY,           -- 'dry' | 'liquid'
@@ -1229,10 +1239,10 @@ CREATE TABLE recipe_items (
   tenant_id       UUID NOT NULL REFERENCES tenants(id),
   recipe_id       UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   item_id         UUID NOT NULL REFERENCES items(id),
-  category        TEXT NOT NULL,               -- 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
+  category        TEXT NOT NULL,               -- 'malt' | 'hop' | 'yeast' | 'fermentable' | 'other'
   amount_g        DECIMAL NOT NULL,            -- Amount in recipe unit (column name legacy)
   unit_id         UUID REFERENCES units(id),   -- Recipe unit of measure
-  use_stage       TEXT,                        -- 'mash' | 'boil' | 'whirlpool' | 'fermentation' | 'dry_hop'
+  use_stage       TEXT,                        -- 'mash' | 'boil' | 'whirlpool' | 'fermentation' | 'dry_hop' | 'conditioning' | 'bottling'
   use_time_min    INTEGER,                     -- Addition time (min)
   hop_phase       TEXT,                        -- Hop addition phase (for hops)
   notes           TEXT,

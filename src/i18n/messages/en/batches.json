@@ -175,7 +175,7 @@
       "malt": "Malt",
       "hop": "Hop",
       "yeast": "Yeast",
-      "adjunct": "Adjunct",
+      "fermentable": "Fermentable",
       "other": "Other"
     },
     "amount": "Planned Amount",
@@ -536,6 +536,14 @@
       "recipeIbu": "IBU",
       "recipeEbc": "EBC",
       "recipeVolume": "Volume",
+      "mashWater": "Mash Water",
+      "spargeWater": "Sparge Water",
+      "totalWater": "Total Water",
+      "waterReserve": "Water Reserve (pipes etc.)",
+      "mashVolume": "Mash Volume",
+      "preboilVolume": "Pre-boil Volume",
+      "postBoilVolume": "Post-boil Volume",
+      "intoFermenter": "Into Fermenter",
       "noNotes": "No notes",
       "noMeasurements": "No measurements"
     }

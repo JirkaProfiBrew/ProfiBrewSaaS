@@ -340,7 +340,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   const maltItems = useMemo(
     () =>
       localItems.filter(
-        (i) => i.category === "malt" || i.category === "adjunct"
+        (i) => i.category === "malt" || i.category === "fermentable"
       ),
     [localItems]
   );
@@ -352,7 +352,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     () => localItems.filter((i) => i.category === "yeast"),
     [localItems]
   );
-  const adjunctItems = useMemo(
+  const otherItems = useMemo(
     () => localItems.filter((i) => i.category === "other"),
     [localItems]
   );
@@ -867,11 +867,24 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       });
 
       // Optimistic update — add the new item to localItems immediately
-      // Enrich with item data from brewMaterialItems (name, code)
+      // Enrich with item + unit data so cards render correctly before save/reload
+      const resolvedUnit = defaultUnitId
+        ? allUnits.find((u) => u.id === defaultUnitId)
+        : undefined;
       const enriched: RecipeItem = {
         ...created,
         itemName: selectedItem?.name,
         itemCode: selectedItem?.code,
+        itemBrand: selectedItem?.brand ?? null,
+        itemAlpha: selectedItem?.alpha ?? null,
+        itemEbc: selectedItem?.ebc ?? null,
+        itemExtractPercent: selectedItem?.extractPercent ?? null,
+        itemHopForm: selectedItem?.hopForm ?? null,
+        itemYeastForm: selectedItem?.yeastForm ?? null,
+        itemCostPrice: selectedItem?.costPrice ?? null,
+        unitSymbol: resolvedUnit?.symbol ?? null,
+        unitCode: resolvedUnit?.code ?? null,
+        unitToBaseFactor: resolvedUnit?.toBaseFactor ?? null,
       };
       setLocalItems((prev) => [...prev, enriched]);
       setAddDialogOpen(false);
@@ -879,7 +892,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       console.error("Failed to add ingredient:", error);
       toast.error(tCommon("saveFailed"));
     }
-  }, [addItemId, addCategory, id, brewMaterialItems, tCommon]);
+  }, [addItemId, addCategory, id, brewMaterialItems, allUnits, tCommon]);
 
   const handleConstantsChange = useCallback(
     (newConstants: RecipeConstantsOverride): void => {
@@ -900,11 +913,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   const filteredMaterials = useMemo(() => {
     const categoryMap: Record<string, string[]> = {
-      malt: ["malt"],
+      malt: ["malt", "fermentable"],
       hop: ["hop"],
       yeast: ["yeast"],
-      adjunct: ["adjunct", "other"],
-      other: ["adjunct", "other"],
+      other: ["other"],
     };
     const types = categoryMap[addCategory] ?? [addCategory];
     return brewMaterialItems.filter(
@@ -1089,7 +1101,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               maltItems={maltItems}
               hopItems={hopItems}
               yeastItems={yeastItems}
-              adjunctItems={adjunctItems}
+              otherItems={otherItems}
               steps={recipeDetail?.steps ?? []}
               recipe={recipeDetail?.recipe ?? null}
               allItems={localItems}
@@ -1106,6 +1118,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
               targetEbc={designValues.targetEbc}
               calculatedEbc={calcResult.ebc}
               targetOg={designValues.og}
+              targetFg={designValues.fg}
               calculatedOg={calcResult.og}
               maltInputMode={maltInputMode}
               onMaltInputModeChange={handleMaltInputModeChange}

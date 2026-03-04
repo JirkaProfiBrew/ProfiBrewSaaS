@@ -175,7 +175,7 @@
       "malt": "Slad",
       "hop": "Chmel",
       "yeast": "Kvasnice",
-      "adjunct": "Přísada",
+      "fermentable": "Zkvasitelná přísada",
       "other": "Ostatní"
     },
     "amount": "Plánované množství",
@@ -536,6 +536,14 @@
       "recipeIbu": "IBU",
       "recipeEbc": "EBC",
       "recipeVolume": "Objem",
+      "mashWater": "Voda na vystírku",
+      "spargeWater": "Voda na vyslazování",
+      "totalWater": "Voda celkem",
+      "waterReserve": "Voda navíc (potrubí apod.)",
+      "mashVolume": "Objem díla",
+      "preboilVolume": "Objem sladiny",
+      "postBoilVolume": "Objem po chmelovaru",
+      "intoFermenter": "Objem při zakvašení",
       "noNotes": "Žádné poznámky",
       "noMeasurements": "Žádná měření"
     }

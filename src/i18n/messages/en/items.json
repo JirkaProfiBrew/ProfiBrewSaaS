@@ -34,8 +34,16 @@
     "malt": "Malt",
     "hop": "Hop",
     "yeast": "Yeast",
-    "adjunct": "Adjunct",
+    "fermentable": "Fermentable",
     "other": "Other"
+  },
+  "fermentableType": {
+    "grain": "Grain",
+    "adjunct_grain": "Adjunct Grain",
+    "sugar": "Sugar",
+    "honey": "Honey",
+    "dry_extract": "Dry Malt Extract (DME)",
+    "liquid_extract": "Liquid Malt Extract (LME)"
   },
   "hopForm": {
     "pellet": "Pellet",
@@ -87,6 +95,7 @@
       "unit": "Unit of measure",
       "baseUnitAmount": "Base unit conversion",
       "materialType": "Material type",
+      "fermentableType": "Fermentable type",
       "alpha": "Alpha acids (%)",
       "ebc": "Color EBC",
       "extractPercent": "Extract yield (%)",

@@ -6,9 +6,9 @@
 
 export type RecipeStatus = "draft" | "active" | "archived";
 
-export type IngredientCategory = "malt" | "hop" | "yeast" | "adjunct" | "other";
+export type IngredientCategory = "malt" | "hop" | "yeast" | "fermentable" | "other";
 
-export type UseStage = "mash" | "boil" | "whirlpool" | "fermentation" | "dry_hop";
+export type UseStage = "mash" | "boil" | "whirlpool" | "fermentation" | "dry_hop" | "conditioning" | "bottling";
 
 export type StepType = "mash_in" | "rest" | "decoction" | "mash_out" | "boil" | "whirlpool" | "cooling";
 
@@ -70,6 +70,7 @@ export interface RecipeItem {
   itemAlpha?: string | null;
   itemEbc?: string | null;
   itemExtractPercent?: string | null;
+  itemMaterialType?: string | null;
   itemHopForm?: string | null;
   itemYeastForm?: string | null;
   itemCostPrice?: string | null;

@@ -45,7 +45,8 @@ export const items = pgTable(
     baseItemQuantity: decimal("base_item_quantity"),
 
     // === MATERIAL-SPECIFIC ===
-    materialType: text("material_type"), // 'malt' | 'hop' | 'yeast' | 'adjunct' | 'other'
+    materialType: text("material_type"), // 'malt' | 'hop' | 'yeast' | 'fermentable' | 'other'
+    fermentableType: text("fermentable_type"), // FK to fermentable_types — for malt + fermentable
     alpha: decimal("alpha"),
     ebc: decimal("ebc"),
     extractPercent: decimal("extract_percent"),

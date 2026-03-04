@@ -87,6 +87,7 @@ function mapRecipeItemRow(
     name: string;
     code: string;
     brand: string | null;
+    materialType: string | null;
     alpha: string | null;
     ebc: string | null;
     extractPercent: string | null;
@@ -121,6 +122,7 @@ function mapRecipeItemRow(
     itemAlpha: itemRow?.alpha ?? null,
     itemEbc: itemRow?.ebc ?? null,
     itemExtractPercent: itemRow?.extractPercent ?? null,
+    itemMaterialType: itemRow?.materialType ?? null,
     itemHopForm: itemRow?.hopForm ?? null,
     itemYeastForm: itemRow?.yeastForm ?? null,
     itemCostPrice: itemRow?.costPrice ?? null,
@@ -223,6 +225,7 @@ export async function getRecipeDetail(
         itemName: items.name,
         itemCode: items.code,
         itemBrand: items.brand,
+        itemMaterialType: items.materialType,
         itemAlpha: items.alpha,
         itemEbc: items.ebc,
         itemExtractPercent: items.extractPercent,
@@ -259,6 +262,7 @@ export async function getRecipeDetail(
             name: row.itemName,
             code: row.itemCode,
             brand: row.itemBrand,
+            materialType: row.itemMaterialType,
             alpha: row.itemAlpha,
             ebc: row.itemEbc,
             extractPercent: row.itemExtractPercent,
@@ -869,6 +873,7 @@ export async function calculateAndSaveRecipe(
       .select({
         recipeItem: recipeItems,
         itemName: items.name,
+        itemMaterialType: items.materialType,
         itemAlpha: items.alpha,
         itemEbc: items.ebc,
         itemExtractPercent: items.extractPercent,
@@ -1079,6 +1084,13 @@ export interface BrewMaterialOption {
   materialType: string | null;
   unitId: string | null;
   recipeUnitId: string | null;
+  brand: string | null;
+  alpha: string | null;
+  ebc: string | null;
+  extractPercent: string | null;
+  hopForm: string | null;
+  yeastForm: string | null;
+  costPrice: string | null;
 }
 
 /** Get active brew material items for ingredient selection dropdown. */
@@ -1092,6 +1104,13 @@ export async function getBrewMaterialItems(): Promise<BrewMaterialOption[]> {
         materialType: items.materialType,
         unitId: items.unitId,
         recipeUnitId: items.recipeUnitId,
+        brand: items.brand,
+        alpha: items.alpha,
+        ebc: items.ebc,
+        extractPercent: items.extractPercent,
+        hopForm: items.hopForm,
+        yeastForm: items.yeastForm,
+        costPrice: items.costPrice,
       })
       .from(items)
       .where(

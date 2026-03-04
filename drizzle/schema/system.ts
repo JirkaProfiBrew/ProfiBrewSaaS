@@ -87,6 +87,17 @@ export const yeastForms = pgTable("yeast_forms", {
 });
 
 // ============================================================
+// FERMENTABLE_TYPES (system codebook — fermentable ingredient types)
+// ============================================================
+export const fermentableTypes = pgTable("fermentable_types", {
+  id: text("id").primaryKey(),
+  nameCs: text("name_cs").notNull(),
+  nameEn: text("name_en").notNull(),
+  defaultExtract: decimal("default_extract").notNull().default("80"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+// ============================================================
 // UNITS (units of measure — tenant_id nullable = system units)
 // ============================================================
 export const units = pgTable("units", {

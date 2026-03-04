@@ -73,18 +73,20 @@
       "malt": "Malt",
       "hop": "Hop",
       "yeast": "Yeast",
-      "adjunct": "Adjunct",
+      "fermentable": "Fermentable",
       "other": "Other"
     },
     "stages": {
       "boil": "Boil",
       "fwh": "First Wort Hop",
       "whirlpool": "Whirlpool",
-      "mash": "Mash Hop",
+      "mash": "Mash",
       "dry_hop_cold": "Dry Hop (Cold)",
       "dry_hop_warm": "Dry Hop (Warm)",
       "dry_hop": "Dry Hop",
-      "fermentation": "Fermentation"
+      "fermentation": "Fermentation",
+      "conditioning": "Conditioning",
+      "bottling": "Bottling"
     },
     "dialog": {
       "title": "Add Ingredient",
@@ -140,6 +142,7 @@
     "recalculated": "Calculation updated",
     "noRecipe": "Recipe must be saved first",
     "parameters": "Calculated Parameters",
+    "target": "Target",
     "styleComparison": "Style Comparison",
     "costBreakdown": "Cost Breakdown",
     "totalCost": "Total Batch Cost",
@@ -273,10 +276,10 @@
       "keepAmounts": "No, keep amounts"
     },
     "tabs": {
-      "malts": "Malts",
+      "malts": "Fermentables",
       "hops": "Hops",
       "yeast": "Yeast",
-      "adjuncts": "Adjuncts",
+      "other": "Other",
       "mashing": "Mashing",
       "constants": "Constants",
       "calculation": "Calculation"
@@ -297,7 +300,7 @@
       "addMalt": "Add Malt",
       "addHop": "Add Hop",
       "addYeast": "Add Yeast",
-      "addAdjunct": "Add Adjunct",
+      "addOther": "Add Other",
       "remove": "Remove",
       "selectItem": "Select Item",
       "total": "Total",

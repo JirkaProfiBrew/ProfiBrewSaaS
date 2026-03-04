@@ -6,16 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IngredientCard } from "./IngredientCard";
 import type { RecipeItem } from "../../types";
 
-interface AdjunctCardProps {
+const OTHER_STAGES = ["mash", "boil", "whirlpool", "fermentation", "conditioning", "bottling"] as const;
+
+interface OtherCardProps {
   item: RecipeItem;
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
-  onTimeChange: (id: string, time: number | null) => void;
   onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
 }
 
-export function AdjunctCard({ item, onAmountChange, onStageChange, onTimeChange, onNotesChange, onRemove }: AdjunctCardProps): React.ReactNode {
+export function OtherCard({ item, onAmountChange, onStageChange, onNotesChange, onRemove }: OtherCardProps): React.ReactNode {
   const t = useTranslations("recipes");
   const unitSymbol = item.unitSymbol ?? "g";
 
@@ -44,22 +45,11 @@ export function AdjunctCard({ item, onAmountChange, onStageChange, onTimeChange,
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="mash">{t("ingredients.stages.mash")}</SelectItem>
-              <SelectItem value="boil">{t("ingredients.stages.boil")}</SelectItem>
-              <SelectItem value="whirlpool">{t("ingredients.stages.whirlpool")}</SelectItem>
-              <SelectItem value="fermentation">{t("ingredients.stages.fermentation")}</SelectItem>
+              {OTHER_STAGES.map((s) => (
+                <SelectItem key={s} value={s}>{t(`ingredients.stages.${s}`)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.boilTime")}:</label>
-          <Input
-            type="number"
-            value={item.useTimeMin ?? ""}
-            onChange={(e) => onTimeChange(item.id, e.target.value ? Number(e.target.value) : null)}
-            className="h-7 w-20 text-sm"
-            placeholder="min"
-          />
         </div>
         <div className="flex items-center gap-2 col-span-2">
           <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.note")}:</label>

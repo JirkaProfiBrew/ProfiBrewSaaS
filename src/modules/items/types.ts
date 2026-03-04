@@ -22,6 +22,7 @@ export interface Item {
   baseItemId: string | null;
   baseItemQuantity: string | null;
   materialType: string | null;
+  fermentableType: string | null;
   alpha: string | null;
   ebc: string | null;
   extractPercent: string | null;

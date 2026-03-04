@@ -5,6 +5,49 @@
 
 ---
 
+## [0.7.7] — Sprint 7 Patch: Fermentable Types
+**Období:** T16 (03.03.2026)
+**Status:** ✅ Done
+
+### Přidáno — Fermentable Types (podčíselník zkvasitelných surovin)
+- [x] Migrace 0025: systémový číselník `fermentable_types` (grain/adjunct_grain/sugar/honey/dry_extract/liquid_extract) s `default_extract`
+- [x] Migrace 0025: ALTER TABLE items ADD COLUMN `fermentable_type` TEXT REFERENCES fermentable_types(id)
+- [x] Migrace 0025: Reklasifikace `adjunct` → `fermentable` (zkvasitelné, extract>0 nebo ebc>0) / `other` (nezkvasitelné)
+- [x] Migrace 0025: Backfill `recipe_items.category` dle nového `items.material_type`
+- [x] Migrace 0025: Backfill `fermentable_type`: malt→grain, fermentable→sugar
+- [x] Drizzle schema: `fermentableTypes` table v `system.ts`, `fermentableType` column v `items.ts`
+- [x] ItemDetail: select pole "Typ suroviny" (fermentable_type) viditelné pro malt + fermentable
+- [x] ItemDetail: material_type select: `adjunct` → `fermentable` ("Zkvasitelná přísada")
+- [x] Items browser: quick filter "Slady a přísady" filtruje `["malt", "fermentable"]`
+
+### Změněno — Calculation Engine (stage-based efficiency)
+- [x] `calculateOG()`: filtr `malt || adjunct` → `malt || fermentable`
+- [x] `calculateOG()`: stage-based efficiency — `useStage === "mash"` → × efficiency, jinak × 1.0 (100% rozpuštění)
+- [x] `calculateEBC()`: filtr `malt || adjunct` → `malt || fermentable`
+- [x] `calculateAll()`: malt plan filtr `malt || adjunct` → `malt || fermentable`
+
+### Změněno — Recipe Designer
+- [x] Tab "Slady" přejmenován na "Zkvasitelné suroviny" (Fermentables) — zobrazuje malt + fermentable
+- [x] Tab "Přísady" (AdjunctTab) nahrazen tabem "Ostatní" (OtherTab) — zobrazuje only `other` category
+- [x] `IngredientCategory`: `adjunct` → `fermentable`
+- [x] `UseStage`: rozšířen o `conditioning` a `bottling`
+- [x] `RecipeIngredientsTab`: INGREDIENT_CATEGORIES, USE_STAGES, totalMaltG aktualizovány
+
+### Změněno — Batch & i18n
+- [x] BatchIngredientsTab, BrewSidebar, PrepPhase: `adjunct` → `fermentable`
+- [x] i18n CS + EN: items, recipes, batches — kompletní překlad nových klíčů, odstranění `adjunct`
+
+### Odstraněno
+- [x] Kategorie `adjunct` eliminována z celého systému (nahrazena `fermentable` + `other`)
+- [x] Soubor `AdjunctTab.tsx` smazán (nahrazen `OtherTab.tsx`)
+
+### Architektonická rozhodnutí
+- Fermentable types: systémový číselník (TEXT PK, no tenant_id) — stejný pattern jako hop_forms, yeast_forms
+- Stage-based efficiency místo per-type efficiency: logika je čistě ze `useStage`, číselník NEMÁ flag `use_efficiency`
+- Kategorie adjunct eliminována: zkvasitelné → `fermentable`, nezkvasitelné → `other`
+
+---
+
 ## [0.7.6] — Sprint 7 Patch: Hop Form Factor + Yeast Form + Whirlpool IBU Fix
 **Období:** T16 (03.03.2026)
 **Status:** ✅ Done

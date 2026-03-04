@@ -490,6 +490,10 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
             recipeId={id}
             recipe={recipeDetail?.recipe ?? null}
             items={recipeDetail?.items ?? []}
+            targetOg={recipeDetail?.recipe?.og ? parseFloat(recipeDetail.recipe.og) : 0}
+            targetFg={recipeDetail?.recipe?.fg ? parseFloat(recipeDetail.recipe.fg) : 0}
+            targetIbu={recipeDetail?.recipe?.targetIbu ? parseFloat(recipeDetail.recipe.targetIbu) : 0}
+            targetEbc={recipeDetail?.recipe?.targetEbc ? parseFloat(recipeDetail.recipe.targetEbc) : 0}
             onMutate={mutate}
           />
         ),

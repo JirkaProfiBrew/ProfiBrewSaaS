@@ -141,14 +141,18 @@ export function calculateOG(
   if (batchSizeL <= 0) return 0;
 
   const efficiency = efficiencyPct / 100;
-  const malts = ingredients.filter(
-    (i) => i.category === "malt" || i.category === "adjunct"
+  const fermentables = ingredients.filter(
+    (i) => i.category === "malt" || i.category === "fermentable"
   );
 
-  const totalExtractKg = malts.reduce((sum, malt) => {
-    const weightKg = toKg(malt);
-    const extractFraction = (malt.extractPercent ?? defaultExtractPct) / 100;
-    return sum + weightKg * extractFraction * efficiency;
+  const totalExtractKg = fermentables.reduce((sum, item) => {
+    const weightKg = toKg(item);
+    const extractFraction = (item.extractPercent ?? defaultExtractPct) / 100;
+    // Stage-based efficiency: mash → brewery efficiency, anything else → not counted
+    // Malts default to mash (brewery efficiency), fermentables default to boil (0)
+    const stage = item.useStage ?? (item.category === "malt" ? "mash" : "boil");
+    const effectiveEfficiency = stage === "mash" ? efficiency : 0;
+    return sum + weightKg * extractFraction * effectiveEfficiency;
   }, 0);
 
   if (totalExtractKg <= 0) return 0;
@@ -464,7 +468,7 @@ export function calculateEBC(
   if (batchSizeL <= 0) return 0;
 
   const malts = ingredients.filter(
-    (i) => i.category === "malt" || i.category === "adjunct"
+    (i) => i.category === "malt" || i.category === "fermentable"
   );
 
   const volumeGal = batchSizeL / 3.78541;
@@ -762,7 +766,7 @@ export function calculateAll(
   const ogForPlan = targetOgPlato ?? og;
 
   // Use weighted average extract from actual ingredients so plan is consistent with OG calc
-  const maltsForExtract = ingredients.filter((i) => i.category === "malt" || i.category === "adjunct");
+  const maltsForExtract = ingredients.filter((i) => i.category === "malt" || i.category === "fermentable");
   const totalMaltWeightKg = maltsForExtract.reduce((sum, m) => sum + toKg(m), 0);
   const effectiveExtract = totalMaltWeightKg > 0
     ? maltsForExtract.reduce((sum, m) => sum + toKg(m) * (m.extractPercent ?? system.extractEstimate), 0) / totalMaltWeightKg

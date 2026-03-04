@@ -17,7 +17,7 @@ import type {
 import { MaltTab } from "./tabs/MaltTab";
 import { HopTab } from "./tabs/HopTab";
 import { YeastTab } from "./tabs/YeastTab";
-import { AdjunctTab } from "./tabs/AdjunctTab";
+import { OtherTab } from "./tabs/OtherTab";
 import { MashTab } from "./tabs/MashTab";
 import { ConstantsTab } from "./tabs/ConstantsTab";
 import { CalculationTab } from "./tabs/CalculationTab";
@@ -30,7 +30,7 @@ interface RecipeEditorProps {
   maltItems: RecipeItem[];
   hopItems: RecipeItem[];
   yeastItems: RecipeItem[];
-  adjunctItems: RecipeItem[];
+  otherItems: RecipeItem[];
   // Steps
   steps: RecipeStep[];
   // Recipe data for calculation tab
@@ -51,8 +51,9 @@ interface RecipeEditorProps {
   // EBC for dual BeerGlass
   targetEbc: number;
   calculatedEbc: number;
-  // OG for target vs calculated comparison
+  // Design targets for comparison
   targetOg: number;
+  targetFg: number;
   calculatedOg: number;
   // Constants
   constants: RecipeConstantsOverride;
@@ -91,7 +92,7 @@ export function RecipeEditor({
   maltItems,
   hopItems,
   yeastItems,
-  adjunctItems,
+  otherItems,
   steps,
   recipe,
   allItems,
@@ -108,6 +109,7 @@ export function RecipeEditor({
   targetEbc,
   calculatedEbc,
   targetOg,
+  targetFg,
   calculatedOg,
   maltInputMode,
   onMaltInputModeChange,
@@ -136,12 +138,12 @@ export function RecipeEditor({
       { key: "malts", label: t("designer.tabs.malts"), count: maltItems.length },
       { key: "hops", label: t("designer.tabs.hops"), count: hopItems.length },
       { key: "yeast", label: t("designer.tabs.yeast"), count: yeastItems.length },
-      { key: "adjuncts", label: t("designer.tabs.adjuncts"), count: adjunctItems.length },
+      { key: "other", label: t("designer.tabs.other"), count: otherItems.length },
       { key: "mashing", label: t("designer.tabs.mashing"), count: steps.length },
       { key: "constants", label: t("designer.tabs.constants"), count: 0 },
       { key: "calculation", label: t("designer.tabs.calculation"), count: 0 },
     ],
-    [t, maltItems.length, hopItems.length, yeastItems.length, adjunctItems.length, steps.length],
+    [t, maltItems.length, hopItems.length, yeastItems.length, otherItems.length, steps.length],
   );
 
   return (
@@ -183,6 +185,7 @@ export function RecipeEditor({
               onMaltInputModeChange={onMaltInputModeChange}
               onAmountChange={onAmountChange}
               onPercentChange={onPercentChange}
+              onStageChange={onStageChange}
               onRemove={onRemove}
               onReorder={onReorder}
               onAdd={() => onAddIngredient("malt")}
@@ -217,16 +220,15 @@ export function RecipeEditor({
             />
           </TabsContent>
 
-          <TabsContent value="adjuncts" className="mt-0">
-            <AdjunctTab
-              items={adjunctItems}
+          <TabsContent value="other" className="mt-0">
+            <OtherTab
+              items={otherItems}
               onAmountChange={onAmountChange}
               onStageChange={onStageChange}
-              onTimeChange={onTimeChange}
               onNotesChange={onNotesChange}
               onRemove={onRemove}
               onReorder={onReorder}
-              onAdd={() => onAddIngredient("adjunct")}
+              onAdd={() => onAddIngredient("other")}
             />
           </TabsContent>
 
@@ -254,6 +256,10 @@ export function RecipeEditor({
               recipe={recipe}
               items={allItems}
               liveCalcResult={liveCalcResult}
+              targetOg={targetOg}
+              targetFg={targetFg}
+              targetIbu={targetIbu}
+              targetEbc={targetEbc}
               onMutate={onMutate}
             />
           </TabsContent>

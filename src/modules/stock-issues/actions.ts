@@ -12,7 +12,7 @@ import {
   receiptCosts,
 } from "@/../drizzle/schema/stock";
 import { items } from "@/../drizzle/schema/items";
-import { batches } from "@/../drizzle/schema/batches";
+import { batches, batchLotTracking } from "@/../drizzle/schema/batches";
 import { warehouses } from "@/../drizzle/schema/warehouses";
 import { partners } from "@/../drizzle/schema/partners";
 import { orders } from "@/../drizzle/schema/orders";
@@ -1162,6 +1162,40 @@ export async function confirmStockIssue(id: string): Promise<StockIssue> {
 
       const updated = updatedRows[0];
       if (!updated) throw new Error("Failed to update stock issue");
+
+      // 5. Insert batch lot tracking entries (for the sidebar)
+      if (issue.batchId) {
+        const direction = isReceipt ? "out" : "in";
+        const { units: unitsTable } = await import("@/../drizzle/schema/system");
+        const confirmedLines = await tx
+          .select({
+            itemId: stockIssueLines.itemId,
+            issuedQty: stockIssueLines.issuedQty,
+            requestedQty: stockIssueLines.requestedQty,
+            itemName: items.name,
+            unitSymbol: unitsTable.symbol,
+          })
+          .from(stockIssueLines)
+          .innerJoin(items, eq(stockIssueLines.itemId, items.id))
+          .leftJoin(unitsTable, eq(items.unitId, unitsTable.id))
+          .where(eq(stockIssueLines.stockIssueId, id));
+
+        for (const cl of confirmedLines) {
+          const issued = Number(cl.issuedQty ?? cl.requestedQty);
+          if (issued <= 0) continue;
+          await tx.insert(batchLotTracking).values({
+            tenantId,
+            batchId: issue.batchId,
+            direction,
+            itemId: cl.itemId,
+            itemName: cl.itemName,
+            amount: String(Math.round(issued * 1000) / 1000),
+            unit: cl.unitSymbol ?? "ks",
+            receiptId: id,
+          });
+        }
+      }
+
       return { issueRow: updated, warehouseId: issue.warehouseId, movementPurpose: issue.movementPurpose, isReceipt };
     });
 

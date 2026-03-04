@@ -147,7 +147,7 @@ export function CatalogBrowser(): React.ReactNode {
             malt: t("materialType.malt"),
             hop: t("materialType.hop"),
             yeast: t("materialType.yeast"),
-            adjunct: t("materialType.adjunct"),
+            fermentable: t("materialType.fermentable"),
             other: t("materialType.other"),
           },
         } : {}),

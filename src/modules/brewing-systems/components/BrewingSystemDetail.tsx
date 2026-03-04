@@ -484,21 +484,6 @@ export function BrewingSystemDetail({
 
               {/* Whirlpool block */}
               <div className="flex flex-col gap-3">
-                {/* Spacer — aligns with the volume input in Kettle/Fermenter columns */}
-                <div className="hidden md:block h-[3.25rem]" />
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    {t("detail.fields.whirlpoolLossPct")}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={String(values.whirlpoolLossPct ?? "")}
-                    onChange={(e) =>
-                      handleChange("whirlpoolLossPct", e.target.value)
-                    }
-                    className="h-8"
-                  />
-                </div>
                 <div className="space-y-1">
                   <Label className="text-xs">
                     {t("detail.fields.whirlpoolTemperatureC")}
@@ -511,6 +496,19 @@ export function BrewingSystemDetail({
                     }
                     className="h-8"
                     step="1"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    {t("detail.fields.whirlpoolLossPct")}
+                  </Label>
+                  <Input
+                    type="number"
+                    value={String(values.whirlpoolLossPct ?? "")}
+                    onChange={(e) =>
+                      handleChange("whirlpoolLossPct", e.target.value)
+                    }
+                    className="h-8"
                   />
                 </div>
                 <div className="flex-1">

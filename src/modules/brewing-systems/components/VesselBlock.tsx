@@ -42,9 +42,9 @@ function Vessel({
       : 0;
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1 min-w-0">
       {/* Vessel container */}
-      <div className="relative h-32 w-28 rounded-b-lg border-2 border-border bg-muted/30">
+      <div className="relative h-24 w-16 lg:h-32 lg:w-24 rounded-b-lg border-2 border-border bg-muted/30">
         {/* Liquid fill — anchored to bottom */}
         <div
           className={cn(
@@ -59,7 +59,7 @@ function Vessel({
         {liquidVolumeL.toFixed(0)} L
       </span>
       {/* Description */}
-      <span className="text-xs text-muted-foreground text-center max-w-28 leading-tight">
+      <span className="text-[10px] lg:text-xs text-muted-foreground text-center leading-tight">
         {label}
       </span>
     </div>
@@ -78,13 +78,13 @@ export function VesselBlock({
   return (
     <div className="rounded-lg border bg-card p-4 h-full">
       <h4 className="mb-3 text-sm font-semibold">{title}</h4>
-      <div className="flex items-start justify-center gap-6">
+      <div className="flex items-start justify-center gap-2 lg:gap-4">
         <Vessel {...leftVessel} />
 
         {/* Loss indicator */}
-        <div className="flex flex-col items-center justify-center pt-8">
-          <span className="text-xs text-muted-foreground">{lossLabel}</span>
-          <span className="text-lg font-bold text-red-500">{lossPct} %</span>
+        <div className="flex flex-col items-center justify-center pt-6 lg:pt-8 min-w-0">
+          <span className="text-[10px] lg:text-xs text-muted-foreground text-center leading-tight">{lossLabel}</span>
+          <span className="text-base lg:text-lg font-bold text-red-500">{lossPct} %</span>
           <span className="text-muted-foreground">→</span>
         </div>
 
@@ -110,12 +110,12 @@ export function WhirlpoolBlock({
   description,
 }: WhirlpoolBlockProps): React.ReactNode {
   return (
-    <div className="rounded-lg border bg-card p-4 h-full">
+    <div className="rounded-lg border bg-card p-4 h-full flex flex-col">
       <h4 className="mb-3 text-sm font-semibold">{title}</h4>
-      <div className="flex flex-col items-center justify-center gap-1 py-6">
-        <span className="text-xs text-muted-foreground">{lossLabel}</span>
-        <span className="text-lg font-bold text-red-500">{lossPct} %</span>
-        <span className="mt-1 text-xs text-muted-foreground italic">
+      <div className="flex flex-1 flex-col items-center justify-center gap-1">
+        <span className="text-[10px] lg:text-xs text-muted-foreground text-center leading-tight">{lossLabel}</span>
+        <span className="text-base lg:text-lg font-bold text-red-500">{lossPct} %</span>
+        <span className="mt-1 text-[10px] lg:text-xs text-muted-foreground italic text-center">
           ({description})
         </span>
       </div>

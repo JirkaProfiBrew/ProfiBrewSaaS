@@ -42,7 +42,7 @@
       "whirlpoolTemperatureC": "Teplota whirlpoolu (°C)",
       "whirlpoolDescription": "chmelové mláto, čerpání",
       "fermenterVolumeL": "Celkový objem nádoby (L)",
-      "fermentationLossPct": "Ztráta kvašení (%)",
+      "fermentationLossPct": "Odpařování (%)",
       "extractEstimate": "Odhadovaný extr. sladu",
       "waterPerKgMalt": "Voda L/kg slad",
       "waterReserveL": "Voda navíc (potrubí apd.)",

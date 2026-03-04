@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as tenantSchema from "@/../drizzle/schema/tenants";
 import * as authSchema from "@/../drizzle/schema/auth";
@@ -18,26 +18,39 @@ import * as ordersSchema from "@/../drizzle/schema/orders";
 import * as cashflowsSchema from "@/../drizzle/schema/cashflows";
 import * as exciseSchema from "@/../drizzle/schema/excise";
 
-const client = postgres(process.env.DATABASE_URL!);
+const schema = {
+  ...tenantSchema,
+  ...authSchema,
+  ...subscriptionSchema,
+  ...systemSchema,
+  ...shopsSchema,
+  ...equipmentSchema,
+  ...itemsSchema,
+  ...partnersSchema,
+  ...beerStylesSchema,
+  ...recipesSchema,
+  ...batchesSchema,
+  ...warehousesSchema,
+  ...stockSchema,
+  ...depositsSchema,
+  ...ordersSchema,
+  ...cashflowsSchema,
+  ...exciseSchema,
+};
 
-export const db = drizzle(client, {
-  schema: {
-    ...tenantSchema,
-    ...authSchema,
-    ...subscriptionSchema,
-    ...systemSchema,
-    ...shopsSchema,
-    ...equipmentSchema,
-    ...itemsSchema,
-    ...partnersSchema,
-    ...beerStylesSchema,
-    ...recipesSchema,
-    ...batchesSchema,
-    ...warehousesSchema,
-    ...stockSchema,
-    ...depositsSchema,
-    ...ordersSchema,
-    ...cashflowsSchema,
-    ...exciseSchema,
-  },
+// Reuse client across HMR in dev to avoid exhausting the connection pool
+const globalForDb = globalThis as unknown as {
+  pgClient?: ReturnType<typeof postgres>;
+  drizzleDb?: PostgresJsDatabase<typeof schema>;
+};
+
+const client = globalForDb.pgClient ?? postgres(process.env.DATABASE_URL!, {
+  max: 3,
+  idle_timeout: 20,
+  connect_timeout: 10,
 });
+if (process.env.NODE_ENV !== "production") globalForDb.pgClient = client;
+
+export const db: PostgresJsDatabase<typeof schema> =
+  globalForDb.drizzleDb ?? drizzle(client, { schema });
+if (process.env.NODE_ENV !== "production") globalForDb.drizzleDb = db;

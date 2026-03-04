@@ -66,6 +66,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
     baseItemId: null,
     baseItemQuantity: null,
     materialType: null,
+    fermentableType: null,
     alpha: null,
     ebc: null,
     extractPercent: null,
@@ -121,6 +122,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         baseItemId: item.baseItemId ?? "__none__",
         baseItemQuantity: item.baseItemQuantity,
         materialType: item.materialType,
+        fermentableType: item.fermentableType,
         alpha: item.alpha,
         ebc: item.ebc,
         extractPercent: item.extractPercent,
@@ -172,7 +174,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         if (targetUnit) next.unitId = targetUnit.id;
       }
 
-      // Auto-set unit defaults when materialType changes
+      // Auto-set unit defaults and fermentableType when materialType changes
       if (key === "materialType" && allUnits.length > 0) {
         const mt = value as string;
         const kgUnit = allUnits.find((u) => u.code === "kg");
@@ -181,20 +183,25 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
         if (mt === "malt" || mt === "grain") {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = null;
+          if (!next.fermentableType) next.fermentableType = "grain";
         } else if (mt === "hop") {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = gUnit?.id ?? null;
           if (!next.hopForm) next.hopForm = "pellet";
+          next.fermentableType = null;
         } else if (mt === "yeast") {
           next.unitId = gUnit?.id ?? null;
           next.recipeUnitId = null;
           if (!next.yeastForm) next.yeastForm = "dry";
-        } else if (mt === "adjunct") {
+          next.fermentableType = null;
+        } else if (mt === "fermentable") {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = null;
+          if (!next.fermentableType) next.fermentableType = "sugar";
         } else {
           next.unitId = kgUnit?.id ?? null;
           next.recipeUnitId = null;
+          next.fermentableType = null;
         }
       }
 
@@ -256,6 +263,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           baseItemId: resolvedBaseItemId,
           baseItemQuantity: resolvedBaseItemQuantity,
           materialType: (values.materialType as string | null) ?? null,
+          fermentableType: (values.fermentableType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
           extractPercent: (values.extractPercent as string | null) ?? null,
@@ -296,6 +304,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
           baseItemId: resolvedBaseItemId,
           baseItemQuantity: resolvedBaseItemQuantity,
           materialType: (values.materialType as string | null) ?? null,
+          fermentableType: (values.fermentableType as string | null) ?? null,
           alpha: (values.alpha as string | null) ?? null,
           ebc: (values.ebc as string | null) ?? null,
           extractPercent: (values.extractPercent as string | null) ?? null,
@@ -520,8 +529,23 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
               { value: "malt", label: t("materialType.malt") },
               { value: "hop", label: t("materialType.hop") },
               { value: "yeast", label: t("materialType.yeast") },
-              { value: "adjunct", label: t("materialType.adjunct") },
+              { value: "fermentable", label: t("materialType.fermentable") },
               { value: "other", label: t("materialType.other") },
+            ],
+          },
+          {
+            key: "fermentableType",
+            label: t("detail.fields.fermentableType"),
+            type: "select",
+            visible: (v: Record<string, unknown>) =>
+              v.isBrewMaterial === true && (v.materialType === "malt" || v.materialType === "fermentable"),
+            options: [
+              { value: "grain", label: t("fermentableType.grain") },
+              { value: "adjunct_grain", label: t("fermentableType.adjunct_grain") },
+              { value: "sugar", label: t("fermentableType.sugar") },
+              { value: "honey", label: t("fermentableType.honey") },
+              { value: "dry_extract", label: t("fermentableType.dry_extract") },
+              { value: "liquid_extract", label: t("fermentableType.liquid_extract") },
             ],
           },
           {
@@ -561,7 +585,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             label: t("detail.fields.ebc"),
             type: "decimal",
             visible: (v: Record<string, unknown>) =>
-              v.isBrewMaterial === true && v.materialType === "malt",
+              v.isBrewMaterial === true && (v.materialType === "malt" || v.materialType === "fermentable"),
           },
           {
             key: "extractPercent",
@@ -569,7 +593,7 @@ export function ItemDetail({ id, backHref }: ItemDetailProps): React.ReactNode {
             type: "decimal",
             suffix: "%",
             visible: (v: Record<string, unknown>) =>
-              v.isBrewMaterial === true && v.materialType === "malt",
+              v.isBrewMaterial === true && (v.materialType === "malt" || v.materialType === "fermentable"),
           },
         ],
       },

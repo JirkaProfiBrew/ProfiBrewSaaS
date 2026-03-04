@@ -63,8 +63,8 @@ interface RecipeIngredientsTabProps {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-const INGREDIENT_CATEGORIES = ["malt", "hop", "yeast", "adjunct", "other"] as const;
-const USE_STAGES = ["mash", "boil", "whirlpool", "fermentation", "dry_hop"] as const;
+const INGREDIENT_CATEGORIES = ["malt", "hop", "yeast", "fermentable", "other"] as const;
+const USE_STAGES = ["mash", "boil", "whirlpool", "fermentation", "dry_hop", "conditioning", "bottling"] as const;
 
 function formatAmount(amountG: string): string {
   const val = parseFloat(amountG);
@@ -140,7 +140,7 @@ export function RecipeIngredientsTab({
           malt: "malt",
           hop: "hop",
           yeast: "yeast",
-          adjunct: "adjunct",
+          fermentable: "fermentable",
         };
         const mapped = typeMap[selected.materialType];
         if (mapped) setNewCategory(mapped);
@@ -324,7 +324,7 @@ export function RecipeIngredientsTab({
     malt: t("ingredients.categories.malt"),
     hop: t("ingredients.categories.hop"),
     yeast: t("ingredients.categories.yeast"),
-    adjunct: t("ingredients.categories.adjunct"),
+    fermentable: t("ingredients.categories.fermentable"),
     other: t("ingredients.categories.other"),
   };
 
@@ -334,9 +334,11 @@ export function RecipeIngredientsTab({
     whirlpool: t("ingredients.stages.whirlpool"),
     fermentation: t("ingredients.stages.fermentation"),
     dry_hop: t("ingredients.stages.dry_hop"),
+    conditioning: t("ingredients.stages.conditioning"),
+    bottling: t("ingredients.stages.bottling"),
   };
 
-  const totalMaltG = sumByCategory(items, "malt") + sumByCategory(items, "adjunct");
+  const totalMaltG = sumByCategory(items, "malt") + sumByCategory(items, "fermentable");
   const totalHopG = sumByCategory(items, "hop");
 
   // Item name for display in edit mode

@@ -73,18 +73,20 @@
       "malt": "Slad",
       "hop": "Chmel",
       "yeast": "Kvasnice",
-      "adjunct": "Přísada",
+      "fermentable": "Zkvasitelná přísada",
       "other": "Ostatní"
     },
     "stages": {
-      "boil": "Chmelovar",
+      "boil": "Var",
       "fwh": "First Wort Hop",
       "whirlpool": "Whirlpool",
-      "mash": "Rmutový chmel",
+      "mash": "Rmutování",
       "dry_hop_cold": "Dry hop (studený)",
       "dry_hop_warm": "Dry hop (teplý)",
       "dry_hop": "Dry hop",
-      "fermentation": "Kvašení"
+      "fermentation": "Kvašení",
+      "conditioning": "Ležení",
+      "bottling": "Stáčení"
     },
     "dialog": {
       "title": "Přidat surovinu",
@@ -140,6 +142,7 @@
     "recalculated": "Kalkulace přepočítána",
     "noRecipe": "Receptura musí být uložena",
     "parameters": "Vypočtené parametry",
+    "target": "Cíl",
     "styleComparison": "Porovnání se stylem",
     "costBreakdown": "Nákladová kalkulace",
     "totalCost": "Celková cena várky",
@@ -273,10 +276,10 @@
       "keepAmounts": "Ne, ponechat množství"
     },
     "tabs": {
-      "malts": "Slady",
+      "malts": "Zkvasitelné suroviny",
       "hops": "Chmel",
       "yeast": "Kvasnice",
-      "adjuncts": "Ostatní",
+      "other": "Ostatní",
       "mashing": "Rmutování",
       "constants": "Konstanty",
       "calculation": "Kalkulace"
@@ -297,7 +300,7 @@
       "addMalt": "Přidat slad",
       "addHop": "Přidat chmel",
       "addYeast": "Přidat kvasnice",
-      "addAdjunct": "Přidat přísadu",
+      "addOther": "Přidat ostatní",
       "remove": "Odebrat",
       "selectItem": "Vyberte položku",
       "total": "Celkem",

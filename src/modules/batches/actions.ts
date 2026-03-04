@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { eq, ne, and, ilike, or, sql, desc, asc, aliasedTable, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -2765,7 +2766,7 @@ export async function advanceBatchPhase(
   targetPhase: BatchPhase
 ): Promise<Batch> {
   return withTenant(async (tenantId) => {
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // Load batch
       const batchRows = await tx
         .select()
@@ -2837,6 +2838,10 @@ export async function advanceBatchPhase(
         .limit(1);
       return mapBatchRow(updatedRows[0]!);
     });
+
+    // Invalidate Next.js cache so router.push() gets fresh data
+    revalidatePath(`/brewery/batches/${batchId}/brew`, "layout");
+    return result;
   });
 }
 

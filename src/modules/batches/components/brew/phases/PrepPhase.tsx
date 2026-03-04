@@ -81,7 +81,7 @@ const INGREDIENT_CATEGORIES = [
   "malt",
   "hop",
   "yeast",
-  "adjunct",
+  "fermentable",
   "other",
 ] as const;
 

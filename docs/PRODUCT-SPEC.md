@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 01.03.2026 | Poslední sprint: Sprint 7 (Batch Brew Management)
+### Aktualizováno: 03.03.2026 | Poslední sprint: Sprint 7 Patch (Fermentable Types)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -190,7 +190,7 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 
 **Jak to funguje:**
 - DataBrowser s baseFilter `{ is_brew_material: true }`
-- Quick filters: Vše | Slady a přísady | Chmel | Kvasnice
+- Quick filters: Vše | Slady a přísady (malt + fermentable) | Chmel | Kvasnice
 - Card view: obrázek suroviny, typ (Slad/Chmel/...), název, cena, alpha (u chmele)
 - List view: kód, název, cena, surovina (checkbox), prodejní (checkbox), alpha, výrobce, z knihovny
 
@@ -198,12 +198,13 @@ Každá agenda má konfigurační soubor v `src/config/modules/` definující:
 - Základní info: kód, název, značka/výrobce
 - Flagy: Surovina na výrobu piva ✓, Položka pro evidenci výroby ☐, Prodávat položku ✓
 - Kategorie skladu, spotřební daň (toggle), mód výdeje (FIFO / Ruční výběr šarže)
-- Material-specific: typ suroviny (dropdown), alpha (chmel), EBC (slad)
+- Material-specific: typ suroviny (dropdown: slad/chmel/kvasnice/zkvasitelná přísada/ostatní), alpha (chmel), EBC (slad + fermentable), výtěžnost (slad + fermentable)
+- Typ zkvasitelné suroviny (`fermentable_type`): select viditelný pro slad + zkvasitelnou přísadu — grain/adjunct_grain/sugar/honey/dry_extract/liquid_extract. Systémový číselník `fermentable_types` s default_extract. Výchozí: grain pro slad, sugar pro fermentable.
 - Forma chmele (`hop_form`): select viditelný pouze pro chmel — pellet/leaf/plug/cryo. Ovlivňuje IBU výpočet (utilization_factor: pellet=1.10, leaf=1.00, plug=1.02, cryo=1.10). Výchozí: pellet.
 - Forma kvasnic (`yeast_form`): select viditelný pouze pro kvasnice — dry/liquid. Při změně formy auto-switch MJ (dry→g, liquid→ml). Výchozí: dry. V receptuře zobrazeno jako badge na YeastCard.
-- Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/kg/ml/l/ks, přísady=kg/g/l/ml)
+- Měrná jednotka (MJ sklad): select z povolených MJ dle typu suroviny (slad=kg readonly, chmel=kg/g, kvasnice=g/kg/ml/l/ks, fermentable=kg/g/l/ml)
 - Měrná jednotka receptury (MJ receptury): viditelné pouze pro chmel — odlišná MJ pro skladovou evidenci (kg) vs recepturu (g)
-- Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, adjunct→kg). Kvasnice: forma navíc ovlivňuje výchozí MJ (dry→g, liquid→ml).
+- Auto-fill MJ při změně typu suroviny (malt→kg, hop→kg+g, yeast→g, fermentable→kg). Kvasnice: forma navíc ovlivňuje výchozí MJ (dry→g, liquid→ml).
 - Cenotvorba: kalkulační cena, průměrná skladová, prodejní cena, režie
 - Cenotvorba balených položek (viditelná pouze pro sale item s base_item): náklady na obal (`packaging_cost`), náklady na stočení (`filling_cost`), kalkulovaná cena = `(výrobní_cena_za_litr × objem) + obal + stočení`
 - POS: zpřístupnit na pokladně, nabízet na webu
@@ -242,10 +243,10 @@ UI receptury je třísekční designer s aktivními designovými slidery a real-
 - V kolapsnutém stavu: jednořádkový souhrn "{název} | {soustava}"
 
 **Sekce 3 — Editor (RecipeEditor) s 7 sub-taby:**
-- **Slady:** drag & drop kartičky (MaltCard) — toggle kg/% mód. V % módu: posuvníky s proporcionálním přerozdělením, auto výchozí % při vkládání (100→70/30→split). Dual BeerGlass (cíl vs. recept). Souhrn: celkem vs plán, surplus/deficit.
+- **Zkvasitelné suroviny (Fermentables):** drag & drop kartičky (MaltCard) — toggle kg/% mód. V % módu: posuvníky s proporcionálním přerozdělením, auto výchozí % při vkládání (100→70/30→split). Dual BeerGlass (cíl vs. recept). Souhrn: celkem vs plán, surplus/deficit. Zobrazuje malt + fermentable kategorie.
 - **Chmel:** Auto-sort dle fáze (rmut→FWH→var→whirlpool→dry hop) a času, vizuální separátory. HopCard — množství, alpha, fáze, čas, IBU příspěvek. Souhrn: IBU breakdown.
 - **Kvasnice:** YeastCard — množství, odhad FG/ABV.
-- **Ostatní:** AdjunctCard — množství, fáze, čas, poznámka.
+- **Ostatní (Other):** OtherCard — množství, fáze, čas, poznámka. Fáze: mash/boil/whirlpool/fermentation/conditioning/bottling.
 - **Rmutování:** wrapper kolem RecipeStepsTab (rmutovací kroky + profily). MashStepEditor se sloupci: Cíl (°C), Náběh (min), Výdrž (min), Celkem. Sumární patička s celkovými časy.
 - **Konstanty:** override tabulka (parametr / soustava / receptura) — per-recipe přepsání parametrů varní soustavy. Reset tlačítko.
 - **Kalkulace:** wrapper kolem RecipeCalculation (pipeline, potřeba surovin, náklady).
@@ -262,7 +263,8 @@ UI receptury je třísekční designer s aktivními designovými slidery a real-
 
 **Kalkulace — varní soustava a objemová pipeline:**
 - Vazba receptury na varní soustavu: `recipes.brewing_system_id` → `brewing_systems.id` (nullable, select na tabu Základní údaje)
-- Efektivita varny z brewing system (ne hardcoded 75%) — ovlivňuje výpočet OG
+- Efektivita varny z brewing system (ne hardcoded 75%) — ovlivňuje výpočet OG. **Stage-based efficiency**: `useStage === "mash"` → × efficiency, cokoliv jiného (boil, fermentation, conditioning, bottling) → × 1.0 (100% rozpuštění). Toto zajišťuje správný OG výpočet pro cukr/med/DME přidávané přímo do varu.
+- Kategorie surovin: `malt` (slady) + `fermentable` (zkvasitelné přísady: cukr, med, DME, LME) + `other` (nezkvasitelné: Irish moss, koření). Kategorie `adjunct` eliminována.
 - Objemová pipeline (zpětný výpočet od cílového objemu): pre-boil → post-boil → do fermentoru → hotové pivo
 - Ztráty v litrech: kotel (kettle_loss_pct), whirlpool (whirlpool_loss_pct), fermentace (fermentation_loss_pct)
 - Výpočet potřeby sladu: extract_needed / extract_estimate / efficiency → kg sladu

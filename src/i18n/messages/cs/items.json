@@ -34,8 +34,16 @@
     "malt": "Slad",
     "hop": "Chmel",
     "yeast": "Kvasnice",
-    "adjunct": "Přísada",
+    "fermentable": "Zkvasitelná přísada",
     "other": "Ostatní"
+  },
+  "fermentableType": {
+    "grain": "Slad",
+    "adjunct_grain": "Doplněk (obilný)",
+    "sugar": "Cukr",
+    "honey": "Med",
+    "dry_extract": "Sušený výtažek (DME)",
+    "liquid_extract": "Tekutý výtažek (LME)"
   },
   "hopForm": {
     "pellet": "Granule (pelety)",
@@ -87,6 +95,7 @@
       "unit": "Měrná jednotka",
       "baseUnitAmount": "Přepočet na základní jednotku",
       "materialType": "Typ suroviny",
+      "fermentableType": "Typ suroviny",
       "alpha": "Alpha kyseliny (%)",
       "ebc": "Barva EBC",
       "extractPercent": "Výtěžnost (%)",

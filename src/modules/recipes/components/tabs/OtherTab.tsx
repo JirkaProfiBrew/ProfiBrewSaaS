@@ -6,16 +6,15 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { AdjunctCard } from "../cards/AdjunctCard";
+import { OtherCard } from "../cards/OtherCard";
 import type { RecipeItem } from "../../types";
 
 // ── Props ────────────────────────────────────────────────────────
 
-interface AdjunctTabProps {
+interface OtherTabProps {
   items: RecipeItem[];
   onAmountChange: (id: string, amount: string) => void;
   onStageChange: (id: string, stage: string) => void;
-  onTimeChange: (id: string, time: number | null) => void;
   onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
@@ -24,16 +23,15 @@ interface AdjunctTabProps {
 
 // ── Component ────────────────────────────────────────────────────
 
-export function AdjunctTab({
+export function OtherTab({
   items,
   onAmountChange,
   onStageChange,
-  onTimeChange,
   onNotesChange,
   onRemove,
   onReorder,
   onAdd,
-}: AdjunctTabProps): React.ReactNode {
+}: OtherTabProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   function handleDragEnd(event: DragEndEvent): void {
@@ -51,12 +49,11 @@ export function AdjunctTab({
           strategy={verticalListSortingStrategy}
         >
           {items.map((item) => (
-            <AdjunctCard
+            <OtherCard
               key={item.id}
               item={item}
               onAmountChange={onAmountChange}
               onStageChange={onStageChange}
-              onTimeChange={onTimeChange}
               onNotesChange={onNotesChange}
               onRemove={onRemove}
             />
@@ -67,7 +64,7 @@ export function AdjunctTab({
       {/* Add button */}
       <Button variant="outline" size="sm" onClick={onAdd} className="w-full">
         <Plus className="mr-1 size-4" />
-        {t("designer.cards.addAdjunct")}
+        {t("designer.cards.addOther")}
       </Button>
     </div>
   );

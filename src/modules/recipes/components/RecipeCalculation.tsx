@@ -30,25 +30,41 @@ interface RecipeCalculationProps {
   recipe: Recipe | null;
   items: RecipeItem[];
   liveCalcResult?: RecipeCalculationResult | null;
+  targetOg: number;
+  targetFg: number;
+  targetIbu: number;
+  targetEbc: number;
   onMutate: () => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
 
 function isInRange(
-  value: string | null,
+  value: number | null,
   min: string | null,
   max: string | null
 ): "in_range" | "out_of_range" | "unknown" {
   if (value == null || (min == null && max == null)) return "unknown";
-  const v = parseFloat(value);
-  if (isNaN(v)) return "unknown";
+  if (isNaN(value)) return "unknown";
 
   const lo = min != null ? parseFloat(min) : -Infinity;
   const hi = max != null ? parseFloat(max) : Infinity;
 
   if (isNaN(lo) && isNaN(hi)) return "unknown";
-  return v >= lo && v <= hi ? "in_range" : "out_of_range";
+  return value >= lo && value <= hi ? "in_range" : "out_of_range";
+}
+
+type ComparisonStatus = "good" | "warn" | "bad" | "neutral";
+
+function getComparisonStatus(
+  design: number,
+  calc: number
+): ComparisonStatus {
+  if (design === 0) return "neutral";
+  const pct = (Math.abs(calc - design) / design) * 100;
+  if (pct <= 5) return "good";
+  if (pct <= 15) return "warn";
+  return "bad";
 }
 
 function formatDecimal(value: string | null, decimals: number = 1): string {
@@ -81,6 +97,10 @@ export function RecipeCalculation({
   recipe,
   items,
   liveCalcResult,
+  targetOg,
+  targetFg,
+  targetIbu,
+  targetEbc,
   onMutate,
 }: RecipeCalculationProps): React.ReactNode {
   const t = useTranslations("recipes");
@@ -117,43 +137,57 @@ export function RecipeCalculation({
     }
   }, [recipeId, t, tCommon, onMutate]);
 
-  // Parameter rows for display
+  // Resolved calculation: prefer live, fallback to snapshot
+  const calcResult = liveCalcResult ?? calcSnapshot;
+
+  // Compute target ABV from design OG + FG (Balling formula)
+  const targetAbv = useMemo(() => {
+    if (targetOg <= 0 || targetFg <= 0) return null;
+    return (targetOg - targetFg) / (2.0665 - 0.010665 * targetOg);
+  }, [targetOg, targetFg]);
+
+  // Parameter rows for display — target (design) vs calculated
   const parameterRows = useMemo(() => {
     if (!recipe) return [];
 
     return [
       {
         label: "OG (°P)",
-        value: recipe.og,
+        targetValue: targetOg > 0 ? targetOg : null,
+        calcValue: calcResult?.og ?? null,
         min: matchedStyle?.ogMin ?? null,
         max: matchedStyle?.ogMax ?? null,
       },
       {
         label: "FG (°P)",
-        value: recipe.fg,
+        targetValue: targetFg > 0 ? targetFg : null,
+        calcValue: calcResult?.fg ?? null,
         min: matchedStyle?.fgMin ?? null,
         max: matchedStyle?.fgMax ?? null,
       },
       {
         label: "ABV (%)",
-        value: recipe.abv,
+        targetValue: targetAbv,
+        calcValue: calcResult?.abv ?? null,
         min: matchedStyle?.abvMin ?? null,
         max: matchedStyle?.abvMax ?? null,
       },
       {
         label: "IBU",
-        value: recipe.ibu,
+        targetValue: targetIbu > 0 ? targetIbu : null,
+        calcValue: calcResult?.ibu ?? null,
         min: matchedStyle?.ibuMin ?? null,
         max: matchedStyle?.ibuMax ?? null,
       },
       {
         label: "EBC",
-        value: recipe.ebc,
+        targetValue: targetEbc > 0 ? targetEbc : null,
+        calcValue: calcResult?.ebc ?? null,
         min: matchedStyle?.ebcMin ?? null,
         max: matchedStyle?.ebcMax ?? null,
       },
     ];
-  }, [recipe, matchedStyle]);
+  }, [recipe, matchedStyle, calcResult, targetOg, targetFg, targetAbv, targetIbu, targetEbc]);
 
   // Cost breakdown from ingredient data
   // When a calcSnapshot exists, use its resolved per-ingredient prices (avg_stock / last_purchase).
@@ -257,7 +291,17 @@ export function RecipeCalculation({
         <CardContent>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
             {parameterRows.map((param) => {
-              const rangeStatus = isInRange(param.value, param.min, param.max);
+              const hasCalc = param.calcValue != null && !isNaN(param.calcValue);
+              const displayValue = hasCalc ? param.calcValue! : param.targetValue;
+              const rangeStatus = isInRange(displayValue, param.min, param.max);
+              const compStatus = hasCalc && param.targetValue != null && param.targetValue > 0
+                ? getComparisonStatus(param.targetValue, param.calcValue!)
+                : null;
+              const compColor =
+                compStatus === "good" ? "text-green-600"
+                  : compStatus === "warn" ? "text-amber-500"
+                    : compStatus === "bad" ? "text-red-500"
+                      : "text-muted-foreground";
               return (
                 <div
                   key={param.label}
@@ -267,8 +311,18 @@ export function RecipeCalculation({
                     {param.label}
                   </span>
                   <span className="text-2xl font-bold">
-                    {formatDecimal(param.value)}
+                    {displayValue != null ? displayValue.toFixed(1) : "—"}
                   </span>
+                  {hasCalc && param.targetValue != null && param.targetValue > 0 && (
+                    <div className={cn("flex items-center gap-1 text-xs", compColor)}>
+                      {compStatus === "good" && <CheckCircle className="size-3" />}
+                      {compStatus === "warn" && <AlertCircle className="size-3" />}
+                      {compStatus === "bad" && <AlertCircle className="size-3" />}
+                      <span>
+                        {t("calculation.target")}: {param.targetValue.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
                   {matchedStyle && param.min != null && param.max != null && (
                     <div className="flex items-center gap-1 text-xs">
                       {rangeStatus === "in_range" ? (
