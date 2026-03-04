@@ -80,7 +80,8 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
         const vesselData = await getAvailableVessels(
           batchId, pd,
           brewData.batch.fermentationDays ?? 14,
-          brewData.batch.conditioningDays ?? 21
+          brewData.batch.conditioningDays ?? 21,
+          brewData.batch.shopId ?? null
         );
         if (cancelled || !brewData) return;
 

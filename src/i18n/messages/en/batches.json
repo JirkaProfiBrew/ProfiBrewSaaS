@@ -338,6 +338,9 @@
     "classicView": "Classic View",
     "viewRecipe": "Recipe",
     "brewView": "Brew Management",
+    "header": {
+      "lot": "Lot"
+    },
     "phases": {
       "plan": "Plan",
       "preparation": "Preparation",

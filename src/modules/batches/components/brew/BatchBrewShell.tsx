@@ -56,6 +56,8 @@ export function BatchBrewShell({
                 {batch.batchNumber} — {batch.itemName ?? recipeName}
               </h1>
               <p className="text-sm text-muted-foreground">
+                {batch.lotNumber && <>{t("brew.header.lot")}: {batch.lotNumber} · </>}
+                {batch.shopName && <>{batch.shopName} · </>}
                 {beerStyleName}
                 {batch.recipeOg && ` · OG ${Number(batch.recipeOg).toFixed(1)}°P`}
                 {batch.recipeIbu && ` · IBU ${Number(batch.recipeIbu).toFixed(0)}`}

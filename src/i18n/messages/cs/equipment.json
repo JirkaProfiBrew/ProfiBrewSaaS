@@ -5,7 +5,8 @@
     "all": "Vše",
     "fermenter": "Fermentory",
     "brite_tank": "Ležácké",
-    "conditioning": "CKT"
+    "conditioning": "Ležáky",
+    "ckt": "CKT"
   },
   "columns": {
     "name": "Název",
@@ -23,7 +24,8 @@
   "equipmentType": {
     "fermenter": "Fermentor",
     "brite_tank": "Ležácký tank",
-    "conditioning": "CKT"
+    "conditioning": "Ležácký tank",
+    "ckt": "CKT"
   },
   "status": {
     "available": "Dostupný",

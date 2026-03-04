@@ -5,7 +5,8 @@
     "all": "All",
     "fermenter": "Fermenters",
     "brite_tank": "Brite Tanks",
-    "conditioning": "Conditioning"
+    "conditioning": "Conditioning",
+    "ckt": "CKT"
   },
   "columns": {
     "name": "Name",
@@ -23,7 +24,8 @@
   "equipmentType": {
     "fermenter": "Fermenter",
     "brite_tank": "Brite Tank",
-    "conditioning": "Conditioning Tank"
+    "conditioning": "Conditioning Tank",
+    "ckt": "CKT"
   },
   "status": {
     "available": "Available",

@@ -91,6 +91,8 @@ export interface Batch {
   itemName?: string | null;
   itemCode?: string | null;
   equipmentName?: string | null;
+  shopId?: string | null;
+  shopName?: string | null;
 }
 
 export interface BatchStep {

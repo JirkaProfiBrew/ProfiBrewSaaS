@@ -35,7 +35,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
     name: "",
     equipmentType: "",
     volumeL: null,
-    shopId: "__none__",
+    shopId: "",
     status: "available",
     notes: null,
     isActive: true,
@@ -50,7 +50,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
         name: equipmentItem.name,
         equipmentType: equipmentItem.equipmentType,
         volumeL: equipmentItem.volumeL,
-        shopId: equipmentItem.shopId ?? "__none__",
+        shopId: equipmentItem.shopId ?? "",
         status: equipmentItem.status,
         notes: equipmentItem.notes,
         isActive: equipmentItem.isActive,
@@ -61,11 +61,8 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
   const mode: FormMode = isNew ? "create" : "edit";
 
   const shopOptions = useMemo(
-    () => [
-      { value: "__none__", label: t("detail.fields.noShop") },
-      ...shopList.map((s) => ({ value: s.id, label: s.name })),
-    ],
-    [shopList, t]
+    () => shopList.map((s) => ({ value: s.id, label: s.name })),
+    [shopList]
   );
 
   // Form section definition
@@ -90,6 +87,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
             { value: "fermenter", label: t("equipmentType.fermenter") },
             { value: "brite_tank", label: t("equipmentType.brite_tank") },
             { value: "conditioning", label: t("equipmentType.conditioning") },
+            { value: "ckt", label: t("equipmentType.ckt") },
           ],
         },
         {
@@ -103,6 +101,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           key: "shopId",
           label: t("detail.fields.shopId"),
           type: "select",
+          required: true,
           options: shopOptions,
         },
         {
@@ -157,6 +156,9 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
     if (!values.equipmentType || String(values.equipmentType).trim() === "") {
       newErrors.equipmentType = tCommon("validation.required");
     }
+    if (!values.shopId || String(values.shopId).trim() === "") {
+      newErrors.shopId = tCommon("validation.required");
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -171,7 +173,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           name: String(values.name),
           equipmentType: String(values.equipmentType),
           volumeL: values.volumeL ? String(values.volumeL) : null,
-          shopId: values.shopId && String(values.shopId) !== "__none__" ? String(values.shopId) : null,
+          shopId: values.shopId ? String(values.shopId) : null,
           status: String(values.status ?? "available"),
           properties: {},
           notes: values.notes ? String(values.notes) : null,
@@ -182,7 +184,7 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           name: String(values.name),
           equipmentType: String(values.equipmentType),
           volumeL: values.volumeL ? String(values.volumeL) : null,
-          shopId: values.shopId && String(values.shopId) !== "__none__" ? String(values.shopId) : null,
+          shopId: values.shopId ? String(values.shopId) : null,
           status: String(values.status ?? "available"),
           properties: {},
           notes: values.notes ? String(values.notes) : null,

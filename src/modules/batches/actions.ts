@@ -88,6 +88,8 @@ function mapBatchRow(
     itemName?: string | null;
     itemCode?: string | null;
     equipmentName?: string | null;
+    shopId?: string | null;
+    shopName?: string | null;
   }
 ): Batch {
   return {
@@ -143,6 +145,8 @@ function mapBatchRow(
     itemName: joined?.itemName ?? null,
     itemCode: joined?.itemCode ?? null,
     equipmentName: joined?.equipmentName ?? null,
+    shopId: joined?.shopId ?? null,
+    shopName: joined?.shopName ?? null,
   };
 }
 
@@ -312,6 +316,8 @@ export async function getBatchDetail(
         itemName: items.name,
         itemCode: items.code,
         equipmentName: equipment.name,
+        shopId: equipment.shopId,
+        shopName: shops.name,
       })
       .from(batches)
       .leftJoin(recipes, eq(batches.recipeId, recipes.id))
@@ -319,6 +325,7 @@ export async function getBatchDetail(
       .leftJoin(beerStyles, eq(recipes.beerStyleId, beerStyles.id))
       .leftJoin(items, eq(batches.itemId, items.id))
       .leftJoin(equipment, eq(batches.equipmentId, equipment.id))
+      .leftJoin(shops, eq(equipment.shopId, shops.id))
       .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
       .limit(1);
 
@@ -392,6 +399,8 @@ export async function getBatchDetail(
         itemName: batchRow.itemName,
         itemCode: batchRow.itemCode,
         equipmentName: batchRow.equipmentName,
+        shopId: batchRow.shopId,
+        shopName: batchRow.shopName,
       }),
       steps: stepsData.map(mapStepRow),
       measurements: measurementsData.map(mapMeasurementRow),
@@ -429,6 +438,8 @@ export async function getBatchBrewData(
         itemName: items.name,
         itemCode: items.code,
         equipmentName: equipment.name,
+        shopId: equipment.shopId,
+        shopName: shops.name,
       })
       .from(batches)
       .leftJoin(recipes, eq(batches.recipeId, recipes.id))
@@ -436,6 +447,7 @@ export async function getBatchBrewData(
       .leftJoin(beerStyles, eq(recipes.beerStyleId, beerStyles.id))
       .leftJoin(items, eq(batches.itemId, items.id))
       .leftJoin(equipment, eq(batches.equipmentId, equipment.id))
+      .leftJoin(shops, eq(equipment.shopId, shops.id))
       .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
       .limit(1);
 
@@ -492,6 +504,8 @@ export async function getBatchBrewData(
         itemName: batchRow.itemName,
         itemCode: batchRow.itemCode,
         equipmentName: batchRow.equipmentName,
+        shopId: batchRow.shopId,
+        shopName: batchRow.shopName,
       }),
       steps: stepsData.map(mapStepRow),
       measurements: measurementsData.map(mapMeasurementRow),
@@ -2884,6 +2898,7 @@ export interface VesselAvailability {
   name: string;
   equipmentType: string;
   volumeL: string | null;
+  shopId: string | null;
   status: string;
   currentBatchId: string | null;
   currentBatchNumber: string | null;
@@ -2897,7 +2912,8 @@ export async function getAvailableVessels(
   forBatchId?: string,
   plannedFermStart?: string | null,
   fermDays?: number | null,
-  condDays?: number | null
+  condDays?: number | null,
+  shopId?: string | null
 ): Promise<VesselAvailability[]> {
   return withTenant(async (tenantId) => {
     const rows = await db
@@ -2906,6 +2922,7 @@ export async function getAvailableVessels(
         name: equipment.name,
         equipmentType: equipment.equipmentType,
         volumeL: equipment.volumeL,
+        shopId: equipment.shopId,
         status: equipment.status,
         currentBatchId: equipment.currentBatchId,
         currentBatchNumber: batches.batchNumber,
@@ -2921,7 +2938,8 @@ export async function getAvailableVessels(
             "brite_tank",
             "conditioning",
             "ckt",
-          ])
+          ]),
+          shopId ? eq(equipment.shopId, shopId) : undefined
         )
       )
       .orderBy(equipment.name);
@@ -3008,6 +3026,7 @@ export async function getAvailableVessels(
         name: r.name,
         equipmentType: r.equipmentType,
         volumeL: r.volumeL,
+        shopId: r.shopId,
         status: r.status ?? "available",
         currentBatchId: r.currentBatchId,
         currentBatchNumber: r.currentBatchNumber,

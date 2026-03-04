@@ -338,6 +338,9 @@
     "classicView": "Klasické zobrazení",
     "viewRecipe": "Receptura",
     "brewView": "Řízení varu",
+    "header": {
+      "lot": "Šarže"
+    },
     "phases": {
       "plan": "Plán",
       "preparation": "Příprava",

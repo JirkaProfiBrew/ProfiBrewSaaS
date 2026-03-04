@@ -9,7 +9,7 @@ export const equipmentCreateSchema = z.object({
   name: z.string().min(1, "Name is required"),
   equipmentType: z.string().min(1, "Equipment type is required"),
   volumeL: z.string().nullable().optional(),
-  shopId: z.string().uuid().nullable().optional(),
+  shopId: z.string().uuid("Shop is required"),
   status: z.string().optional().default("available"),
   properties: z.record(z.string(), z.unknown()).optional().default({}),
   notes: z.string().nullable().optional(),
