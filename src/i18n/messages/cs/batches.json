@@ -336,6 +336,7 @@
   "brew": {
     "title": "Řízení varu",
     "classicView": "Klasické zobrazení",
+    "viewRecipe": "Receptura",
     "brewView": "Řízení varu",
     "phases": {
       "plan": "Plán",

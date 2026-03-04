@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ScrollText } from "lucide-react";
 import Link from "next/link";
 
 import { BeerGlass } from "@/components/ui/beer-glass";
@@ -64,7 +64,17 @@ export function BatchBrewShell({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {batch.recipeId && (
+              <Link
+                href={`/${locale}/brewery/recipes/${batch.recipeId}`}
+                target={currentPhase === "plan" ? undefined : "_blank"}
+                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <ScrollText className="size-3.5" />
+                {t("brew.viewRecipe")}
+              </Link>
+            )}
             <Link
               href={`/${locale}/brewery/batches/${batch.id}`}
               className="text-sm text-muted-foreground hover:underline"

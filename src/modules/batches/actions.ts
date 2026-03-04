@@ -2879,17 +2879,26 @@ export async function updateBatchStep(
 // ── Plan & Preparation phase actions ─────────────────────────
 
 /** Return vessels (fermenters, brite tanks, conditioning tanks) with occupancy info. */
-export async function getAvailableVessels(): Promise<
-  Array<{
-    id: string;
-    name: string;
-    equipmentType: string;
-    volumeL: string | null;
-    status: string;
-    currentBatchId: string | null;
-    currentBatchNumber: string | null;
-  }>
-> {
+export interface VesselAvailability {
+  id: string;
+  name: string;
+  equipmentType: string;
+  volumeL: string | null;
+  status: string;
+  currentBatchId: string | null;
+  currentBatchNumber: string | null;
+  /** If occupied during the requested window, shows the conflicting batch */
+  conflictBatchNumber: string | null;
+  conflictFrom: string | null;
+  conflictTo: string | null;
+}
+
+export async function getAvailableVessels(
+  forBatchId?: string,
+  plannedFermStart?: string | null,
+  fermDays?: number | null,
+  condDays?: number | null
+): Promise<VesselAvailability[]> {
   return withTenant(async (tenantId) => {
     const rows = await db
       .select({
@@ -2911,20 +2920,102 @@ export async function getAvailableVessels(): Promise<
             "fermenter",
             "brite_tank",
             "conditioning",
+            "ckt",
           ])
         )
       )
       .orderBy(equipment.name);
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      equipmentType: r.equipmentType,
-      volumeL: r.volumeL,
-      status: r.status ?? "available",
-      currentBatchId: r.currentBatchId,
-      currentBatchNumber: r.currentBatchNumber,
-    }));
+    // Timeline conflict detection
+    const vesselIds = rows.map((r) => r.id);
+    const conflictMap = new Map<string, { batchNumber: string; from: string; to: string }>();
+
+    if (plannedFermStart && vesselIds.length > 0) {
+      const fermStart = new Date(plannedFermStart);
+      const fermEnd = new Date(fermStart);
+      fermEnd.setDate(fermEnd.getDate() + (fermDays ?? 14));
+      const condEnd = new Date(fermEnd);
+      condEnd.setDate(condEnd.getDate() + (condDays ?? 21));
+
+      // Find batches that occupy these vessels during our planned window
+      // A batch occupies its fermenter from fermentation_start to fermentation_start + fermentation_days
+      // and its conditioning vessel from conditioning_start to conditioning_start + conditioning_days
+      const batchesRef = aliasedTable(batches, "ob");
+      const occupyingBatches = await db
+        .select({
+          batchId: batchesRef.id,
+          batchNumber: batchesRef.batchNumber,
+          equipmentId: batchesRef.equipmentId,
+          condEquipmentId: batchesRef.conditioningEquipmentId,
+          fermStart: sql<string>`COALESCE(${batchesRef.fermentationStart}, ${batchesRef.plannedDate}::date)`,
+          fermDays: sql<number>`COALESCE(${batchesRef.fermentationDays}, 14)`,
+          condStart: sql<string>`COALESCE(${batchesRef.conditioningStart}, COALESCE(${batchesRef.fermentationStart}, ${batchesRef.plannedDate}::date) + COALESCE(${batchesRef.fermentationDays}, 14))`,
+          condDays: sql<number>`COALESCE(${batchesRef.conditioningDays}, 21)`,
+        })
+        .from(batchesRef)
+        .where(
+          and(
+            eq(batchesRef.tenantId, tenantId),
+            inArray(batchesRef.currentPhase, ["plan", "preparation", "brewing", "fermentation", "conditioning"]),
+            forBatchId ? ne(batchesRef.id, forBatchId) : undefined,
+            or(
+              sql`${batchesRef.equipmentId} = ANY(${vesselIds})`,
+              sql`${batchesRef.conditioningEquipmentId} = ANY(${vesselIds})`
+            ),
+          )
+        );
+
+      for (const ob of occupyingBatches) {
+        const obFermStart = ob.fermStart ? new Date(ob.fermStart) : null;
+        if (!obFermStart) continue;
+
+        const obFermEnd = new Date(obFermStart);
+        obFermEnd.setDate(obFermEnd.getDate() + (ob.fermDays ?? 14));
+        const obCondStart = ob.condStart ? new Date(ob.condStart) : obFermEnd;
+        const obCondEnd = new Date(obCondStart);
+        obCondEnd.setDate(obCondEnd.getDate() + (ob.condDays ?? 21));
+
+        // Check fermenter overlap: our ferm window vs their ferm window
+        if (ob.equipmentId) {
+          const overlapsFerm = fermStart < obFermEnd && fermEnd > obFermStart;
+          if (overlapsFerm && !conflictMap.has(ob.equipmentId)) {
+            conflictMap.set(ob.equipmentId, {
+              batchNumber: ob.batchNumber,
+              from: obFermStart.toISOString().split("T")[0]!,
+              to: obFermEnd.toISOString().split("T")[0]!,
+            });
+          }
+        }
+
+        // Check conditioning overlap: our cond window vs their cond window
+        if (ob.condEquipmentId) {
+          const overlapsCond = fermEnd < obCondEnd && condEnd > obCondStart;
+          if (overlapsCond && !conflictMap.has(ob.condEquipmentId)) {
+            conflictMap.set(ob.condEquipmentId, {
+              batchNumber: ob.batchNumber,
+              from: obCondStart.toISOString().split("T")[0]!,
+              to: obCondEnd.toISOString().split("T")[0]!,
+            });
+          }
+        }
+      }
+    }
+
+    return rows.map((r): VesselAvailability => {
+      const conflict = conflictMap.get(r.id);
+      return {
+        id: r.id,
+        name: r.name,
+        equipmentType: r.equipmentType,
+        volumeL: r.volumeL,
+        status: r.status ?? "available",
+        currentBatchId: r.currentBatchId,
+        currentBatchNumber: r.currentBatchNumber,
+        conflictBatchNumber: conflict?.batchNumber ?? null,
+        conflictFrom: conflict?.from ?? null,
+        conflictTo: conflict?.to ?? null,
+      };
+    });
   });
 }
 

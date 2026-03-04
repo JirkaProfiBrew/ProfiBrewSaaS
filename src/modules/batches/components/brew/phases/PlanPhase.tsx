@@ -37,15 +37,8 @@ import {
 } from "../../../actions";
 
 // ── Vessel row from getAvailableVessels ─────────────────────
-interface VesselRow {
-  id: string;
-  name: string;
-  equipmentType: string;
-  volumeL: string | null;
-  status: string;
-  currentBatchId: string | null;
-  currentBatchNumber: string | null;
-}
+import type { VesselAvailability } from "../../../actions";
+type VesselRow = VesselAvailability;
 
 // ── Props ────────────────────────────────────────────────────
 interface Props {
@@ -79,10 +72,16 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
 
     async function load(): Promise<void> {
       try {
-        const [brewData, vesselData] = await Promise.all([
-          getBatchBrewData(batchId),
-          getAvailableVessels(),
-        ]);
+        const brewData = await getBatchBrewData(batchId);
+        if (cancelled || !brewData) return;
+        const pd = brewData.batch.plannedDate
+          ? new Date(brewData.batch.plannedDate).toISOString().split("T")[0]
+          : null;
+        const vesselData = await getAvailableVessels(
+          batchId, pd,
+          brewData.batch.fermentationDays ?? 14,
+          brewData.batch.conditioningDays ?? 21
+        );
         if (cancelled || !brewData) return;
 
         setBatch(brewData.batch);
@@ -170,9 +169,11 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
   }
 
   // ── Vessel filtering ─────────────────────────────────────
-  const fermVessels = vessels.filter((v) => v.equipmentType === "fermenter");
+  const fermVessels = vessels.filter((v) =>
+    ["fermenter", "ckt"].includes(v.equipmentType)
+  );
   const condVessels = vessels.filter((v) =>
-    ["conditioning", "brite_tank"].includes(v.equipmentType)
+    ["conditioning", "brite_tank", "ckt"].includes(v.equipmentType)
   );
 
   // ── Loading / empty ──────────────────────────────────────
@@ -412,6 +413,12 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
                 onValueChange={(v): void => {
                   setFermVesselId(v);
                   void savePlanField("equipmentId", v || null);
+                  // CKT auto-fill: if selected vessel is CKT, also set conditioning vessel
+                  const vessel = vessels.find((x) => x.id === v);
+                  if (vessel?.equipmentType === "ckt") {
+                    setCondVesselId(v);
+                    void savePlanField("conditioningEquipmentId", v || null);
+                  }
                 }}
                 disabled={!isEditable}
               >
@@ -424,11 +431,12 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
                   {fermVessels.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.name}
-                      {v.volumeL &&
-                        ` (${Number(v.volumeL).toFixed(0)} L)`}
-                      {v.status !== "available" &&
-                        v.currentBatchId !== batchId &&
-                        ` \u2014 ${t("brew.plan.vesselOccupied")}`}
+                      {v.volumeL && ` (${Number(v.volumeL).toFixed(0)} L)`}
+                      {v.conflictBatchNumber
+                        ? ` \u2014 \u26a0 ${v.conflictBatchNumber} (${v.conflictFrom}\u2013${v.conflictTo})`
+                        : v.status !== "available" && v.currentBatchId !== batchId
+                          ? ` \u2014 ${t("brew.plan.vesselOccupied")}`
+                          : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -457,11 +465,12 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
                   {condVessels.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.name}
-                      {v.volumeL &&
-                        ` (${Number(v.volumeL).toFixed(0)} L)`}
-                      {v.status !== "available" &&
-                        v.currentBatchId !== batchId &&
-                        ` \u2014 ${t("brew.plan.vesselOccupied")}`}
+                      {v.volumeL && ` (${Number(v.volumeL).toFixed(0)} L)`}
+                      {v.conflictBatchNumber
+                        ? ` \u2014 \u26a0 ${v.conflictBatchNumber} (${v.conflictFrom}\u2013${v.conflictTo})`
+                        : v.status !== "available" && v.currentBatchId !== batchId
+                          ? ` \u2014 ${t("brew.plan.vesselOccupied")}`
+                          : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -336,6 +336,7 @@
   "brew": {
     "title": "Brew Management",
     "classicView": "Classic View",
+    "viewRecipe": "Recipe",
     "brewView": "Brew Management",
     "phases": {
       "plan": "Plan",
