@@ -816,13 +816,16 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
       const dbStep = stepTrackingMap.get(stepName);
       if (!dbStep || !dbStep.hopAdditions) return;
 
+      const hop = dbStep.hopAdditions[hopIndex];
+      if (!hop) return;
+
       const updatedHops: HopAddition[] = dbStep.hopAdditions.map((h, i) => {
         if (i === hopIndex) {
-          return {
-            ...h,
-            confirmed: true,
-            actualTime: new Date().toISOString(),
-          };
+          // Toggle: if already confirmed → unconfirm, otherwise confirm
+          if (h.confirmed) {
+            return { ...h, confirmed: false, actualTime: null };
+          }
+          return { ...h, confirmed: true, actualTime: new Date().toISOString() };
         }
         return h;
       });
@@ -1470,7 +1473,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                           <Checkbox
                             className="size-3.5"
                             checked={confirmed}
-                            disabled={confirmed || !dbStep}
+                            disabled={!dbStep}
                             onCheckedChange={(): void => {
                               void handleHopConfirm(pStep.name, hi);
                             }}
