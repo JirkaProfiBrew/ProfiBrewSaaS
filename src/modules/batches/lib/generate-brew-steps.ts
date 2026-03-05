@@ -2,144 +2,181 @@
 
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { batchSteps } from "@/../drizzle/schema/batches";
+import { batches, batchSteps } from "@/../drizzle/schema/batches";
 import { recipeSteps, recipeItems } from "@/../drizzle/schema/recipes";
 import { items } from "@/../drizzle/schema/items";
 import { brewingSystems } from "@/../drizzle/schema/brewing-systems";
-import type { HopAddition } from "../types";
+import { units } from "@/../drizzle/schema/system";
+import type {
+  HopAddition,
+  BrewStepPreviewItem,
+  BrewStepPreviewResult,
+} from "../types";
 
 // Derive the transaction type from the db instance
 type TxType = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-interface BatchRow {
-  recipeId: string | null;
-  brewingSystemId: string | null;
-  plannedDate: Date | null;
-}
+type DbOrTx = typeof db | TxType;
 
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60000);
 }
 
+// ── Shared step-building logic ───────────────────────────────────
+
 /**
- * Generate brew steps when transitioning a batch to the "brewing" phase.
- * Deletes existing batch_steps, then builds the full brew day timeline from:
- *   - recipe steps (mashing)
- *   - brewing system time defaults (preparation, lautering, whirlpool, etc.)
- *   - hop additions from recipe items
+ * Build the full brew day step timeline from recipe + brewing system.
+ * Pure computation — no DB writes. Used by both preview and generate.
  */
-export async function generateBrewSteps(
-  tx: TxType,
+async function buildBrewStepsData(
+  executor: DbOrTx,
   tenantId: string,
-  batchId: string,
-  batch: BatchRow
-): Promise<void> {
-  // 1. Delete existing batch_steps for this batch
-  await tx
-    .delete(batchSteps)
-    .where(
-      and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.batchId, batchId))
-    );
-
-  if (!batch.recipeId) return;
-
-  // 2. Load mashing steps from recipe_steps
+  recipeId: string,
+  brewingSystemId: string | null,
+  brewStart: Date
+): Promise<BrewStepPreviewItem[]> {
+  // 1. Load mashing steps from recipe_steps
   const mashStepTypes = ["mash_in", "rest", "heat", "decoction", "mash_out"];
-  const recipeStepRows = await tx
+  const recipeStepRows = await executor
     .select()
     .from(recipeSteps)
     .where(
       and(
         eq(recipeSteps.tenantId, tenantId),
-        eq(recipeSteps.recipeId, batch.recipeId),
+        eq(recipeSteps.recipeId, recipeId),
         inArray(recipeSteps.stepType, mashStepTypes)
       )
     )
     .orderBy(asc(recipeSteps.sortOrder));
 
-  // 3. Load brewing system
-  const system = batch.brewingSystemId
+  // 2. Load brewing system
+  const system = brewingSystemId
     ? ((
-        await tx
+        await executor
           .select()
           .from(brewingSystems)
           .where(
             and(
               eq(brewingSystems.tenantId, tenantId),
-              eq(brewingSystems.id, batch.brewingSystemId)
+              eq(brewingSystems.id, brewingSystemId)
             )
           )
           .limit(1)
       )[0] ?? null)
     : null;
 
-  // 4. Load recipe boil time
-  const boilStepRows = await tx
+  // 3. Load recipe boil time
+  const boilStepRows = await executor
     .select()
     .from(recipeSteps)
     .where(
       and(
         eq(recipeSteps.tenantId, tenantId),
-        eq(recipeSteps.recipeId, batch.recipeId),
+        eq(recipeSteps.recipeId, recipeId),
         eq(recipeSteps.stepType, "boil")
       )
     )
     .limit(1);
   const boilTimeMin = boilStepRows[0]?.timeMin ?? 90;
 
-  // 5. Load hop additions from recipe_items
-  const hopAdditions = await getHopAdditionsForBatch(
-    tx,
+  // 4. Load hop additions from recipe_items (grouped by useStage)
+  const hopsByStage = await loadHopAdditions(
+    executor,
     tenantId,
-    batch.recipeId,
+    recipeId,
     boilTimeMin
   );
 
-  const steps: Array<typeof batchSteps.$inferInsert> = [];
+  // 4b. Load non-hop additions (malt, fermentable, other) grouped by target step
+  const ingredientsByStep = await loadIngredientAdditions(executor, tenantId, recipeId);
+
+  const steps: BrewStepPreviewItem[] = [];
   let sortOrder = 0;
   let cumulativeMin = 0;
-  const brewStart = batch.plannedDate ?? new Date();
 
-  // 6. Preparation step (from brewing_system)
+  // 5. Preparation step (from brewing_system)
   if (system?.timePreparation) {
     steps.push({
-      tenantId,
-      batchId,
       sortOrder: ++sortOrder,
       stepType: "preparation",
       brewPhase: "preparation",
       name: "Příprava",
       temperatureC: "20",
       timeMin: system.timePreparation,
-      rampTimeMin: 0,
-      stepSource: "system",
+      autoSwitch: false,
       startTimePlan: addMinutes(brewStart, cumulativeMin),
+      hopAdditions: null,
     });
     cumulativeMin += system.timePreparation;
   }
 
-  // 7. Mashing steps (from recipe)
+  // 6. Mashing steps — split into heat (ramp) + hold per recipe step
+  let prevTempC = 20;
   for (const rs of recipeStepRows) {
-    const ramp = rs.rampTimeMin ?? 0;
-    const hold = rs.timeMin ?? 0;
-    steps.push({
-      tenantId,
-      batchId,
-      sortOrder: ++sortOrder,
-      stepType: rs.stepType,
-      brewPhase: "mashing",
-      name: rs.name,
-      temperatureC: rs.temperatureC,
-      timeMin: hold,
-      rampTimeMin: ramp,
-      stepSource: "recipe",
-      autoSwitch: rs.stepType === "rest",
-      startTimePlan: addMinutes(brewStart, cumulativeMin),
-    });
-    cumulativeMin += ramp + hold;
+    const targetTemp = rs.temperatureC ? Number(rs.temperatureC) : prevTempC;
+    const tempDiff = Math.abs(targetTemp - prevTempC);
+
+    // Heat step (ramp to target temperature)
+    if (tempDiff > 0) {
+      const rampMin =
+        (rs.rampTimeMin ?? 0) > 0 ? rs.rampTimeMin! : tempDiff; // 1°C = 1 min fallback
+      steps.push({
+        sortOrder: ++sortOrder,
+        stepType: "heat",
+        brewPhase: "mashing",
+        name: `Ohřev na ${targetTemp}°C`,
+        temperatureC: rs.temperatureC,
+        timeMin: rampMin,
+        autoSwitch: true,
+        startTimePlan: addMinutes(brewStart, cumulativeMin),
+        hopAdditions: null,
+      });
+      cumulativeMin += rampMin;
+    }
+
+    // Hold step (the actual mashing rest/step)
+    const holdMin = rs.timeMin ?? 0;
+    if (holdMin > 0) {
+      steps.push({
+        sortOrder: ++sortOrder,
+        stepType: rs.stepType,
+        brewPhase: "mashing",
+        name: rs.name,
+        temperatureC: rs.temperatureC,
+        timeMin: holdMin,
+        autoSwitch: rs.stepType === "rest" || rs.stepType === "mash_out",
+        startTimePlan: addMinutes(brewStart, cumulativeMin),
+        hopAdditions: null,
+      });
+      cumulativeMin += holdMin;
+    }
+
+    prevTempC = targetTemp;
   }
 
-  // 8. Post-mash steps (from brewing_system)
+  // 6b. Attach mash ingredients (malts + fermentables + others) to the first mashing hold step
+  if (ingredientsByStep.mash.length > 0) {
+    const firstHold = steps.find(
+      (s) => s.brewPhase === "mashing" && s.stepType !== "heat"
+    );
+    if (firstHold) {
+      firstHold.hopAdditions = ingredientsByStep.mash;
+    }
+  }
+
+  // 6c. Attach mash hops to the last mashing hold step
+  if (hopsByStage.mash.length > 0) {
+    for (let i = steps.length - 1; i >= 0; i--) {
+      const s = steps[i];
+      if (s && s.brewPhase === "mashing" && s.stepType !== "heat") {
+        s.hopAdditions = s.hopAdditions
+          ? [...s.hopAdditions, ...hopsByStage.mash]
+          : hopsByStage.mash;
+        break;
+      }
+    }
+  }
+
+  // 7. Post-mash steps (from brewing_system)
   const postMashSteps = [
     {
       stepType: "lautering",
@@ -186,56 +223,178 @@ export async function generateBrewSteps(
   ];
 
   for (const pm of postMashSteps) {
-    const step: typeof batchSteps.$inferInsert = {
-      tenantId,
-      batchId,
+    // Combine hop additions + ingredient additions for this step
+    const parts: HopAddition[] = [];
+
+    if (pm.stepType === "lautering") {
+      parts.push(...hopsByStage.fwh);
+    } else if (pm.stepType === "boil") {
+      // Order: hops (by boil time), then fermentables, then others
+      parts.push(...hopsByStage.boil);
+      parts.push(...ingredientsByStep.boil);
+    } else if (pm.stepType === "whirlpool") {
+      parts.push(...hopsByStage.whirlpool);
+      parts.push(...ingredientsByStep.whirlpool);
+    }
+
+    const stepHops: HopAddition[] | null = parts.length > 0 ? parts : null;
+
+    steps.push({
       sortOrder: ++sortOrder,
       stepType: pm.stepType,
       brewPhase: pm.brewPhase,
       name: pm.name,
       temperatureC: pm.tempC,
       timeMin: pm.timeMin,
-      rampTimeMin: 0,
-      stepSource: "system",
+      autoSwitch: false,
       startTimePlan: addMinutes(brewStart, cumulativeMin),
-    };
-
-    // Attach hop additions to the boil step
-    if (pm.stepType === "boil" && hopAdditions.length > 0) {
-      step.hopAdditions = hopAdditions;
-    }
-
-    steps.push(step);
+      hopAdditions: stepHops,
+    });
     cumulativeMin += pm.timeMin;
   }
 
-  // 9. Bulk insert
-  if (steps.length > 0) {
-    await tx.insert(batchSteps).values(steps);
-  }
+  return steps;
+}
+
+// ── Public API ───────────────────────────────────────────────────
+
+interface BatchRow {
+  recipeId: string | null;
+  brewingSystemId: string | null;
+  plannedDate: Date | null;
 }
 
 /**
- * Build hop additions array from recipe items.
- * Joins recipe_items with items table to get item names.
- * category = 'hop' (per schema: 'malt' | 'hop' | 'yeast' | 'fermentable' | 'other')
+ * Generate brew steps when transitioning a batch to the "brewing" phase.
+ * Deletes existing batch_steps, then builds and inserts the full brew day timeline.
  */
-async function getHopAdditionsForBatch(
+export async function generateBrewSteps(
   tx: TxType,
+  tenantId: string,
+  batchId: string,
+  batch: BatchRow
+): Promise<void> {
+  // Delete existing batch_steps for this batch
+  await tx
+    .delete(batchSteps)
+    .where(
+      and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.batchId, batchId))
+    );
+
+  if (!batch.recipeId) return;
+
+  const brewStart = batch.plannedDate ?? new Date();
+  const previewSteps = await buildBrewStepsData(
+    tx,
+    tenantId,
+    batch.recipeId,
+    batch.brewingSystemId,
+    brewStart
+  );
+
+  if (previewSteps.length === 0) return;
+
+  // Map preview items to DB insert rows
+  const insertRows: Array<typeof batchSteps.$inferInsert> = previewSteps.map(
+    (s) => ({
+      tenantId,
+      batchId,
+      sortOrder: s.sortOrder,
+      stepType: s.stepType,
+      brewPhase: s.brewPhase,
+      name: s.name,
+      temperatureC: s.temperatureC,
+      timeMin: s.timeMin,
+      rampTimeMin: 0,
+      stepSource: s.stepType === "heat" || ["preparation", "lautering", "heat_to_boil", "whirlpool", "transfer", "cleanup"].includes(s.stepType) ? "system" : "recipe",
+      autoSwitch: s.autoSwitch,
+      startTimePlan: s.startTimePlan,
+      hopAdditions: s.hopAdditions,
+    })
+  );
+
+  await tx.insert(batchSteps).values(insertRows);
+}
+
+/**
+ * Build a brew step preview from recipe + brewing system — no DB writes.
+ * Reads directly from db (not a transaction). Works from any batch phase.
+ */
+export async function previewBrewSteps(
+  tenantId: string,
+  batchId: string
+): Promise<BrewStepPreviewResult> {
+  const batchRows = await db
+    .select({
+      recipeId: batches.recipeId,
+      brewingSystemId: batches.brewingSystemId,
+      plannedDate: batches.plannedDate,
+    })
+    .from(batches)
+    .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+    .limit(1);
+
+  const batch = batchRows[0];
+  if (!batch?.recipeId) {
+    return { steps: [], brewStart: new Date(), brewEnd: new Date(), totalMinutes: 0 };
+  }
+
+  const brewStart = batch.plannedDate ?? new Date();
+  const steps = await buildBrewStepsData(
+    db,
+    tenantId,
+    batch.recipeId,
+    batch.brewingSystemId,
+    brewStart
+  );
+
+  const totalMinutes = steps.reduce((sum, s) => sum + s.timeMin, 0);
+  return {
+    steps,
+    brewStart,
+    brewEnd: addMinutes(brewStart, totalMinutes),
+    totalMinutes,
+  };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** Hop additions grouped by useStage for attachment to correct brew steps. */
+interface HopsByStage {
+  mash: HopAddition[];
+  fwh: HopAddition[];
+  boil: HopAddition[];
+  whirlpool: HopAddition[];
+}
+
+/** Stages excluded from the brew day timeline. */
+const SKIP_STAGES = new Set([
+  "dry_hop", "dry_hop_cold", "dry_hop_warm",
+  "fermentation", "conditioning", "bottling",
+]);
+
+/**
+ * Load hop additions from recipe items, grouped by useStage.
+ * Joins with units to convert amountG (recipe unit) → grams.
+ * Excludes dry_hop/fermentation/conditioning stages.
+ */
+async function loadHopAdditions(
+  executor: DbOrTx,
   tenantId: string,
   recipeId: string,
   boilTimeMin: number
-): Promise<HopAddition[]> {
-  // Load hop items from recipe, joining with items table for the name
-  const hopRows = await tx
+): Promise<HopsByStage> {
+  const hopRows = await executor
     .select({
       itemName: items.name,
       amountG: recipeItems.amountG,
       useStage: recipeItems.useStage,
       useTimeMin: recipeItems.useTimeMin,
+      toBaseFactor: units.toBaseFactor,
     })
     .from(recipeItems)
     .leftJoin(items, eq(recipeItems.itemId, items.id))
+    .leftJoin(units, eq(recipeItems.unitId, units.id))
     .where(
       and(
         eq(recipeItems.tenantId, tenantId),
@@ -245,13 +404,136 @@ async function getHopAdditionsForBatch(
     )
     .orderBy(asc(recipeItems.useTimeMin));
 
-  return hopRows
-    .filter((h) => h.useStage === "boil")
-    .map((h) => ({
+  const result: HopsByStage = { mash: [], fwh: [], boil: [], whirlpool: [] };
+
+  for (const h of hopRows) {
+    const stage = h.useStage as string | null;
+    if (!stage || SKIP_STAGES.has(stage)) continue;
+
+    // Convert amount to grams: amountG is in recipe unit, toBaseFactor converts to kg
+    const rawAmount = h.amountG ? Number(h.amountG) : 0;
+    const toBase = h.toBaseFactor ? Number(h.toBaseFactor) : 0.001; // default = grams (0.001 kg)
+    const amountGrams = rawAmount * toBase * 1000; // recipe unit → kg → g
+
+    const base = {
       itemName: h.itemName ?? "Hop",
-      amountG: h.amountG ? Number(h.amountG) : 0,
-      addAtMin: boilTimeMin - (h.useTimeMin ?? 0), // Minutes from start of boil
+      amountG: amountGrams,
       actualTime: null,
       confirmed: false,
-    }));
+    };
+
+    if (stage === "boil") {
+      result.boil.push({ ...base, addAtMin: h.useTimeMin ?? 0 });
+    } else if (stage === "mash") {
+      result.mash.push({ ...base, addAtMin: h.useTimeMin ?? 0 });
+    } else if (stage === "fwh") {
+      result.fwh.push({ ...base, addAtMin: 0 });
+    } else if (stage === "whirlpool") {
+      result.whirlpool.push({ ...base, addAtMin: h.useTimeMin ?? 0 });
+    }
+  }
+
+  // Sort boil hops by boil time DESC (longest boil first)
+  result.boil.sort((a, b) => b.addAtMin - a.addAtMin);
+
+  return result;
+}
+
+/** Non-hop ingredients grouped by target brew step. */
+interface IngredientsByStep {
+  mash: HopAddition[];
+  boil: HopAddition[];
+  whirlpool: HopAddition[];
+}
+
+/** useStage values that map to brew day steps for non-hop ingredients. */
+const INGREDIENT_STAGE_MAP: Record<string, keyof IngredientsByStep> = {
+  mash: "mash",
+  boil: "boil",
+  whirlpool: "whirlpool",
+};
+
+/**
+ * Load non-hop ingredient additions (malt, fermentable, other) from recipe items.
+ * Groups by useStage → target brew step. Skips fermentation/conditioning/bottling stages.
+ * Malts without useStage default to "mash".
+ */
+async function loadIngredientAdditions(
+  executor: DbOrTx,
+  tenantId: string,
+  recipeId: string
+): Promise<IngredientsByStep> {
+  const rows = await executor
+    .select({
+      itemName: items.name,
+      category: recipeItems.category,
+      amountG: recipeItems.amountG,
+      useStage: recipeItems.useStage,
+      toBaseFactor: units.toBaseFactor,
+      unitCategory: units.category,
+      unitSymbol: units.symbol,
+    })
+    .from(recipeItems)
+    .leftJoin(items, eq(recipeItems.itemId, items.id))
+    .leftJoin(units, eq(recipeItems.unitId, units.id))
+    .where(
+      and(
+        eq(recipeItems.tenantId, tenantId),
+        eq(recipeItems.recipeId, recipeId),
+        inArray(recipeItems.category, ["malt", "fermentable", "other"])
+      )
+    )
+    .orderBy(asc(recipeItems.sortOrder));
+
+  // Group by (step, category) for proper ordering
+  const grouped: Record<keyof IngredientsByStep, Record<string, HopAddition[]>> = {
+    mash: {}, boil: {}, whirlpool: {},
+  };
+
+  for (const r of rows) {
+    // Defaults match the UI select defaults in recipe cards:
+    // malt/fermentable → "mash", other → "boil"
+    const defaultStage = r.category === "other" ? "boil" : "mash";
+    const stage = r.useStage ?? defaultStage;
+
+    const target = INGREDIENT_STAGE_MAP[stage];
+    if (!target) continue; // skip fermentation, conditioning, bottling, etc.
+
+    const rawAmount = r.amountG ? Number(r.amountG) : 0;
+    const isWeight = r.unitCategory === "weight" || !r.unitCategory;
+    const cat = r.category ?? "other";
+
+    if (!grouped[target][cat]) grouped[target][cat] = [];
+
+    if (isWeight) {
+      const toBase = r.toBaseFactor ? Number(r.toBaseFactor) : 0.001;
+      grouped[target][cat].push({
+        itemName: r.itemName ?? "Ingredient",
+        amountG: rawAmount * toBase * 1000,
+        addAtMin: 0,
+        actualTime: null,
+        confirmed: false,
+      });
+    } else {
+      grouped[target][cat].push({
+        itemName: r.itemName ?? "Ingredient",
+        amountG: rawAmount,
+        addAtMin: 0,
+        actualTime: null,
+        confirmed: false,
+        unitSymbol: r.unitSymbol,
+      });
+    }
+  }
+
+  // Flatten with category order: malt → fermentable → other
+  const CAT_ORDER = ["malt", "fermentable", "other"];
+  const flatten = (g: Record<string, HopAddition[]>): HopAddition[] =>
+    CAT_ORDER.flatMap((cat) => g[cat] ?? []);
+
+  return {
+    mash: flatten(grouped.mash),
+    boil: flatten(grouped.boil),
+    whirlpool: flatten(grouped.whirlpool),
+  };
 }

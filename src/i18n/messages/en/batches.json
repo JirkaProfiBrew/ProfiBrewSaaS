@@ -15,18 +15,18 @@
     "batchNumber": "Number",
     "itemName": "Beer",
     "recipeName": "Recipe",
-    "status": "Status",
+    "currentPhase": "Phase",
     "brewDate": "Brew Date",
     "equipmentName": "Tank",
     "ogActual": "OG (°P)",
     "actualVolumeL": "Volume (L)"
   },
-  "status": {
-    "planned": "Planned",
+  "phase": {
+    "plan": "Planned",
+    "preparation": "Preparation",
     "brewing": "Brewing",
-    "fermenting": "Fermenting",
+    "fermentation": "Fermenting",
     "conditioning": "Conditioning",
-    "carbonating": "Carbonating",
     "packaging": "Packaging",
     "completed": "Completed",
     "dumped": "Dumped"
@@ -334,7 +334,7 @@
   },
   "filters": {
     "batchNumber": "Batch Number",
-    "status": "Status"
+    "currentPhase": "Phase"
   },
   "brew": {
     "title": "Brew Management",
@@ -351,7 +351,8 @@
       "fermentation": "Fermentation",
       "conditioning": "Conditioning",
       "packaging": "Packaging",
-      "completed": "Completed"
+      "completed": "Completed",
+      "dumped": "Dumped"
     },
     "viewingHistorical": "Viewing historical phase",
     "phaseLocked": "Complete the current phase first",
@@ -423,7 +424,14 @@
       "timelineBoil": "Boil",
       "timelineWhirlpool": "Whirlpool",
       "timelineTransfer": "Cooling & Transfer",
-      "timelineCleanup": "Cleanup"
+      "timelineCleanup": "Cleanup",
+      "viewCompact": "Overview",
+      "viewFull": "Detailed",
+      "fermentationEnd": "End (total)",
+      "fermentationDays": "Fermentation (days)",
+      "conditioningDays": "Conditioning (days)",
+      "autoStep": "Auto",
+      "recalculate": "Recalculate"
     },
     "brewing": {
       "brewSheet": "Brew Sheet",

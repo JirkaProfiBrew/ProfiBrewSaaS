@@ -26,21 +26,21 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-import { transitionBatchStatus, getBottlingLines } from "../actions";
-import type { BatchStatus } from "../types";
-import { BATCH_STATUS_TRANSITIONS } from "../types";
+import { advanceBatchPhase, getBottlingLines } from "../actions";
+import type { BatchPhase } from "../types";
+import { PHASE_TRANSITIONS } from "../types";
 
 // ── Component ──────────────────────────────────────────────────
 
 interface BatchStatusTransitionProps {
   batchId: string;
-  currentStatus: string;
+  currentPhase: string;
   onTransition: () => void;
 }
 
 export function BatchStatusTransition({
   batchId,
-  currentStatus,
+  currentPhase,
   onTransition,
 }: BatchStatusTransitionProps): React.ReactNode {
   const t = useTranslations("batches");
@@ -50,23 +50,23 @@ export function BatchStatusTransition({
   const [dumpReason, setDumpReason] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [noReceiptWarningOpen, setNoReceiptWarningOpen] = useState(false);
-  const [pendingTransition, setPendingTransition] = useState<BatchStatus | null>(null);
+  const [pendingTransition, setPendingTransition] = useState<BatchPhase | null>(null);
 
   const allowedTransitions =
-    BATCH_STATUS_TRANSITIONS[currentStatus as BatchStatus] ?? [];
+    PHASE_TRANSITIONS[currentPhase as BatchPhase] ?? [];
 
   const canDump =
-    currentStatus !== "completed" && currentStatus !== "dumped";
+    currentPhase !== "completed" && currentPhase !== "dumped";
 
   const doTransition = useCallback(
-    async (newStatus: BatchStatus): Promise<void> => {
+    async (targetPhase: BatchPhase): Promise<void> => {
       setIsTransitioning(true);
       try {
-        await transitionBatchStatus(batchId, newStatus);
+        await advanceBatchPhase(batchId, targetPhase);
         toast.success(t("statusTransition.success"));
         onTransition();
       } catch (error: unknown) {
-        console.error("Failed to transition batch status:", error);
+        console.error("Failed to transition batch phase:", error);
         toast.error(t("statusTransition.error"));
       } finally {
         setIsTransitioning(false);
@@ -76,14 +76,13 @@ export function BatchStatusTransition({
   );
 
   const handleTransition = useCallback(
-    async (newStatus: BatchStatus): Promise<void> => {
+    async (targetPhase: BatchPhase): Promise<void> => {
       // Check for no-receipt warning on completion
-      if (newStatus === "completed") {
+      if (targetPhase === "completed") {
         try {
           const { mode, receiptInfo } = await getBottlingLines(batchId);
           if (mode !== "none" && !receiptInfo) {
-            // Show warning — non-blocking
-            setPendingTransition(newStatus);
+            setPendingTransition(targetPhase);
             setNoReceiptWarningOpen(true);
             return;
           }
@@ -92,7 +91,7 @@ export function BatchStatusTransition({
         }
       }
 
-      await doTransition(newStatus);
+      await doTransition(targetPhase);
     },
     [batchId, doTransition]
   );
@@ -110,7 +109,8 @@ export function BatchStatusTransition({
 
     setIsTransitioning(true);
     try {
-      await transitionBatchStatus(batchId, "dumped", dumpReason.trim());
+      // advanceBatchPhase handles "dumped" as a special non-linear transition
+      await advanceBatchPhase(batchId, "dumped");
       toast.success(t("statusTransition.dumped"));
       setDumpDialogOpen(false);
       setDumpReason("");
@@ -126,17 +126,17 @@ export function BatchStatusTransition({
   return (
     <div className="flex items-center gap-2">
       {/* Regular transition buttons */}
-      {allowedTransitions.map((status) => (
+      {allowedTransitions.map((phase) => (
         <Button
-          key={status}
+          key={phase}
           size="sm"
           variant="outline"
           disabled={isTransitioning}
           onClick={() => {
-            void handleTransition(status);
+            void handleTransition(phase);
           }}
         >
-          {t(`status.${status}` as Parameters<typeof t>[0])}
+          {t(`phase.${phase}` as Parameters<typeof t>[0])}
         </Button>
       ))}
 

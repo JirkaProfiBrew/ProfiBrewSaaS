@@ -38,7 +38,6 @@ import type {
   BatchNote,
   BottlingItem,
   BatchDetail as BatchDetailType,
-  BatchStatus,
   BatchPhase,
   PhaseHistory,
   HopAddition,
@@ -48,8 +47,8 @@ import type {
   BatchLotEntry,
   ExciseSummary,
 } from "./types";
-import { BATCH_STATUS_TRANSITIONS, PHASE_TRANSITIONS } from "./types";
-import { generateBrewSteps } from "./lib/generate-brew-steps";
+import { PHASE_TRANSITIONS } from "./types";
+import { generateBrewSteps, previewBrewSteps } from "./lib/generate-brew-steps";
 import type { BatchCreateInput, BatchUpdateInput, BatchMeasurementInput, BottlingItemInput } from "./schema";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -100,8 +99,6 @@ function mapBatchRow(
     batchSeq: row.batchSeq,
     recipeId: row.recipeId,
     itemId: row.itemId,
-    status: row.status,
-    brewStatus: row.brewStatus,
     plannedDate: row.plannedDate,
     brewDate: row.brewDate,
     endBrewDate: row.endBrewDate,
@@ -125,7 +122,7 @@ function mapBatchRow(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     // Brew management fields
-    currentPhase: row.currentPhase ?? null,
+    currentPhase: row.currentPhase ?? "plan",
     phaseHistory: (row.phaseHistory as Batch["phaseHistory"]) ?? null,
     brewMode: row.brewMode ?? null,
     fermentationDays: row.fermentationDays ?? null,
@@ -235,7 +232,7 @@ function mapBottlingRow(
 // ── Filter interface ───────────────────────────────────────────
 
 export interface BatchFilter {
-  status?: string;
+  phase?: string;
   recipeId?: string;
   equipmentId?: string;
   search?: string;
@@ -248,8 +245,8 @@ export async function getBatches(filter?: BatchFilter): Promise<Batch[]> {
   return withTenant(async (tenantId) => {
     const conditions = [eq(batches.tenantId, tenantId)];
 
-    if (filter?.status !== undefined) {
-      conditions.push(eq(batches.status, filter.status));
+    if (filter?.phase !== undefined) {
+      conditions.push(eq(batches.currentPhase, filter.phase));
     }
     if (filter?.recipeId !== undefined) {
       conditions.push(eq(batches.recipeId, filter.recipeId));
@@ -701,7 +698,6 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
           lotNumber: batchNumber.replace(/-/g, ""),
           recipeId: snapshotRecipeId ?? null,
           itemId: data.itemId ?? recipeItemId,
-          status: "planned",
           currentPhase: "plan",
           phaseHistory: {
             plan: {
@@ -770,12 +766,12 @@ export async function updateBatch(
       const current = currentRows[0];
       if (!current) throw new Error("Batch not found");
 
-      const activeStatuses = ["brewing", "fermenting", "conditioning", "carbonating", "packaging"];
+      const activePhases = ["brewing", "fermentation", "conditioning", "packaging"];
 
       // Handle equipment changes
       if (data.equipmentId !== undefined && data.equipmentId !== current.equipmentId) {
         // Release old equipment if batch is actively brewing
-        if (current.equipmentId && activeStatuses.includes(current.status)) {
+        if (current.equipmentId && activePhases.includes(current.currentPhase ?? "")) {
           await tx
             .update(equipment)
             .set({
@@ -792,7 +788,7 @@ export async function updateBatch(
         }
 
         // Claim new equipment if batch is actively brewing
-        if (data.equipmentId && activeStatuses.includes(current.status)) {
+        if (data.equipmentId && activePhases.includes(current.currentPhase ?? "")) {
           await tx
             .update(equipment)
             .set({
@@ -987,7 +983,7 @@ export async function checkOgChangeImpact(
   });
 }
 
-/** Soft delete batch — set status to 'dumped', add a note, release equipment. */
+/** Soft delete batch — set phase to 'dumped', add a note, release equipment. */
 export async function deleteBatch(batchId: string): Promise<Batch> {
   return withTenant(async (tenantId) => {
     return db.transaction(async (tx) => {
@@ -1016,13 +1012,42 @@ export async function deleteBatch(batchId: string): Promise<Batch> {
             )
           );
       }
+      if (current.conditioningEquipmentId) {
+        await tx
+          .update(equipment)
+          .set({
+            status: "available",
+            currentBatchId: null,
+            updatedAt: sql`now()`,
+          })
+          .where(
+            and(
+              eq(equipment.tenantId, tenantId),
+              eq(equipment.id, current.conditioningEquipmentId)
+            )
+          );
+      }
+
+      // Update phaseHistory
+      const history = (current.phaseHistory ?? {}) as PhaseHistory;
+      const currentPhase = (current.currentPhase ?? "plan") as BatchPhase;
+      if (history[currentPhase]) {
+        history[currentPhase]!.completed_at = new Date().toISOString();
+      }
+      history.dumped = {
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      };
 
       // Set batch to dumped
       const updatedRows = await tx
         .update(batches)
         .set({
-          status: "dumped",
+          currentPhase: "dumped",
+          phaseHistory: history,
           endBrewDate: current.endBrewDate ?? sql`now()`,
+          equipmentId: null,
+          conditioningEquipmentId: null,
           updatedAt: sql`now()`,
         })
         .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
@@ -1043,123 +1068,6 @@ export async function deleteBatch(batchId: string): Promise<Batch> {
   });
 }
 
-/**
- * Transition batch status — the core workflow engine.
- * Validates transition, syncs equipment, updates dates.
- */
-export async function transitionBatchStatus(
-  batchId: string,
-  newStatus: BatchStatus,
-  note?: string
-): Promise<Batch> {
-  return withTenant(async (tenantId) => {
-    return db.transaction(async (tx) => {
-      // 1. Load current batch
-      const currentRows = await tx
-        .select()
-        .from(batches)
-        .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
-        .limit(1);
-
-      const current = currentRows[0];
-      if (!current) throw new Error("Batch not found");
-
-      const currentStatus = current.status as BatchStatus;
-
-      // 2. Validate transition
-      const allowedTransitions = BATCH_STATUS_TRANSITIONS[currentStatus] ?? [];
-      if (newStatus !== "dumped" && !allowedTransitions.includes(newStatus)) {
-        throw new Error(
-          `Invalid transition: ${currentStatus} -> ${newStatus}`
-        );
-      }
-
-      // 3. If dumped, note is required
-      if (newStatus === "dumped" && !note) {
-        throw new Error("A note is required when dumping a batch");
-      }
-
-      // 4. Prepare update data
-      const updateData: Record<string, unknown> = {
-        status: newStatus,
-        updatedAt: sql`now()`,
-      };
-
-      // 5. Equipment sync and date management
-      if (newStatus === "brewing") {
-        // Set brew_date if not already set
-        if (!current.brewDate) {
-          updateData.brewDate = sql`now()`;
-        }
-        // Claim equipment
-        if (current.equipmentId) {
-          await tx
-            .update(equipment)
-            .set({
-              status: "in_use",
-              currentBatchId: batchId,
-              updatedAt: sql`now()`,
-            })
-            .where(
-              and(
-                eq(equipment.tenantId, tenantId),
-                eq(equipment.id, current.equipmentId)
-              )
-            );
-        }
-      }
-
-      if (newStatus === "completed" || newStatus === "dumped") {
-        // Set end_brew_date if not already set
-        if (!current.endBrewDate) {
-          updateData.endBrewDate = sql`now()`;
-        }
-        // Release equipment
-        if (current.equipmentId) {
-          await tx
-            .update(equipment)
-            .set({
-              status: "available",
-              currentBatchId: null,
-              updatedAt: sql`now()`,
-            })
-            .where(
-              and(
-                eq(equipment.tenantId, tenantId),
-                eq(equipment.id, current.equipmentId)
-              )
-            );
-        }
-      }
-
-      // 6. Update batch
-      const updatedRows = await tx
-        .update(batches)
-        .set(updateData)
-        .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
-        .returning();
-
-      const updated = updatedRows[0];
-      if (!updated) throw new Error("Failed to transition batch status");
-
-      // 7. If note provided, add to batch_notes
-      if (note) {
-        await tx.insert(batchNotes).values({
-          tenantId,
-          batchId,
-          text: note,
-        });
-      }
-
-      // 8. Post-completion hook (now a no-op — stocking is explicit)
-      if (newStatus === "completed") {
-        await onBatchCompleted(tx, tenantId, batchId, updated);
-      }
-
-      return mapBatchRow(updated);
-    });
-  });
-}
 
 // ── Batch Steps ────────────────────────────────────────────────
 
@@ -1507,7 +1415,7 @@ async function onBatchCompleted(
   _batch: typeof batches.$inferSelect
 ): Promise<void> {
   // Naskladnění se provádí explicitně z tabu Stáčení tlačítkem "Naskladnit".
-  // Equipment release je řešen v transitionBatchStatus() výše.
+  // Equipment release je řešen v advanceBatchPhase() a deleteBatch().
 }
 
 /**
@@ -2073,7 +1981,7 @@ export async function prefillIssueFromBatch(
 
 /**
  * Get batches suitable for production issue selection.
- * Returns batches with status planned/brewing/fermenting/conditioning that have a recipe.
+ * Returns batches in plan/preparation/brewing/fermentation/conditioning phase that have a recipe.
  */
 export async function getBatchOptionsForIssue(): Promise<
   Array<{ value: string; label: string }>
@@ -2093,10 +2001,11 @@ export async function getBatchOptionsForIssue(): Promise<
       .where(
         and(
           eq(batches.tenantId, tenantId),
-          inArray(batches.status, [
-            "planned",
+          inArray(batches.currentPhase, [
+            "plan",
+            "preparation",
             "brewing",
-            "fermenting",
+            "fermentation",
             "conditioning",
           ]),
           sql`${batches.recipeId} IS NOT NULL`
@@ -2907,11 +2816,21 @@ export async function advanceBatchPhase(
       const currentPhase = (batch.currentPhase ?? "plan") as BatchPhase;
 
       // Validate transition
-      const allowed = PHASE_TRANSITIONS[currentPhase];
-      if (!allowed || !allowed.includes(targetPhase)) {
-        throw new Error(
-          `Cannot transition from ${currentPhase} to ${targetPhase}`
-        );
+      const isDumpTransition = targetPhase === "dumped";
+      if (isDumpTransition) {
+        // Allow dumping from any non-terminal phase
+        if (currentPhase === "completed" || currentPhase === "dumped") {
+          throw new Error(
+            `Cannot transition from ${currentPhase} to ${targetPhase}`
+          );
+        }
+      } else {
+        const allowed = PHASE_TRANSITIONS[currentPhase];
+        if (!allowed || !allowed.includes(targetPhase)) {
+          throw new Error(
+            `Cannot transition from ${currentPhase} to ${targetPhase}`
+          );
+        }
       }
 
       // Update phase_history
@@ -2921,7 +2840,7 @@ export async function advanceBatchPhase(
       }
       history[targetPhase] = {
         started_at: new Date().toISOString(),
-        completed_at: null,
+        completed_at: isDumpTransition ? new Date().toISOString() : null,
       };
 
       // Build updates
@@ -2945,6 +2864,42 @@ export async function advanceBatchPhase(
       }
       if (targetPhase === "completed") {
         updates.endBrewDate = sql`CURRENT_TIMESTAMP`;
+      }
+      if (isDumpTransition) {
+        updates.endBrewDate = sql`CURRENT_TIMESTAMP`;
+        updates.equipmentId = null;
+        updates.conditioningEquipmentId = null;
+        // Release equipment
+        if (batch.equipmentId) {
+          await tx
+            .update(equipment)
+            .set({
+              status: "available",
+              currentBatchId: null,
+              updatedAt: sql`now()`,
+            })
+            .where(
+              and(
+                eq(equipment.tenantId, tenantId),
+                eq(equipment.id, batch.equipmentId)
+              )
+            );
+        }
+        if (batch.conditioningEquipmentId) {
+          await tx
+            .update(equipment)
+            .set({
+              status: "available",
+              currentBatchId: null,
+              updatedAt: sql`now()`,
+            })
+            .where(
+              and(
+                eq(equipment.tenantId, tenantId),
+                eq(equipment.id, batch.conditioningEquipmentId)
+              )
+            );
+        }
       }
 
       await tx
@@ -3228,6 +3183,36 @@ export async function updateBatchPlanData(
     const row = rows[0];
     if (!row) throw new Error("BATCH_NOT_FOUND");
     return mapBatchRow(row);
+  });
+}
+
+/** Get brew step preview — computed from recipe + brewing system, no DB writes. */
+export async function getBrewStepPreview(
+  batchId: string
+): Promise<{
+  steps: Array<{
+    sortOrder: number;
+    stepType: string;
+    brewPhase: string;
+    name: string;
+    temperatureC: string | null;
+    timeMin: number;
+    autoSwitch: boolean;
+    startTimePlan: Date;
+    hopAdditions: Array<{
+      itemName: string;
+      amountG: number;
+      addAtMin: number;
+      actualTime: string | null;
+      confirmed: boolean;
+    }> | null;
+  }>;
+  brewStart: Date;
+  brewEnd: Date;
+  totalMinutes: number;
+}> {
+  return withTenant(async (tenantId) => {
+    return previewBrewSteps(tenantId, batchId);
   });
 }
 

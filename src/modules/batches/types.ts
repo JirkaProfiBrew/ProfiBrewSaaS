@@ -4,38 +4,7 @@
  * Drizzle decimal columns return strings — actualVolumeL, ogActual etc. are string | null.
  */
 
-export type BatchStatus =
-  | "planned"
-  | "brewing"
-  | "fermenting"
-  | "conditioning"
-  | "carbonating"
-  | "packaging"
-  | "completed"
-  | "dumped";
-
-export const BATCH_STATUS_TRANSITIONS: Record<BatchStatus, BatchStatus[]> = {
-  planned: ["brewing"],
-  brewing: ["fermenting"],
-  fermenting: ["conditioning"],
-  conditioning: ["carbonating"],
-  carbonating: ["packaging"],
-  packaging: ["completed"],
-  completed: [],
-  dumped: [],
-};
-// ANY status can also transition to "dumped"
-
-export const BATCH_STATUS_COLORS: Record<BatchStatus, string> = {
-  planned: "gray",
-  brewing: "orange",
-  fermenting: "yellow",
-  conditioning: "blue",
-  carbonating: "indigo",
-  packaging: "purple",
-  completed: "green",
-  dumped: "red",
-};
+// BatchStatus removed — use BatchPhase as the single lifecycle field
 
 export interface Batch {
   id: string;
@@ -44,8 +13,7 @@ export interface Batch {
   batchSeq: number | null;
   recipeId: string | null;
   itemId: string | null;
-  status: string;
-  brewStatus: string | null;
+  // status removed — use currentPhase
   plannedDate: Date | null;
   brewDate: Date | null;
   endBrewDate: Date | null;
@@ -69,7 +37,7 @@ export interface Batch {
   createdAt: Date | null;
   updatedAt: Date | null;
   // Brew management fields
-  currentPhase: string | null;
+  currentPhase: string;
   phaseHistory: PhaseHistory | null;
   brewMode: string | null;
   fermentationDays: number | null;
@@ -212,9 +180,10 @@ export type BatchPhase =
   | "fermentation"
   | "conditioning"
   | "packaging"
-  | "completed";
+  | "completed"
+  | "dumped";
 
-/** Allowed phase transitions */
+/** Allowed phase transitions (linear). "dumped" is reachable from any non-terminal phase via special logic. */
 export const PHASE_TRANSITIONS: Record<BatchPhase, BatchPhase[]> = {
   plan: ["preparation"],
   preparation: ["brewing"],
@@ -223,6 +192,7 @@ export const PHASE_TRANSITIONS: Record<BatchPhase, BatchPhase[]> = {
   conditioning: ["packaging"],
   packaging: ["completed"],
   completed: [],
+  dumped: [],
 };
 
 /** Phase route slugs for URL */
@@ -234,6 +204,7 @@ export const PHASE_ROUTES: Record<BatchPhase, string> = {
   conditioning: "cond",
   packaging: "pack",
   completed: "done",
+  dumped: "done",
 };
 
 /** Reverse map: route slug → BatchPhase */
@@ -256,6 +227,29 @@ export interface HopAddition {
   addAtMin: number;
   actualTime: string | null;
   confirmed: boolean;
+  /** Display unit symbol (e.g. "ks"). When set, amountG is in this unit, not grams. */
+  unitSymbol?: string | null;
+}
+
+/** A lightweight step descriptor returned by previewBrewSteps() */
+export interface BrewStepPreviewItem {
+  sortOrder: number;
+  stepType: string;
+  brewPhase: string;
+  name: string;
+  temperatureC: string | null;
+  timeMin: number;
+  autoSwitch: boolean;
+  startTimePlan: Date;
+  hopAdditions: HopAddition[] | null;
+}
+
+/** Result of previewBrewSteps() — full brew day timeline without DB writes */
+export interface BrewStepPreviewResult {
+  steps: BrewStepPreviewItem[];
+  brewStart: Date;
+  brewEnd: Date;
+  totalMinutes: number;
 }
 
 /** Lot tracking entry (input or output) */

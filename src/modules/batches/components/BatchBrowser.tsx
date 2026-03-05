@@ -11,13 +11,13 @@ import { batchBrowserConfig } from "../config";
 import { useBatchList } from "../hooks";
 import type { Batch } from "../types";
 
-// ── In-progress statuses ──────────────────────────────────────
+// ── In-progress phases ──────────────────────────────────────
 
-const IN_PROGRESS_STATUSES = [
+const IN_PROGRESS_PHASES = [
+  "preparation",
   "brewing",
-  "fermenting",
+  "fermentation",
   "conditioning",
-  "carbonating",
   "packaging",
 ];
 
@@ -32,8 +32,7 @@ function batchToRecord(item: Batch): Record<string, unknown> {
     batchSeq: item.batchSeq,
     recipeId: item.recipeId,
     itemId: item.itemId,
-    status: item.status,
-    brewStatus: item.brewStatus,
+    currentPhase: item.currentPhase,
     plannedDate: item.plannedDate,
     brewDate: item.brewDate,
     endBrewDate: item.endBrewDate,
@@ -68,13 +67,16 @@ function matchesSearch(item: Batch, search: string): boolean {
   );
 }
 
-/** Apply quick filter. Special handling for "inProgress" to match multiple statuses. */
+/** Apply quick filter. Special handling for "inProgress" and "planned" to match multiple phases. */
 function matchesQuickFilter(item: Batch, quickFilterKey: string): boolean {
   if (!quickFilterKey || quickFilterKey === "all") return true;
 
-  // Special "inProgress" filter matches multiple statuses
   if (quickFilterKey === "inProgress") {
-    return IN_PROGRESS_STATUSES.includes(item.status);
+    return IN_PROGRESS_PHASES.includes(item.currentPhase);
+  }
+
+  if (quickFilterKey === "planned") {
+    return item.currentPhase === "plan" || item.currentPhase === "preparation";
   }
 
   const quickFilter = batchBrowserConfig.quickFilters?.find(
@@ -82,10 +84,10 @@ function matchesQuickFilter(item: Batch, quickFilterKey: string): boolean {
   );
   if (!quickFilter) return true;
 
-  const filterValue = quickFilter.filter["status"];
+  const filterValue = quickFilter.filter["phase"];
   if (!filterValue) return true;
 
-  return item.status === filterValue;
+  return item.currentPhase === filterValue;
 }
 
 /** Apply parametric filters from the filter panel. */
@@ -156,15 +158,15 @@ export function BatchBrowser(): React.ReactNode {
   const { data: batchData, isLoading } = useBatchList();
 
   // Badge value label maps
-  const statusLabels: Record<string, string> = {
-    planned: t("status.planned"),
-    brewing: t("status.brewing"),
-    fermenting: t("status.fermenting"),
-    conditioning: t("status.conditioning"),
-    carbonating: t("status.carbonating"),
-    packaging: t("status.packaging"),
-    completed: t("status.completed"),
-    dumped: t("status.dumped"),
+  const phaseLabels: Record<string, string> = {
+    plan: t("phase.plan"),
+    preparation: t("phase.preparation"),
+    brewing: t("phase.brewing"),
+    fermentation: t("phase.fermentation"),
+    conditioning: t("phase.conditioning"),
+    packaging: t("phase.packaging"),
+    completed: t("phase.completed"),
+    dumped: t("phase.dumped"),
   };
 
   // Build localized config with translated labels
@@ -173,7 +175,7 @@ export function BatchBrowser(): React.ReactNode {
       ...batchBrowserConfig,
       title: t("title"),
       columns: batchBrowserConfig.columns.map((col) => {
-        const valueLabels = col.key === "status" ? statusLabels : undefined;
+        const valueLabels = col.key === "currentPhase" ? phaseLabels : undefined;
         return { ...col, label: t(`columns.${col.key}` as Parameters<typeof t>[0]), valueLabels };
       }),
       quickFilters: batchBrowserConfig.quickFilters?.map((qf) => ({
@@ -185,7 +187,7 @@ export function BatchBrowser(): React.ReactNode {
         label: t(`filters.${f.key}` as Parameters<typeof t>[0]),
         options: f.options?.map((opt) => {
           const translationKey =
-            f.key === "status" ? `status.${opt.value}` : null;
+            f.key === "currentPhase" ? `phase.${opt.value}` : null;
           return {
             ...opt,
             label: translationKey

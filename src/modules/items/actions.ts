@@ -510,7 +510,7 @@ export async function getItemsWithStock(
         and(
           eq(recipeItems.tenantId, tenantId),
           inArray(recipeItems.itemId, itemIds),
-          sql`${batches.status} IN ('planned', 'brewing', 'fermenting', 'conditioning')`,
+          sql`${batches.currentPhase} IN ('plan', 'preparation', 'brewing', 'fermentation', 'conditioning')`,
           sql`${batches.recipeId} IS NOT NULL`
         )
       );
@@ -916,7 +916,7 @@ export async function getDemandBreakdown(
       .where(
         and(
           eq(batches.tenantId, tenantId),
-          sql`${batches.status} IN ('planned', 'brewing', 'fermenting', 'conditioning')`,
+          sql`${batches.currentPhase} IN ('plan', 'preparation', 'brewing', 'fermentation', 'conditioning')`,
           sql`${batches.recipeId} IS NOT NULL`
         )
       );

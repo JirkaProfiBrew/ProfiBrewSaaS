@@ -5,6 +5,64 @@
 
 ---
 
+## [0.7.10] — Sprint 7 Patch: Brew Steps Timeline & Ingredients
+**Období:** T16 (05.03.2026)
+**Status:** ✅ Done
+
+### Generování kroků vaření — refactor
+- [x] Extrakce `buildBrewStepsData()` — sdílená logika pro preview i generate
+- [x] Split rmutovacích kroků na heat (ohřev) + hold (rast) — 1°C = 1 min fallback
+- [x] `previewBrewSteps()` — preview bez DB zápisů, funguje z libovolné fáze
+- [x] `getBrewStepPreview()` server action
+
+### BrewStepTimeline — nová komponenta
+- [x] Vertikální timeline s barevnými fázemi (amber=rmut, orange=var, blue=post-boil)
+- [x] Heat kroky s opacity-70, autoSwitch značka
+- [x] Toggle Přehled/Detailní v PrepPhase
+- [x] Datetime input + Přepočítat (uloží nový `plannedDate`, přepočítá timeline)
+
+### Suroviny v timeline
+- [x] Chmele dle fáze: mash→poslední rmut step, fwh→scezování, boil→chmelovar, whirlpool→whirlpool
+- [x] Boil hops: zobrazení s časem varu (useTimeMin), řazení DESC (nejdelší var první)
+- [x] Slady: první rmutovací krok
+- [x] Fermentables + Others: dle nastavené fáze (mash/boil/whirlpool), skip kvašení/ležení/stáčení
+- [x] Řazení surovin v rámci kroku: malt → fermentable → other; u chmelovaru: hop → fermentable → other
+- [x] Konverze jednotek: váhové přes `units.toBaseFactor` → g/kg, neváhové zachovají originální jednotku
+- [x] Default fáze pro Others: "boil" (odpovídá UI defaultu OtherCard)
+
+### PlanPhase opravy
+- [x] Celkový čas varu z `previewBrewSteps()` místo manuálního výpočtu
+- [x] `Promise.allSettled` pro nezávislé načítání (vessels, preview, ingredients)
+
+### Timezone fix
+- [x] Oprava `toISOString().slice(0,16)` → lokální čas pro datetime-local input (PrepPhase + PlanPhase)
+
+---
+
+## [0.7.9] — Sprint 7 Patch: Unifikace batch lifecycle
+**Období:** T16 (05.03.2026)
+**Status:** ✅ Done
+
+### Sjednocení lifecycle — jeden číselník `currentPhase`
+- [x] Odstraněn duplicitní sloupec `status` (dříve 8 hodnot) — nyní se používá výhradně `currentPhase` (8 hodnot: plan, preparation, brewing, fermentation, conditioning, packaging, completed, dumped)
+- [x] Migrace 0026: backfill `current_phase` z `status`, `status` nullable, nový index `idx_batches_tenant_phase`
+- [x] Přidán stav `dumped` (zlikvidováno) dosažitelný z jakéhokoli aktivního stavu, uvolní přiřazená zařízení
+- [x] Smazán `transitionBatchStatus()` — vše přes `advanceBatchPhase()`
+- [x] BatchBrowser: filtry a badge přes `currentPhase` místo `status`
+- [x] BatchStatusBadge + BatchStatusTransition: přepsáno na phase hodnoty
+- [x] BatchPhaseBar: podpora `dumped` (Skull ikona, červený styl)
+- [x] items/actions.ts: demand queries přes `currentPhase` místo `status`
+- [x] i18n: sekce `phase` s 8 hodnotami (CS + EN)
+
+### Další opravy
+- [x] Zaokrouhlení položek na výdejce (r3 rounding + fmtQty display)
+- [x] Navigace zpět z výdejky do brew view (param `&from=`)
+- [x] Navigace zpět z receptu do správné fáze brew view (param `&brewPhase=`)
+- [x] PrepPhase: širší tabulka surovin, sloupec "Originál", odkazy na výdejky, kompaktní kroky vaření
+- [x] Ikony: ScrollText (recepty), Flame (šarže), Cog (varní systémy)
+
+---
+
 ## [0.7.8] — Sprint 7 Patch: Brew Lifecycle Opravy
 **Období:** T16 (04.03.2026)
 **Status:** ✅ Done

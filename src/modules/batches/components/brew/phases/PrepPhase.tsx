@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -11,10 +11,14 @@ import {
   AlertTriangle,
   Package,
   ExternalLink,
+  List,
+  LayoutList,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +49,7 @@ import type {
   BatchIngredientRow,
   BatchPhase,
   ProductionIssueInfo,
+  BrewStepPreviewResult,
 } from "../../../types";
 import {
   getBatchBrewData,
@@ -53,7 +58,10 @@ import {
   createProductionIssue,
   advanceBatchPhase,
   getBrewingSystemForBatch,
+  getBrewStepPreview,
+  updateBatchPlanData,
 } from "../../../actions";
+import { BrewStepTimeline } from "../BrewStepTimeline";
 
 // ── Brewing system shape (from getBrewingSystemForBatch) ────
 interface BrewingSystem {
@@ -110,6 +118,9 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
   const [hasConfirmedIssue, setHasConfirmedIssue] = useState(false);
   const [prodIssues, setProdIssues] = useState<ProductionIssueInfo[]>([]);
   const [brewSystem, setBrewSystem] = useState<BrewingSystem | null>(null);
+  const [brewPreview, setBrewPreview] = useState<BrewStepPreviewResult | null>(null);
+  const [viewMode, setViewMode] = useState<"compact" | "full">("compact");
+  const [brewStartInput, setBrewStartInput] = useState("");
   const [loading, setLoading] = useState(true);
 
   // ── Load data ────────────────────────────────────────────
@@ -118,11 +129,12 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
 
     async function load(): Promise<void> {
       try {
-        const [brewData, batchIngr, issues, sys] = await Promise.all([
+        const [brewData, batchIngr, issues, sys, preview] = await Promise.all([
           getBatchBrewData(batchId),
           getBatchIngredients(batchId),
           getProductionIssues(batchId),
           getBrewingSystemForBatch(batchId),
+          getBrewStepPreview(batchId),
         ]);
         if (cancelled || !brewData) return;
 
@@ -130,7 +142,15 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         setSteps(brewData.steps);
         setIngredients(batchIngr);
         setBrewSystem(sys);
+        setBrewPreview(preview);
         setProdIssues(issues);
+
+        // Init brew start input from batch plannedDate (local time for datetime-local input)
+        if (brewData.batch.plannedDate) {
+          const d = new Date(brewData.batch.plannedDate);
+          const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+          setBrewStartInput(local.toISOString().slice(0, 16));
+        }
 
         // Check if there's a confirmed production issue (ingredient issue-out)
         const hasConfirmed = issues.some(
@@ -238,17 +258,26 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
     });
   }
 
-  // ── Total step time (includes brewing system stages) ─────
-  const recipeStepTime = steps.reduce(
-    (sum, s) => sum + (s.timeMin ?? 0),
-    0
-  );
-  const totalStepTime = recipeStepTime
-    + (brewSystem?.timePreparation ?? 0)
-    + (brewSystem?.timeLautering ?? 0)
-    + (brewSystem?.timeWhirlpool ?? 0)
-    + (brewSystem?.timeTransfer ?? 0)
-    + (brewSystem?.timeCleanup ?? 0);
+  // ── Recalculate brew steps with new start time ──────────
+  const handleRecalculate = useCallback((): void => {
+    startTransition(async () => {
+      try {
+        // Save the new planned date
+        await updateBatchPlanData(batchId, {
+          plannedDate: brewStartInput || null,
+        });
+        // Re-fetch preview with updated date
+        const preview = await getBrewStepPreview(batchId);
+        setBrewPreview(preview);
+        router.refresh();
+      } catch {
+        toast.error("Failed to recalculate");
+      }
+    });
+  }, [batchId, brewStartInput, router, startTransition]);
+
+  // ── Total step time (from preview) ──────────────────────
+  const totalStepTime = brewPreview?.totalMinutes ?? 0;
 
   // ── Loading / empty ──────────────────────────────────────
   if (loading) {
@@ -444,109 +473,131 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
             </CardContent>
           </Card>
 
-          {/* Timeline Preview (E2) — compact */}
+          {/* Timeline Preview — compact or full */}
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-3">
               <div className="flex items-center justify-between">
                 <CardTitle>{t("brew.prep.stepsPreview")}</CardTitle>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={viewMode === "compact" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setViewMode("compact")}
+                  >
+                    <List className="size-3.5 mr-1" />
+                    {t("brew.prep.viewCompact")}
+                  </Button>
+                  <Button
+                    variant={viewMode === "full" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setViewMode("full")}
+                  >
+                    <LayoutList className="size-3.5 mr-1" />
+                    {t("brew.prep.viewFull")}
+                  </Button>
+                </div>
+              </div>
+              {/* Brew start datetime + recalculate */}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="datetime-local"
+                  value={brewStartInput}
+                  onChange={(e) => setBrewStartInput(e.target.value)}
+                  className="h-8 text-sm w-auto"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0"
+                  onClick={handleRecalculate}
+                  disabled={isPending}
+                >
+                  <RefreshCw className={`size-3.5 mr-1.5 ${isPending ? "animate-spin" : ""}`} />
+                  {t("brew.prep.recalculate")}
+                </Button>
                 {(() => {
+                  const end = brewPreview?.brewEnd
+                    ? new Date(brewPreview.brewEnd)
+                    : null;
                   const timeFmt = (d: Date): string =>
                     d.toLocaleTimeString(locale === "cs" ? "cs-CZ" : "en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
                     });
-                  const start = batch.plannedDate
-                    ? new Date(batch.plannedDate)
-                    : null;
-                  const end = start
-                    ? new Date(start.getTime() + totalStepTime * 60000)
-                    : null;
                   return (
-                    <span className="text-sm text-muted-foreground">
-                      {start ? timeFmt(start) : "\u2014"}
-                      {" \u2013 "}
+                    <span className="text-sm text-muted-foreground ml-auto whitespace-nowrap">
+                      {"\u2192 "}
                       {end ? timeFmt(end) : "\u2014"}
-                      {" "}({totalStepTime} min)
+                      {" "}({totalStepTime >= 60
+                        ? `${Math.floor(totalStepTime / 60)}h ${totalStepTime % 60}min`
+                        : `${totalStepTime} min`})
                     </span>
                   );
                 })()}
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        {t("brew.prep.stepName")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("brew.prep.stepTime")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(() => {
-                      interface TimelineStep {
-                        name: string;
-                        durationMin: number;
-                        temp?: string;
-                      }
-
-                      const timeline: TimelineStep[] = [];
-
-                      const addStep = (name: string, min: number, temp?: string): void => {
-                        if (min <= 0) return;
-                        timeline.push({ name, durationMin: min, temp });
-                      };
-
-                      // 1. Preparation
-                      addStep(t("brew.prep.timelinePrep"), brewSystem?.timePreparation ?? 0);
-
-                      // 2. Mashing steps (from recipe)
-                      for (const step of steps.filter((s) => s.brewPhase === "mashing")) {
-                        addStep(
-                          step.name,
-                          step.timeMin ?? 0,
-                          step.temperatureC ? `${Number(step.temperatureC).toFixed(0)}°C` : undefined
-                        );
-                      }
-
-                      // 3. Lautering
-                      addStep(t("brew.prep.timelineLautering"), brewSystem?.timeLautering ?? 0);
-
-                      // 4. Boil
-                      const boilStep = steps.find((s) => s.stepType === "boil");
-                      addStep(t("brew.prep.timelineBoil"), boilStep?.timeMin ?? 60);
-
-                      // 5. Whirlpool
-                      addStep(t("brew.prep.timelineWhirlpool"), brewSystem?.timeWhirlpool ?? 0);
-
-                      // 6. Transfer + Cooling
-                      addStep(t("brew.prep.timelineTransfer"), brewSystem?.timeTransfer ?? 0);
-
-                      // 7. Cleanup
-                      addStep(t("brew.prep.timelineCleanup"), brewSystem?.timeCleanup ?? 0);
-
-                      return timeline.map((tl, idx) => (
+              {viewMode === "compact" ? (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          {t("brew.prep.stepName")}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t("brew.prep.stepTime")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(brewPreview?.steps ?? []).map((step, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="text-sm py-1.5">
-                            {tl.name}
-                            {tl.temp && (
+                            {step.name}
+                            {step.temperatureC && (
                               <span className="text-muted-foreground ml-1">
-                                ({tl.temp})
+                                ({Number(step.temperatureC).toFixed(0)}°C)
+                              </span>
+                            )}
+                            {step.autoSwitch && (
+                              <span className="text-xs text-muted-foreground ml-1.5">
+                                Auto
                               </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right text-sm py-1.5">
-                            {tl.durationMin} min
+                            {step.timeMin} min
                           </TableCell>
                         </TableRow>
-                      ));
-                    })()}
-                  </TableBody>
-                </Table>
-              </div>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell className="font-medium">
+                          {t("brew.prep.totalTime")}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {totalStepTime >= 60
+                            ? `${Math.floor(totalStepTime / 60)}h ${totalStepTime % 60}min`
+                            : `${totalStepTime} min`}
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              ) : brewPreview ? (
+                <BrewStepTimeline
+                  steps={brewPreview.steps}
+                  brewStart={new Date(brewPreview.brewStart)}
+                  brewEnd={new Date(brewPreview.brewEnd)}
+                  totalMinutes={brewPreview.totalMinutes}
+                  fermentationDays={batch.fermentationDays ?? 14}
+                  conditioningDays={batch.conditioningDays ?? 21}
+                />
+              ) : null}
             </CardContent>
           </Card>
         </div>

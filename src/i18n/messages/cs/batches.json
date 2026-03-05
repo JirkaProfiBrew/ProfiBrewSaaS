@@ -15,18 +15,18 @@
     "batchNumber": "Číslo",
     "itemName": "Pivo",
     "recipeName": "Recept",
-    "status": "Status",
+    "currentPhase": "Fáze",
     "brewDate": "Datum vaření",
     "equipmentName": "Tank",
     "ogActual": "OG (°P)",
     "actualVolumeL": "Objem (L)"
   },
-  "status": {
-    "planned": "Naplánováno",
+  "phase": {
+    "plan": "Naplánováno",
+    "preparation": "Příprava",
     "brewing": "Vaří se",
-    "fermenting": "Kvasí",
+    "fermentation": "Kvasí",
     "conditioning": "Dokvašuje",
-    "carbonating": "Sycení",
     "packaging": "Stáčení",
     "completed": "Dokončeno",
     "dumped": "Zlikvidováno"
@@ -334,7 +334,7 @@
   },
   "filters": {
     "batchNumber": "Číslo várky",
-    "status": "Status"
+    "currentPhase": "Fáze"
   },
   "brew": {
     "title": "Řízení varu",
@@ -351,7 +351,8 @@
       "fermentation": "Kvašení",
       "conditioning": "Ležení",
       "packaging": "Stáčení",
-      "completed": "Hotovo"
+      "completed": "Hotovo",
+      "dumped": "Zlikvidováno"
     },
     "viewingHistorical": "Zobrazujete historickou fázi",
     "phaseLocked": "Nejprve dokončete aktuální fázi",
@@ -423,7 +424,14 @@
       "timelineBoil": "Chmelovar",
       "timelineWhirlpool": "Whirlpool",
       "timelineTransfer": "Chlazení a transfer",
-      "timelineCleanup": "Úklid"
+      "timelineCleanup": "Úklid",
+      "viewCompact": "Přehled",
+      "viewFull": "Detailní",
+      "fermentationEnd": "Konec (celkem)",
+      "fermentationDays": "Kvašení (dny)",
+      "conditioningDays": "Ležení (dny)",
+      "autoStep": "Auto",
+      "recalculate": "Přepočítat"
     },
     "brewing": {
       "brewSheet": "Varný list",

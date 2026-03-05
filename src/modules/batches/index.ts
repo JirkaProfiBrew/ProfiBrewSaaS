@@ -10,6 +10,8 @@ export type {
   BatchMeasurement,
   BatchNote,
   BottlingItem,
-  BatchStatus,
+  BatchPhase,
+  BrewStepPreviewItem,
+  BrewStepPreviewResult,
   BatchDetail as BatchDetailData,
 } from "./types";

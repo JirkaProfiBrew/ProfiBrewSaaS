@@ -428,10 +428,10 @@ export function BatchDetail({ id }: BatchDetailProps): React.ReactNode {
         {/* Status badge and transition buttons */}
         {batch && (
           <div className="flex items-center gap-3 mb-4">
-            <BatchStatusBadge status={batch.status} />
+            <BatchStatusBadge phase={batch.currentPhase} />
             <BatchStatusTransition
               batchId={id}
-              currentStatus={batch.status}
+              currentPhase={batch.currentPhase}
               onTransition={handleTransition}
             />
             <Link href={`/${locale}/brewery/batches/${id}/brew`}>

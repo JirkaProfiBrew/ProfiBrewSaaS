@@ -10,6 +10,7 @@ import {
   Beer,
   GlassWater,
   CheckCircle2,
+  Skull,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ const PHASES: Array<{
   { key: "conditioning",  icon: Beer,          route: "cond" },
   { key: "packaging",     icon: GlassWater,    route: "pack" },
   { key: "completed",     icon: CheckCircle2,  route: "done" },
+  { key: "dumped",        icon: Skull,         route: "done" },
 ];
 
 // Phase index for ordering
@@ -47,13 +49,21 @@ const PHASE_INDEX: Record<BatchPhase, number> = {
   conditioning: 4,
   packaging: 5,
   completed: 6,
+  dumped: 7,
 };
 
 function getStepState(
   phaseKey: BatchPhase,
   currentPhase: BatchPhase,
   _phaseHistory: PhaseHistory
-): "completed" | "current" | "locked" {
+): "completed" | "current" | "locked" | "dumped" {
+  if (currentPhase === "dumped") {
+    if (phaseKey === "dumped") return "dumped";
+    // All phases before dumped are "completed" (they happened before the dump)
+    if (phaseKey === "completed") return "locked";
+    return "completed";
+  }
+  if (phaseKey === "dumped") return "locked";
   if (phaseKey === currentPhase) return "current";
   if (PHASE_INDEX[phaseKey] < PHASE_INDEX[currentPhase]) return "completed";
   return "locked";
@@ -93,7 +103,12 @@ export function BatchPhaseBar({
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex items-center gap-1 py-2 overflow-x-auto">
-        {PHASES.map((phase, idx) => {
+        {PHASES.filter((phase) => {
+          // Hide "dumped" when batch is not dumped; hide "completed" when batch is dumped
+          if (phase.key === "dumped" && currentPhase !== "dumped") return false;
+          if (phase.key === "completed" && currentPhase === "dumped") return false;
+          return true;
+        }).map((phase, idx) => {
           const state = getStepState(phase.key, currentPhase, phaseHistory);
           const Icon = phase.icon;
           const isActive = pathname.includes(`/brew/${phase.route}`);
@@ -121,6 +136,8 @@ export function BatchPhaseBar({
                         (isActive
                           ? "bg-primary text-primary-foreground"
                           : "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"),
+                      state === "dumped" &&
+                        "bg-red-100 text-red-700 cursor-default",
                       state === "locked" &&
                         "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                     )}

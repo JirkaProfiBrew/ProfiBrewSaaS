@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 04.03.2026 | Poslední sprint: Sprint 7 Patch (Brew Lifecycle Opravy)
+### Aktualizováno: 05.03.2026 | Poslední sprint: Sprint 7 Patch (Brew Lifecycle Opravy)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -299,11 +299,12 @@ UI receptury je třísekční designer s aktivními designovými slidery a real-
 - Vytvoření: vybrat recepturu → systém vytvoří snapshot receptury (kopie recipe + recipe_items + recipe_steps, status=`batch_snapshot`) a naváže ho na šarži
 - Z detailu šarže odkaz "Řízení varu" → otevře Brew Management UI
 
-**Status workflow (7 fází):**
+**Lifecycle (jeden číselník `currentPhase`, 8 hodnot):**
 ```
 plan → preparation → brewing → fermentation → conditioning → packaging → completed
+                                    ↘ dumped (z jakéhokoli non-terminal stavu)
 ```
-Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má definované povolené cílové fáze. Historie přechodů se ukládá jako `phaseHistory` (JSONB) na záznamu šarže s timestampy.
+Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má definované povolené cílové fáze. Speciální stav `dumped` (zlikvidováno) je dosažitelný z jakéhokoli aktivního stavu a uvolní přiřazená zařízení. Historie přechodů se ukládá jako `phaseHistory` (JSONB) na záznamu šarže s timestampy. Dříve existoval oddělelný sloupec `status` — ten je nyní deprecated (nullable, nepoužívá se).
 
 **Detail šarže (taby):**
 - Přehled: číslo várky, recept, pivo (item), stav, datum vaření, tank, sládek
@@ -353,13 +354,19 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 - 3-sloupcový layout: náhled receptury | plánování (datum vaření, fermentace dny, dokvašování dny) | výběr nádoby
 - Server action `getAvailableVessels` — seznam dostupných tanků/fermentorů, filtrovaných dle provozovny (shopId) a timeline dostupnosti (žádný overlap s jinými várkami)
 - Server action `updateBatchPlanData` — uložení plánovacích dat
-- Odhad celkového času varu (suma brewing system stages + rmutovací profil) s předpokládaným koncem
+- Odhad celkového času varu (`previewBrewSteps()` — split heat/hold kroky + post-mash kroky) s předpokládaným koncem
 - CKT tanky dostupné ve výběru nádob; autofill ležení při výběru CKT pro kvašení
 
 **F2 Příprava (PrepPhase):**
 - Kontrola skladu surovin — porovnání potřebného vs dostupného množství, sloupec "Skladem" s barevným zvýrazněním nedostatku
 - Výpočty vody (objem, teplota)
-- Timeline kroků vaření s časy začátku/konce (příprava → rmut → scezování → chmelovar → whirlpool → transfer → úklid), odvozeno od `planned_start`
+- Kroky vaření — dva režimy: Přehled (kompaktní tabulka) / Detailní (BrewStepTimeline s barevnými fázemi)
+  - Datetime input pro čas zahájení + tlačítko Přepočítat (uloží nový čas, přepočítá celou timeline)
+  - Timeline: příprava → rmutování (heat+hold split) → scezování → ohřev → chmelovar → whirlpool → transfer → úklid
+  - Suroviny u kroků: slady a zkvasitelné u prvního rmutovacího kroku, chmele dle fáze (mash/fwh/boil/whirlpool), Others a Fermentables dle nastavené fáze
+  - Hop additions: boil hops zobrazeny s časem varu (90 min, 60 min...), ostatní bez časování
+  - Konverze jednotek: váhové přes `units.toBaseFactor` → g/kg, neváhové (ks, ml) s originální jednotkou
+  - Summary: konec varu, kvašení/ležení dny, odhadovaný konec celkem
 - Inline poznámky — textarea pro přidání poznámky + chronologický seznam existujících poznámek
 - Výdej materiálu — napojení na existující material issue flow; částečný/opakovaný výdej (tlačítko "Vydat zbývající"), badge "Suroviny vydány částečně"
 - Sloučení duplicitních řádků surovin dle item_id s rounding (max 3 des. místa)

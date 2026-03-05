@@ -16,7 +16,7 @@ export const batchBrowserConfig: DataBrowserConfig = {
       titleField: "batchNumber",
       subtitleField: "itemName",
       metricFields: [
-        { key: "status", label: "Status" },
+        { key: "currentPhase", label: "Fáze" },
         { key: "ogActual", label: "OG" },
         { key: "actualVolumeL", label: "Objem (L)" },
       ],
@@ -27,7 +27,7 @@ export const batchBrowserConfig: DataBrowserConfig = {
     { key: "batchNumber", label: "Cislo", type: "link", sortable: true },
     { key: "itemName", label: "Pivo", type: "text", sortable: true },
     { key: "recipeName", label: "Recept", type: "text", sortable: true },
-    { key: "status", label: "Status", type: "badge", sortable: true },
+    { key: "currentPhase", label: "Fáze", type: "badge", sortable: true },
     { key: "brewDate", label: "Datum vareni", type: "date", sortable: true },
     { key: "equipmentName", label: "Tank", type: "text", sortable: true },
     { key: "ogActual", label: "OG", type: "number", sortable: true },
@@ -36,24 +36,24 @@ export const batchBrowserConfig: DataBrowserConfig = {
 
   quickFilters: [
     { key: "all", label: "Vse", filter: {} },
-    { key: "inProgress", label: "Probihajici", filter: { status: "in_progress" } },
-    { key: "planned", label: "Naplanovane", filter: { status: "planned" } },
-    { key: "completed", label: "Dokoncene", filter: { status: "completed" } },
-    { key: "dumped", label: "Zlikvidovane", filter: { status: "dumped" } },
+    { key: "inProgress", label: "Probihajici", filter: { phase: "in_progress" } },
+    { key: "planned", label: "Naplanovane", filter: { phase: "plan" } },
+    { key: "completed", label: "Dokoncene", filter: { phase: "completed" } },
+    { key: "dumped", label: "Zlikvidovane", filter: { phase: "dumped" } },
   ],
 
   filters: [
     { key: "batchNumber", label: "Cislo varky", type: "text" },
     {
-      key: "status",
-      label: "Status",
+      key: "currentPhase",
+      label: "Fáze",
       type: "select",
       options: [
-        { value: "planned", label: "Naplanovano" },
+        { value: "plan", label: "Naplanovano" },
+        { value: "preparation", label: "Priprava" },
         { value: "brewing", label: "Vari se" },
-        { value: "fermenting", label: "Kvasi" },
+        { value: "fermentation", label: "Kvasi" },
         { value: "conditioning", label: "Dokvasuje" },
-        { value: "carbonating", label: "Syceni" },
         { value: "packaging", label: "Staceni" },
         { value: "completed", label: "Dokonceno" },
         { value: "dumped", label: "Zlikvidovano" },

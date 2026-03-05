@@ -31,8 +31,7 @@ export const batches = pgTable(
     batchSeq: integer("batch_seq"),
     recipeId: uuid("recipe_id").references(() => recipes.id),
     itemId: uuid("item_id").references(() => items.id),
-    status: text("status").notNull().default("planned"), // 'planned' | 'brewing' | 'fermenting' | 'conditioning' | 'carbonating' | 'packaging' | 'completed' | 'dumped'
-    brewStatus: text("brew_status"),
+    status: text("status"), // DEPRECATED — kept nullable for rollback safety, use currentPhase
     plannedDate: timestamp("planned_date", { withTimezone: true }),
     brewDate: timestamp("brew_date", { withTimezone: true }),
     endBrewDate: timestamp("end_brew_date", { withTimezone: true }),
@@ -59,7 +58,7 @@ export const batches = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 
     // Brew management lifecycle
-    currentPhase: text("current_phase").default("plan"),
+    currentPhase: text("current_phase").notNull().default("plan"),
     phaseHistory: jsonb("phase_history").default({}),
     brewMode: text("brew_mode").default("sheet"),
     fermentationDays: integer("fermentation_days"),
@@ -71,7 +70,7 @@ export const batches = pgTable(
   },
   (table) => [
     unique("batches_tenant_batch_number").on(table.tenantId, table.batchNumber),
-    index("idx_batches_tenant_status").on(table.tenantId, table.status),
+    index("idx_batches_tenant_phase").on(table.tenantId, table.currentPhase),
     index("idx_batches_tenant_date").on(table.tenantId, table.brewDate),
   ]
 );
