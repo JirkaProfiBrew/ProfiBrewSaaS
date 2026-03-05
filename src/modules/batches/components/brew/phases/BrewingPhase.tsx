@@ -335,39 +335,21 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   // ── localStorage persistence for timers ───────────────────────
   const mashKey = `pb_mash_timer_${batchId}`;
   const boilKey = `pb_boil_timer_${batchId}`;
+  const timerRestoredRef = useRef(false);
 
-  // Save to localStorage on changes
-  useEffect(() => {
-    if (timerStep) {
-      localStorage.setItem(mashKey, JSON.stringify(timerStep));
-    } else {
-      localStorage.removeItem(mashKey);
-    }
-  }, [timerStep, mashKey]);
-
-  useEffect(() => {
-    if (boilTimer) {
-      localStorage.setItem(boilKey, JSON.stringify(boilTimer));
-    } else {
-      localStorage.removeItem(boilKey);
-    }
-  }, [boilTimer, boilKey]);
-
-  // Restore from localStorage on mount
+  // Restore from localStorage on mount (MUST run before save effects)
   useEffect(() => {
     try {
       const savedMash = localStorage.getItem(mashKey);
       if (savedMash) {
         const parsed = JSON.parse(savedMash) as typeof timerStep;
         if (parsed && parsed.targetSec > 0) {
-          // Recompute remainingSec from timestamps
           if (parsed.status === "running" && parsed.startedAt) {
             const elapsed = parsed.pausedElapsed + (Date.now() - parsed.startedAt) / 1000;
             const remaining = Math.max(0, Math.ceil(parsed.targetSec - elapsed));
             if (remaining > 0) {
               setTimerStep({ ...parsed, remainingSec: remaining });
             } else {
-              // Timer expired while away
               setTimerStep({ ...parsed, remainingSec: 0, pausedElapsed: parsed.targetSec, startedAt: 0, status: "paused" });
               setTimerDoneOpen(true);
             }
@@ -399,8 +381,30 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         }
       }
     } catch { /* ignore corrupt data */ }
+
+    // Mark as restored so save effects can start persisting
+    timerRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Save to localStorage on changes (only after restore)
+  useEffect(() => {
+    if (!timerRestoredRef.current) return;
+    if (timerStep) {
+      localStorage.setItem(mashKey, JSON.stringify(timerStep));
+    } else {
+      localStorage.removeItem(mashKey);
+    }
+  }, [timerStep, mashKey]);
+
+  useEffect(() => {
+    if (!timerRestoredRef.current) return;
+    if (boilTimer) {
+      localStorage.setItem(boilKey, JSON.stringify(boilTimer));
+    } else {
+      localStorage.removeItem(boilKey);
+    }
+  }, [boilTimer, boilKey]);
 
   // Debounce refs
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});

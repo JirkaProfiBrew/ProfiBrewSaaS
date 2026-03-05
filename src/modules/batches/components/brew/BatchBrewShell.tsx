@@ -117,16 +117,9 @@ export function BatchBrewShell({
     };
   }, [genTimer?.status]);
 
-  // Persist to localStorage
-  useEffect(() => {
-    if (genTimer && genTimer.status !== "idle") {
-      localStorage.setItem(genTimerLsKey, JSON.stringify(genTimer));
-    } else {
-      localStorage.removeItem(genTimerLsKey);
-    }
-  }, [genTimer, genTimerLsKey]);
+  const genTimerRestoredRef = useRef(false);
 
-  // Restore from localStorage on mount
+  // Restore from localStorage on mount (MUST run before save effect)
   useEffect(() => {
     try {
       const saved = localStorage.getItem(genTimerLsKey);
@@ -148,8 +141,19 @@ export function BatchBrewShell({
         }
       }
     } catch { /* ignore */ }
+    genTimerRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist to localStorage (only after restore)
+  useEffect(() => {
+    if (!genTimerRestoredRef.current) return;
+    if (genTimer && genTimer.status !== "idle") {
+      localStorage.setItem(genTimerLsKey, JSON.stringify(genTimer));
+    } else {
+      localStorage.removeItem(genTimerLsKey);
+    }
+  }, [genTimer, genTimerLsKey]);
 
   const handleGenTimerStart = useCallback((): void => {
     const mins = parseInt(genTimerInput, 10);
