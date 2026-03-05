@@ -98,6 +98,7 @@ interface RecipeDesignSectionProps {
   onStatusChange: (value: string) => void;
   nameError?: string;
   styleName: string | null;
+  isSnapshot?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ export function RecipeDesignSection({
   onStatusChange,
   nameError,
   styleName,
+  isSnapshot = false,
 }: RecipeDesignSectionProps): React.ReactNode {
   const t = useTranslations("recipes");
 
@@ -215,21 +217,23 @@ export function RecipeDesignSection({
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label>{t("form.status")}</Label>
-              <Select value={status} onValueChange={onStatusChange}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">{t("status.draft")}</SelectItem>
-                  <SelectItem value="active">{t("status.active")}</SelectItem>
-                  <SelectItem value="archived">
-                    {t("status.archived")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!isSnapshot && (
+              <div className="space-y-1.5">
+                <Label>{t("form.status")}</Label>
+                <Select value={status} onValueChange={onStatusChange}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">{t("status.draft")}</SelectItem>
+                    <SelectItem value="active">{t("status.active")}</SelectItem>
+                    <SelectItem value="archived">
+                      {t("status.archived")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5 min-w-0 flex-[3_1_200px]">
               <Label>{t("form.beerStyle")}</Label>

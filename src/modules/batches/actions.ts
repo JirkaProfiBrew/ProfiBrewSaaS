@@ -14,7 +14,7 @@ import {
   bottlingItems,
   batchLotTracking,
 } from "@/../drizzle/schema/batches";
-import { recipes, recipeSteps } from "@/../drizzle/schema/recipes";
+import { recipes, recipeSteps, recipeCalculations } from "@/../drizzle/schema/recipes";
 import { recipeItems } from "@/../drizzle/schema/recipes";
 import { beerStyles } from "@/../drizzle/schema/beer-styles";
 import { items } from "@/../drizzle/schema/items";
@@ -627,6 +627,50 @@ export async function createBatch(data: BatchCreateInput): Promise<Batch> {
               sortOrder: step.sortOrder,
             }))
           );
+        }
+
+        // Copy latest recipe calculation to snapshot + update snapshot with calculated values
+        const calcRows = await tx
+          .select({ data: recipeCalculations.data })
+          .from(recipeCalculations)
+          .where(
+            and(
+              eq(recipeCalculations.tenantId, tenantId),
+              eq(recipeCalculations.recipeId, data.recipeId)
+            )
+          )
+          .orderBy(desc(recipeCalculations.calculatedAt))
+          .limit(1);
+
+        if (calcRows[0]?.data) {
+          await tx.insert(recipeCalculations).values({
+            tenantId,
+            recipeId: snapshotRecipeId!,
+            data: calcRows[0].data,
+          });
+
+          // Overwrite snapshot recipe fields with calculated values
+          // so the brew view (which JOINs recipes) shows calculated values, not design targets
+          const calc = calcRows[0].data as Record<string, unknown>;
+          const calcOg = typeof calc.og === "number" ? String(calc.og) : null;
+          const calcFg = typeof calc.fg === "number" ? String(calc.fg) : null;
+          const calcAbv = typeof calc.abv === "number" ? String(calc.abv) : null;
+          const calcIbu = typeof calc.ibu === "number" ? String(calc.ibu) : null;
+          const calcEbc = typeof calc.ebc === "number" ? String(calc.ebc) : null;
+
+          const updateFields: Record<string, unknown> = {};
+          if (calcOg) updateFields.og = calcOg;
+          if (calcFg) updateFields.fg = calcFg;
+          if (calcAbv) updateFields.abv = calcAbv;
+          if (calcIbu) updateFields.ibu = calcIbu;
+          if (calcEbc) updateFields.ebc = calcEbc;
+
+          if (Object.keys(updateFields).length > 0) {
+            await tx
+              .update(recipes)
+              .set(updateFields)
+              .where(eq(recipes.id, snapshotRecipeId!));
+          }
         }
       }
 
@@ -1951,6 +1995,7 @@ export async function prefillIssueFromBatch(
       }
 
       // c3. Pre-compute remaining amounts in item's stock unit
+      const r3 = (n: number): number => Math.round(n * 1000) / 1000;
       const linesToCreate: Array<{ itemId: string; requestedQty: string; recipeItemId: string; sortOrder: number }> = [];
       for (let i = 0; i < recipeItemRows.length; i++) {
         const ri = recipeItemRows[i]!;
@@ -1961,12 +2006,12 @@ export async function prefillIssueFromBatch(
           : recipeUnitFactor;
         const rawAmount = Number(ri.amountG);
         // Convert recipe-unit amount → item's stock unit via base unit
-        const stockAmount = stockUnitFactor !== 0
+        const stockAmount = r3(stockUnitFactor !== 0
           ? rawAmount * recipeUnitFactor / stockUnitFactor
-          : rawAmount;
+          : rawAmount);
 
-        const alreadyIssued = issuedMap.get(ri.id) ?? 0;
-        const remainingAmount = stockAmount - alreadyIssued;
+        const alreadyIssued = r3(issuedMap.get(ri.id) ?? 0);
+        const remainingAmount = r3(stockAmount - alreadyIssued);
 
         if (remainingAmount <= 0.0001) continue;
 

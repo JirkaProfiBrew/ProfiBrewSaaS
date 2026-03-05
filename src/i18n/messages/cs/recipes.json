@@ -269,6 +269,10 @@
     "systemChangeDesc": "Chcete aktualizovat konstanty a přepočítat výpočty dle nové soustavy \"{name}\"? Tím se přepíšou ručně upravené konstanty.",
     "systemChangeYes": "Ano, aktualizovat",
     "systemChangeNo": "Ne, jen změnit odkaz",
+    "unsavedTitle": "Neuložené změny",
+    "unsavedDescription": "Recept obsahuje neuložené změny. Chcete je uložit před odchodem?",
+    "unsavedSave": "Uložit a odejít",
+    "unsavedDiscard": "Zahodit změny",
     "volumeChange": {
       "title": "Změna objemu receptury",
       "message": "Objem se změnil z {old}L na {new}L. Přepočítat množství surovin proporcionálně?",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   ScrollText,
@@ -10,6 +10,7 @@ import {
   BarChart3,
   ArrowLeftRight,
   Landmark,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +43,8 @@ import {
   getBatchLotTracking,
   getBatchExciseSummary,
   getRecipeIngredients,
+  addBatchMeasurement,
 } from "../../actions";
-import { getLatestRecipeCalculation } from "@/modules/recipes/actions";
 import type { RecipeCalculationResult } from "@/modules/recipes/types";
 
 const SIDEBAR_PANELS = [
@@ -62,6 +64,7 @@ interface BrewSidebarProps {
   steps: BatchStep[];
   measurements: BatchMeasurement[];
   notes: BatchNote[];
+  calcResult: RecipeCalculationResult | null;
 }
 
 export function BrewSidebar({
@@ -69,6 +72,7 @@ export function BrewSidebar({
   steps,
   measurements,
   notes,
+  calcResult,
 }: BrewSidebarProps): React.ReactNode {
   const t = useTranslations("batches");
   const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
@@ -77,7 +81,6 @@ export function BrewSidebar({
   const [lotEntries, setLotEntries] = useState<BatchLotEntry[] | null>(null);
   const [exciseSummary, setExciseSummary] = useState<ExciseSummary | null>(null);
   const [ingredients, setIngredients] = useState<RecipeIngredient[] | null>(null);
-  const [calcResult, setCalcResult] = useState<RecipeCalculationResult | null>(null);
 
   // Load data when panels open
   useEffect(() => {
@@ -90,10 +93,7 @@ export function BrewSidebar({
     if (openPanel === "recipe" && ingredients === null && batch.recipeId) {
       getRecipeIngredients(batch.recipeId).then(setIngredients);
     }
-    if (openPanel === "volumes" && calcResult === null && batch.recipeId) {
-      getLatestRecipeCalculation(batch.recipeId).then((r) => setCalcResult(r));
-    }
-  }, [openPanel, batch.id, batch.recipeId, lotEntries, exciseSummary, ingredients, calcResult]);
+  }, [openPanel, batch.id, batch.recipeId, lotEntries, exciseSummary, ingredients]);
 
   return (
     <>
@@ -133,19 +133,19 @@ export function BrewSidebar({
           </SheetHeader>
           <div className="px-4 pb-4 overflow-y-auto h-[calc(100vh-5rem)]">
             {openPanel === "recipe" && (
-              <RecipePanel batch={batch} steps={steps} ingredients={ingredients} t={t} />
+              <RecipePanel batch={batch} steps={steps} ingredients={ingredients} calcResult={calcResult} t={t} />
             )}
             {openPanel === "volumes" && (
               <VolumesPanel batch={batch} calcResult={calcResult} t={t} />
             )}
             {openPanel === "measured" && (
-              <MeasuredPanel measurements={measurements} t={t} />
+              <MeasuredPanel batch={batch} measurements={measurements} calcResult={calcResult} t={t} />
             )}
             {openPanel === "notes" && (
               <NotesPanel notes={notes} t={t} />
             )}
             {openPanel === "comparison" && (
-              <ComparisonPanel batch={batch} steps={steps} t={t} />
+              <ComparisonPanel batch={batch} steps={steps} calcResult={calcResult} t={t} />
             )}
             {openPanel === "tracking" && (
               <TrackingPanel lotEntries={lotEntries} t={t} />
@@ -164,7 +164,7 @@ export function BrewSidebar({
 
 type TFunc = ReturnType<typeof useTranslations>;
 
-function RecipePanel({ batch, steps, ingredients, t }: { batch: Batch; steps: BatchStep[]; ingredients: RecipeIngredient[] | null; t: TFunc }): React.ReactNode {
+function RecipePanel({ batch, steps, ingredients, calcResult, t }: { batch: Batch; steps: BatchStep[]; ingredients: RecipeIngredient[] | null; calcResult: RecipeCalculationResult | null; t: TFunc }): React.ReactNode {
   const mashSteps = steps.filter((s) => s.brewPhase === "mashing");
   const boilStep = steps.find((s) => s.stepType === "boil");
   const boilMin = boilStep?.timeMin ?? 60;
@@ -179,7 +179,13 @@ function RecipePanel({ batch, steps, ingredients, t }: { batch: Batch; steps: Ba
     (i) => i.category === "fermentable" || i.category === "other"
   ) ?? [];
 
-  const ebc = batch.recipeEbc ? Number(batch.recipeEbc) : 0;
+  // Use calculated values with fallback to batch (design target) fields
+  const og = calcResult?.og ?? (batch.recipeOg ? Number(batch.recipeOg) : null);
+  const fg = calcResult?.fg ?? (batch.recipeFg ? Number(batch.recipeFg) : null);
+  const abv = calcResult?.abv ?? (batch.recipeAbv ? Number(batch.recipeAbv) : null);
+  const ibu = calcResult?.ibu ?? (batch.recipeIbu ? Number(batch.recipeIbu) : null);
+  const ebc = calcResult?.ebc ?? (batch.recipeEbc ? Number(batch.recipeEbc) : 0);
+
   // Approximate SRM → hex for a small color swatch
   const ebcColor = ebc > 0
     ? `hsl(${Math.max(0, 40 - ebc * 0.5)}, ${Math.min(100, 60 + ebc)}%, ${Math.max(8, 50 - ebc * 0.6)}%)`
@@ -192,45 +198,45 @@ function RecipePanel({ batch, steps, ingredients, t }: { batch: Batch; steps: Ba
 
       {/* Key values — compact grid */}
       <div className="grid grid-cols-3 gap-2">
-        {batch.recipeOg && (
+        {og != null && (
           <div className="rounded-md border px-2 py-1.5 text-center">
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
               {t("brew.sidebar.recipeOg")}
             </p>
-            <p className="text-sm font-bold">{Number(batch.recipeOg).toFixed(1)}</p>
+            <p className="text-sm font-bold">{og.toFixed(1)}</p>
           </div>
         )}
-        {batch.recipeFg && (
+        {fg != null && (
           <div className="rounded-md border px-2 py-1.5 text-center">
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
               {t("brew.sidebar.recipeFg")}
             </p>
-            <p className="text-sm font-bold">{Number(batch.recipeFg).toFixed(1)}</p>
+            <p className="text-sm font-bold">{fg.toFixed(1)}</p>
           </div>
         )}
-        {batch.recipeAbv && (
+        {abv != null && (
           <div className="rounded-md border px-2 py-1.5 text-center">
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
               {t("brew.sidebar.recipeAbv")}
             </p>
-            <p className="text-sm font-bold">{Number(batch.recipeAbv).toFixed(1)}%</p>
+            <p className="text-sm font-bold">{abv.toFixed(1)}%</p>
           </div>
         )}
-        {batch.recipeIbu && (
+        {ibu != null && (
           <div className="rounded-md border px-2 py-1.5 text-center">
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
               {t("brew.sidebar.recipeIbu")}
             </p>
-            <p className="text-sm font-bold">{Number(batch.recipeIbu).toFixed(0)}</p>
+            <p className="text-sm font-bold">{ibu.toFixed(0)}</p>
           </div>
         )}
-        {batch.recipeEbc && (
+        {ebc > 0 && (
           <div className="rounded-md border px-2 py-1.5 text-center">
             <p className="text-[10px] uppercase text-muted-foreground leading-none mb-0.5">
               {t("brew.sidebar.recipeEbc")}
             </p>
             <p className="text-sm font-bold flex items-center justify-center gap-1">
-              {Number(batch.recipeEbc).toFixed(0)}
+              {ebc.toFixed(0)}
               {ebcColor && (
                 <span
                   className="inline-block size-3 rounded-full border"
@@ -265,7 +271,7 @@ function RecipePanel({ batch, steps, ingredients, t }: { batch: Batch; steps: Ba
                     {step.name}
                     {step.temperatureC && (
                       <span className="text-muted-foreground ml-1">
-                        {Number(step.temperatureC).toFixed(0)}\u00b0C
+                        {Number(step.temperatureC).toFixed(0)}°C
                       </span>
                     )}
                   </span>
@@ -455,27 +461,156 @@ function VolumesPanel({ batch, calcResult, t }: { batch: Batch; calcResult: Reci
   );
 }
 
-function MeasuredPanel({ measurements, t }: { measurements: BatchMeasurement[]; t: TFunc }): React.ReactNode {
-  if (measurements.length === 0) {
-    return <p className="text-sm text-muted-foreground py-4">{t("brew.sidebar.noMeasurements")}</p>;
-  }
+const MEASUREMENT_KEYS = [
+  "mashWater",
+  "spargeWater",
+  "preBoilVolume",
+  "postBoilVolume",
+  "fermenterVolume",
+  "ogMeasured",
+] as const;
+
+type MeasurementKey = (typeof MEASUREMENT_KEYS)[number];
+
+function MeasuredPanel({ batch, measurements, calcResult, t }: { batch: Batch; measurements: BatchMeasurement[]; calcResult: RecipeCalculationResult | null; t: TFunc }): React.ReactNode {
+  const [values, setValues] = useState<Record<MeasurementKey, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const key of MEASUREMENT_KEYS) {
+      const existing = measurements.find((m) => m.notes === key);
+      init[key] = existing?.value ?? "";
+    }
+    return init as Record<MeasurementKey, string>;
+  });
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const handleChange = useCallback(
+    (key: MeasurementKey, value: string): void => {
+      setValues((prev) => ({ ...prev, [key]: value }));
+
+      if (saveTimers.current[key]) {
+        clearTimeout(saveTimers.current[key]);
+      }
+      saveTimers.current[key] = setTimeout(async () => {
+        if (value === "") return;
+        try {
+          await addBatchMeasurement(batch.id, {
+            measurementType: key === "ogMeasured" ? "gravity" : "volume",
+            value,
+            valuePlato: key === "ogMeasured" ? value : undefined,
+            isStart: false,
+            isEnd: false,
+            notes: key,
+          });
+        } catch {
+          // Silent — user can retry
+        }
+      }, 800);
+    },
+    [batch.id]
+  );
+
+  const water = calcResult?.water;
+  const pipeline = calcResult?.pipeline;
+
+  const planned: Record<MeasurementKey, number | null> = {
+    mashWater: water?.mashWaterL ?? null,
+    spargeWater: water?.spargeWaterL ?? null,
+    preBoilVolume: pipeline?.preBoilL ?? null,
+    postBoilVolume: pipeline?.postBoilL ?? null,
+    fermenterVolume: pipeline?.intoFermenterL ?? (batch.recipeBatchSizeL ? Number(batch.recipeBatchSizeL) : null),
+    ogMeasured: calcResult?.og ?? (batch.recipeOg ? Number(batch.recipeOg) : null),
+  };
+
+  const fmtVal = (v: number | null, decimals = 1): string =>
+    v != null ? v.toFixed(decimals) : "\u2014";
+
+  const getDelta = (key: MeasurementKey): { value: number; pct: number; formatted: string } | null => {
+    const actual = values[key] ? Number(values[key]) : null;
+    const plan = planned[key];
+    if (actual == null || plan == null || isNaN(actual)) return null;
+    const d = actual - plan;
+    const pct = plan !== 0 ? Math.abs(d / plan) * 100 : (d === 0 ? 0 : 100);
+    const sign = d > 0 ? "+" : "";
+    return { value: d, pct, formatted: `${sign}${d.toFixed(1)}` };
+  };
+
+  const deltaColor = (delta: { value: number; pct: number } | null): string => {
+    if (delta == null) return "text-muted-foreground";
+    if (delta.pct === 0) return "text-green-600";
+    if (delta.pct <= 3) return "text-green-600";
+    if (delta.pct <= 10) return "text-amber-600";
+    return "text-red-600";
+  };
+
   return (
-    <div className="space-y-2">
-      {measurements.map(m => (
-        <div key={m.id} className="text-sm border-b pb-2 last:border-0">
-          <div className="flex justify-between">
-            <span className="font-medium">{m.measurementType}</span>
-            <span className="text-muted-foreground">
-              {m.measuredAt ? new Date(m.measuredAt).toLocaleDateString() : ""}
+    <div className="space-y-1">
+      {!calcResult && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 mb-2">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>{t("brew.sidebar.noCalcResult")}</span>
+        </div>
+      )}
+      {/* Header row */}
+      <div className="grid grid-cols-[1fr_60px_70px_55px] gap-1 text-[10px] uppercase text-muted-foreground font-medium pb-1 border-b">
+        <span />
+        <span className="text-right">{t("brew.brewing.planned")}</span>
+        <span className="text-right">{t("brew.brewing.actual")}</span>
+        <span className="text-right">{"\u0394"}</span>
+      </div>
+
+      {MEASUREMENT_KEYS.map((key) => {
+        const delta = getDelta(key);
+        const unit = key === "ogMeasured" ? "\u00b0P" : "L";
+
+        return (
+          <div key={key} className="grid grid-cols-[1fr_60px_70px_55px] gap-1 items-center py-1 border-b border-border/40 last:border-0">
+            <span className="text-xs font-medium leading-tight">
+              {t(`brew.brewing.${key}`)}
+              <span className="ml-0.5 text-muted-foreground">({unit})</span>
+            </span>
+            <span className="text-xs text-muted-foreground text-right tabular-nums">
+              {fmtVal(planned[key])}
+            </span>
+            <Input
+              type="number"
+              step={key === "ogMeasured" ? "0.1" : "1"}
+              min={0}
+              className="h-7 text-xs text-right tabular-nums px-1"
+              placeholder={"\u2014"}
+              value={values[key]}
+              onChange={(e) => handleChange(key, e.target.value)}
+            />
+            <span className={cn("text-xs text-right tabular-nums", deltaColor(delta))}>
+              {delta ? delta.formatted : "\u2014"}
             </span>
           </div>
-          <div className="text-muted-foreground">
-            {m.valuePlato && `${Number(m.valuePlato).toFixed(1)} \u00b0P`}
-            {m.temperatureC && ` \u00b7 ${Number(m.temperatureC).toFixed(1)} \u00b0C`}
-            {m.notes && ` \u2014 ${m.notes}`}
+        );
+      })}
+
+      {/* Other saved measurements from DB */}
+      {measurements.filter((m) => !MEASUREMENT_KEYS.includes(m.notes as MeasurementKey)).length > 0 && (
+        <>
+          <Separator className="my-2" />
+          <div className="space-y-2">
+            {measurements
+              .filter((m) => !MEASUREMENT_KEYS.includes(m.notes as MeasurementKey))
+              .map((m) => (
+                <div key={m.id} className="text-sm border-b pb-2 last:border-0">
+                  <div className="flex justify-between">
+                    <span className="font-medium">{m.measurementType}</span>
+                    <span className="text-muted-foreground">
+                      {m.measuredAt ? new Date(m.measuredAt).toLocaleDateString() : ""}
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {m.valuePlato && `${Number(m.valuePlato).toFixed(1)} \u00b0P`}
+                    {m.temperatureC && ` \u00b7 ${Number(m.temperatureC).toFixed(1)} \u00b0C`}
+                  </div>
+                </div>
+              ))}
           </div>
-        </div>
-      ))}
+        </>
+      )}
     </div>
   );
 }
@@ -498,24 +633,27 @@ function NotesPanel({ notes, t }: { notes: BatchNote[]; t: TFunc }): React.React
   );
 }
 
-function ComparisonPanel({ batch, steps, t }: { batch: Batch; steps: BatchStep[]; t: TFunc }): React.ReactNode {
+function ComparisonPanel({ batch, steps, calcResult, t }: { batch: Batch; steps: BatchStep[]; calcResult: RecipeCalculationResult | null; t: TFunc }): React.ReactNode {
   const totalPlannedMin = steps.reduce((sum, s) => sum + (s.timeMin ?? 0), 0);
   const totalActualMin = steps.reduce((sum, s) => sum + (s.actualDurationMin ?? s.timeMin ?? 0), 0);
+
+  const og = calcResult?.og ?? (batch.recipeOg ? Number(batch.recipeOg) : null);
+  const fg = calcResult?.fg ?? (batch.recipeFg ? Number(batch.recipeFg) : null);
 
   return (
     <div className="space-y-2 text-sm">
       <div className="flex justify-between">
-        <span className="text-muted-foreground">OG (\u00b0P)</span>
+        <span className="text-muted-foreground">OG (°P)</span>
         <span>
-          {batch.recipeOg ? Number(batch.recipeOg).toFixed(1) : "\u2014"}
+          {og != null ? og.toFixed(1) : "\u2014"}
           {" \u2192 "}
           {batch.ogActual ? Number(batch.ogActual).toFixed(1) : "\u2014"}
         </span>
       </div>
       <div className="flex justify-between">
-        <span className="text-muted-foreground">FG (\u00b0P)</span>
+        <span className="text-muted-foreground">FG (°P)</span>
         <span>
-          {batch.recipeFg ? Number(batch.recipeFg).toFixed(1) : "\u2014"}
+          {fg != null ? fg.toFixed(1) : "\u2014"}
           {" \u2192 "}
           {batch.fgActual ? Number(batch.fgActual).toFixed(1) : "\u2014"}
         </span>

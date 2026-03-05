@@ -336,11 +336,18 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 - `BrewSidebar` — 7 kontextových panelů:
   1. **Recept** — Brewfather-style: key-value grid (OG/FG/ABV/IBU/EBC/Volume), rmutovací profil s teplotami, suroviny s % (slady), chmel s časem přidání, EBC barevná tečka
   2. **Objemy** — plánované vs skutečné objemy v průběhu procesu
-  3. **Měření** — seznam všech měření šarže s hodnotami
+  3. **Naměřené hodnoty** — grid Plán/Skutečnost/Δ pro 6 klíčových veličin (voda na vystírku, vyslazování, objem před/po chmelovaru, objem při zakvašení, OG). Delta barevně: ≤3% zelená, ≤10% oranžová, >10% červená.
   4. **Poznámky** — poznámky ke krokům i celé šarži
   5. **Porovnání** — recept vs skutečnost (design vs reality)
   6. **Lot tracking** — vstupní loty (suroviny) + výstupní loty (hotové pivo)
   7. **Spotřební daň** — plánovaná/aktuální daň, pohyby
+
+**Princip zobrazování kalkulovaných hodnot ve Brew view:**
+- Zdrojem plánovaných hodnot je vždy `RecipeCalculationResult` načtený z `recipe_calculations` tabulky pro snapshot recept (`batch.recipeId`).
+- Kalkulace se kopíruje z originálu na snapshot při vytvoření várky (`createBatch`).
+- Všechna místa ve Brew view (záhlaví, sidebar panely Recept/Objemy/Naměřené hodnoty/Porovnání) čtou OG, FG, ABV, IBU, EBC a objemy z `calcResult`, nikoliv z `batch.recipeOg` apod. (ty obsahují design target hodnoty).
+- `calcResult` se načítá jednou v `BatchBrewShell` přes `getLatestRecipeCalculation(batch.recipeId)` a předává se do `BrewSidebar` i do vlastního záhlaví.
+- Pokud kalkulace chybí, zobrazí se varovná hláška.
 
 **F1 Plán (PlanPhase):**
 - 3-sloupcový layout: náhled receptury | plánování (datum vaření, fermentace dny, dokvašování dny) | výběr nádoby

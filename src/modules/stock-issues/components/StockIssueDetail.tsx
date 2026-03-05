@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Trash2, CheckCircle, XCircle, FlaskConical, Banknote, ExternalLink } from "lucide-react";
+import { Trash2, CheckCircle, XCircle, ScrollText, Banknote, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -639,7 +639,7 @@ export function StockIssueDetail({
           </div>
           {fromBatch && paramBatchNumber && (
             <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
-              <FlaskConical className="h-4 w-4 shrink-0" />
+              <ScrollText className="h-4 w-4 shrink-0" />
               {t("detail.batchBanner", { batchNumber: paramBatchNumber })}
             </div>
           )}
@@ -704,7 +704,7 @@ export function StockIssueDetail({
 
         {fromBatch && paramBatchNumber && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
-            <FlaskConical className="h-4 w-4 shrink-0" />
+            <ScrollText className="h-4 w-4 shrink-0" />
             {t("detail.batchBanner", { batchNumber: paramBatchNumber })}
           </div>
         )}

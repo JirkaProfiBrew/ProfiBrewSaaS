@@ -10,15 +10,14 @@ import {
   CheckCircle2,
   AlertTriangle,
   Package,
-  Send,
-  StickyNote,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,8 +43,8 @@ import type {
   Batch,
   BatchStep,
   BatchIngredientRow,
-  BatchNote,
   BatchPhase,
+  ProductionIssueInfo,
 } from "../../../types";
 import {
   getBatchBrewData,
@@ -54,7 +53,6 @@ import {
   createProductionIssue,
   advanceBatchPhase,
   getBrewingSystemForBatch,
-  addBatchNote,
 } from "../../../actions";
 
 // ── Brewing system shape (from getBrewingSystemForBatch) ────
@@ -110,9 +108,8 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
   const [steps, setSteps] = useState<BatchStep[]>([]);
   const [ingredients, setIngredients] = useState<BatchIngredientRow[]>([]);
   const [hasConfirmedIssue, setHasConfirmedIssue] = useState(false);
+  const [prodIssues, setProdIssues] = useState<ProductionIssueInfo[]>([]);
   const [brewSystem, setBrewSystem] = useState<BrewingSystem | null>(null);
-  const [notes, setNotes] = useState<BatchNote[]>([]);
-  const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(true);
 
   // ── Load data ────────────────────────────────────────────
@@ -133,7 +130,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         setSteps(brewData.steps);
         setIngredients(batchIngr);
         setBrewSystem(sys);
-        setNotes(brewData.notes);
+        setProdIssues(issues);
 
         // Check if there's a confirmed production issue (ingredient issue-out)
         const hasConfirmed = issues.some(
@@ -184,6 +181,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
   const totalWater = mashWater + spargeWater;
 
   const isPrep = batch?.currentPhase === "preparation";
+  const hasOriginal = ingredients.some((i) => i.originalQty != null);
 
   // ── Issue state (D4: partial/repeated issue) ────────────
   const allIssued = ingredients.length > 0 && ingredients.every(
@@ -210,6 +208,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         setIngredients(updated);
         // Reload issue status
         const issues = await getProductionIssues(batchId);
+        setProdIssues(issues);
         setHasConfirmedIssue(
           issues.some(
             (i) =>
@@ -235,22 +234,6 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
         router.refresh();
       } catch {
         toast.error("Failed to start brewing");
-      }
-    });
-  }
-
-  // ── Add note ────────────────────────────────────────────
-  function handleAddNote(): void {
-    const text = newNote.trim();
-    if (!text) return;
-    startTransition(async () => {
-      try {
-        const note = await addBatchNote(batchId, text);
-        setNotes((prev) => [note, ...prev]);
-        setNewNote("");
-        toast.success(t("notes.added"));
-      } catch {
-        toast.error(t("notes.addError"));
       }
     });
   }
@@ -283,7 +266,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
         {/* ── Column 1: Ingredients & Stock ─────────────────── */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -323,6 +306,11 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                     <TableHead>
                       {t("ingredients.columns.name")}
                     </TableHead>
+                    {hasOriginal && (
+                      <TableHead className="text-right">
+                        {t("ingredients.columns.original")}
+                      </TableHead>
+                    )}
                     <TableHead className="text-right">
                       {t("ingredients.columns.recipeQty")}
                     </TableHead>
@@ -343,7 +331,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                       {/* Category header row */}
                       <TableRow className="bg-muted/50">
                         <TableCell
-                          colSpan={5}
+                          colSpan={hasOriginal ? 6 : 5}
                           className="font-medium text-sm py-1.5"
                         >
                           {t(
@@ -358,12 +346,21 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                         const isSufficient = missing <= 0;
                         const stock = Number(item.currentStock);
                         const needsMore = stock < Number(item.recipeQty);
+                        const originalDiffers = item.originalQty != null
+                          && parseFloat(item.originalQty) !== parseFloat(item.recipeQty);
                         return (
                           <TableRow key={item.recipeItemId}>
                             <TableCell className="text-sm">
                               {item.itemName}
                             </TableCell>
-                            <TableCell className="text-right text-sm">
+                            {hasOriginal && (
+                              <TableCell className="text-right text-sm text-muted-foreground">
+                                {item.originalQty != null
+                                  ? `${fmtQty(item.originalQty)} ${item.unitSymbol ?? ""}`
+                                  : "\u2014"}
+                              </TableCell>
+                            )}
+                            <TableCell className={`text-right text-sm ${originalDiffers ? "font-semibold" : ""}`}>
                               {fmtQty(item.recipeQty)}{" "}
                               {item.unitSymbol}
                             </TableCell>
@@ -393,6 +390,29 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Linked stock issues (výdejky) */}
+            {prodIssues.filter((i) => i.status !== "cancelled").length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-medium mb-1">
+                  {t("ingredients.linkedIssues")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {prodIssues
+                    .filter((i) => i.status !== "cancelled")
+                    .map((issue) => (
+                      <Link
+                        key={issue.id}
+                        href={`/${locale}/stock/movements/${issue.id}?batchId=${batchId}&batchNumber=${encodeURIComponent(batch.batchNumber)}&from=${encodeURIComponent(`/brewery/batches/${batchId}/brew/prep`)}`}
+                        className="text-sm text-primary underline hover:no-underline inline-flex items-center gap-1"
+                      >
+                        {issue.code}
+                        <ExternalLink className="size-3" />
+                      </Link>
+                    ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -424,10 +444,33 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
             </CardContent>
           </Card>
 
-          {/* Timeline Preview (E2) */}
+          {/* Timeline Preview (E2) — compact */}
           <Card>
             <CardHeader>
-              <CardTitle>{t("brew.prep.stepsPreview")}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t("brew.prep.stepsPreview")}</CardTitle>
+                {(() => {
+                  const timeFmt = (d: Date): string =>
+                    d.toLocaleTimeString(locale === "cs" ? "cs-CZ" : "en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                  const start = batch.plannedDate
+                    ? new Date(batch.plannedDate)
+                    : null;
+                  const end = start
+                    ? new Date(start.getTime() + totalStepTime * 60000)
+                    : null;
+                  return (
+                    <span className="text-sm text-muted-foreground">
+                      {start ? timeFmt(start) : "\u2014"}
+                      {" \u2013 "}
+                      {end ? timeFmt(end) : "\u2014"}
+                      {" "}({totalStepTime} min)
+                    </span>
+                  );
+                })()}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-md border">
@@ -440,42 +483,21 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                       <TableHead className="text-right">
                         {t("brew.prep.stepTime")}
                       </TableHead>
-                      <TableHead className="text-right">
-                        {t("brew.prep.stepStart")}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t("brew.prep.stepEnd")}
-                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(() => {
-                      const timeFmt = (d: Date): string =>
-                        d.toLocaleTimeString(locale === "cs" ? "cs-CZ" : "en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                      const start = batch.plannedDate
-                        ? new Date(batch.plannedDate)
-                        : null;
-                      let cursor = start ? new Date(start) : null;
-
                       interface TimelineStep {
                         name: string;
                         durationMin: number;
                         temp?: string;
-                        startTime: string;
-                        endTime: string;
                       }
 
                       const timeline: TimelineStep[] = [];
 
                       const addStep = (name: string, min: number, temp?: string): void => {
                         if (min <= 0) return;
-                        const s = cursor ? timeFmt(cursor) : "\u2014";
-                        if (cursor) cursor.setMinutes(cursor.getMinutes() + min);
-                        const e = cursor ? timeFmt(cursor) : "\u2014";
-                        timeline.push({ name, durationMin: min, temp, startTime: s, endTime: e });
+                        timeline.push({ name, durationMin: min, temp });
                       };
 
                       // 1. Preparation
@@ -508,7 +530,7 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
 
                       return timeline.map((tl, idx) => (
                         <TableRow key={idx}>
-                          <TableCell className="text-sm">
+                          <TableCell className="text-sm py-1.5">
                             {tl.name}
                             {tl.temp && (
                               <span className="text-muted-foreground ml-1">
@@ -516,100 +538,19 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right text-sm">
+                          <TableCell className="text-right text-sm py-1.5">
                             {tl.durationMin} min
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {tl.startTime}
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground">
-                            {tl.endTime}
                           </TableCell>
                         </TableRow>
                       ));
                     })()}
                   </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell className="font-medium text-sm">
-                        {t("brew.prep.totalTime")}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-sm">
-                        {totalStepTime} min
-                      </TableCell>
-                      <TableCell />
-                      <TableCell />
-                    </TableRow>
-                  </TableFooter>
                 </Table>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* ── Notes ─────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center space-y-0 gap-2">
-          <StickyNote className="size-4 text-muted-foreground" />
-          <CardTitle>{t("tabs.notes")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {/* Add note form */}
-          {isPrep && (
-            <div className="flex gap-2">
-              <Textarea
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                placeholder={t("notes.placeholder")}
-                rows={2}
-                className="resize-none"
-              />
-              <Button
-                size="sm"
-                disabled={!newNote.trim() || isPending}
-                onClick={handleAddNote}
-                className="shrink-0 self-end"
-              >
-                <Send className="mr-1 size-4" />
-                {t("notes.add")}
-              </Button>
-            </div>
-          )}
-
-          {/* Notes list */}
-          {notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">
-              {t("notes.empty")}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {notes.map((note) => (
-                <div
-                  key={note.id}
-                  className="rounded-md border px-3 py-2 text-sm"
-                >
-                  <p className="whitespace-pre-wrap">{note.text}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {note.createdAt
-                      ? new Date(note.createdAt).toLocaleString(
-                          locale === "cs" ? "cs-CZ" : "en-US",
-                          {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )
-                      : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* ── Action: Start Brewing ──────────────────────────── */}
       {isPrep && (

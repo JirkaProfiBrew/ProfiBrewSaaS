@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, Archive, Trash2, FlaskConical } from "lucide-react";
+import { Copy, Archive, Trash2, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
 import { DetailView } from "@/components/detail-view";
@@ -45,6 +45,8 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   // Snapshot mode: opened from a batch detail
   const batchId = searchParams.get("batchId");
   const batchNumber = searchParams.get("batchNumber");
+  const returnTo = searchParams.get("returnTo");
+  const brewPhase = searchParams.get("brewPhase");
   const isSnapshot = batchId != null && batchNumber != null;
 
   const [productionItemOptions, setProductionItemOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -106,7 +108,9 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
   const mode: FormMode = isNew ? "create" : "edit";
 
   const backHref = isSnapshot
-    ? `/brewery/batches/${batchId}?tab=ingredients`
+    ? returnTo === "brew"
+      ? `/brewery/batches/${batchId}/brew${brewPhase ? `/${brewPhase}` : ""}`
+      : `/brewery/batches/${batchId}?tab=ingredients`
     : "/brewery/recipes";
 
   // Build beer style options for select
@@ -382,11 +386,15 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
 
   const handleCancel = useCallback((): void => {
     if (isSnapshot) {
-      router.push(`/brewery/batches/${batchId}?tab=ingredients`);
+      router.push(
+        returnTo === "brew"
+          ? `/brewery/batches/${batchId}/brew${brewPhase ? `/${brewPhase}` : ""}`
+          : `/brewery/batches/${batchId}?tab=ingredients`
+      );
     } else {
       router.push("/brewery/recipes");
     }
-  }, [router, isSnapshot, batchId]);
+  }, [router, isSnapshot, batchId, returnTo, brewPhase]);
 
   // Header actions (only for edit mode)
   const actions: DetailViewAction[] = useMemo(() => {
@@ -569,7 +577,7 @@ export function RecipeDetail({ id }: RecipeDetailProps): React.ReactNode {
       {/* Snapshot banner — shown when editing a batch copy */}
       {isSnapshot && (
         <div className="flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm dark:border-yellow-700 dark:bg-yellow-950">
-          <FlaskConical className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+          <ScrollText className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
           <span>
             {t("detail.snapshotBanner", { batchNumber })}
           </span>

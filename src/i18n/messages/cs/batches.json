@@ -570,7 +570,8 @@
       "mashProfile": "Rmutovací profil",
       "boilMin": "{min} min var",
       "addAtMin": "{min} min",
-      "noIngredients": "Žádné suroviny"
+      "noIngredients": "Žádné suroviny",
+      "noCalcResult": "Chybí kalkulace receptu — plánované hodnoty nejsou k dispozici. Otevřete recept a přepočítejte."
     }
   }
 }

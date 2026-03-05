@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, Archive, Trash2, FlaskConical, Save, ArrowLeft, BarChart3 } from "lucide-react";
+import { Copy, Archive, Trash2, ScrollText, Save, ArrowLeft, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ import {
   removeRecipeItem,
   reorderRecipeItems,
   applyMashProfile,
+  calculateAndSaveRecipe,
 } from "../actions";
 import { getProductionItemOptions } from "@/modules/batches/actions";
 import { useUnits } from "@/modules/units/hooks";
@@ -105,6 +106,8 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   // Snapshot mode
   const batchId = searchParams.get("batchId");
   const batchNumber = searchParams.get("batchNumber");
+  const returnTo = searchParams.get("returnTo");
+  const brewPhase = searchParams.get("brewPhase");
   const isSnapshot = batchId != null && batchNumber != null;
 
   // ── State ──────────────────────────────────────────────────────
@@ -160,6 +163,10 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
 
   // Track whether the initial data population has happened (to avoid resetting state on mutate)
   const initialLoadDoneRef = useRef(false);
+
+  // Dirty tracking — stores serialized buildSaveData after load/save
+  const savedDataRef = useRef<string>("");
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
 
   // Brewing system change confirmation dialog (UX-02)
   const [pendingSystemChange, setPendingSystemChange] = useState<string | null>(null);
@@ -226,6 +233,13 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       setLocalItems(recipeDetail.items);
     }
   }, [recipeDetail]);
+
+  // Snapshot saved state once form is populated (for dirty detection)
+  useEffect(() => {
+    if (initialLoadDoneRef.current && savedDataRef.current === "") {
+      savedDataRef.current = JSON.stringify(buildSaveData());
+    }
+  });
 
   // Load production item options
   useEffect(() => {
@@ -433,7 +447,9 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   }, [calcResult.ebc, designValues.targetEbc, selectedStyle]);
 
   const backHref = isSnapshot
-    ? `/brewery/batches/${batchId}?tab=ingredients`
+    ? returnTo === "brew"
+      ? `/brewery/batches/${batchId}/brew${brewPhase ? `/${brewPhase}` : ""}`
+      : `/brewery/batches/${batchId}?tab=ingredients`
     : "/brewery/recipes";
 
   // ── Handlers ───────────────────────────────────────────────────
@@ -575,6 +591,12 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
     maltInputMode,
   }), [values, designValues, constants, maltInputMode, calcResult.ebc, calcResult.ibu, calcResult.abv, calcResult.totalProductionCost]);
 
+  const isDirty = useMemo((): boolean => {
+    if (isNew) return true; // new recipe is always "dirty"
+    if (savedDataRef.current === "") return false; // not loaded yet
+    return JSON.stringify(buildSaveData()) !== savedDataRef.current;
+  }, [isNew, buildSaveData]);
+
   const handleSave = useCallback(async (): Promise<void> => {
     if (!validate()) return;
 
@@ -582,10 +604,15 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       const data = buildSaveData();
       if (isNew) {
         const created = await createRecipe(data);
+        // Auto-recalculate after first save
+        await calculateAndSaveRecipe(created.id).catch(console.error);
         toast.success(tCommon("saved"));
         router.push(`/brewery/recipes/${created.id}`);
       } else {
         await updateRecipe(id, data);
+        // Auto-recalculate so calculation snapshot stays in sync
+        await calculateAndSaveRecipe(id).catch(console.error);
+        savedDataRef.current = JSON.stringify(data);
         toast.success(tCommon("saved"));
         mutate();
       }
@@ -633,6 +660,20 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
   }, [id, router, t, tCommon]);
 
   const handleCancel = useCallback((): void => {
+    if (isDirty) {
+      setUnsavedDialogOpen(true);
+    } else {
+      router.push(backHref);
+    }
+  }, [router, backHref, isDirty]);
+
+  const handleSaveAndLeave = useCallback(async (): Promise<void> => {
+    await handleSave();
+    router.push(backHref);
+  }, [handleSave, router, backHref]);
+
+  const handleDiscardAndLeave = useCallback((): void => {
+    setUnsavedDialogOpen(false);
     router.push(backHref);
   }, [router, backHref]);
 
@@ -945,7 +986,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
       {/* Snapshot banner */}
       {isSnapshot && (
         <div className="flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm dark:border-yellow-700 dark:bg-yellow-950 mx-6 mt-6">
-          <FlaskConical className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+          <ScrollText className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
           <span>{t("detail.snapshotBanner", { batchNumber })}</span>
         </div>
       )}
@@ -1079,6 +1120,7 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             onStatusChange={(v) => handleChange("status", v)}
             nameError={errors.name}
             styleName={styleName}
+            isSnapshot={isSnapshot}
           />
 
           {/* Section 2: Execution (collapsible) */}
@@ -1236,6 +1278,27 @@ export function RecipeDesigner({ id }: RecipeDesignerProps): React.ReactNode {
             </AlertDialogAction>
             <AlertDialogAction onClick={() => handleSystemChangeConfirm(true)}>
               {t("designer.systemChangeYes")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unsaved changes dialog */}
+      <AlertDialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("designer.unsavedTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("designer.unsavedDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="outline" onClick={handleDiscardAndLeave}>
+              {t("designer.unsavedDiscard")}
+            </AlertDialogAction>
+            <AlertDialogAction onClick={() => void handleSaveAndLeave()}>
+              {t("designer.unsavedSave")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

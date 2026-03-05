@@ -1034,7 +1034,8 @@ export async function calculateAndSaveRecipe(
     });
 
     // Update recipe with calculated values — costPrice = totalProductionCost
-    // og, fg — NOT overwritten (they are target values from design sliders)
+    // og, fg — NOT overwritten (they are design target values from sliders)
+    // For batch snapshots, og/fg are set in createBatch from the calculation data
     await db
       .update(recipes)
       .set({

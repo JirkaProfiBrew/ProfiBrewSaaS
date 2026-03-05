@@ -572,55 +572,55 @@ Pro existující příjemky: `overhead_per_unit` a `full_unit_price` se dopočí
 ## AKCEPTAČNÍ KRITÉRIA
 
 ### DB & Schema
-1. [ ] Tabulka `receipt_costs` existuje s RLS
-2. [ ] `stock_issue_lines.overhead_per_unit` a `full_unit_price` existují
+1. [x] Tabulka `receipt_costs` existuje s RLS
+2. [x] `stock_issue_lines.overhead_per_unit` a `full_unit_price` existují
 3. [ ] Migrace existujících additionalCost > 0 do receipt_costs
 
 ### CRUD VPN
-4. [ ] Přidání vedlejšího nákladu (popis, částka, rozpuštění)
-5. [ ] Editace a mazání VPN (jen v draft stavu)
-6. [ ] Po každé změně VPN se přepočítá overhead na řádcích
+4. [x] Přidání vedlejšího nákladu (popis, částka, rozpuštění)
+5. [x] Editace a mazání VPN (jen v draft stavu)
+6. [x] Po každé změně VPN se přepočítá overhead na řádcích
 
 ### Rozpuštění
-7. [ ] Dle hodnoty: VPN rozpuštěno proporcionálně k hodnotě řádků (qty × NC)
-8. [ ] Dle množství: VPN rozpuštěno proporcionálně k množství
+7. [x] Dle hodnoty: VPN rozpuštěno proporcionálně k hodnotě řádků (qty × NC)
+8. [x] Dle množství: VPN rozpuštěno proporcionálně k množství
 9. [ ] Více VPN s různými režimy: overhead = součet alokací ze všech VPN
-10. [ ] Haléřové vyrovnání: SUM(rozpuštěné) = SUM(VPN) na halíř
+10. [x] Haléřové vyrovnání: SUM(rozpuštěné) = SUM(VPN) na halíř
 
 ### UI — tab Náklady
-11. [ ] Tab/sekce "Náklady" viditelný JEN na příjemce
-12. [ ] Inline editovatelná tabulka VPN
-13. [ ] Řádek: popis, částka, rozpuštění select, smazat
-14. [ ] Sumář: Celkem VPN
+11. [x] Tab/sekce "Náklady" viditelný JEN na příjemce
+12. [x] Inline editovatelná tabulka VPN
+13. [x] Řádek: popis, částka, rozpuštění select, smazat
+14. [x] Sumář: Celkem VPN
 
 ### UI — finanční sloupce na řádcích
-15. [ ] Sloupce: NC (input) | Celkem NC | VPN/MJ | PC | Celkem PC
-16. [ ] NC editovatelný, ostatní readonly computed
-17. [ ] PC = NC + VPN/MJ (vždy)
-18. [ ] Celkem PC = qty × PC (vždy)
-19. [ ] Sloupce VPN/MJ, PC, Celkem PC viditelné JEN na příjemce
+15. [x] Sloupce: NC (input) | Celkem NC | VPN/MJ | PC | Celkem PC
+16. [x] NC editovatelný, ostatní readonly computed
+17. [x] PC = NC + VPN/MJ (vždy)
+18. [x] Celkem PC = qty × PC (vždy)
+19. [x] Sloupce VPN/MJ, PC, Celkem PC viditelné JEN na příjemce
 
 ### UI — sumář na hlavičce
-20. [ ] Položky: X Kč | VPN: Y Kč | Celkem: Z Kč
-21. [ ] Kontrola: Položky + VPN = Celkem (na halíř)
+20. [x] Položky: X Kč | VPN: Y Kč | Celkem: Z Kč
+21. [x] Kontrola: Položky + VPN = Celkem (na halíř)
 
 ### Feature "zadat celkem"
-22. [ ] Toggle ikona vedle NC na řádku příjemky
-23. [ ] Režim "celkem": input pro celkovou cenu řádku, NC computed = celkem / qty
-24. [ ] Přepnutí zpět: NC zůstane, input pro NC
-25. [ ] Do DB jde VŽDY unit_price (NC per MJ)
+22. [x] Toggle ikona vedle NC na řádku příjemky
+23. [x] Režim "celkem": input pro celkovou cenu řádku, NC computed = celkem / qty
+24. [x] Přepnutí zpět: NC zůstane, input pro NC
+25. [x] Do DB jde VŽDY unit_price (NC per MJ)
 
 ### Confirm + movements
-26. [ ] Při confirm příjemky: unit_price v movements = **PC** (ne NC)
-27. [ ] total_cost na hlavičce = SUM(qty × PC), BEZ přičítání additionalCost navíc
+26. [x] Při confirm příjemky: unit_price v movements = **PC** (ne NC)
+27. [x] total_cost na hlavičce = SUM(qty × PC), BEZ přičítání additionalCost navíc
 28. [ ] Validace: SUM(qty × NC) + SUM(VPN) ≈ SUM(qty × PC) (tolerance 0,01)
 
 ### Edge cases
-29. [ ] Řádek s NC = 0: VPN dle hodnoty přeskočí (0 podíl), dle množství funguje
-30. [ ] Řádek s qty = 0: přeskočit v rozpuštění
-31. [ ] Žádné VPN: overhead = 0, PC = NC (zpětná kompatibilita)
-32. [ ] Smazání posledního VPN: overhead se vynuluje
-33. [ ] Změna qty nebo NC na řádku: automatický přepočet overhead
+29. [x ] Řádek s NC = 0: VPN dle hodnoty přeskočí (0 podíl), dle množství funguje
+30. [x] Řádek s qty = 0: přeskočit v rozpuštění
+31. [x] Žádné VPN: overhead = 0, PC = NC (zpětná kompatibilita)
+32. [x] Smazání posledního VPN: overhead se vynuluje
+33. [x] Změna qty nebo NC na řádku: automatický přepočet overhead
 
 ### Obecné
 34. [ ] `npm run build` bez chyb

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useState,
   useEffect,
   useCallback,
@@ -41,11 +42,9 @@ import { cn } from "@/lib/utils";
 import type { Batch, BatchStep, HopAddition, BatchPhase } from "../../../types";
 import {
   getBatchBrewData,
-  getBrewingSystemForBatch,
   updateBatchStep,
   updateBatch,
   advanceBatchPhase,
-  addBatchMeasurement,
 } from "../../../actions";
 
 // ── Constants ──────────────────────────────────────────────────
@@ -60,16 +59,6 @@ const BREW_PHASE_LABEL_KEYS: Record<string, string> = {
   post_boil: "brew.brewing.phasePostBoil",
 };
 
-const MEASUREMENT_ROWS = [
-  "mashWater",
-  "spargeWater",
-  "preBoilVolume",
-  "postBoilVolume",
-  "fermenterVolume",
-  "ogMeasured",
-] as const;
-
-type MeasurementKey = (typeof MEASUREMENT_ROWS)[number];
 
 // ── BrewTimer sub-component ────────────────────────────────────
 
@@ -241,22 +230,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [loading, setLoading] = useState(true);
   const [localActuals, setLocalActuals] = useState<Record<string, string>>({});
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
-  const [plannedValues, setPlannedValues] = useState<Record<MeasurementKey, string>>({
-    mashWater: "",
-    spargeWater: "",
-    preBoilVolume: "",
-    postBoilVolume: "",
-    fermenterVolume: "",
-    ogMeasured: "",
-  });
-  const [measurements, setMeasurements] = useState<Record<MeasurementKey, string>>({
-    mashWater: "",
-    spargeWater: "",
-    preBoilVolume: "",
-    postBoilVolume: "",
-    fermenterVolume: "",
-    ogMeasured: "",
-  });
   const [finishOg, setFinishOg] = useState("");
   const [finishVolume, setFinishVolume] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -269,10 +242,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     let cancelled = false;
     async function load(): Promise<void> {
       try {
-        const [data, sys] = await Promise.all([
-          getBatchBrewData(batchId),
-          getBrewingSystemForBatch(batchId),
-        ]);
+        const data = await getBatchBrewData(batchId);
         if (cancelled || !data) return;
         setSteps(data.steps);
 
@@ -289,45 +259,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         }
         setLocalActuals(actuals);
         setLocalNotes(notes);
-
-        // Compute planned measurement values from batch + brewing system
-        const batch = data.batch;
-        const batchSizeL = batch.recipeBatchSizeL
-          ? Number(batch.recipeBatchSizeL)
-          : null;
-        const recipeOg = batch.recipeOg ? Number(batch.recipeOg) : null;
-
-        if (batchSizeL && sys) {
-          const whirlpoolLossPct = Number(sys.whirlpoolLossPct ?? 10) / 100;
-          const evapRatePctHr = Number(sys.evaporationRatePctPerHour ?? 8) / 100;
-          // Get boil time from the boil steps
-          const boilSteps = data.steps.filter((s) => s.brewPhase === "boiling");
-          const boilTimeMin = boilSteps.reduce((sum, s) => sum + (s.timeMin ?? 0), 0) || 60;
-          const boilTimeHr = boilTimeMin / 60;
-
-          // fermenter = batch size
-          const fermenterVol = batchSizeL;
-          // post-boil = fermenter / (1 - whirlpool loss)
-          const postBoilVol = fermenterVol / (1 - whirlpoolLossPct);
-          // pre-boil = (post-boil + kettle trub) / (1 - evap * hours)
-          const preBoilVol = postBoilVol / (1 - evapRatePctHr * boilTimeHr);
-
-
-          setPlannedValues({
-            mashWater: "",
-            spargeWater: "",
-            preBoilVolume: preBoilVol.toFixed(1),
-            postBoilVolume: postBoilVol.toFixed(1),
-            fermenterVolume: fermenterVol.toFixed(1),
-            ogMeasured: recipeOg ? recipeOg.toFixed(1) : "",
-          });
-        } else if (batchSizeL) {
-          setPlannedValues((prev) => ({
-            ...prev,
-            fermenterVolume: batchSizeL.toFixed(1),
-            ogMeasured: recipeOg ? recipeOg.toFixed(1) : "",
-          }));
-        }
       } catch {
         toast.error("Failed to load brew data");
       } finally {
@@ -479,14 +410,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     [boilStep]
   );
 
-  // ── Measurement change ─────────────────────────────────────
-  const handleMeasurementChange = useCallback(
-    (key: MeasurementKey, value: string): void => {
-      setMeasurements((prev) => ({ ...prev, [key]: value }));
-    },
-    []
-  );
-
   // ── Phase transition ───────────────────────────────────────
   const handleFinishBrewing = useCallback(async (): Promise<void> => {
     if (!finishOg || !finishVolume) {
@@ -502,21 +425,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           actualVolumeL: finishVolume,
         });
 
-        // Save measurements
-        const measurementEntries = Object.entries(measurements).filter(
-          ([, v]) => v !== ""
-        );
-        for (const [key, value] of measurementEntries) {
-          await addBatchMeasurement(batchId, {
-            measurementType: key === "ogMeasured" ? "gravity" : "volume",
-            value: value,
-            valuePlato: key === "ogMeasured" ? value : undefined,
-            isStart: false,
-            isEnd: false,
-            notes: key,
-          });
-        }
-
         // Advance phase
         await advanceBatchPhase(batchId, "fermentation" as BatchPhase);
 
@@ -531,7 +439,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     batchId,
     finishOg,
     finishVolume,
-    measurements,
     t,
     router,
     locale,
@@ -602,10 +509,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
             </TableHeader>
             <TableBody>
               {groupedSteps.map((group) => (
-                <>
+                <Fragment key={`phase-${group.phase}`}>
                   {/* Phase separator row */}
                   <TableRow
-                    key={`phase-${group.phase}`}
                     className="bg-muted/50"
                   >
                     <TableCell
@@ -690,7 +596,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                       </TableRow>
                     );
                   })}
-                </>
+                </Fragment>
               ))}
             </TableBody>
             <TableFooter>
@@ -792,63 +698,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           <BrewTimer label={t("brew.brewing.timerTotal")} />
           <BrewTimer label={t("brew.brewing.timerRest")} />
           <BrewTimer label={t("brew.brewing.timerBoil")} />
-        </div>
-      </section>
-
-      {/* ── Section 4: Measurements ─────────────────────────── */}
-      <section>
-        <h3 className="mb-3 text-lg font-semibold">
-          {t("brew.brewing.measurements")}
-        </h3>
-
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("brew.brewing.measurements")}</TableHead>
-                <TableHead className="w-32 text-right">
-                  {t("brew.brewing.planned")}
-                </TableHead>
-                <TableHead className="w-36 text-right">
-                  {t("brew.brewing.actual")}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {MEASUREMENT_ROWS.map((key) => (
-                <TableRow key={key}>
-                  <TableCell className="font-medium">
-                    {t(`brew.brewing.${key}`)}
-                    {key !== "ogMeasured" && (
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        (L)
-                      </span>
-                    )}
-                    {key === "ogMeasured" && (
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        (°P)
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {plannedValues[key] || "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="number"
-                      step={key === "ogMeasured" ? "0.1" : "1"}
-                      min={0}
-                      className="h-7 w-28 text-right ml-auto"
-                      value={measurements[key]}
-                      onChange={(e): void =>
-                        handleMeasurementChange(key, e.target.value)
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
         </div>
       </section>
 

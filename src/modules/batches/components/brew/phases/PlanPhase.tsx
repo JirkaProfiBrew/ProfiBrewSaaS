@@ -79,35 +79,10 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
       try {
         const brewData = await getBatchBrewData(batchId);
         if (cancelled || !brewData) return;
-        const pd = brewData.batch.plannedDate
-          ? new Date(brewData.batch.plannedDate).toISOString().split("T")[0]
-          : null;
-        const vesselData = await getAvailableVessels(
-          batchId, pd,
-          brewData.batch.fermentationDays ?? 14,
-          brewData.batch.conditioningDays ?? 21,
-          brewData.batch.shopId ?? null
-        );
-        if (cancelled || !brewData) return;
 
-        // Load brewing system times in parallel
-        const sys = await getBrewingSystemForBatch(batchId);
-
+        // Set batch + steps immediately so the UI doesn't show "no recipe"
         setBatch(brewData.batch);
         setSteps(brewData.steps);
-        setVessels(vesselData);
-        if (sys) {
-          // Extract boil time from steps (boil step)
-          const boilStep = brewData.steps.find((s) => s.stepType === "boil");
-          setBrewSystemTimes({
-            preparation: sys.timePreparation ?? 0,
-            lautering: sys.timeLautering ?? 0,
-            whirlpool: sys.timeWhirlpool ?? 0,
-            transfer: sys.timeTransfer ?? 0,
-            cleanup: sys.timeCleanup ?? 0,
-            boilMin: boilStep?.timeMin ?? 60,
-          });
-        }
 
         // Init editable fields from batch
         if (brewData.batch.plannedDate) {
@@ -118,6 +93,34 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
         setCondDays(brewData.batch.conditioningDays ?? 21);
         setFermVesselId(brewData.batch.equipmentId ?? "");
         setCondVesselId(brewData.batch.conditioningEquipmentId ?? "");
+
+        // Load secondary data — vessels, brewing system, ingredients
+        const pd = brewData.batch.plannedDate
+          ? new Date(brewData.batch.plannedDate).toISOString().split("T")[0]
+          : null;
+        const [vesselData, sys] = await Promise.all([
+          getAvailableVessels(
+            batchId, pd,
+            brewData.batch.fermentationDays ?? 14,
+            brewData.batch.conditioningDays ?? 21,
+            brewData.batch.shopId ?? null
+          ),
+          getBrewingSystemForBatch(batchId),
+        ]);
+        if (cancelled) return;
+
+        setVessels(vesselData);
+        if (sys) {
+          const boilStep = brewData.steps.find((s) => s.stepType === "boil");
+          setBrewSystemTimes({
+            preparation: sys.timePreparation ?? 0,
+            lautering: sys.timeLautering ?? 0,
+            whirlpool: sys.timeWhirlpool ?? 0,
+            transfer: sys.timeTransfer ?? 0,
+            cleanup: sys.timeCleanup ?? 0,
+            boilMin: boilStep?.timeMin ?? 60,
+          });
+        }
 
         // Load ingredients from recipe
         if (brewData.batch.recipeId) {
@@ -339,9 +342,9 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
                   </div>
                 )}
 
-                {isEditable && batch.sourceRecipeId && (
+                {isEditable && batch.recipeId && (
                   <Link
-                    href={`/${locale}/brewery/recipes/${batch.sourceRecipeId}`}
+                    href={`/${locale}/brewery/recipes/${batch.recipeId}?batchId=${batch.id}&batchNumber=${encodeURIComponent(batch.batchNumber)}&returnTo=brew`}
                     className="text-sm text-primary hover:underline inline-flex items-center gap-1 mt-2"
                   >
                     {t("brew.plan.editRecipe")}{" "}

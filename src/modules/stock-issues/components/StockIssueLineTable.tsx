@@ -88,6 +88,14 @@ function toNumber(val: string | null | undefined): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
+/** Format quantity — up to 3 decimals, strip trailing zeros */
+function fmtQty(val: string | number | null | undefined): string {
+  if (val == null || val === "") return "0";
+  const n = typeof val === "number" ? val : Number(val);
+  if (Number.isNaN(n)) return String(val);
+  return parseFloat(n.toFixed(3)).toString();
+}
+
 function formatCurrency(value: number): string {
   return `${value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kč`;
 }
@@ -552,7 +560,7 @@ function StockIssueLineRow({
             }}
           />
         ) : (
-          <span>{requestedQty}</span>
+          <span>{fmtQty(requestedQty)}</span>
         )}
       </TableCell>
 
@@ -560,11 +568,11 @@ function StockIssueLineRow({
       {isConfirmedIssue && (
         <>
           <TableCell>
-            <span>{issuedNum}</span>
+            <span>{fmtQty(issuedNum)}</span>
           </TableCell>
           <TableCell>
             {missing > 0 ? (
-              <span className="text-destructive font-medium">{missing}</span>
+              <span className="text-destructive font-medium">{fmtQty(missing)}</span>
             ) : (
               <span className="text-muted-foreground">{"\u2014"}</span>
             )}

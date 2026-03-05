@@ -1685,63 +1685,63 @@ Aktualizovat scope: Sprint 4 completed. Orders, CashFlows, Deposits, CashDesk ad
 2. [ ] 3 defaultní zálohy seed při registraci tenanta
 
 ### Orders
-3. [ ] Vytvoření objednávky s automatickým kódem (OBJ-2026-0001)
+3. [x] Vytvoření objednávky s automatickým kódem (OBJ-2026-0001)
 4. [x] Přidání řádků s items lookup (is_sale_item=true), cenami, slevou, DPH
 5. [x] Záloha za obaly per řádek (deposit_id + deposit_qty)
 6. [x] Sumární přepočet (excl_vat, vat, incl_vat, deposit) real-time
-7. [ ] Confirm order: validace, reserved_qty update, status = confirmed
-8. [ ] Vytvoření výdejky z objednávky — řádky odpovídají objednaným položkám
-9. [ ] Bulk režim: alokace jde na base_item s přepočtem množství (5× PET 0,33 = 1,65L base_item)
-10. [ ] Packaged režim: alokace jde přímo na objednanou položku
+7. [x] Confirm order: validace, reserved_qty update, status = confirmed
+8. [x] Vytvoření výdejky z objednávky — řádky odpovídají objednaným položkám
+9. [x] Bulk režim: alokace jde na base_item s přepočtem množství (5× PET 0,33 = 1,65L base_item)
+10. [x] Packaged režim: alokace jde přímo na objednanou položku
 11. [ ] None režim: výdejka se nevytváří (tlačítko skryto)
-12. [ ] Vytvoření cash flow z objednávky
+12. [x] Vytvoření cash flow z objednávky
 13. [ ] Cancel order: storno výdejky, storno reserved_qty (ze správného itemu), storno CF
-14. [ ] Kompletní workflow: draft → confirmed → shipped → delivered → invoiced
-15. [ ] Editace možná jen v draft stavu
+14. [x] Kompletní workflow: draft → confirmed → shipped → delivered → invoiced
+15. [x] Editace možná jen v draft stavu
 
 ### Automatické příjemky
 16. [ ] Režim "none": ukončení várky bez skladového pohybu
-17. [ ] Režim "bulk": příjemka s base_production_item, množství = objem z tanku
-18. [ ] Režim "packaged": příjemka s prodejními položkami z bottling tab
-19. [ ] Cena piva dle nastavení (fixed / recipe_calc / actual_costs)
+17. [x] Režim "bulk": příjemka s base_production_item, množství = objem z tanku
+18. [x] Režim "packaged": příjemka s prodejními položkami z bottling tab
+19. [x] Cena piva dle nastavení (fixed / recipe_calc / actual_costs)
 20. [ ] Batch detail: confirm dialog s informací o režimu, tab "Sklad" s odkazem na příjemku
 
 ### Výdej surovin na várku
-21. [ ] createProductionIssue: draft výdejka s řádky z recipe snapshot (škálované na objem)
-22. [ ] recipe_item_id na stock_issue_lines — vazba řádku na ingredienci receptu
-23. [ ] Rezervace: draft production issue → is_reserved=true, reserved_qty INCREMENT
-24. [ ] Unreserve: cancel draft → is_reserved=false, reserved_qty DECREMENT
-25. [ ] Confirm production issue: FIFO alokuje, odečte reserved_qty (pokud was reserved)
-26. [ ] directProductionIssue: vytvoří draft + rovnou confirm (bez rezervace)
-27. [ ] Batch detail tab "Suroviny": tabulka Recept/Rezervováno/Vydáno/Chybí/Šarže
-28. [ ] Batch detail tab "Suroviny": tlačítka Rezervovat/Vydat/Zrušit rezervaci
-29. [ ] Batch detail tab "Suroviny": seznam production issues (linky)
-30. [ ] Výdejka formulář: purpose select (sale/production/transfer/writeoff/other)
-31. [ ] Výdejka formulář: pokud purpose=production → batch select → prefill řádků z receptu
-32. [ ] Tracking detail: sloupec Várka s linkem na batch
+21. [x] createProductionIssue: draft výdejka s řádky z recipe snapshot (škálované na objem)
+22. [x] recipe_item_id na stock_issue_lines — vazba řádku na ingredienci receptu
+23. [x] Rezervace: draft production issue → is_reserved=true, reserved_qty INCREMENT
+24. [x] Unreserve: cancel draft → is_reserved=false, reserved_qty DECREMENT
+25. [x] Confirm production issue: FIFO alokuje, odečte reserved_qty (pokud was reserved)
+26. [x] directProductionIssue: vytvoří draft + rovnou confirm (bez rezervace)
+27. [x] Batch detail tab "Suroviny": tabulka Recept/Rezervováno/Vydáno/Chybí/Šarže
+28. [x] Batch detail tab "Suroviny": tlačítka Rezervovat/Vydat/Zrušit rezervaci
+29. [x] Batch detail tab "Suroviny": seznam production issues (linky)
+30. [x] Výdejka formulář: purpose select (sale/production/transfer/writeoff/other)
+31. [x] Výdejka formulář: pokud purpose=production → batch select → prefill řádků z receptu
+32. [x] Tracking detail: sloupec Várka s linkem na batch
 
 ### CashFlow
-33. [ ] CRUD cash flow s automatickým kódem
-34. [ ] Hierarchické kategorie (systémové + custom)
-35. [ ] Quick filters: příjmy/výdaje/plánované/zaplacené
-36. [ ] Sumární panel per období (příjmy/výdaje/saldo)
-37. [ ] Status workflow: planned → pending → paid → cancelled
+33. [x] CRUD cash flow s automatickým kódem
+34. [x] Hierarchické kategorie (systémové + custom)
+35. [x] Quick filters: příjmy/výdaje/plánované/zaplacené
+36. [x] Sumární panel per období (příjmy/výdaje/saldo)
+37. [x]Status workflow: planned → pending → paid → cancelled
 
 ### CashFlow Templates
-38. [ ] CRUD šablon s frekvencí (weekly/monthly/quarterly/yearly)
-39. [ ] Manuální generování plánovaných plateb z šablon
-40. [ ] next_date posun po generování
+38. [x] CRUD šablon s frekvencí (weekly/monthly/quarterly/yearly)
+39. [x] Manuální generování plánovaných plateb z šablon
+40. [x] next_date posun po generování
 
 ### Pokladna
-41. [ ] CRUD pokladen (název, provozovna)
-42. [ ] Quick příjem/výdej s aktualizací zůstatku
-43. [ ] Denní přehled operací
-44. [ ] Aktuální zůstatek
+41. [x] CRUD pokladen (název, provozovna)
+42. [x] Quick příjem/výdej s aktualizací zůstatku
+43. [x] Denní přehled operací
+44. [x] Aktuální zůstatek
 
 ### Reserved Quantity
-45. [ ] confirmOrder rezervuje na správném itemu (base_item v bulk, přímo v packaged)
-46. [ ] shipOrder/cancelOrder odečte reserved_qty ze správného itemu
-47. [ ] available_qty = quantity - reserved_qty správně počítáno
+45. [x] confirmOrder rezervuje na správném itemu (base_item v bulk, přímo v packaged)
+46. [x] shipOrder/cancelOrder odečte reserved_qty ze správného itemu
+47. [x] available_qty = quantity - reserved_qty správně počítáno
 
 ### Obecné
 48. [ ] Všechny texty přes i18n (cs + en)

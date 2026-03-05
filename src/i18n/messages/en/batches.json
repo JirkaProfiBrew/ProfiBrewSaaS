@@ -570,7 +570,8 @@
       "mashProfile": "Mashing Profile",
       "boilMin": "{min} min boil",
       "addAtMin": "{min} min",
-      "noIngredients": "No ingredients"
+      "noIngredients": "No ingredients",
+      "noCalcResult": "Recipe calculation missing — planned values unavailable. Open the recipe and recalculate."
     }
   }
 }

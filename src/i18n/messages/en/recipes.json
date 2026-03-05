@@ -269,6 +269,10 @@
     "systemChangeDesc": "Update constants and recalculate from the new system \"{name}\"? This will overwrite manually adjusted constants.",
     "systemChangeYes": "Yes, update",
     "systemChangeNo": "No, just change reference",
+    "unsavedTitle": "Unsaved Changes",
+    "unsavedDescription": "This recipe has unsaved changes. Would you like to save before leaving?",
+    "unsavedSave": "Save & Leave",
+    "unsavedDiscard": "Discard Changes",
     "volumeChange": {
       "title": "Batch Volume Changed",
       "message": "Volume changed from {old}L to {new}L. Recalculate ingredient amounts proportionally?",
