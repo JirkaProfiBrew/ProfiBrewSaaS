@@ -11,7 +11,7 @@ import React, {
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Play, Pause, Square, ArrowRight, ArrowLeft, RefreshCw, Timer, Check, RotateCcw, X } from "lucide-react";
+import { Play, Pause, Square, ArrowRight, ArrowLeft, RefreshCw, Timer, Check, RotateCcw, X, Volume2, VolumeX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,38 @@ import {
   resetBrewTracking,
   rollbackBatchPhase,
 } from "../../../actions";
+
+// ── Timer sound ────────────────────────────────────────────────
+
+const LS_TIMER_SOUND = "pb_timer_sound";
+
+function getTimerSoundPref(): boolean {
+  try { return localStorage.getItem(LS_TIMER_SOUND) !== "off"; } catch { return true; }
+}
+
+function setTimerSoundPref(on: boolean): void {
+  try { localStorage.setItem(LS_TIMER_SOUND, on ? "on" : "off"); } catch { /* */ }
+}
+
+function playTimerBeep(repeat = 3): void {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    let t = ctx.currentTime;
+    for (let i = 0; i < repeat; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.15);
+      t += 0.3;
+    }
+    setTimeout(() => ctx.close(), repeat * 300 + 200);
+  } catch { /* AudioContext not available */ }
+}
 
 // ── Phase colors (matching BrewStepTimeline) ───────────────────
 
@@ -130,6 +162,15 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const params = useParams();
   const locale = params.locale as string;
   const [isPending, startTransition] = useTransition();
+
+  // ── Sound setting ──────────────────────────────────────────
+  const [timerSound, setTimerSound] = useState(true);
+  useEffect(() => { setTimerSound(getTimerSoundPref()); }, []);
+  const timerSoundRef = useRef(timerSound);
+  timerSoundRef.current = timerSound;
+  const toggleTimerSound = useCallback((): void => {
+    setTimerSound((v) => { const next = !v; setTimerSoundPref(next); return next; });
+  }, []);
 
   // ── State ──────────────────────────────────────────────────
   const [batch, setBatch] = useState<Batch | null>(null);
@@ -461,6 +502,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           const remaining = Math.max(0, Math.ceil(prev.targetSec - elapsed));
           if (remaining <= 0) {
             setTimerDoneOpen(true);
+            if (timerSoundRef.current) playTimerBeep();
             return { ...prev, remainingSec: 0, pausedElapsed: prev.targetSec, startedAt: 0, status: "paused" as const };
           }
           return { ...prev, remainingSec: remaining };
@@ -509,6 +551,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     setTimerStopOpen(false);
   }, [timerStep, handleStampStop]);
 
+  // Track which boil hop groups already triggered a sound
+  const boilSoundedRef = useRef<Set<number>>(new Set());
+
   // ── Boil timer countdown effect (timestamp-based) ────────────────
   useEffect(() => {
     if (boilTimer?.status === "running") {
@@ -521,7 +566,18 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
             if (allConfirmed) {
               setBoilTimerDoneOpen(true);
             }
+            if (timerSoundRef.current) playTimerBeep();
+            boilSoundedRef.current = new Set();
             return { ...prev, elapsedSec: prev.totalSec, pausedElapsed: prev.totalSec, startedAt: 0, status: "paused" as const };
+          }
+          // Sound for hop groups becoming ready
+          if (timerSoundRef.current) {
+            prev.groups.forEach((g, idx) => {
+              if (elapsed >= g.waitSec && !g.confirmed && !boilSoundedRef.current.has(idx)) {
+                boilSoundedRef.current.add(idx);
+                playTimerBeep(2);
+              }
+            });
           }
           return { ...prev, elapsedSec: elapsed };
         });
@@ -916,6 +972,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                 {timerStep.tempC && (
                   <span className="text-muted-foreground">· {Number(timerStep.tempC).toFixed(0)}°C</span>
                 )}
+                <button type="button" onClick={toggleTimerSound} className="ml-1 text-amber-600 hover:text-amber-800" title={t("brew.brewing.timerSound")}>
+                  {timerSound ? <Volume2 className="size-4" /> : <VolumeX className="size-4 opacity-50" />}
+                </button>
               </span>
               <span className="font-mono text-2xl font-bold tabular-nums">
                 {Math.floor(timerStep.remainingSec / 60).toString().padStart(2, "0")}
@@ -1006,6 +1065,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
               <span className="text-sm font-medium flex items-center gap-1.5">
                 <Timer className="size-4 text-orange-600" />
                 {t("brew.brewing.boilTimerTitle")}
+                <button type="button" onClick={toggleTimerSound} className="ml-1 text-orange-600 hover:text-orange-800" title={t("brew.brewing.timerSound")}>
+                  {timerSound ? <Volume2 className="size-4" /> : <VolumeX className="size-4 opacity-50" />}
+                </button>
               </span>
               <span className="font-mono text-2xl font-bold tabular-nums">
                 {Math.floor(boilTimer.elapsedSec / 60).toString().padStart(2, "0")}

@@ -353,6 +353,7 @@
       "doneTitle": "Time's Up",
       "doneMsg": "The set time has elapsed."
     },
+    "timerSound": "Sound alert",
     "brewView": "Brew Management",
     "header": {
       "lot": "Lot"
@@ -522,7 +523,8 @@
       "backToPrep": "Back to Preparation",
       "backToPrepTitle": "Revert batch to Preparation phase?",
       "backToPrepWarning": "Step time records and ingredient additions will be reset. This action cannot be undone.",
-      "backToPrepConfirm": "Yes, revert to Preparation"
+      "backToPrepConfirm": "Yes, revert to Preparation",
+      "timerSound": "Sound alert"
     },
     "fermentation": {
       "vessel": "Vessel",

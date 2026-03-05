@@ -40,6 +40,14 @@
 - [x] Datetime-local input zúžen (w-[11rem]) + flex-wrap na řádku kroků varu
 - [x] Pole teplota v dialogu přechodu Var→Kvašení
 
+### Zvukový signál timerů
+- [x] Web Audio API beep (sine 880Hz) pro všechny 3 typy timerů
+- [x] Mash timer: zvuk při dokončení prodlevy
+- [x] Boil timer: zvuk při každém chmelení + dokončení chmelovaru
+- [x] General timer (minutka): zvuk při vypršení času
+- [x] Volume2/VolumeX toggle na každém timer panelu
+- [x] Nastavení persistováno v localStorage (`pb_timer_sound`), sdílené napříč timery
+
 ### DB migrace
 - [x] `batches.ingredient_additions` (JSONB) — záznam přidání surovin během kvašení/ležení
 

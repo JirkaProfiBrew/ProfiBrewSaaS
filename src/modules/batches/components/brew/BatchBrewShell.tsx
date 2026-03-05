@@ -3,7 +3,7 @@
 import { useState, useCallback, useTransition, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Play, Pause, Square, ScrollText, StickyNote, Timer } from "lucide-react";
+import { ArrowLeft, Play, Pause, Square, ScrollText, StickyNote, Timer, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -44,6 +44,38 @@ import { addBatchNote } from "../../actions";
 import { BatchPhaseBar } from "./BatchPhaseBar";
 import { BrewSidebar } from "./BrewSidebar";
 
+// ── Timer sound ────────────────────────────────────────────────
+
+const LS_TIMER_SOUND = "pb_timer_sound";
+
+function getTimerSoundPref(): boolean {
+  try { return localStorage.getItem(LS_TIMER_SOUND) !== "off"; } catch { return true; }
+}
+
+function setTimerSoundPref(on: boolean): void {
+  try { localStorage.setItem(LS_TIMER_SOUND, on ? "on" : "off"); } catch { /* */ }
+}
+
+function playTimerBeep(repeat = 3): void {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    let t = ctx.currentTime;
+    for (let i = 0; i < repeat; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.15);
+      t += 0.3;
+    }
+    setTimeout(() => ctx.close(), repeat * 300 + 200);
+  } catch { /* AudioContext not available */ }
+}
+
 interface BatchBrewShellProps {
   batch: Batch;
   steps: BatchStep[];
@@ -73,6 +105,15 @@ export function BatchBrewShell({
   const brewPhaseSegment = pathname.match(/\/brew\/(\w+)/)?.[1] ?? "";
   const [isPending, startTransition] = useTransition();
 
+  // Timer sound setting (shared with BrewingPhase via localStorage)
+  const [timerSound, setTimerSound] = useState(true);
+  useEffect(() => { setTimerSound(getTimerSoundPref()); }, []);
+  const timerSoundRef = useRef(timerSound);
+  timerSoundRef.current = timerSound;
+  const toggleTimerSound = useCallback((): void => {
+    setTimerSound((v) => { const next = !v; setTimerSoundPref(next); return next; });
+  }, []);
+
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
 
@@ -99,6 +140,7 @@ export function BatchBrewShell({
           const elapsed = prev.pausedElapsed + (Date.now() - prev.startedAt) / 1000;
           const remaining = Math.max(0, Math.ceil(prev.targetSec - elapsed));
           if (remaining <= 0) {
+            if (timerSoundRef.current) playTimerBeep();
             setGenTimerDoneOpen(true);
             return { ...prev, remainingSec: 0, pausedElapsed: prev.targetSec, startedAt: 0, status: "paused" as const };
           }
@@ -314,7 +356,10 @@ export function BatchBrewShell({
                   <Play className="mr-1 size-3.5" />
                   {t("brew.generalTimer.start")}
                 </Button>
-                <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={handleGenTimerClose}>
+                <button type="button" onClick={toggleTimerSound} className="ml-auto text-blue-600 hover:text-blue-800" title={t("brew.timerSound")}>
+                  {timerSound ? <Volume2 className="size-4" /> : <VolumeX className="size-4 opacity-50" />}
+                </button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={handleGenTimerClose}>
                   ✕
                 </Button>
               </div>
@@ -326,13 +371,18 @@ export function BatchBrewShell({
                     <Timer className="size-4 text-blue-600" />
                     {t("brew.generalTimer.tooltip")}
                   </span>
-                  <span className="font-mono text-2xl font-bold tabular-nums">
-                    {Math.floor(genTimer.remainingSec / 60).toString().padStart(2, "0")}
-                    :{(genTimer.remainingSec % 60).toString().padStart(2, "0")}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
-                      / {Math.floor(genTimer.targetSec / 60).toString().padStart(2, "0")}
-                      :{(genTimer.targetSec % 60).toString().padStart(2, "0")}
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-2xl font-bold tabular-nums">
+                      {Math.floor(genTimer.remainingSec / 60).toString().padStart(2, "0")}
+                      :{(genTimer.remainingSec % 60).toString().padStart(2, "0")}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">
+                        / {Math.floor(genTimer.targetSec / 60).toString().padStart(2, "0")}
+                        :{(genTimer.targetSec % 60).toString().padStart(2, "0")}
+                      </span>
                     </span>
+                    <button type="button" onClick={toggleTimerSound} className="text-blue-600 hover:text-blue-800" title={t("brew.timerSound")}>
+                      {timerSound ? <Volume2 className="size-4" /> : <VolumeX className="size-4 opacity-50" />}
+                    </button>
                   </span>
                 </div>
                 <Progress

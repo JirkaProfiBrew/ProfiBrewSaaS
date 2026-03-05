@@ -353,6 +353,7 @@
       "doneTitle": "Čas vypršel",
       "doneMsg": "Nastavený čas vypršel."
     },
+    "timerSound": "Zvukový signál",
     "brewView": "Řízení varu",
     "header": {
       "lot": "Šarže"
@@ -522,7 +523,8 @@
       "backToPrep": "Zpět na přípravu",
       "backToPrepTitle": "Vrátit várku do fáze Příprava?",
       "backToPrepWarning": "Záznamy časů a vložení surovin u kroků varu budou resetovány. Tuto akci nelze vrátit zpět.",
-      "backToPrepConfirm": "Ano, vrátit na přípravu"
+      "backToPrepConfirm": "Ano, vrátit na přípravu",
+      "timerSound": "Zvukový signál"
     },
     "fermentation": {
       "vessel": "Nádoba",
