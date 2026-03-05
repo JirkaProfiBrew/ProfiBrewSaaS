@@ -3,7 +3,7 @@
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { batches, batchSteps } from "@/../drizzle/schema/batches";
-import { recipeSteps, recipeItems } from "@/../drizzle/schema/recipes";
+import { recipes, recipeSteps, recipeItems } from "@/../drizzle/schema/recipes";
 import { items } from "@/../drizzle/schema/items";
 import { brewingSystems } from "@/../drizzle/schema/brewing-systems";
 import { units } from "@/../drizzle/schema/system";
@@ -64,19 +64,30 @@ async function buildBrewStepsData(
       )[0] ?? null)
     : null;
 
-  // 3. Load recipe boil time
-  const boilStepRows = await executor
-    .select()
-    .from(recipeSteps)
-    .where(
-      and(
-        eq(recipeSteps.tenantId, tenantId),
-        eq(recipeSteps.recipeId, recipeId),
-        eq(recipeSteps.stepType, "boil")
+  // 3. Load recipe boil time (from recipes.boilTimeMin, fallback to recipe_steps boil step)
+  const recipeRow = (
+    await executor
+      .select({ boilTimeMin: recipes.boilTimeMin })
+      .from(recipes)
+      .where(eq(recipes.id, recipeId))
+      .limit(1)
+  )[0];
+
+  let boilTimeMin = recipeRow?.boilTimeMin ?? null;
+  if (boilTimeMin == null) {
+    const boilStepRows = await executor
+      .select({ timeMin: recipeSteps.timeMin })
+      .from(recipeSteps)
+      .where(
+        and(
+          eq(recipeSteps.tenantId, tenantId),
+          eq(recipeSteps.recipeId, recipeId),
+          eq(recipeSteps.stepType, "boil")
+        )
       )
-    )
-    .limit(1);
-  const boilTimeMin = boilStepRows[0]?.timeMin ?? 90;
+      .limit(1);
+    boilTimeMin = boilStepRows[0]?.timeMin ?? 90;
+  }
 
   // 4. Load hop additions from recipe_items (grouped by useStage)
   const hopsByStage = await loadHopAdditions(
