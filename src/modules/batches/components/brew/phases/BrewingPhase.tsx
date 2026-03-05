@@ -1,7 +1,6 @@
 "use client";
 
-import {
-  Fragment,
+import React, {
   useState,
   useEffect,
   useCallback,
@@ -12,7 +11,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Play, Pause, Square, Check, ArrowRight } from "lucide-react";
+import { Play, Pause, Square, ArrowRight, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,28 +27,38 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-import type { Batch, BatchStep, HopAddition, BatchPhase } from "../../../types";
+import type {
+  Batch,
+  BatchStep,
+  HopAddition,
+  BatchPhase,
+  BrewStepPreviewItem,
+  BrewStepPreviewResult,
+} from "../../../types";
 import {
   getBatchBrewData,
   updateBatchStep,
   updateBatch,
   advanceBatchPhase,
+  getBrewStepPreview,
+  updateBatchPlanData,
 } from "../../../actions";
 
-// ── Constants ──────────────────────────────────────────────────
+// ── Phase colors (matching BrewStepTimeline) ───────────────────
 
-const BREW_PHASE_ORDER = ["preparation", "mashing", "boiling", "post_boil"] as const;
+const PHASE_COLORS: Record<string, { border: string; bg: string }> = {
+  preparation: { border: "border-l-gray-400", bg: "bg-gray-50" },
+  mashing: { border: "border-l-amber-500", bg: "bg-amber-50/50" },
+  boiling: { border: "border-l-orange-500", bg: "bg-orange-50/50" },
+  post_boil: { border: "border-l-blue-500", bg: "bg-blue-50/50" },
+};
+
+function getPhaseColor(brewPhase: string): { border: string; bg: string } {
+  return PHASE_COLORS[brewPhase] ?? { border: "border-l-gray-300", bg: "" };
+}
 
 const BREW_PHASE_LABEL_KEYS: Record<string, string> = {
   preparation: "brew.brewing.phasePreparation",
@@ -59,6 +68,35 @@ const BREW_PHASE_LABEL_KEYS: Record<string, string> = {
   post_boil: "brew.brewing.phasePostBoil",
 };
 
+// ── Helpers ─────────────────────────────────────────────────────
+
+function fmtTime(d: Date | null | undefined): string {
+  if (!d) return "—";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString("cs-CZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function calcActualMin(step: BatchStep): number | null {
+  if (step.startTimeReal && step.endTimeReal) {
+    const start = new Date(step.startTimeReal).getTime();
+    const end = new Date(step.endTimeReal).getTime();
+    if (!isNaN(start) && !isNaN(end) && end > start) {
+      return Math.round((end - start) / 60000);
+    }
+  }
+  if (step.actualDurationMin !== null) return step.actualDurationMin;
+  return null;
+}
+
+function fmtAmount(hop: HopAddition): string {
+  if (hop.unitSymbol) return `${hop.amountG} ${hop.unitSymbol}`;
+  if (hop.amountG >= 1000) return `${(hop.amountG / 1000).toFixed(1)} kg`;
+  return `${Math.round(hop.amountG)} g`;
+}
 
 // ── BrewTimer sub-component ────────────────────────────────────
 
@@ -226,9 +264,11 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [isPending, startTransition] = useTransition();
 
   // ── State ──────────────────────────────────────────────────
+  const [batch, setBatch] = useState<Batch | null>(null);
   const [steps, setSteps] = useState<BatchStep[]>([]);
+  const [brewPreview, setBrewPreview] = useState<BrewStepPreviewResult | null>(null);
+  const [brewStartInput, setBrewStartInput] = useState("");
   const [loading, setLoading] = useState(true);
-  const [localActuals, setLocalActuals] = useState<Record<string, string>>({});
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
   const [finishOg, setFinishOg] = useState("");
   const [finishVolume, setFinishVolume] = useState("");
@@ -242,22 +282,28 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     let cancelled = false;
     async function load(): Promise<void> {
       try {
-        const data = await getBatchBrewData(batchId);
+        const [data, preview] = await Promise.all([
+          getBatchBrewData(batchId),
+          getBrewStepPreview(batchId),
+        ]);
         if (cancelled || !data) return;
+        setBatch(data.batch);
         setSteps(data.steps);
+        setBrewPreview(preview);
 
-        // Initialize localActuals from loaded steps
-        const actuals: Record<string, string> = {};
+        // Init brew start input from batch plannedDate (local time for datetime-local)
+        if (data.batch.plannedDate) {
+          const d = new Date(data.batch.plannedDate);
+          const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+          setBrewStartInput(local.toISOString().slice(0, 16));
+        }
+
         const notes: Record<string, string> = {};
         for (const step of data.steps) {
-          if (step.actualDurationMin !== null) {
-            actuals[step.id] = String(step.actualDurationMin);
-          }
           if (step.notes) {
             notes[step.id] = step.notes;
           }
         }
-        setLocalActuals(actuals);
         setLocalNotes(notes);
       } catch {
         toast.error("Failed to load brew data");
@@ -271,102 +317,71 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     };
   }, [batchId]);
 
-  // ── Grouped steps ──────────────────────────────────────────
-  const groupedSteps = useMemo(() => {
-    const groups: Array<{ phase: string; steps: BatchStep[] }> = [];
-    const phaseMap = new Map<string, BatchStep[]>();
-
+  // ── Map batch_steps by name for tracking data overlay ─────
+  const stepTrackingMap = useMemo(() => {
+    const map = new Map<string, BatchStep>();
     for (const step of steps) {
-      const phase = step.brewPhase ?? "other";
-      if (!phaseMap.has(phase)) {
-        phaseMap.set(phase, []);
-      }
-      phaseMap.get(phase)!.push(step);
+      map.set(step.name, step);
     }
-
-    // Order by BREW_PHASE_ORDER, then any remaining
-    for (const phase of BREW_PHASE_ORDER) {
-      const phaseSteps = phaseMap.get(phase);
-      if (phaseSteps && phaseSteps.length > 0) {
-        groups.push({ phase, steps: phaseSteps });
-        phaseMap.delete(phase);
-      }
-    }
-    // Remaining phases not in the predefined order
-    for (const [phase, phaseSteps] of phaseMap) {
-      if (phaseSteps.length > 0) {
-        groups.push({ phase, steps: phaseSteps });
-      }
-    }
-
-    return groups;
+    return map;
   }, [steps]);
 
-  // ── Boil step with hop additions ───────────────────────────
-  const boilStep = useMemo(
+  // ── Preview steps (display source) ────────────────────────
+  const previewSteps = brewPreview?.steps ?? [];
+
+  // ── Boil time (from preview for hop timer) ────────────────
+  const boilTimeMin = useMemo(() => {
+    return previewSteps
+      .filter((s) => s.brewPhase === "boiling" && s.stepType === "boil")
+      .reduce((sum, s) => sum + s.timeMin, 0);
+  }, [previewSteps]);
+
+  // ── Boil step with hops (for hop timer section) ───────────
+  const boilPreviewStep = useMemo(
     () =>
-      steps.find(
+      previewSteps.find(
         (s) =>
           s.brewPhase === "boiling" &&
+          s.stepType === "boil" &&
           s.hopAdditions &&
           s.hopAdditions.length > 0
       ),
-    [steps]
+    [previewSteps]
   );
 
-  const boilTimeMin = useMemo(() => {
-    const boilSteps = steps.filter((s) => s.brewPhase === "boiling");
-    return boilSteps.reduce((sum, s) => sum + (s.timeMin ?? 0), 0);
-  }, [steps]);
-
-  // ── Totals ─────────────────────────────────────────────────
-  const totalPlanMin = useMemo(
-    () =>
-      steps.reduce(
-        (sum, s) => sum + (s.rampTimeMin ?? 0) + (s.timeMin ?? 0),
-        0
-      ),
-    [steps]
-  );
+  // ── Totals (plan from preview, actual from batch_steps) ───
+  const totalPlanMin = brewPreview?.totalMinutes ?? 0;
 
   const totalActualMin = useMemo(() => {
     let sum = 0;
     let hasAny = false;
     for (const step of steps) {
-      const localVal = localActuals[step.id];
-      if (localVal !== undefined && localVal !== "") {
-        sum += Number(localVal) || 0;
-        hasAny = true;
-      } else if (step.actualDurationMin !== null) {
-        sum += step.actualDurationMin;
+      const actual = calcActualMin(step);
+      if (actual !== null) {
+        sum += actual;
         hasAny = true;
       }
     }
     return hasAny ? sum : null;
-  }, [steps, localActuals]);
+  }, [steps]);
 
-  // ── Auto-save actual duration ──────────────────────────────
-  const saveActualDuration = useCallback(
-    (stepId: string, value: string): void => {
-      // Clear previous timer
-      if (saveTimers.current[stepId]) {
-        clearTimeout(saveTimers.current[stepId]);
+  // ── Recalculate brew steps with new start time ────────────
+  const handleRecalculate = useCallback((): void => {
+    startTransition(async () => {
+      try {
+        await updateBatchPlanData(batchId, {
+          plannedDate: brewStartInput || null,
+        });
+        const preview = await getBrewStepPreview(batchId);
+        setBrewPreview(preview);
+        router.refresh();
+      } catch {
+        toast.error("Failed to recalculate");
       }
-      saveTimers.current[stepId] = setTimeout(async () => {
-        const numVal = value === "" ? undefined : Number(value);
-        if (numVal !== undefined && isNaN(numVal)) return;
-        try {
-          await updateBatchStep(stepId, {
-            actualDurationMin: numVal ?? 0,
-          });
-        } catch {
-          toast.error("Failed to save step duration");
-        }
-      }, 300);
-    },
-    []
-  );
+    });
+  }, [batchId, brewStartInput, router, startTransition]);
 
+  // ── Auto-save notes ────────────────────────────────────────
   const saveNotes = useCallback((stepId: string, value: string): void => {
     if (saveTimers.current[`notes_${stepId}`]) {
       clearTimeout(saveTimers.current[`notes_${stepId}`]);
@@ -380,12 +395,13 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     }, 500);
   }, []);
 
-  // ── Hop confirmation ───────────────────────────────────────
+  // ── Hop confirmation (saves to batch_step by matching name) ─
   const handleHopConfirm = useCallback(
-    async (hopIndex: number): Promise<void> => {
-      if (!boilStep || !boilStep.hopAdditions) return;
+    async (stepName: string, hopIndex: number): Promise<void> => {
+      const dbStep = stepTrackingMap.get(stepName);
+      if (!dbStep || !dbStep.hopAdditions) return;
 
-      const updatedHops: HopAddition[] = boilStep.hopAdditions.map((h, i) => {
+      const updatedHops: HopAddition[] = dbStep.hopAdditions.map((h, i) => {
         if (i === hopIndex) {
           return {
             ...h,
@@ -397,17 +413,17 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
       });
 
       try {
-        const updated = await updateBatchStep(boilStep.id, {
+        const updated = await updateBatchStep(dbStep.id, {
           hopAdditions: updatedHops,
         });
         setSteps((prev) =>
-          prev.map((s) => (s.id === boilStep.id ? updated : s))
+          prev.map((s) => (s.id === dbStep.id ? updated : s))
         );
       } catch {
         toast.error("Failed to confirm hop addition");
       }
     },
-    [boilStep]
+    [stepTrackingMap]
   );
 
   // ── Phase transition ───────────────────────────────────────
@@ -419,13 +435,11 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
     startTransition(async () => {
       try {
-        // Save OG and fermenter volume on the batch
         await updateBatch(batchId, {
           ogActual: finishOg,
           actualVolumeL: finishVolume,
         });
 
-        // Advance phase
         await advanceBatchPhase(batchId, "fermentation" as BatchPhase);
 
         toast.success(t("brew.phaseAdvanced"));
@@ -445,20 +459,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     startTransition,
   ]);
 
-  // ── Render helpers ─────────────────────────────────────────
-  const getPlanMin = (step: BatchStep): number =>
-    (step.rampTimeMin ?? 0) + (step.timeMin ?? 0);
-
-  const getDelta = (step: BatchStep): number | null => {
-    const localVal = localActuals[step.id];
-    const actual =
-      localVal !== undefined && localVal !== ""
-        ? Number(localVal)
-        : step.actualDurationMin;
-    if (actual === null || actual === undefined) return null;
-    return actual - getPlanMin(step);
-  };
-
   // ── Loading state ──────────────────────────────────────────
   if (loading) {
     return (
@@ -476,215 +476,271 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const totalDelta =
     totalActualMin !== null ? totalActualMin - totalPlanMin : null;
 
+  // Track phase changes for separators
+  let currentPhase = "";
+
   return (
     <div className="space-y-8">
-      {/* ── Section 1: Brew Steps Table ─────────────────────── */}
+      {/* ── Section 1: Brew Steps Timeline ──────────────────── */}
       <section>
         <h3 className="mb-3 text-lg font-semibold">
           {t("brew.brewing.steps")}
         </h3>
 
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">#</TableHead>
-                <TableHead>{t("brew.brewing.stepName")}</TableHead>
-                <TableHead className="w-24 text-right">
-                  {t("brew.brewing.targetTemp")}
-                </TableHead>
-                <TableHead className="w-24 text-right">
-                  {t("brew.brewing.plannedMin")}
-                </TableHead>
-                <TableHead className="w-28 text-right">
-                  {t("brew.brewing.actualMin")}
-                </TableHead>
-                <TableHead className="w-16 text-right">
-                  {t("brew.brewing.delta")}
-                </TableHead>
-                <TableHead className="min-w-[140px]">
-                  {t("notes.add").replace("Přidat ", "").replace("Add ", "")}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupedSteps.map((group) => (
-                <Fragment key={`phase-${group.phase}`}>
-                  {/* Phase separator row */}
-                  <TableRow
-                    className="bg-muted/50"
-                  >
-                    <TableCell
-                      colSpan={7}
-                      className="py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                    >
-                      {t(
-                        BREW_PHASE_LABEL_KEYS[group.phase] ??
-                          `steps.phase.${group.phase}`
-                      )}
-                    </TableCell>
-                  </TableRow>
+        {/* Brew start datetime + recalculate + end time */}
+        <div className="flex items-center gap-2 mb-3">
+          <Input
+            type="datetime-local"
+            value={brewStartInput}
+            onChange={(e): void => setBrewStartInput(e.target.value)}
+            className="h-8 text-sm w-auto"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0"
+            onClick={handleRecalculate}
+            disabled={isPending}
+          >
+            <RefreshCw className={`size-3.5 mr-1.5 ${isPending ? "animate-spin" : ""}`} />
+            {t("brew.prep.recalculate")}
+          </Button>
+          {(() => {
+            const end = brewPreview?.brewEnd
+              ? new Date(brewPreview.brewEnd)
+              : null;
+            return (
+              <span className="text-sm text-muted-foreground ml-auto whitespace-nowrap">
+                {"\u2192 "}
+                {end ? fmtTime(end) : "\u2014"}
+                {" "}({totalPlanMin >= 60
+                  ? `${Math.floor(totalPlanMin / 60)}h ${totalPlanMin % 60}min`
+                  : `${totalPlanMin} min`})
+              </span>
+            );
+          })()}
+        </div>
 
-                  {/* Step rows */}
-                  {group.steps.map((step) => {
-                    const planMin = getPlanMin(step);
-                    const delta = getDelta(step);
+        {/* Column headers */}
+        <div className="flex items-center gap-1 px-2 pb-1.5 text-xs font-medium text-muted-foreground border-b">
+          <span className="w-12 shrink-0">{t("brew.brewing.planTime")}</span>
+          <span className="flex-1 min-w-0">{t("brew.brewing.stepName")}</span>
+          <span className="w-11 shrink-0 text-right">{t("brew.brewing.targetTemp")}</span>
+          <span className="w-12 shrink-0 text-right">{t("brew.brewing.actualStart")}</span>
+          <span className="w-12 shrink-0 text-right">{t("brew.brewing.actualEnd")}</span>
+          <span className="w-14 shrink-0 text-right">{t("brew.brewing.planCalcMin")}</span>
+          <span className="w-14 shrink-0 text-right">{t("brew.brewing.actualCalcMin")}</span>
+          <span className="w-10 shrink-0 text-right">{t("brew.brewing.delta")}</span>
+          <span className="w-36 shrink-0">{t("brew.brewing.note")}</span>
+        </div>
 
-                    return (
-                      <TableRow key={step.id}>
-                        <TableCell className="text-muted-foreground">
-                          {step.sortOrder}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {step.name}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {step.temperatureC
-                            ? `${Number(step.temperatureC).toFixed(0)}°C`
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {planMin > 0 ? planMin : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-7 w-20 text-right ml-auto"
-                            value={localActuals[step.id] ?? ""}
-                            onChange={(e): void => {
-                              const val = e.target.value;
-                              setLocalActuals((prev) => ({
-                                ...prev,
-                                [step.id]: val,
-                              }));
-                            }}
-                            onBlur={(e): void => {
-                              saveActualDuration(step.id, e.target.value);
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right font-mono text-sm",
-                            delta !== null && delta <= 0 && "text-green-600",
-                            delta !== null && delta > 0 && "text-red-600"
-                          )}
-                        >
-                          {delta !== null
-                            ? `${delta > 0 ? "+" : ""}${delta}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            className="h-7 text-sm"
-                            placeholder="..."
-                            value={localNotes[step.id] ?? ""}
-                            onChange={(e): void => {
-                              const val = e.target.value;
-                              setLocalNotes((prev) => ({
-                                ...prev,
-                                [step.id]: val,
-                              }));
-                            }}
-                            onBlur={(e): void => {
-                              saveNotes(step.id, e.target.value);
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </Fragment>
-              ))}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={3} className="font-semibold">
-                  {t("brew.brewing.totalTime")}
-                </TableCell>
-                <TableCell className="text-right font-semibold">
-                  {totalPlanMin}
-                </TableCell>
-                <TableCell className="text-right font-semibold">
-                  {totalActualMin !== null ? totalActualMin : "—"}
-                </TableCell>
-                <TableCell
+        {/* Step rows — from preview (same as PrepPhase detailed view) */}
+        <div className="space-y-0">
+          {previewSteps.map((pStep, idx) => {
+            const phaseChanged = pStep.brewPhase !== currentPhase;
+            if (phaseChanged) currentPhase = pStep.brewPhase;
+            const colors = getPhaseColor(pStep.brewPhase);
+
+            // Overlay tracking data from batch_steps by matching name
+            const dbStep = stepTrackingMap.get(pStep.name);
+            const actualMin = dbStep ? calcActualMin(dbStep) : null;
+            const delta = actualMin !== null ? actualMin - pStep.timeMin : null;
+
+            // Hop confirmation state comes from batch_step's hopAdditions
+            const dbHops = dbStep?.hopAdditions ?? null;
+
+            return (
+              <React.Fragment key={idx}>
+                {/* Phase separator */}
+                {phaseChanged && idx > 0 && (
+                  <div className="h-px bg-border my-1" />
+                )}
+                {phaseChanged && (
+                  <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/50">
+                    {t(
+                      BREW_PHASE_LABEL_KEYS[pStep.brewPhase] ??
+                        `steps.phase.${pStep.brewPhase}`
+                    )}
+                  </div>
+                )}
+
+                {/* Step row */}
+                <div
                   className={cn(
-                    "text-right font-mono font-semibold",
-                    totalDelta !== null && totalDelta <= 0 && "text-green-600",
-                    totalDelta !== null && totalDelta > 0 && "text-red-600"
+                    "flex items-center gap-1 py-1.5 px-2 border-l-2 text-sm",
+                    colors.border,
+                    pStep.stepType === "heat" && "opacity-70"
                   )}
                 >
-                  {totalDelta !== null
-                    ? `${totalDelta > 0 ? "+" : ""}${totalDelta}`
-                    : "—"}
-                </TableCell>
-                <TableCell />
-              </TableRow>
-            </TableFooter>
-          </Table>
+                  {/* Plan time */}
+                  <span className="w-12 shrink-0 text-muted-foreground tabular-nums text-xs">
+                    {fmtTime(pStep.startTimePlan)}
+                  </span>
+
+                  {/* Name */}
+                  <span className="flex-1 min-w-0 font-medium truncate">
+                    {pStep.name}
+                    {pStep.autoSwitch && (
+                      <span className="text-xs text-muted-foreground ml-1.5">
+                        {t("brew.prep.autoStep")}
+                      </span>
+                    )}
+                  </span>
+
+                  {/* Temp */}
+                  <span className="w-11 shrink-0 text-right text-muted-foreground tabular-nums">
+                    {pStep.temperatureC
+                      ? `${Number(pStep.temperatureC).toFixed(0)}°C`
+                      : ""}
+                  </span>
+
+                  {/* Actual start */}
+                  <span className="w-12 shrink-0 text-right tabular-nums text-xs">
+                    {fmtTime(dbStep?.startTimeReal)}
+                  </span>
+
+                  {/* Actual end */}
+                  <span className="w-12 shrink-0 text-right tabular-nums text-xs">
+                    {fmtTime(dbStep?.endTimeReal)}
+                  </span>
+
+                  {/* Plan min */}
+                  <span className="w-14 shrink-0 text-right tabular-nums">
+                    {pStep.timeMin > 0 ? `${pStep.timeMin}` : "—"}
+                  </span>
+
+                  {/* Actual min (calculated) */}
+                  <span className="w-14 shrink-0 text-right tabular-nums">
+                    {actualMin !== null ? `${actualMin}` : "—"}
+                  </span>
+
+                  {/* Delta */}
+                  <span
+                    className={cn(
+                      "w-10 shrink-0 text-right font-mono tabular-nums text-xs",
+                      delta !== null && delta < 0 && "text-green-600",
+                      delta !== null && delta > 0 && "text-red-600"
+                    )}
+                  >
+                    {delta !== null
+                      ? `${delta > 0 ? "+" : ""}${delta}`
+                      : "—"}
+                  </span>
+
+                  {/* Notes */}
+                  {dbStep ? (
+                    <Input
+                      type="text"
+                      className="h-6 w-36 shrink-0 text-xs"
+                      placeholder="..."
+                      value={localNotes[dbStep.id] ?? ""}
+                      onChange={(e): void => {
+                        const val = e.target.value;
+                        const id = dbStep.id;
+                        setLocalNotes((prev) => ({
+                          ...prev,
+                          [id]: val,
+                        }));
+                      }}
+                      onBlur={(e): void => {
+                        saveNotes(dbStep.id, e.target.value);
+                      }}
+                    />
+                  ) : (
+                    <span className="w-36 shrink-0" />
+                  )}
+                </div>
+
+                {/* Hop / ingredient additions (sub-rows from preview) */}
+                {pStep.hopAdditions && pStep.hopAdditions.length > 0 && (
+                  <div className={cn("ml-14 border-l-2 pl-2 pb-1", colors.border)}>
+                    {pStep.hopAdditions.map((hop, hi) => {
+                      // Confirmation state from DB hop at same index
+                      const dbHop = dbHops && hi < dbHops.length ? dbHops[hi] : null;
+                      const confirmed = dbHop?.confirmed ?? false;
+                      const actualTime = dbHop?.actualTime ?? null;
+
+                      return (
+                        <div
+                          key={hi}
+                          className="flex items-center gap-2 text-xs text-muted-foreground py-0.5"
+                        >
+                          <Checkbox
+                            className="size-3.5"
+                            checked={confirmed}
+                            disabled={confirmed || !dbStep}
+                            onCheckedChange={(): void => {
+                              void handleHopConfirm(pStep.name, hi);
+                            }}
+                          />
+                          {pStep.stepType === "boil" && (
+                            <span className="tabular-nums w-14 shrink-0">
+                              {hop.addAtMin} min
+                            </span>
+                          )}
+                          <span>
+                            {hop.itemName}{" "}
+                            <span className="font-medium">
+                              {fmtAmount(hop)}
+                            </span>
+                          </span>
+                          {confirmed && actualTime && (
+                            <span className="ml-auto text-green-600 tabular-nums">
+                              {fmtTime(new Date(actualTime))}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Footer totals */}
+        <Separator className="my-1" />
+        <div className="flex items-center gap-1 px-2 py-1.5 text-sm font-semibold">
+          <span className="w-12 shrink-0" />
+          <span className="flex-1 min-w-0">{t("brew.brewing.totalTime")}</span>
+          <span className="w-11 shrink-0" />
+          <span className="w-12 shrink-0" />
+          <span className="w-12 shrink-0" />
+          <span className="w-14 shrink-0 text-right tabular-nums">
+            {totalPlanMin}
+          </span>
+          <span className="w-14 shrink-0 text-right tabular-nums">
+            {totalActualMin !== null ? totalActualMin : "—"}
+          </span>
+          <span
+            className={cn(
+              "w-10 shrink-0 text-right font-mono tabular-nums text-xs",
+              totalDelta !== null && totalDelta < 0 && "text-green-600",
+              totalDelta !== null && totalDelta > 0 && "text-red-600"
+            )}
+          >
+            {totalDelta !== null
+              ? `${totalDelta > 0 ? "+" : ""}${totalDelta}`
+              : "—"}
+          </span>
+          <span className="w-36 shrink-0" />
         </div>
       </section>
 
       {/* ── Section 2: Hop Timer ────────────────────────────── */}
-      {boilStep && boilStep.hopAdditions && boilStep.hopAdditions.length > 0 && (
+      {boilPreviewStep && boilPreviewStep.hopAdditions && boilPreviewStep.hopAdditions.length > 0 && (
         <section>
           <h3 className="mb-3 text-lg font-semibold">
             {t("brew.brewing.hopTimer")}
           </h3>
-
-          <div className="mb-4">
+          <div className="rounded-md border p-4">
             <BoilCountdown
               totalSeconds={boilTimeMin * 60}
               onElapsed={(): void => {
                 /* timer completed */
               }}
             />
-          </div>
-
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("ingredients.columns.name")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("ingredients.columns.amount")} (g)
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("brew.brewing.plannedMin")}
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Check className="mx-auto size-4" />
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {boilStep.hopAdditions.map((hop, idx) => (
-                  <TableRow key={`hop-${idx}`}>
-                    <TableCell className="font-medium">
-                      {hop.itemName}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {hop.amountG}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {hop.addAtMin} min
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={hop.confirmed}
-                        disabled={hop.confirmed}
-                        onCheckedChange={(): void => {
-                          void handleHopConfirm(idx);
-                        }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </div>
         </section>
       )}

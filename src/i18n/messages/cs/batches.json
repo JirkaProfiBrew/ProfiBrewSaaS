@@ -474,7 +474,13 @@
       "phaseLautering": "Scezování",
       "phaseBoiling": "Chmelovar",
       "phasePostBoil": "Dokončení",
-      "phasePreparation": "Příprava"
+      "phasePreparation": "Příprava",
+      "planTime": "Plán čas",
+      "actualStart": "Skut. zahájení",
+      "actualEnd": "Skut. ukončení",
+      "actualCalcMin": "Skut min",
+      "planCalcMin": "Plán min",
+      "note": "Poznámka"
     },
     "fermentation": {
       "vessel": "Nádoba",

@@ -474,7 +474,13 @@
       "phaseLautering": "Lautering",
       "phaseBoiling": "Boiling",
       "phasePostBoil": "Post-Boil",
-      "phasePreparation": "Preparation"
+      "phasePreparation": "Preparation",
+      "planTime": "Plan time",
+      "actualStart": "Actual start",
+      "actualEnd": "Actual end",
+      "actualCalcMin": "Actual min",
+      "planCalcMin": "Plan min",
+      "note": "Note"
     },
     "fermentation": {
       "vessel": "Vessel",
