@@ -11,7 +11,7 @@ import React, {
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Play, Pause, Square, ArrowRight, RefreshCw, Timer } from "lucide-react";
+import { Play, Pause, Square, ArrowRight, RefreshCw, Timer, Check, RotateCcw, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,7 @@ import {
   getBrewStepPreview,
   updateBatchPlanData,
   regenBrewSteps,
+  resetBrewTracking,
 } from "../../../actions";
 
 // ── Phase colors (matching BrewStepTimeline) ───────────────────
@@ -140,6 +141,8 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [finishOg, setFinishOg] = useState("");
   const [finishVolume, setFinishVolume] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [resetOpen, setResetOpen] = useState(false);
 
   // ── Countdown timer state ─────────────────────────────────
   const [timerStep, setTimerStep] = useState<{
@@ -432,6 +435,20 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     [saveTime]
   );
 
+  // ── Clear actual times for a single step ─────────────────────
+  const handleClearStepTimes = useCallback(
+    (dbStepId: string): void => {
+      setLocalTimes((prev) => ({
+        ...prev,
+        [`start_${dbStepId}`]: "",
+        [`end_${dbStepId}`]: "",
+      }));
+      saveTime(dbStepId, "startTimeReal", "");
+      saveTime(dbStepId, "endTimeReal", "");
+    },
+    [saveTime]
+  );
+
   // ── Countdown timer effect (timestamp-based) ─────────────────
   useEffect(() => {
     if (timerStep?.status === "running") {
@@ -645,6 +662,37 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     return map;
   }, [previewSteps, stepTrackingMap, localTimes]);
 
+  // ── Done step indices (step with endTimeReal → done, all preceding → done) ──
+  const doneStepIndices = useMemo(() => {
+    const done = new Set<number>();
+    let highestDoneIdx = -1;
+
+    for (let i = 0; i < previewSteps.length; i++) {
+      const pStep = previewSteps[i]!;
+      const dbStep = stepTrackingMap.get(pStep.name);
+
+      let hasEnd = false;
+      if (dbStep) {
+        const endVal = localTimes[`end_${dbStep.id}`] ?? "";
+        hasEnd = endVal !== "";
+      }
+      // Heat steps: check auto-derived end time too
+      if (!hasEnd && pStep.stepType === "heat") {
+        const heatAuto = heatAutoTimes.get(i);
+        if (heatAuto?.autoEnd) hasEnd = true;
+      }
+
+      if (hasEnd) {
+        highestDoneIdx = i;
+      }
+    }
+
+    for (let i = 0; i <= highestDoneIdx; i++) {
+      done.add(i);
+    }
+    return done;
+  }, [previewSteps, stepTrackingMap, localTimes, heatAutoTimes]);
+
   // ── Hop confirmation (saves to batch_step by matching name) ─
   const handleHopConfirm = useCallback(
     async (stepName: string, hopIndex: number): Promise<void> => {
@@ -712,6 +760,34 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     startTransition,
   ]);
 
+  // ── Reset all tracking data ────────────────────────────────
+  const handleResetTracking = useCallback((): void => {
+    startTransition(async () => {
+      try {
+        const updatedSteps = await resetBrewTracking(batchId);
+        setSteps(updatedSteps);
+        // Clear local times and notes
+        const times: Record<string, string> = {};
+        const notes: Record<string, string> = {};
+        for (const step of updatedSteps) {
+          times[`start_${step.id}`] = "";
+          times[`end_${step.id}`] = "";
+          if (step.notes) notes[step.id] = step.notes;
+        }
+        setLocalTimes(times);
+        // Close any running timers
+        setTimerStep(null);
+        setBoilTimer(null);
+        localStorage.removeItem(mashKey);
+        localStorage.removeItem(boilKey);
+        setResetOpen(false);
+        toast.success(t("brew.brewing.resetDone"));
+      } catch {
+        toast.error("Failed to reset tracking data");
+      }
+    });
+  }, [batchId, startTransition, mashKey, boilKey, t]);
+
   // ── Loading state ──────────────────────────────────────────
   if (loading) {
     return (
@@ -757,6 +833,16 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           >
             <RefreshCw className={`size-3.5 mr-1.5 ${isPending ? "animate-spin" : ""}`} />
             {t("brew.prep.recalculate")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 text-destructive hover:text-destructive"
+            onClick={(): void => setResetOpen(true)}
+            disabled={isPending}
+          >
+            <RotateCcw className="size-3.5 mr-1.5" />
+            {t("brew.brewing.resetTracking")}
           </Button>
           {(() => {
             const end = brewPreview?.brewEnd
@@ -1026,18 +1112,41 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Reset tracking confirmation dialog */}
+        <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("brew.brewing.resetTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("brew.brewing.resetMsg")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isPending}
+                onClick={(e): void => {
+                  e.preventDefault();
+                  handleResetTracking();
+                }}
+              >
+                {isPending ? "..." : t("brew.brewing.resetConfirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Column headers */}
         <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-medium text-muted-foreground border-b">
           <span className="w-11 shrink-0">{t("brew.brewing.planTime")}</span>
           <span className="flex-1 min-w-0">{t("brew.brewing.stepName")}</span>
           <span className="w-8 shrink-0 text-right">°C</span>
-          <span className="w-11 shrink-0" />
-          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualStart")}</span>
-          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualEnd")}</span>
           <span className="w-8 shrink-0 text-right">{t("brew.brewing.planCalcMin")}</span>
           <span className="w-8 shrink-0 text-right">{t("brew.brewing.actualCalcMin")}</span>
           <span className="w-7 shrink-0 text-right">&Delta;</span>
+          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualStart")}</span>
+          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualEnd")}</span>
           <span className="min-w-20 flex-1">{t("brew.brewing.note")}</span>
+          <span className="w-16 shrink-0" />
         </div>
 
         {/* Step rows — from preview (same as PrepPhase detailed view) */}
@@ -1054,6 +1163,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
             // Hop confirmation state comes from batch_step's hopAdditions
             const dbHops = dbStep?.hopAdditions ?? null;
+            const isDone = doneStepIndices.has(idx);
 
             return (
               <React.Fragment key={idx}>
@@ -1075,16 +1185,26 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                   className={cn(
                     "flex items-center gap-1.5 py-1 px-2 border-l-2 text-xs",
                     colors.border,
-                    pStep.stepType === "heat" && "opacity-70"
+                    pStep.stepType === "heat" && "opacity-70",
+                    isDone && "bg-green-50/60"
                   )}
                 >
-                  {/* Plan time */}
-                  <span className="w-11 shrink-0 text-muted-foreground tabular-nums">
-                    {fmtTime(pStep.startTimePlan)}
-                  </span>
+                  {/* Done indicator / Plan time */}
+                  {isDone ? (
+                    <span className="w-11 shrink-0 flex items-center justify-center">
+                      <Check className="size-3.5 text-green-600" />
+                    </span>
+                  ) : (
+                    <span className="w-11 shrink-0 text-muted-foreground tabular-nums">
+                      {fmtTime(pStep.startTimePlan)}
+                    </span>
+                  )}
 
                   {/* Name */}
-                  <span className="flex-1 min-w-0 text-sm font-medium truncate">
+                  <span className={cn(
+                    "flex-1 min-w-0 text-sm font-medium truncate",
+                    isDone && "text-muted-foreground"
+                  )}>
                     {pStep.name}
                     {pStep.autoSwitch && (
                       <span className="text-xs text-muted-foreground ml-1">
@@ -1100,59 +1220,28 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                       : ""}
                   </span>
 
-                  {/* Start / Stop stamp buttons + Timer */}
-                  {dbStep ? (
-                    <span className="w-11 shrink-0 flex items-center justify-center gap-0">
-                      <button
-                        type="button"
-                        title={t("brew.brewing.stampStart")}
-                        className="p-0.5 text-muted-foreground hover:text-green-600 transition-colors"
-                        onClick={(): void => handleStampStart(dbStep.id)}
-                      >
-                        <Play className="size-3" />
-                      </button>
-                      <button
-                        type="button"
-                        title={t("brew.brewing.stampStop")}
-                        className="p-0.5 text-muted-foreground hover:text-red-600 transition-colors"
-                        onClick={(): void => handleStampStop(dbStep.id)}
-                      >
-                        <Square className="size-3" />
-                      </button>
-                      {pStep.brewPhase === "mashing" && pStep.stepType !== "heat" && pStep.timeMin > 0 && (
-                        <button
-                          type="button"
-                          title={t("brew.brewing.startTimer")}
-                          className={cn(
-                            "p-0.5 transition-colors",
-                            timerStep?.dbStepId === dbStep.id
-                              ? "text-amber-600"
-                              : "text-muted-foreground hover:text-amber-600"
-                          )}
-                          onClick={(): void => handleTimerStart(idx, dbStep.id, pStep)}
-                        >
-                          <Timer className="size-3" />
-                        </button>
-                      )}
-                      {pStep.stepType === "boil" && pStep.hopAdditions && pStep.hopAdditions.length > 0 && (
-                        <button
-                          type="button"
-                          title={t("brew.brewing.boilTimerStart")}
-                          className={cn(
-                            "p-0.5 transition-colors",
-                            boilTimer?.dbStepId === dbStep.id
-                              ? "text-orange-600"
-                              : "text-muted-foreground hover:text-orange-600"
-                          )}
-                          onClick={(): void => handleBoilTimerStart(idx, dbStep.id, pStep)}
-                        >
-                          <Timer className="size-3" />
-                        </button>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="w-11 shrink-0" />
-                  )}
+                  {/* Plan min */}
+                  <span className="w-8 shrink-0 text-right tabular-nums">
+                    {pStep.timeMin > 0 ? `${pStep.timeMin}` : "—"}
+                  </span>
+
+                  {/* Actual min (calculated) */}
+                  <span className="w-8 shrink-0 text-right tabular-nums">
+                    {actualMin !== null ? `${actualMin}` : "—"}
+                  </span>
+
+                  {/* Delta */}
+                  <span
+                    className={cn(
+                      "w-7 shrink-0 text-right font-mono tabular-nums",
+                      delta !== null && delta < 0 && "text-green-600",
+                      delta !== null && delta > 0 && "text-red-600"
+                    )}
+                  >
+                    {delta !== null
+                      ? `${delta > 0 ? "+" : ""}${delta}`
+                      : ""}
+                  </span>
 
                   {/* Actual start */}
                   {(() => {
@@ -1244,29 +1333,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                     return <span className="w-11 shrink-0 text-center text-muted-foreground">—</span>;
                   })()}
 
-                  {/* Plan min */}
-                  <span className="w-8 shrink-0 text-right tabular-nums">
-                    {pStep.timeMin > 0 ? `${pStep.timeMin}` : "—"}
-                  </span>
-
-                  {/* Actual min (calculated) */}
-                  <span className="w-8 shrink-0 text-right tabular-nums">
-                    {actualMin !== null ? `${actualMin}` : "—"}
-                  </span>
-
-                  {/* Delta */}
-                  <span
-                    className={cn(
-                      "w-7 shrink-0 text-right font-mono tabular-nums",
-                      delta !== null && delta < 0 && "text-green-600",
-                      delta !== null && delta > 0 && "text-red-600"
-                    )}
-                  >
-                    {delta !== null
-                      ? `${delta > 0 ? "+" : ""}${delta}`
-                      : ""}
-                  </span>
-
                   {/* Notes */}
                   {dbStep ? (
                     <Input
@@ -1288,6 +1354,69 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                     />
                   ) : (
                     <span className="min-w-20 flex-1" />
+                  )}
+
+                  {/* Action buttons (end of row): Timer | Play | Stop | Clear */}
+                  {dbStep ? (
+                    <span className="w-16 shrink-0 flex items-center justify-end gap-0">
+                      {pStep.brewPhase === "mashing" && pStep.stepType !== "heat" && pStep.timeMin > 0 ? (
+                        <button
+                          type="button"
+                          title={t("brew.brewing.startTimer")}
+                          className={cn(
+                            "p-0.5 transition-colors",
+                            timerStep?.dbStepId === dbStep.id
+                              ? "text-amber-600"
+                              : "text-muted-foreground hover:text-amber-600"
+                          )}
+                          onClick={(): void => handleTimerStart(idx, dbStep.id, pStep)}
+                        >
+                          <Timer className="size-3" />
+                        </button>
+                      ) : pStep.stepType === "boil" && pStep.hopAdditions && pStep.hopAdditions.length > 0 ? (
+                        <button
+                          type="button"
+                          title={t("brew.brewing.boilTimerStart")}
+                          className={cn(
+                            "p-0.5 transition-colors",
+                            boilTimer?.dbStepId === dbStep.id
+                              ? "text-orange-600"
+                              : "text-muted-foreground hover:text-orange-600"
+                          )}
+                          onClick={(): void => handleBoilTimerStart(idx, dbStep.id, pStep)}
+                        >
+                          <Timer className="size-3" />
+                        </button>
+                      ) : (
+                        <span className="p-0.5 size-4" />
+                      )}
+                      <button
+                        type="button"
+                        title={t("brew.brewing.stampStart")}
+                        className="p-0.5 text-muted-foreground hover:text-green-600 transition-colors"
+                        onClick={(): void => handleStampStart(dbStep.id)}
+                      >
+                        <Play className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title={t("brew.brewing.stampStop")}
+                        className="p-0.5 text-muted-foreground hover:text-red-600 transition-colors"
+                        onClick={(): void => handleStampStop(dbStep.id)}
+                      >
+                        <Square className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title={t("brew.brewing.clearStepTimes")}
+                        className="p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={(): void => handleClearStepTimes(dbStep.id)}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="w-16 shrink-0" />
                   )}
                 </div>
 
@@ -1348,9 +1477,6 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           <span className="w-11 shrink-0" />
           <span className="flex-1 min-w-0 text-sm">{t("brew.brewing.totalTime")}</span>
           <span className="w-8 shrink-0" />
-          <span className="w-11 shrink-0" />
-          <span className="w-11 shrink-0" />
-          <span className="w-11 shrink-0" />
           <span className="w-8 shrink-0 text-right tabular-nums">
             {totalPlanMin}
           </span>
@@ -1368,7 +1494,10 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
               ? `${totalDelta > 0 ? "+" : ""}${totalDelta}`
               : "—"}
           </span>
+          <span className="w-11 shrink-0" />
+          <span className="w-11 shrink-0" />
           <span className="min-w-20 flex-1" />
+          <span className="w-16 shrink-0" />
         </div>
       </section>
 

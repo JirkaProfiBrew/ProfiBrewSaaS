@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 05.03.2026 | Poslední sprint: Sprint 7 Patch (Brew Lifecycle Opravy)
+### Aktualizováno: 05.03.2026 | Poslední sprint: Sprint 7 Patch (BrewingPhase UI)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -371,12 +371,17 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 - Výdej materiálu — napojení na existující material issue flow; částečný/opakovaný výdej (tlačítko "Vydat zbývající"), badge "Suroviny vydány částečně"
 - Sloučení duplicitních řádků surovin dle item_id s rounding (max 3 des. místa)
 
-**F3 Vaření (BrewingPhase):**
+**F3 Vaření (BrewingPhase):** ✅
 - Tabulka kroků s editovatelnými skutečnými časy (plánovaný vs skutečný start/konec)
-- Odpočítávání chmelení (hop countdown timer) — z `hopAdditions` JSONB na batch_steps
-- 3 stopky (stopwatches) pro měření času kroků
-- Měření v průběhu vaření (teplota, SG, pH)
-- Dialog přechodu fáze s potvrzením
+- Sloupce: Plán čas | Název | °C | Plán min | Skut min | Delta | Skut zahájení | Skut ukončení | Pozn. | Akce
+- Countdown timer pro rmutovací kroky (rest/mash_in/mash_out) — panel s progress barem, pause/resume, stop s potvrzením, notifikace po doběhnutí
+- Boil hop countdown timer — progressivní fill bar, automatické potvrzení hopů při dosažení času, z `hopAdditions` JSONB na batch_steps
+- Timery persistované v localStorage (timestamp-based, přežijí reload/navigaci)
+- Ikony akcí na konci řádku: Timer | Play (stamp start) | Stop (stamp end) | X (clear times)
+- Potvrzení/odpotvrzení přidání surovin (checkbox toggle u hop/ingredient sub-řádků)
+- Kroky "done" — krok s vyplněným skut. ukončením + všechny předchozí kroky: zelené pozadí, checkmark místo plánu
+- Reset button v záhlaví — vymaže všechny skutečné časy, potvrzení surovin (ne výdeje ze skladu), s potvrzovacím dialogem
+- Dialog přechodu fáze s potvrzením (OG měření)
 
 **F4 Kvašení (FermentationPhase):**
 - Sdílená komponenta `FermentCondPhase` konfigurovaná pro kvašení

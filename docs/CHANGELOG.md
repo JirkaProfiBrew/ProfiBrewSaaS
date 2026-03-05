@@ -5,6 +5,29 @@
 
 ---
 
+## [0.7.11] — Sprint 7 Patch: BrewingPhase UI — Timers, Done, Reset
+**Období:** T16 (05.03.2026)
+**Status:** ✅ Done
+
+### Countdown timery
+- [x] Mash countdown timer — panel nad kroky, progress bar, pause/resume, stop s potvrzením, notifikace po doběhnutí
+- [x] Boil hop countdown timer — progressivní fill, auto-confirm hopů při dosažení času
+- [x] Timer persistence v localStorage (timestamp-based, přežije reload/navigaci)
+- [x] Odstranění starých komponent BoilCountdown a BrewTimer stopwatch
+
+### Sledování kroků vaření
+- [x] Play/Stop stamp tlačítka (skutečné zahájení/ukončení)
+- [x] Kroky "done" — zelené pozadí + checkmark pro kroky se skut. ukončením a všechny předchozí
+- [x] X ikona pro vymazání skutečných časů jednotlivého kroku
+- [x] Toggle potvrzení/odpotvrzení přidání surovin (hop/ingredient checkbox)
+- [x] Reset button v záhlaví — vymaže všechny skut. časy + potvrzení surovin, s destructive confirm dialogem
+
+### Rozvržení sloupců
+- [x] Akční ikony přesunuty na konec řádku (Timer | Play | Stop | X)
+- [x] Přeuspořádání sloupců: °C → Plán min → Skut min → Delta → Skut zahájení → Skut ukončení
+
+---
+
 ## [0.7.10] — Sprint 7 Patch: Brew Steps Timeline & Ingredients
 **Období:** T16 (05.03.2026)
 **Status:** ✅ Done

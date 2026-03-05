@@ -2963,6 +2963,49 @@ export async function updateBatchStep(
   });
 }
 
+/** Reset all tracking data for brew steps: clear actual times + hop confirmations. */
+export async function resetBrewTracking(batchId: string): Promise<BatchStep[]> {
+  return withTenant(async (tenantId) => {
+    // Get all steps for this batch
+    const allSteps = await db
+      .select()
+      .from(batchSteps)
+      .where(
+        and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.batchId, batchId))
+      )
+      .orderBy(batchSteps.sortOrder);
+
+    const updated: BatchStep[] = [];
+    for (const step of allSteps) {
+      // Reset hop confirmations if present
+      let resetHops: unknown = undefined;
+      if (step.hopAdditions && Array.isArray(step.hopAdditions)) {
+        resetHops = (step.hopAdditions as HopAddition[]).map((h) => ({
+          ...h,
+          confirmed: false,
+          actualTime: null,
+        }));
+      }
+
+      const rows = await db
+        .update(batchSteps)
+        .set({
+          startTimeReal: null,
+          endTimeReal: null,
+          actualDurationMin: null,
+          ...(resetHops !== undefined ? { hopAdditions: resetHops } : {}),
+        })
+        .where(
+          and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.id, step.id))
+        )
+        .returning();
+
+      if (rows[0]) updated.push(mapStepRow(rows[0]));
+    }
+    return updated;
+  });
+}
+
 // ── Plan & Preparation phase actions ─────────────────────────
 
 /** Return vessels (fermenters, brite tanks, conditioning tanks) with occupancy info. */
