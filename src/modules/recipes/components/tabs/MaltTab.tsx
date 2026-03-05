@@ -45,6 +45,7 @@ interface MaltTabProps {
   onAmountChange: (id: string, amount: string) => void;
   onPercentChange: (id: string, percent: number, computedKg: number) => void;
   onStageChange: (id: string, stage: string) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
   onAdd: () => void;
@@ -68,6 +69,7 @@ export function MaltTab({
   onAmountChange,
   onPercentChange,
   onStageChange,
+  onNotesChange,
   onRemove,
   onReorder,
   onAdd,
@@ -374,6 +376,7 @@ export function MaltTab({
               onAmountChange={onAmountChange}
               onPercentChange={handlePercentChange}
               onStageChange={onStageChange}
+              onNotesChange={onNotesChange}
               onRemove={handleRemove}
             />
           ))}

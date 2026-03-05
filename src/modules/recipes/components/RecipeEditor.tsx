@@ -186,6 +186,7 @@ export function RecipeEditor({
               onAmountChange={onAmountChange}
               onPercentChange={onPercentChange}
               onStageChange={onStageChange}
+              onNotesChange={onNotesChange}
               onRemove={onRemove}
               onReorder={onReorder}
               onAdd={() => onAddIngredient("malt")}
@@ -204,6 +205,7 @@ export function RecipeEditor({
               onStageChange={onStageChange}
               onTimeChange={onTimeChange}
               onTemperatureChange={onTemperatureChange}
+              onNotesChange={onNotesChange}
               onRemove={onRemove}
               onAdd={() => onAddIngredient("hop")}
             />
@@ -214,6 +216,7 @@ export function RecipeEditor({
               items={yeastItems}
               ogPlato={ogPlato}
               onAmountChange={onAmountChange}
+              onNotesChange={onNotesChange}
               onRemove={onRemove}
               onReorder={onReorder}
               onAdd={() => onAddIngredient("yeast")}

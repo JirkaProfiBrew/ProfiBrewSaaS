@@ -48,7 +48,7 @@ import type {
   ExciseSummary,
 } from "./types";
 import { PHASE_TRANSITIONS } from "./types";
-import { generateBrewSteps, previewBrewSteps } from "./lib/generate-brew-steps";
+import { generateBrewSteps, previewBrewSteps, regenerateBrewSteps } from "./lib/generate-brew-steps";
 import type { BatchCreateInput, BatchUpdateInput, BatchMeasurementInput, BottlingItemInput } from "./schema";
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -2933,6 +2933,8 @@ export async function updateBatchStep(
     actualDurationMin?: number;
     notes?: string;
     hopAdditions?: HopAddition[];
+    startTimeReal?: string | null;
+    endTimeReal?: string | null;
   }
 ): Promise<BatchStep> {
   return withTenant(async (tenantId) => {
@@ -2942,6 +2944,10 @@ export async function updateBatchStep(
     if (data.notes !== undefined) updates.notes = data.notes;
     if (data.hopAdditions !== undefined)
       updates.hopAdditions = data.hopAdditions;
+    if (data.startTimeReal !== undefined)
+      updates.startTimeReal = data.startTimeReal ? new Date(data.startTimeReal) : null;
+    if (data.endTimeReal !== undefined)
+      updates.endTimeReal = data.endTimeReal ? new Date(data.endTimeReal) : null;
 
     const rows = await db
       .update(batchSteps)
@@ -3213,6 +3219,13 @@ export async function getBrewStepPreview(
 }> {
   return withTenant(async (tenantId) => {
     return previewBrewSteps(tenantId, batchId);
+  });
+}
+
+/** Regenerate brew steps for a batch in brewing phase — preserves tracking data. */
+export async function regenBrewSteps(batchId: string): Promise<void> {
+  return withTenant(async (tenantId) => {
+    await regenerateBrewSteps(tenantId, batchId);
   });
 }
 

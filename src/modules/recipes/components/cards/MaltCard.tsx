@@ -18,6 +18,7 @@ interface MaltCardProps {
   onAmountChange: (id: string, amount: string) => void;
   onPercentChange: (id: string, percent: number) => void;
   onStageChange: (id: string, stage: string) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
 }
 
@@ -30,6 +31,7 @@ export function MaltCard({
   onAmountChange,
   onPercentChange,
   onStageChange,
+  onNotesChange,
   onRemove,
 }: MaltCardProps): React.ReactNode {
   const t = useTranslations("recipes");
@@ -104,6 +106,15 @@ export function MaltCard({
               <span>{t("designer.cards.extract")}: <span className="font-medium text-foreground">{displayExtract}%</span></span>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.note")}:</label>
+            <Input
+              value={item.notes ?? ""}
+              onChange={(e) => onNotesChange(item.id, e.target.value)}
+              className="h-7 text-sm"
+              placeholder={t("designer.cards.note")}
+            />
+          </div>
         </div>
       </IngredientCard>
     );
@@ -158,6 +169,15 @@ export function MaltCard({
             {t("designer.cards.extract")}: <span className="font-medium text-foreground">{displayExtract}%</span>
           </div>
         )}
+        <div className="flex items-center gap-2 col-span-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.note")}:</label>
+          <Input
+            value={item.notes ?? ""}
+            onChange={(e) => onNotesChange(item.id, e.target.value)}
+            className="h-7 text-sm"
+            placeholder={t("designer.cards.note")}
+          />
+        </div>
       </div>
     </IngredientCard>
   );

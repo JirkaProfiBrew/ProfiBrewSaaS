@@ -14,6 +14,7 @@ interface HopCardProps {
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
   onTemperatureChange: (id: string, temp: number | null) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
 }
 
@@ -24,7 +25,7 @@ const TIME_STAGES = new Set(["boil", "whirlpool", "mash"]);
 // Stages that use a temperature input
 const TEMP_STAGES = new Set(["whirlpool", "dry_hop_warm"]);
 
-export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onStageChange, onTimeChange, onTemperatureChange, onRemove }: HopCardProps): React.ReactNode {
+export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onStageChange, onTimeChange, onTemperatureChange, onNotesChange, onRemove }: HopCardProps): React.ReactNode {
   const t = useTranslations("recipes");
 
   const alphaVal = item.itemAlpha ? parseFloat(item.itemAlpha) : null;
@@ -116,6 +117,15 @@ export function HopCard({ item, ibuContribution, totalIbu, onAmountChange, onSta
             <div className="text-xs text-muted-foreground">
               {t("designer.cards.contribution")}: <span className="font-medium text-foreground">{ibuContribution.toFixed(1)} IBU</span>
               {" "}({ibuPct}%)
+            </div>
+            <div className="flex items-center gap-2 col-span-2">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.note")}:</label>
+              <Input
+                value={item.notes ?? ""}
+                onChange={(e) => onNotesChange(item.id, e.target.value)}
+                className="h-7 text-sm"
+                placeholder={t("designer.cards.note")}
+              />
             </div>
           </div>
         </div>

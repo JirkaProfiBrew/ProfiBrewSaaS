@@ -51,6 +51,7 @@ interface HopTabProps {
   onStageChange: (id: string, stage: string) => void;
   onTimeChange: (id: string, time: number | null) => void;
   onTemperatureChange: (id: string, temp: number | null) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
 }
@@ -68,6 +69,7 @@ export function HopTab({
   onStageChange,
   onTimeChange,
   onTemperatureChange,
+  onNotesChange,
   onRemove,
   onAdd,
 }: HopTabProps): React.ReactNode {
@@ -185,6 +187,7 @@ export function HopTab({
                   onStageChange={onStageChange}
                   onTimeChange={onTimeChange}
                   onTemperatureChange={onTemperatureChange}
+                  onNotesChange={onNotesChange}
                   onRemove={onRemove}
                 />
               ))}

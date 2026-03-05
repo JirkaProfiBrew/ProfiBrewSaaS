@@ -302,7 +302,8 @@
     "confirmDump": "Really dump this batch?",
     "save": "Save",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "confirm": "Confirm"
   },
   "detail": {
     "title": "Batch Detail",
@@ -340,6 +341,18 @@
     "title": "Brew Management",
     "classicView": "Classic View",
     "viewRecipe": "Recipe",
+    "generalTimer": {
+      "tooltip": "Timer",
+      "placeholder": "min",
+      "start": "Start",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "stopTitle": "Stop Timer",
+      "stopMsg": "Are you sure you want to stop the timer?",
+      "doneTitle": "Time's Up",
+      "doneMsg": "The set time has elapsed."
+    },
     "brewView": "Brew Management",
     "header": {
       "lot": "Lot"
@@ -449,6 +462,16 @@
       "hopTimerPause": "Pause",
       "hopTimerResume": "Resume",
       "confirmHop": "Confirm addition",
+      "boilTimerStart": "Start boil timer",
+      "boilTimerTitle": "Boil",
+      "boilTimerElapsed": "Elapsed",
+      "boilTimerAddNow": "Add hops now!",
+      "boilTimerConfirm": "Confirm addition",
+      "boilTimerAdded": "Added",
+      "boilTimerDoneTitle": "Boil Complete",
+      "boilTimerDoneMsg": "The boil is complete.",
+      "boilTimerStopTitle": "Stop Boil Early",
+      "boilTimerStopMsg": "Are you sure you want to stop the boil early?",
       "timers": "Timers",
       "timerTotal": "Total",
       "timerRest": "Rest",
@@ -480,7 +503,16 @@
       "actualEnd": "Actual end",
       "actualCalcMin": "Actual min",
       "planCalcMin": "Plan min",
-      "note": "Note"
+      "note": "Note",
+      "stampStart": "Record start time",
+      "stampStop": "Record end time",
+      "startTimer": "Start countdown",
+      "timerFinishedTitle": "Rest Complete",
+      "timerFinishedMsg": "Rest is complete, proceed to the next step.",
+      "timerStopTitle": "Stop Early",
+      "timerStopMsg": "Are you sure you want to stop this rest early?",
+      "timerPause": "Pause",
+      "timerResume": "Resume"
     },
     "fermentation": {
       "vessel": "Vessel",

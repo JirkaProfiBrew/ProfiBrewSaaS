@@ -11,7 +11,7 @@ import React, {
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Play, Pause, Square, ArrowRight, RefreshCw } from "lucide-react";
+import { Play, Pause, Square, ArrowRight, RefreshCw, Timer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 import type {
@@ -45,6 +46,7 @@ import {
   advanceBatchPhase,
   getBrewStepPreview,
   updateBatchPlanData,
+  regenBrewSteps,
 } from "../../../actions";
 
 // ── Phase colors (matching BrewStepTimeline) ───────────────────
@@ -90,6 +92,22 @@ function calcActualMin(step: BatchStep): number | null {
   }
   if (step.actualDurationMin !== null) return step.actualDurationMin;
   return null;
+}
+
+function toTimeInputValue(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("cs-CZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function nowTimeStr(): string {
+  const d = new Date();
+  return d.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function fmtAmount(hop: HopAddition): string {
@@ -270,9 +288,45 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [brewStartInput, setBrewStartInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
+  const [localTimes, setLocalTimes] = useState<Record<string, string>>({});
   const [finishOg, setFinishOg] = useState("");
   const [finishVolume, setFinishVolume] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // ── Countdown timer state ─────────────────────────────────
+  const [timerStep, setTimerStep] = useState<{
+    previewIdx: number;
+    dbStepId: string;
+    name: string;
+    tempC: string | null;
+    targetSec: number;
+    remainingSec: number;
+    status: "running" | "paused";
+  } | null>(null);
+  const [timerDoneOpen, setTimerDoneOpen] = useState(false);
+  const [timerStopOpen, setTimerStopOpen] = useState(false);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Boil hop timer state ────────────────────────────────────
+  interface BoilTimerGroup {
+    addAtMin: number;
+    hops: { itemName: string; amountG: number; unitSymbol?: string | null }[];
+    waitSec: number;            // (totalBoilMin - addAtMin) * 60
+    hopIndices: number[];       // indices into hopAdditions array
+    confirmed: boolean;
+    confirmedAt: string | null;
+  }
+  const [boilTimer, setBoilTimer] = useState<{
+    dbStepId: string;
+    previewIdx: number;
+    totalSec: number;
+    elapsedSec: number;
+    status: "running" | "paused";
+    groups: BoilTimerGroup[];
+  } | null>(null);
+  const [boilTimerDoneOpen, setBoilTimerDoneOpen] = useState(false);
+  const [boilTimerStopOpen, setBoilTimerStopOpen] = useState(false);
+  const boilTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Debounce refs
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -299,12 +353,16 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         }
 
         const notes: Record<string, string> = {};
+        const times: Record<string, string> = {};
         for (const step of data.steps) {
           if (step.notes) {
             notes[step.id] = step.notes;
           }
+          times[`start_${step.id}`] = toTimeInputValue(step.startTimeReal);
+          times[`end_${step.id}`] = toTimeInputValue(step.endTimeReal);
         }
         setLocalNotes(notes);
+        setLocalTimes(times);
       } catch {
         toast.error("Failed to load brew data");
       } finally {
@@ -372,7 +430,24 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         await updateBatchPlanData(batchId, {
           plannedDate: brewStartInput || null,
         });
-        const preview = await getBrewStepPreview(batchId);
+        // Regenerate DB steps (preserves tracking data) + refresh preview
+        await regenBrewSteps(batchId);
+        const [data, preview] = await Promise.all([
+          getBatchBrewData(batchId),
+          getBrewStepPreview(batchId),
+        ]);
+        if (data) {
+          setSteps(data.steps);
+          const notes: Record<string, string> = {};
+          const times: Record<string, string> = {};
+          for (const step of data.steps) {
+            if (step.notes) notes[step.id] = step.notes;
+            times[`start_${step.id}`] = toTimeInputValue(step.startTimeReal);
+            times[`end_${step.id}`] = toTimeInputValue(step.endTimeReal);
+          }
+          setLocalNotes(notes);
+          setLocalTimes(times);
+        }
         setBrewPreview(preview);
         router.refresh();
       } catch {
@@ -394,6 +469,266 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
       }
     }, 500);
   }, []);
+
+  // ── Auto-save actual times ──────────────────────────────────
+  const saveTime = useCallback(
+    (stepId: string, field: "startTimeReal" | "endTimeReal", timeStr: string): void => {
+      const timerKey = `${field}_${stepId}`;
+      if (saveTimers.current[timerKey]) {
+        clearTimeout(saveTimers.current[timerKey]);
+      }
+      saveTimers.current[timerKey] = setTimeout(async () => {
+        try {
+          // Build full ISO string from batch planned date + entered time
+          let isoValue: string | null = null;
+          if (timeStr && batch?.plannedDate) {
+            const base = new Date(batch.plannedDate);
+            const [hh, mm] = timeStr.split(":").map(Number);
+            if (!isNaN(hh!) && !isNaN(mm!)) {
+              base.setHours(hh!, mm!, 0, 0);
+              isoValue = base.toISOString();
+            }
+          }
+          const updated = await updateBatchStep(stepId, { [field]: isoValue });
+          setSteps((prev) => prev.map((s) => (s.id === stepId ? updated : s)));
+        } catch {
+          toast.error("Failed to save time");
+        }
+      }, 500);
+    },
+    [batch?.plannedDate]
+  );
+
+  // ── Stamp Start: record current time as actual start ────────
+  const handleStampStart = useCallback(
+    (dbStepId: string): void => {
+      const timeStr = nowTimeStr();
+      setLocalTimes((prev) => ({ ...prev, [`start_${dbStepId}`]: timeStr }));
+      saveTime(dbStepId, "startTimeReal", timeStr);
+    },
+    [saveTime]
+  );
+
+  // ── Stamp Stop: record current time as actual end (only current step)
+  const handleStampStop = useCallback(
+    (dbStepId: string): void => {
+      const timeStr = nowTimeStr();
+      setLocalTimes((prev) => ({ ...prev, [`end_${dbStepId}`]: timeStr }));
+      saveTime(dbStepId, "endTimeReal", timeStr);
+    },
+    [saveTime]
+  );
+
+  // ── Countdown timer effect ───────────────────────────────────
+  useEffect(() => {
+    if (timerStep?.status === "running") {
+      timerIntervalRef.current = setInterval(() => {
+        setTimerStep((prev) => {
+          if (!prev) return null;
+          const next = prev.remainingSec - 1;
+          if (next <= 0) {
+            setTimerDoneOpen(true);
+            return { ...prev, remainingSec: 0, status: "paused" };
+          }
+          return { ...prev, remainingSec: next };
+        });
+      }, 1000);
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    return (): void => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [timerStep?.status]);
+
+  // ── Start countdown timer for a mashing step ──────────────────
+  const handleTimerStart = useCallback(
+    (previewIdx: number, dbStepId: string, pStep: BrewStepPreviewItem): void => {
+      // Stamp actual start
+      handleStampStart(dbStepId);
+      // Start countdown
+      setTimerStep({
+        previewIdx,
+        dbStepId,
+        name: pStep.name,
+        tempC: pStep.temperatureC,
+        targetSec: pStep.timeMin * 60,
+        remainingSec: pStep.timeMin * 60,
+        status: "running",
+      });
+    },
+    [handleStampStart]
+  );
+
+  // ── Timer done/stop → stamp end time + close ──────────────────
+  const handleTimerFinish = useCallback((): void => {
+    if (timerStep) {
+      handleStampStop(timerStep.dbStepId);
+    }
+    setTimerStep(null);
+    setTimerDoneOpen(false);
+    setTimerStopOpen(false);
+  }, [timerStep, handleStampStop]);
+
+  // ── Boil timer countdown effect ────────────────────────────────
+  useEffect(() => {
+    if (boilTimer?.status === "running") {
+      boilTimerRef.current = setInterval(() => {
+        setBoilTimer((prev) => {
+          if (!prev) return null;
+          const next = prev.elapsedSec + 1;
+          if (next >= prev.totalSec) {
+            // Check if all groups confirmed
+            const allConfirmed = prev.groups.every((g) => g.confirmed);
+            if (allConfirmed) {
+              setBoilTimerDoneOpen(true);
+            }
+            return { ...prev, elapsedSec: prev.totalSec, status: "paused" };
+          }
+          return { ...prev, elapsedSec: next };
+        });
+      }, 1000);
+    } else if (boilTimerRef.current) {
+      clearInterval(boilTimerRef.current);
+      boilTimerRef.current = null;
+    }
+    return (): void => {
+      if (boilTimerRef.current) {
+        clearInterval(boilTimerRef.current);
+        boilTimerRef.current = null;
+      }
+    };
+  }, [boilTimer?.status]);
+
+  // ── Start boil timer ────────────────────────────────────────────
+  const handleBoilTimerStart = useCallback(
+    (previewIdx: number, dbStepId: string, pStep: BrewStepPreviewItem): void => {
+      if (!pStep.hopAdditions || pStep.hopAdditions.length === 0) return;
+      const totalSec = pStep.timeMin * 60;
+
+      // Group hops by addAtMin
+      const groupMap = new Map<number, { hops: { itemName: string; amountG: number; unitSymbol?: string | null }[]; hopIndices: number[] }>();
+      pStep.hopAdditions.forEach((hop, i) => {
+        const key = hop.addAtMin;
+        const existing = groupMap.get(key);
+        if (existing) {
+          existing.hops.push({ itemName: hop.itemName, amountG: hop.amountG, unitSymbol: hop.unitSymbol });
+          existing.hopIndices.push(i);
+        } else {
+          groupMap.set(key, {
+            hops: [{ itemName: hop.itemName, amountG: hop.amountG, unitSymbol: hop.unitSymbol }],
+            hopIndices: [i],
+          });
+        }
+      });
+
+      // Build groups sorted by waitSec ascending (first to add first)
+      const groups: BoilTimerGroup[] = Array.from(groupMap.entries())
+        .map(([addAtMin, data]) => ({
+          addAtMin,
+          hops: data.hops,
+          waitSec: (pStep.timeMin - addAtMin) * 60,
+          hopIndices: data.hopIndices,
+          confirmed: false,
+          confirmedAt: null,
+        }))
+        .sort((a, b) => a.waitSec - b.waitSec);
+
+      // Stamp actual start
+      handleStampStart(dbStepId);
+      setBoilTimer({ dbStepId, previewIdx, totalSec, elapsedSec: 0, status: "running", groups });
+    },
+    [handleStampStart]
+  );
+
+  // ── Confirm a boil timer hop group ──────────────────────────────
+  const handleBoilTimerConfirmGroup = useCallback(
+    async (groupIdx: number): Promise<void> => {
+      if (!boilTimer) return;
+      const group = boilTimer.groups[groupIdx];
+      if (!group || group.confirmed) return;
+
+      const now = new Date().toISOString();
+
+      // Update local boil timer state
+      setBoilTimer((prev) => {
+        if (!prev) return null;
+        const newGroups = prev.groups.map((g, i) =>
+          i === groupIdx ? { ...g, confirmed: true, confirmedAt: now } : g
+        );
+        // If all groups confirmed and elapsed >= total, show done
+        if (newGroups.every((g) => g.confirmed) && prev.elapsedSec >= prev.totalSec) {
+          setBoilTimerDoneOpen(true);
+        }
+        return { ...prev, groups: newGroups };
+      });
+
+      // Update DB: confirm each hop in this group
+      const dbStep = stepTrackingMap.get(
+        previewSteps.find((_, i) => i === boilTimer.previewIdx)?.name ?? ""
+      );
+      if (!dbStep || !dbStep.hopAdditions) return;
+
+      const updatedHops: HopAddition[] = dbStep.hopAdditions.map((h, i) => {
+        if (group.hopIndices.includes(i)) {
+          return { ...h, confirmed: true, actualTime: now };
+        }
+        return h;
+      });
+
+      try {
+        const updated = await updateBatchStep(dbStep.id, { hopAdditions: updatedHops });
+        setSteps((prev) => prev.map((s) => (s.id === dbStep.id ? updated : s)));
+      } catch {
+        toast.error("Failed to confirm hop addition");
+      }
+    },
+    [boilTimer, stepTrackingMap, previewSteps]
+  );
+
+  // ── Boil timer finish (stop or done) ────────────────────────────
+  const handleBoilTimerFinish = useCallback((): void => {
+    if (boilTimer) {
+      handleStampStop(boilTimer.dbStepId);
+    }
+    setBoilTimer(null);
+    setBoilTimerDoneOpen(false);
+    setBoilTimerStopOpen(false);
+  }, [boilTimer, handleStampStop]);
+
+  // ── Auto-fill heat step times from neighbours ──────────────────
+  // Key by preview index (heat steps may have no DB step)
+  const heatAutoTimes = useMemo(() => {
+    const map = new Map<number, { autoStart: string; autoEnd: string }>();
+    for (let i = 0; i < previewSteps.length; i++) {
+      const pStep = previewSteps[i]!;
+      if (pStep.stepType !== "heat") continue;
+
+      let autoStart = "";
+      let autoEnd = "";
+
+      // start = previous step's actual end
+      const prev = previewSteps[i - 1];
+      if (prev) {
+        const prevDb = stepTrackingMap.get(prev.name);
+        if (prevDb) autoStart = localTimes[`end_${prevDb.id}`] ?? "";
+      }
+
+      // end = next step's actual start
+      const next = previewSteps[i + 1];
+      if (next) {
+        const nextDb = stepTrackingMap.get(next.name);
+        if (nextDb) autoEnd = localTimes[`start_${nextDb.id}`] ?? "";
+      }
+
+      map.set(i, { autoStart, autoEnd });
+    }
+    return map;
+  }, [previewSteps, stepTrackingMap, localTimes]);
 
   // ── Hop confirmation (saves to batch_step by matching name) ─
   const handleHopConfirm = useCallback(
@@ -521,17 +856,258 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           })()}
         </div>
 
+        {/* Countdown timer panel */}
+        {timerStep && (
+          <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-3 mb-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Timer className="size-4 text-amber-600" />
+                {timerStep.name}
+                {timerStep.tempC && (
+                  <span className="text-muted-foreground">· {Number(timerStep.tempC).toFixed(0)}°C</span>
+                )}
+              </span>
+              <span className="font-mono text-2xl font-bold tabular-nums">
+                {Math.floor(timerStep.remainingSec / 60).toString().padStart(2, "0")}
+                :{(timerStep.remainingSec % 60).toString().padStart(2, "0")}
+                <span className="text-sm font-normal text-muted-foreground ml-1">
+                  / {Math.floor(timerStep.targetSec / 60).toString().padStart(2, "0")}
+                  :{(timerStep.targetSec % 60).toString().padStart(2, "0")}
+                </span>
+              </span>
+            </div>
+            <Progress
+              value={((timerStep.targetSec - timerStep.remainingSec) / timerStep.targetSec) * 100}
+              className={cn(
+                "h-2",
+                timerStep.remainingSec / timerStep.targetSec < 0.2 && timerStep.remainingSec > 0
+                  ? "[&>div]:bg-amber-500"
+                  : "[&>div]:bg-green-500"
+              )}
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(): void => {
+                  setTimerStep((prev) =>
+                    prev ? { ...prev, status: prev.status === "running" ? "paused" : "running" } : null
+                  );
+                }}
+              >
+                {timerStep.status === "running" ? (
+                  <><Pause className="mr-1 size-3.5" />{t("brew.brewing.timerPause")}</>
+                ) : (
+                  <><Play className="mr-1 size-3.5" />{t("brew.brewing.timerResume")}</>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={(): void => setTimerStopOpen(true)}
+              >
+                <Square className="mr-1 size-3.5" />
+                {t("brew.brewing.hopTimerStop")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Timer stop confirmation dialog */}
+        <AlertDialog open={timerStopOpen} onOpenChange={setTimerStopOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("brew.brewing.timerStopTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("brew.brewing.timerStopMsg")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleTimerFinish}>{t("actions.confirm")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Timer done dialog */}
+        <AlertDialog open={timerDoneOpen} onOpenChange={setTimerDoneOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("brew.brewing.timerFinishedTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("brew.brewing.timerFinishedMsg")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={handleTimerFinish}>{t("actions.confirm")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Boil hop timer panel */}
+        {boilTimer && (
+          <div className="rounded-lg border-2 border-orange-400 bg-orange-50 p-3 mb-3 space-y-3">
+            {/* Master header: title + elapsed / total + controls */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <Timer className="size-4 text-orange-600" />
+                {t("brew.brewing.boilTimerTitle")}
+              </span>
+              <span className="font-mono text-2xl font-bold tabular-nums">
+                {Math.floor(boilTimer.elapsedSec / 60).toString().padStart(2, "0")}
+                :{(boilTimer.elapsedSec % 60).toString().padStart(2, "0")}
+                <span className="text-sm font-normal text-muted-foreground ml-1">
+                  / {Math.floor(boilTimer.totalSec / 60).toString().padStart(2, "0")}
+                  :{(boilTimer.totalSec % 60).toString().padStart(2, "0")}
+                </span>
+              </span>
+            </div>
+            <Progress
+              value={(boilTimer.elapsedSec / boilTimer.totalSec) * 100}
+              className="h-2 [&>div]:bg-orange-500"
+            />
+
+            {/* Hop groups */}
+            <div className="space-y-2">
+              {boilTimer.groups.map((group, gi) => {
+                const remainingSec = Math.max(0, group.waitSec - boilTimer.elapsedSec);
+                const isReady = boilTimer.elapsedSec >= group.waitSec && !group.confirmed;
+                const isDone = group.confirmed;
+                // Progress: 0% at start → 100% when waitSec reached
+                const progressPct = group.waitSec > 0
+                  ? Math.min(100, (boilTimer.elapsedSec / group.waitSec) * 100)
+                  : 100;
+
+                return (
+                  <div
+                    key={gi}
+                    className={cn(
+                      "relative rounded-md border px-3 py-2 text-sm overflow-hidden",
+                      isDone && "border-green-300",
+                      isReady && "border-amber-400 animate-pulse",
+                      !isDone && !isReady && "border-orange-200"
+                    )}
+                  >
+                    {/* Background fill — progressive coloring */}
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 left-0 transition-[width] duration-1000 ease-linear",
+                        isDone && "bg-green-100",
+                        isReady && "bg-amber-100",
+                        !isDone && !isReady && "bg-orange-100/70"
+                      )}
+                      style={{ width: isDone ? "100%" : `${progressPct}%` }}
+                    />
+                    {/* Unfilled portion */}
+                    {!isDone && (
+                      <div className="absolute inset-y-0 right-0 bg-white/60" style={{ width: `${100 - progressPct}%` }} />
+                    )}
+
+                    <div className="relative flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{group.addAtMin} min</span>
+                        <span className="text-muted-foreground mx-1">—</span>
+                        {group.hops.map((h, hi) => (
+                          <span key={hi}>
+                            {hi > 0 && ", "}
+                            {h.itemName}{" "}
+                            <span className="font-medium">{fmtAmount(h as HopAddition)}</span>
+                          </span>
+                        ))}
+                      </div>
+                      {isDone && group.confirmedAt && (
+                        <span className="text-green-600 font-medium whitespace-nowrap flex items-center gap-1">
+                          {t("brew.brewing.boilTimerAdded")} {fmtTime(new Date(group.confirmedAt))}
+                        </span>
+                      )}
+                      {isReady && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="bg-amber-600 hover:bg-amber-700 shrink-0"
+                          onClick={(): void => { void handleBoilTimerConfirmGroup(gi); }}
+                        >
+                          {t("brew.brewing.boilTimerConfirm")}
+                        </Button>
+                      )}
+                      {!isDone && !isReady && (
+                        <span className="font-mono tabular-nums text-muted-foreground whitespace-nowrap">
+                          {Math.floor(remainingSec / 60).toString().padStart(2, "0")}
+                          :{(remainingSec % 60).toString().padStart(2, "0")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Controls */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(): void => {
+                  setBoilTimer((prev) =>
+                    prev ? { ...prev, status: prev.status === "running" ? "paused" : "running" } : null
+                  );
+                }}
+              >
+                {boilTimer.status === "running" ? (
+                  <><Pause className="mr-1 size-3.5" />{t("brew.brewing.hopTimerPause")}</>
+                ) : (
+                  <><Play className="mr-1 size-3.5" />{t("brew.brewing.hopTimerResume")}</>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={(): void => setBoilTimerStopOpen(true)}
+              >
+                <Square className="mr-1 size-3.5" />
+                {t("brew.brewing.hopTimerStop")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Boil timer stop confirmation */}
+        <AlertDialog open={boilTimerStopOpen} onOpenChange={setBoilTimerStopOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("brew.brewing.boilTimerStopTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("brew.brewing.boilTimerStopMsg")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBoilTimerFinish}>{t("actions.confirm")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Boil timer done dialog */}
+        <AlertDialog open={boilTimerDoneOpen} onOpenChange={setBoilTimerDoneOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("brew.brewing.boilTimerDoneTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{t("brew.brewing.boilTimerDoneMsg")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={handleBoilTimerFinish}>{t("actions.confirm")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Column headers */}
-        <div className="flex items-center gap-1 px-2 pb-1.5 text-xs font-medium text-muted-foreground border-b">
-          <span className="w-12 shrink-0">{t("brew.brewing.planTime")}</span>
+        <div className="flex items-center gap-1.5 px-2 pb-1.5 text-[11px] font-medium text-muted-foreground border-b">
+          <span className="w-11 shrink-0">{t("brew.brewing.planTime")}</span>
           <span className="flex-1 min-w-0">{t("brew.brewing.stepName")}</span>
-          <span className="w-11 shrink-0 text-right">{t("brew.brewing.targetTemp")}</span>
-          <span className="w-12 shrink-0 text-right">{t("brew.brewing.actualStart")}</span>
-          <span className="w-12 shrink-0 text-right">{t("brew.brewing.actualEnd")}</span>
-          <span className="w-14 shrink-0 text-right">{t("brew.brewing.planCalcMin")}</span>
-          <span className="w-14 shrink-0 text-right">{t("brew.brewing.actualCalcMin")}</span>
-          <span className="w-10 shrink-0 text-right">{t("brew.brewing.delta")}</span>
-          <span className="w-36 shrink-0">{t("brew.brewing.note")}</span>
+          <span className="w-8 shrink-0 text-right">°C</span>
+          <span className="w-11 shrink-0" />
+          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualStart")}</span>
+          <span className="w-11 shrink-0 text-right">{t("brew.brewing.actualEnd")}</span>
+          <span className="w-8 shrink-0 text-right">{t("brew.brewing.planCalcMin")}</span>
+          <span className="w-8 shrink-0 text-right">{t("brew.brewing.actualCalcMin")}</span>
+          <span className="w-7 shrink-0 text-right">&Delta;</span>
+          <span className="min-w-20 flex-1">{t("brew.brewing.note")}</span>
         </div>
 
         {/* Step rows — from preview (same as PrepPhase detailed view) */}
@@ -567,71 +1143,205 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                 {/* Step row */}
                 <div
                   className={cn(
-                    "flex items-center gap-1 py-1.5 px-2 border-l-2 text-sm",
+                    "flex items-center gap-1.5 py-1 px-2 border-l-2 text-xs",
                     colors.border,
                     pStep.stepType === "heat" && "opacity-70"
                   )}
                 >
                   {/* Plan time */}
-                  <span className="w-12 shrink-0 text-muted-foreground tabular-nums text-xs">
+                  <span className="w-11 shrink-0 text-muted-foreground tabular-nums">
                     {fmtTime(pStep.startTimePlan)}
                   </span>
 
                   {/* Name */}
-                  <span className="flex-1 min-w-0 font-medium truncate">
+                  <span className="flex-1 min-w-0 text-sm font-medium truncate">
                     {pStep.name}
                     {pStep.autoSwitch && (
-                      <span className="text-xs text-muted-foreground ml-1.5">
+                      <span className="text-xs text-muted-foreground ml-1">
                         {t("brew.prep.autoStep")}
                       </span>
                     )}
                   </span>
 
                   {/* Temp */}
-                  <span className="w-11 shrink-0 text-right text-muted-foreground tabular-nums">
+                  <span className="w-8 shrink-0 text-right text-muted-foreground tabular-nums">
                     {pStep.temperatureC
-                      ? `${Number(pStep.temperatureC).toFixed(0)}°C`
+                      ? `${Number(pStep.temperatureC).toFixed(0)}°`
                       : ""}
                   </span>
 
+                  {/* Start / Stop stamp buttons + Timer */}
+                  {dbStep ? (
+                    <span className="w-11 shrink-0 flex items-center justify-center gap-0">
+                      <button
+                        type="button"
+                        title={t("brew.brewing.stampStart")}
+                        className="p-0.5 text-muted-foreground hover:text-green-600 transition-colors"
+                        onClick={(): void => handleStampStart(dbStep.id)}
+                      >
+                        <Play className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title={t("brew.brewing.stampStop")}
+                        className="p-0.5 text-muted-foreground hover:text-red-600 transition-colors"
+                        onClick={(): void => handleStampStop(dbStep.id)}
+                      >
+                        <Square className="size-3" />
+                      </button>
+                      {pStep.brewPhase === "mashing" && pStep.stepType !== "heat" && pStep.timeMin > 0 && (
+                        <button
+                          type="button"
+                          title={t("brew.brewing.startTimer")}
+                          className={cn(
+                            "p-0.5 transition-colors",
+                            timerStep?.dbStepId === dbStep.id
+                              ? "text-amber-600"
+                              : "text-muted-foreground hover:text-amber-600"
+                          )}
+                          onClick={(): void => handleTimerStart(idx, dbStep.id, pStep)}
+                        >
+                          <Timer className="size-3" />
+                        </button>
+                      )}
+                      {pStep.stepType === "boil" && pStep.hopAdditions && pStep.hopAdditions.length > 0 && (
+                        <button
+                          type="button"
+                          title={t("brew.brewing.boilTimerStart")}
+                          className={cn(
+                            "p-0.5 transition-colors",
+                            boilTimer?.dbStepId === dbStep.id
+                              ? "text-orange-600"
+                              : "text-muted-foreground hover:text-orange-600"
+                          )}
+                          onClick={(): void => handleBoilTimerStart(idx, dbStep.id, pStep)}
+                        >
+                          <Timer className="size-3" />
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="w-11 shrink-0" />
+                  )}
+
                   {/* Actual start */}
-                  <span className="w-12 shrink-0 text-right tabular-nums text-xs">
-                    {fmtTime(dbStep?.startTimeReal)}
-                  </span>
+                  {(() => {
+                    const isHeat = pStep.stepType === "heat";
+                    const heatAuto = isHeat ? heatAutoTimes.get(idx) : undefined;
+                    if (dbStep) {
+                      const ownVal = localTimes[`start_${dbStep.id}`] ?? "";
+                      const autoVal = heatAuto?.autoStart ?? "";
+                      const displayVal = ownVal || autoVal;
+                      const isAuto = isHeat && !ownVal && autoVal !== "";
+                      return (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="—"
+                          maxLength={5}
+                          className={cn(
+                            "w-11 shrink-0 text-xs tabular-nums text-center bg-transparent border-b border-dashed border-muted-foreground/40 hover:border-foreground/60 focus:border-primary focus:outline-none py-0 px-0",
+                            isAuto && "text-muted-foreground/60 italic"
+                          )}
+                          value={displayVal}
+                          onChange={(e): void => {
+                            const val = e.target.value;
+                            const id = dbStep.id;
+                            setLocalTimes((prev) => ({ ...prev, [`start_${id}`]: val }));
+                          }}
+                          onBlur={(e): void => {
+                            const val = e.target.value.trim();
+                            if (/^\d{1,2}:\d{2}$/.test(val) || val === "") {
+                              saveTime(dbStep.id, "startTimeReal", val);
+                            }
+                          }}
+                        />
+                      );
+                    }
+                    // Heat step without DB record — show auto-derived value read-only
+                    if (isHeat && heatAuto?.autoStart) {
+                      return (
+                        <span className="w-11 shrink-0 text-xs tabular-nums text-center text-muted-foreground/60 italic">
+                          {heatAuto.autoStart}
+                        </span>
+                      );
+                    }
+                    return <span className="w-11 shrink-0 text-center text-muted-foreground">—</span>;
+                  })()}
 
                   {/* Actual end */}
-                  <span className="w-12 shrink-0 text-right tabular-nums text-xs">
-                    {fmtTime(dbStep?.endTimeReal)}
-                  </span>
+                  {(() => {
+                    const isHeat = pStep.stepType === "heat";
+                    const heatAuto = isHeat ? heatAutoTimes.get(idx) : undefined;
+                    if (dbStep) {
+                      const ownVal = localTimes[`end_${dbStep.id}`] ?? "";
+                      const autoVal = heatAuto?.autoEnd ?? "";
+                      const displayVal = ownVal || autoVal;
+                      const isAuto = isHeat && !ownVal && autoVal !== "";
+                      return (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="—"
+                          maxLength={5}
+                          className={cn(
+                            "w-11 shrink-0 text-xs tabular-nums text-center bg-transparent border-b border-dashed border-muted-foreground/40 hover:border-foreground/60 focus:border-primary focus:outline-none py-0 px-0",
+                            isAuto && "text-muted-foreground/60 italic"
+                          )}
+                          value={displayVal}
+                          onChange={(e): void => {
+                            const val = e.target.value;
+                          const id = dbStep.id;
+                          setLocalTimes((prev) => ({ ...prev, [`end_${id}`]: val }));
+                        }}
+                        onBlur={(e): void => {
+                          const val = e.target.value.trim();
+                          if (/^\d{1,2}:\d{2}$/.test(val) || val === "") {
+                            saveTime(dbStep.id, "endTimeReal", val);
+                          }
+                        }}
+                        />
+                      );
+                    }
+                    // Heat step without DB record — show auto-derived value read-only
+                    if (isHeat && heatAuto?.autoEnd) {
+                      return (
+                        <span className="w-11 shrink-0 text-xs tabular-nums text-center text-muted-foreground/60 italic">
+                          {heatAuto.autoEnd}
+                        </span>
+                      );
+                    }
+                    return <span className="w-11 shrink-0 text-center text-muted-foreground">—</span>;
+                  })()}
 
                   {/* Plan min */}
-                  <span className="w-14 shrink-0 text-right tabular-nums">
+                  <span className="w-8 shrink-0 text-right tabular-nums">
                     {pStep.timeMin > 0 ? `${pStep.timeMin}` : "—"}
                   </span>
 
                   {/* Actual min (calculated) */}
-                  <span className="w-14 shrink-0 text-right tabular-nums">
+                  <span className="w-8 shrink-0 text-right tabular-nums">
                     {actualMin !== null ? `${actualMin}` : "—"}
                   </span>
 
                   {/* Delta */}
                   <span
                     className={cn(
-                      "w-10 shrink-0 text-right font-mono tabular-nums text-xs",
+                      "w-7 shrink-0 text-right font-mono tabular-nums",
                       delta !== null && delta < 0 && "text-green-600",
                       delta !== null && delta > 0 && "text-red-600"
                     )}
                   >
                     {delta !== null
                       ? `${delta > 0 ? "+" : ""}${delta}`
-                      : "—"}
+                      : ""}
                   </span>
 
                   {/* Notes */}
                   {dbStep ? (
                     <Input
                       type="text"
-                      className="h-6 w-36 shrink-0 text-xs"
+                      className="h-5 min-w-20 flex-1 text-xs px-1"
                       placeholder="..."
                       value={localNotes[dbStep.id] ?? ""}
                       onChange={(e): void => {
@@ -647,7 +1357,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                       }}
                     />
                   ) : (
-                    <span className="w-36 shrink-0" />
+                    <span className="min-w-20 flex-1" />
                   )}
                 </div>
 
@@ -683,6 +1393,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                             <span className="font-medium">
                               {fmtAmount(hop)}
                             </span>
+                            {hop.recipeNotes && (
+                              <span className="italic ml-1">— {hop.recipeNotes}</span>
+                            )}
                           </span>
                           {confirmed && actualTime && (
                             <span className="ml-auto text-green-600 tabular-nums">
@@ -701,21 +1414,22 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
         {/* Footer totals */}
         <Separator className="my-1" />
-        <div className="flex items-center gap-1 px-2 py-1.5 text-sm font-semibold">
-          <span className="w-12 shrink-0" />
-          <span className="flex-1 min-w-0">{t("brew.brewing.totalTime")}</span>
+        <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-semibold">
           <span className="w-11 shrink-0" />
-          <span className="w-12 shrink-0" />
-          <span className="w-12 shrink-0" />
-          <span className="w-14 shrink-0 text-right tabular-nums">
+          <span className="flex-1 min-w-0 text-sm">{t("brew.brewing.totalTime")}</span>
+          <span className="w-8 shrink-0" />
+          <span className="w-11 shrink-0" />
+          <span className="w-11 shrink-0" />
+          <span className="w-11 shrink-0" />
+          <span className="w-8 shrink-0 text-right tabular-nums">
             {totalPlanMin}
           </span>
-          <span className="w-14 shrink-0 text-right tabular-nums">
+          <span className="w-8 shrink-0 text-right tabular-nums">
             {totalActualMin !== null ? totalActualMin : "—"}
           </span>
           <span
             className={cn(
-              "w-10 shrink-0 text-right font-mono tabular-nums text-xs",
+              "w-7 shrink-0 text-right font-mono tabular-nums",
               totalDelta !== null && totalDelta < 0 && "text-green-600",
               totalDelta !== null && totalDelta > 0 && "text-red-600"
             )}
@@ -724,7 +1438,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
               ? `${totalDelta > 0 ? "+" : ""}${totalDelta}`
               : "—"}
           </span>
-          <span className="w-36 shrink-0" />
+          <span className="min-w-20 flex-1" />
         </div>
       </section>
 

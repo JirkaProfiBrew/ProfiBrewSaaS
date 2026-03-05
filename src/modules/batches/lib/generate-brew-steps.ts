@@ -93,21 +93,20 @@ async function buildBrewStepsData(
   let sortOrder = 0;
   let cumulativeMin = 0;
 
-  // 5. Preparation step (from brewing_system)
-  if (system?.timePreparation) {
-    steps.push({
-      sortOrder: ++sortOrder,
-      stepType: "preparation",
-      brewPhase: "preparation",
-      name: "Příprava",
-      temperatureC: "20",
-      timeMin: system.timePreparation,
-      autoSwitch: false,
-      startTimePlan: addMinutes(brewStart, cumulativeMin),
-      hopAdditions: null,
-    });
-    cumulativeMin += system.timePreparation;
-  }
+  // 5. Preparation step — always first (time from brewing system, fallback 30 min)
+  const prepTimeMin = system?.timePreparation ?? 30;
+  steps.push({
+    sortOrder: ++sortOrder,
+    stepType: "preparation",
+    brewPhase: "preparation",
+    name: "Příprava",
+    temperatureC: "20",
+    timeMin: prepTimeMin,
+    autoSwitch: false,
+    startTimePlan: addMinutes(brewStart, cumulativeMin),
+    hopAdditions: null,
+  });
+  cumulativeMin += prepTimeMin;
 
   // 6. Mashing steps — split into heat (ramp) + hold per recipe step
   let prevTempC = 20;
@@ -317,6 +316,116 @@ export async function generateBrewSteps(
 }
 
 /**
+ * Regenerate brew steps for an existing batch in brewing phase.
+ * Preserves tracking data (actual times, notes, hop confirmations) by matching step names.
+ */
+export async function regenerateBrewSteps(
+  tenantId: string,
+  batchId: string
+): Promise<void> {
+  const batchRows = await db
+    .select({
+      recipeId: batches.recipeId,
+      brewingSystemId: batches.brewingSystemId,
+      plannedDate: batches.plannedDate,
+    })
+    .from(batches)
+    .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+    .limit(1);
+
+  const batch = batchRows[0];
+  if (!batch?.recipeId) return;
+
+  await db.transaction(async (tx) => {
+    // 1. Load existing steps → build name→tracking map
+    const oldSteps = await tx
+      .select()
+      .from(batchSteps)
+      .where(and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.batchId, batchId)))
+      .orderBy(asc(batchSteps.sortOrder));
+
+    const trackingByName = new Map<
+      string,
+      {
+        startTimeReal: Date | null;
+        endTimeReal: Date | null;
+        actualDurationMin: number | null;
+        notes: string | null;
+        hopAdditions: HopAddition[] | null;
+      }
+    >();
+    for (const s of oldSteps) {
+      trackingByName.set(s.name, {
+        startTimeReal: s.startTimeReal,
+        endTimeReal: s.endTimeReal,
+        actualDurationMin: s.actualDurationMin,
+        notes: s.notes,
+        hopAdditions: s.hopAdditions as HopAddition[] | null,
+      });
+    }
+
+    // 2. Delete old steps
+    await tx
+      .delete(batchSteps)
+      .where(and(eq(batchSteps.tenantId, tenantId), eq(batchSteps.batchId, batchId)));
+
+    // 3. Build fresh steps
+    const brewStart = batch.plannedDate ?? new Date();
+    const freshSteps = await buildBrewStepsData(
+      tx,
+      tenantId,
+      batch.recipeId!,
+      batch.brewingSystemId,
+      brewStart
+    );
+    if (freshSteps.length === 0) return;
+
+    // 4. Insert with preserved tracking
+    const insertRows: Array<typeof batchSteps.$inferInsert> = freshSteps.map((s) => {
+      const tracking = trackingByName.get(s.name);
+      return {
+        tenantId,
+        batchId,
+        sortOrder: s.sortOrder,
+        stepType: s.stepType,
+        brewPhase: s.brewPhase,
+        name: s.name,
+        temperatureC: s.temperatureC,
+        timeMin: s.timeMin,
+        rampTimeMin: 0,
+        stepSource:
+          s.stepType === "heat" ||
+          ["preparation", "lautering", "heat_to_boil", "whirlpool", "transfer", "cleanup"].includes(s.stepType)
+            ? "system"
+            : "recipe",
+        autoSwitch: s.autoSwitch,
+        startTimePlan: s.startTimePlan,
+        hopAdditions: s.hopAdditions,
+        // Preserve tracking data if step existed before
+        ...(tracking && {
+          startTimeReal: tracking.startTimeReal,
+          endTimeReal: tracking.endTimeReal,
+          actualDurationMin: tracking.actualDurationMin,
+          notes: tracking.notes,
+        }),
+        // Merge hop confirmations from old data
+        ...(tracking?.hopAdditions && s.hopAdditions && {
+          hopAdditions: s.hopAdditions.map((h, i) => {
+            const oldHop = tracking.hopAdditions?.[i];
+            if (oldHop?.confirmed) {
+              return { ...h, confirmed: true, actualTime: oldHop.actualTime };
+            }
+            return h;
+          }),
+        }),
+      };
+    });
+
+    await tx.insert(batchSteps).values(insertRows);
+  });
+}
+
+/**
  * Build a brew step preview from recipe + brewing system — no DB writes.
  * Reads directly from db (not a transaction). Works from any batch phase.
  */
@@ -391,6 +500,7 @@ async function loadHopAdditions(
       useStage: recipeItems.useStage,
       useTimeMin: recipeItems.useTimeMin,
       toBaseFactor: units.toBaseFactor,
+      notes: recipeItems.notes,
     })
     .from(recipeItems)
     .leftJoin(items, eq(recipeItems.itemId, items.id))
@@ -420,6 +530,7 @@ async function loadHopAdditions(
       amountG: amountGrams,
       actualTime: null,
       confirmed: false,
+      recipeNotes: h.notes ?? null,
     };
 
     if (stage === "boil") {
@@ -472,6 +583,7 @@ async function loadIngredientAdditions(
       toBaseFactor: units.toBaseFactor,
       unitCategory: units.category,
       unitSymbol: units.symbol,
+      notes: recipeItems.notes,
     })
     .from(recipeItems)
     .leftJoin(items, eq(recipeItems.itemId, items.id))
@@ -513,6 +625,7 @@ async function loadIngredientAdditions(
         addAtMin: 0,
         actualTime: null,
         confirmed: false,
+        recipeNotes: r.notes ?? null,
       });
     } else {
       grouped[target][cat].push({
@@ -522,6 +635,7 @@ async function loadIngredientAdditions(
         actualTime: null,
         confirmed: false,
         unitSymbol: r.unitSymbol,
+        recipeNotes: r.notes ?? null,
       });
     }
   }

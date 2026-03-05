@@ -146,6 +146,9 @@ export function BrewStepTimeline({
                               ? `${(hop.amountG / 1000).toFixed(1)} kg`
                               : `${Math.round(hop.amountG)} g`}
                         </span>
+                        {hop.recipeNotes && (
+                          <span className="italic ml-1">— {hop.recipeNotes}</span>
+                        )}
                       </span>
                     </div>
                   ))}

@@ -229,6 +229,8 @@ export interface HopAddition {
   confirmed: boolean;
   /** Display unit symbol (e.g. "ks"). When set, amountG is in this unit, not grams. */
   unitSymbol?: string | null;
+  /** Recipe item notes — brewer instructions (e.g. "add halfway through lautering"). */
+  recipeNotes?: string | null;
 }
 
 /** A lightweight step descriptor returned by previewBrewSteps() */

@@ -10,10 +10,11 @@ interface YeastCardProps {
   estimatedFg: number | null;
   estimatedAbv: number | null;
   onAmountChange: (id: string, amount: string) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
 }
 
-export function YeastCard({ item, estimatedFg, estimatedAbv, onAmountChange, onRemove }: YeastCardProps): React.ReactNode {
+export function YeastCard({ item, estimatedFg, estimatedAbv, onAmountChange, onNotesChange, onRemove }: YeastCardProps): React.ReactNode {
   const t = useTranslations("recipes");
   const tItems = useTranslations("items");
   const unitSymbol = item.unitSymbol ?? "ks";
@@ -52,6 +53,15 @@ export function YeastCard({ item, estimatedFg, estimatedAbv, onAmountChange, onR
             {" → "}{t("designer.feedback.abv")}: <span className="font-medium text-foreground">{estimatedAbv.toFixed(1)}%</span>
           </div>
         )}
+        <div className="flex items-center gap-2 col-span-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">{t("designer.cards.note")}:</label>
+          <Input
+            value={item.notes ?? ""}
+            onChange={(e) => onNotesChange(item.id, e.target.value)}
+            className="h-7 text-sm"
+            placeholder={t("designer.cards.note")}
+          />
+        </div>
       </div>
     </IngredientCard>
   );

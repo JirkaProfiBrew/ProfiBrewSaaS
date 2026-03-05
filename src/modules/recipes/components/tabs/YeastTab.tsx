@@ -16,6 +16,7 @@ interface YeastTabProps {
   items: RecipeItem[];
   ogPlato: number;
   onAmountChange: (id: string, amount: string) => void;
+  onNotesChange: (id: string, notes: string) => void;
   onRemove: (id: string) => void;
   onReorder: (activeId: string, overId: string) => void;
   onAdd: () => void;
@@ -27,6 +28,7 @@ export function YeastTab({
   items,
   ogPlato,
   onAmountChange,
+  onNotesChange,
   onRemove,
   onReorder,
   onAdd,
@@ -69,6 +71,7 @@ export function YeastTab({
               estimatedFg={estimatedFg}
               estimatedAbv={estimatedAbv}
               onAmountChange={onAmountChange}
+              onNotesChange={onNotesChange}
               onRemove={onRemove}
             />
           ))}
