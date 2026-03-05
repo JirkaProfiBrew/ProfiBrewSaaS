@@ -300,7 +300,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     name: string;
     tempC: string | null;
     targetSec: number;
-    remainingSec: number;
+    remainingSec: number;       // derived from timestamps each tick
+    startedAt: number;          // Date.now() when last started, 0 when paused
+    pausedElapsed: number;      // accumulated seconds from previous runs
     status: "running" | "paused";
   } | null>(null);
   const [timerDoneOpen, setTimerDoneOpen] = useState(false);
@@ -320,13 +322,85 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     dbStepId: string;
     previewIdx: number;
     totalSec: number;
-    elapsedSec: number;
+    elapsedSec: number;         // derived from timestamps each tick
+    startedAt: number;          // Date.now() when last started, 0 when paused
+    pausedElapsed: number;      // accumulated seconds from previous runs
     status: "running" | "paused";
     groups: BoilTimerGroup[];
   } | null>(null);
   const [boilTimerDoneOpen, setBoilTimerDoneOpen] = useState(false);
   const [boilTimerStopOpen, setBoilTimerStopOpen] = useState(false);
   const boilTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── localStorage persistence for timers ───────────────────────
+  const mashKey = `pb_mash_timer_${batchId}`;
+  const boilKey = `pb_boil_timer_${batchId}`;
+
+  // Save to localStorage on changes
+  useEffect(() => {
+    if (timerStep) {
+      localStorage.setItem(mashKey, JSON.stringify(timerStep));
+    } else {
+      localStorage.removeItem(mashKey);
+    }
+  }, [timerStep, mashKey]);
+
+  useEffect(() => {
+    if (boilTimer) {
+      localStorage.setItem(boilKey, JSON.stringify(boilTimer));
+    } else {
+      localStorage.removeItem(boilKey);
+    }
+  }, [boilTimer, boilKey]);
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedMash = localStorage.getItem(mashKey);
+      if (savedMash) {
+        const parsed = JSON.parse(savedMash) as typeof timerStep;
+        if (parsed && parsed.targetSec > 0) {
+          // Recompute remainingSec from timestamps
+          if (parsed.status === "running" && parsed.startedAt) {
+            const elapsed = parsed.pausedElapsed + (Date.now() - parsed.startedAt) / 1000;
+            const remaining = Math.max(0, Math.ceil(parsed.targetSec - elapsed));
+            if (remaining > 0) {
+              setTimerStep({ ...parsed, remainingSec: remaining });
+            } else {
+              // Timer expired while away
+              setTimerStep({ ...parsed, remainingSec: 0, pausedElapsed: parsed.targetSec, startedAt: 0, status: "paused" });
+              setTimerDoneOpen(true);
+            }
+          } else {
+            setTimerStep(parsed);
+          }
+        }
+      }
+    } catch { /* ignore corrupt data */ }
+
+    try {
+      const savedBoil = localStorage.getItem(boilKey);
+      if (savedBoil) {
+        const parsed = JSON.parse(savedBoil) as typeof boilTimer;
+        if (parsed && parsed.totalSec > 0) {
+          if (parsed.status === "running" && parsed.startedAt) {
+            const elapsed = Math.floor(parsed.pausedElapsed + (Date.now() - parsed.startedAt) / 1000);
+            if (elapsed >= parsed.totalSec) {
+              setBoilTimer({ ...parsed, elapsedSec: parsed.totalSec, pausedElapsed: parsed.totalSec, startedAt: 0, status: "paused" });
+              if (parsed.groups.every((g) => g.confirmed)) {
+                setBoilTimerDoneOpen(true);
+              }
+            } else {
+              setBoilTimer({ ...parsed, elapsedSec: elapsed });
+            }
+          } else {
+            setBoilTimer(parsed);
+          }
+        }
+      }
+    } catch { /* ignore corrupt data */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounce refs
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -519,18 +593,19 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     [saveTime]
   );
 
-  // ── Countdown timer effect ───────────────────────────────────
+  // ── Countdown timer effect (timestamp-based) ─────────────────
   useEffect(() => {
     if (timerStep?.status === "running") {
       timerIntervalRef.current = setInterval(() => {
         setTimerStep((prev) => {
-          if (!prev) return null;
-          const next = prev.remainingSec - 1;
-          if (next <= 0) {
+          if (!prev || !prev.startedAt) return prev;
+          const elapsed = prev.pausedElapsed + (Date.now() - prev.startedAt) / 1000;
+          const remaining = Math.max(0, Math.ceil(prev.targetSec - elapsed));
+          if (remaining <= 0) {
             setTimerDoneOpen(true);
-            return { ...prev, remainingSec: 0, status: "paused" };
+            return { ...prev, remainingSec: 0, pausedElapsed: prev.targetSec, startedAt: 0, status: "paused" as const };
           }
-          return { ...prev, remainingSec: next };
+          return { ...prev, remainingSec: remaining };
         });
       }, 1000);
     } else if (timerIntervalRef.current) {
@@ -558,6 +633,8 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
         tempC: pStep.temperatureC,
         targetSec: pStep.timeMin * 60,
         remainingSec: pStep.timeMin * 60,
+        startedAt: Date.now(),
+        pausedElapsed: 0,
         status: "running",
       });
     },
@@ -574,22 +651,21 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     setTimerStopOpen(false);
   }, [timerStep, handleStampStop]);
 
-  // ── Boil timer countdown effect ────────────────────────────────
+  // ── Boil timer countdown effect (timestamp-based) ────────────────
   useEffect(() => {
     if (boilTimer?.status === "running") {
       boilTimerRef.current = setInterval(() => {
         setBoilTimer((prev) => {
-          if (!prev) return null;
-          const next = prev.elapsedSec + 1;
-          if (next >= prev.totalSec) {
-            // Check if all groups confirmed
+          if (!prev || !prev.startedAt) return prev;
+          const elapsed = Math.floor(prev.pausedElapsed + (Date.now() - prev.startedAt) / 1000);
+          if (elapsed >= prev.totalSec) {
             const allConfirmed = prev.groups.every((g) => g.confirmed);
             if (allConfirmed) {
               setBoilTimerDoneOpen(true);
             }
-            return { ...prev, elapsedSec: prev.totalSec, status: "paused" };
+            return { ...prev, elapsedSec: prev.totalSec, pausedElapsed: prev.totalSec, startedAt: 0, status: "paused" as const };
           }
-          return { ...prev, elapsedSec: next };
+          return { ...prev, elapsedSec: elapsed };
         });
       }, 1000);
     } else if (boilTimerRef.current) {
@@ -640,7 +716,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
 
       // Stamp actual start
       handleStampStart(dbStepId);
-      setBoilTimer({ dbStepId, previewIdx, totalSec, elapsedSec: 0, status: "running", groups });
+      setBoilTimer({ dbStepId, previewIdx, totalSec, elapsedSec: 0, startedAt: Date.now(), pausedElapsed: 0, status: "running", groups });
     },
     [handleStampStart]
   );
@@ -890,9 +966,16 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                 variant="outline"
                 size="sm"
                 onClick={(): void => {
-                  setTimerStep((prev) =>
-                    prev ? { ...prev, status: prev.status === "running" ? "paused" : "running" } : null
-                  );
+                  setTimerStep((prev) => {
+                    if (!prev) return null;
+                    if (prev.status === "running") {
+                      // Pause: accumulate elapsed, clear startedAt
+                      const elapsed = prev.startedAt ? (Date.now() - prev.startedAt) / 1000 : 0;
+                      return { ...prev, pausedElapsed: prev.pausedElapsed + elapsed, startedAt: 0, status: "paused" as const };
+                    }
+                    // Resume: set new startedAt
+                    return { ...prev, startedAt: Date.now(), status: "running" as const };
+                  });
                 }}
               >
                 {timerStep.status === "running" ? (
@@ -1045,9 +1128,14 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                 variant="outline"
                 size="sm"
                 onClick={(): void => {
-                  setBoilTimer((prev) =>
-                    prev ? { ...prev, status: prev.status === "running" ? "paused" : "running" } : null
-                  );
+                  setBoilTimer((prev) => {
+                    if (!prev) return null;
+                    if (prev.status === "running") {
+                      const elapsed = prev.startedAt ? (Date.now() - prev.startedAt) / 1000 : 0;
+                      return { ...prev, pausedElapsed: prev.pausedElapsed + elapsed, startedAt: 0, status: "paused" as const };
+                    }
+                    return { ...prev, startedAt: Date.now(), status: "running" as const };
+                  });
                 }}
               >
                 {boilTimer.status === "running" ? (

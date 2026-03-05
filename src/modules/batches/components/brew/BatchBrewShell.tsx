@@ -76,29 +76,33 @@ export function BatchBrewShell({
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
 
-  // ── General timer state ─────────────────────────────────────
+  // ── General timer state (timestamp-based + localStorage) ────
   const [genTimer, setGenTimer] = useState<{
     targetSec: number;
-    remainingSec: number;
+    remainingSec: number;        // derived from timestamps each tick
+    startedAt: number;           // Date.now() when last started, 0 when paused/idle
+    pausedElapsed: number;       // accumulated seconds from previous runs
     status: "idle" | "running" | "paused";
   } | null>(null);
   const [genTimerInput, setGenTimerInput] = useState("");
   const [genTimerDoneOpen, setGenTimerDoneOpen] = useState(false);
   const [genTimerStopOpen, setGenTimerStopOpen] = useState(false);
   const genTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const genTimerLsKey = `pb_gen_timer_${batch.id}`;
 
-  // Countdown effect
+  // Countdown effect (timestamp-based)
   useEffect(() => {
     if (genTimer?.status === "running") {
       genTimerRef.current = setInterval(() => {
         setGenTimer((prev) => {
-          if (!prev) return null;
-          const next = prev.remainingSec - 1;
-          if (next <= 0) {
+          if (!prev || !prev.startedAt) return prev;
+          const elapsed = prev.pausedElapsed + (Date.now() - prev.startedAt) / 1000;
+          const remaining = Math.max(0, Math.ceil(prev.targetSec - elapsed));
+          if (remaining <= 0) {
             setGenTimerDoneOpen(true);
-            return { ...prev, remainingSec: 0, status: "paused" };
+            return { ...prev, remainingSec: 0, pausedElapsed: prev.targetSec, startedAt: 0, status: "paused" as const };
           }
-          return { ...prev, remainingSec: next };
+          return { ...prev, remainingSec: remaining };
         });
       }, 1000);
     } else if (genTimerRef.current) {
@@ -113,10 +117,44 @@ export function BatchBrewShell({
     };
   }, [genTimer?.status]);
 
+  // Persist to localStorage
+  useEffect(() => {
+    if (genTimer && genTimer.status !== "idle") {
+      localStorage.setItem(genTimerLsKey, JSON.stringify(genTimer));
+    } else {
+      localStorage.removeItem(genTimerLsKey);
+    }
+  }, [genTimer, genTimerLsKey]);
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(genTimerLsKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as typeof genTimer;
+        if (parsed && parsed.targetSec > 0 && parsed.status !== "idle") {
+          if (parsed.status === "running" && parsed.startedAt) {
+            const elapsed = parsed.pausedElapsed + (Date.now() - parsed.startedAt) / 1000;
+            const remaining = Math.max(0, Math.ceil(parsed.targetSec - elapsed));
+            if (remaining > 0) {
+              setGenTimer({ ...parsed, remainingSec: remaining });
+            } else {
+              setGenTimer({ ...parsed, remainingSec: 0, pausedElapsed: parsed.targetSec, startedAt: 0, status: "paused" });
+              setGenTimerDoneOpen(true);
+            }
+          } else {
+            setGenTimer(parsed);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleGenTimerStart = useCallback((): void => {
     const mins = parseInt(genTimerInput, 10);
     if (!mins || mins <= 0) return;
-    setGenTimer({ targetSec: mins * 60, remainingSec: mins * 60, status: "running" });
+    setGenTimer({ targetSec: mins * 60, remainingSec: mins * 60, startedAt: Date.now(), pausedElapsed: 0, status: "running" });
   }, [genTimerInput]);
 
   const handleGenTimerClose = useCallback((): void => {
@@ -207,7 +245,7 @@ export function BatchBrewShell({
                     className={cn("size-8", genTimer && "text-amber-600")}
                     onClick={() => {
                       if (!genTimer) {
-                        setGenTimer({ targetSec: 0, remainingSec: 0, status: "idle" });
+                        setGenTimer({ targetSec: 0, remainingSec: 0, startedAt: 0, pausedElapsed: 0, status: "idle" });
                         setGenTimerInput("");
                       }
                     }}
@@ -307,9 +345,14 @@ export function BatchBrewShell({
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setGenTimer((prev) =>
-                        prev ? { ...prev, status: prev.status === "running" ? "paused" : "running" } : null
-                      );
+                      setGenTimer((prev) => {
+                        if (!prev) return null;
+                        if (prev.status === "running") {
+                          const elapsed = prev.startedAt ? (Date.now() - prev.startedAt) / 1000 : 0;
+                          return { ...prev, pausedElapsed: prev.pausedElapsed + elapsed, startedAt: 0, status: "paused" as const };
+                        }
+                        return { ...prev, startedAt: Date.now(), status: "running" as const };
+                      });
                     }}
                   >
                     {genTimer.status === "running" ? (
