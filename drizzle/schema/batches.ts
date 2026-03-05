@@ -67,6 +67,7 @@ export const batches = pgTable(
     conditioningStart: date("conditioning_start"),
     estimatedEnd: date("estimated_end"),
     conditioningEquipmentId: uuid("conditioning_equipment_id").references(() => equipment.id),
+    ingredientAdditions: jsonb("ingredient_additions").default({}),
   },
   (table) => [
     unique("batches_tenant_batch_number").on(table.tenantId, table.batchNumber),

@@ -131,7 +131,9 @@ export function BatchPhaseBar({
                     className={cn(
                       "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
                       state === "completed" &&
-                        "bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer",
+                        (isActive
+                          ? "bg-green-100 text-green-800 ring-2 ring-green-500 cursor-pointer"
+                          : "bg-green-50 text-green-700 hover:bg-green-100 cursor-pointer"),
                       state === "current" &&
                         (isActive
                           ? "bg-primary text-primary-foreground"

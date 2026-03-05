@@ -130,6 +130,7 @@ function mapBatchRow(
     fermentationStart: row.fermentationStart ?? null,
     conditioningStart: row.conditioningStart ?? null,
     estimatedEnd: row.estimatedEnd ?? null,
+    ingredientAdditions: (row.ingredientAdditions as Batch["ingredientAdditions"]) ?? {},
     recipeName: joined?.recipeName ?? null,
     sourceRecipeId: joined?.sourceRecipeId ?? null,
     sourceRecipeName: joined?.sourceRecipeName ?? null,
@@ -914,6 +915,26 @@ export async function updateBatch(
             }
           }
         }
+
+        // 3. Sync OG measurement row (notes === "OG") in batch_measurements
+        {
+          const ogSg = data.ogActual
+            ? 1 + Number(data.ogActual) / (258.6 - 0.8796 * Number(data.ogActual))
+            : null;
+          await tx
+            .update(batchMeasurements)
+            .set({
+              valuePlato: data.ogActual ?? null,
+              valueSg: ogSg ? String(ogSg.toFixed(4)) : null,
+            })
+            .where(
+              and(
+                eq(batchMeasurements.tenantId, tenantId),
+                eq(batchMeasurements.batchId, batchId),
+                eq(batchMeasurements.notes, "OG")
+              )
+            );
+        }
       }
 
       return mapBatchRow(updated);
@@ -1138,6 +1159,75 @@ export async function addBatchMeasurement(
   });
 }
 
+/** Upsert a sidebar measurement (volume keys). Finds by batchId + notes key. */
+export async function upsertSidebarMeasurement(
+  batchId: string,
+  key: string,
+  value: string
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    // Find existing measurement with this key
+    const existing = await db
+      .select({ id: batchMeasurements.id })
+      .from(batchMeasurements)
+      .where(
+        and(
+          eq(batchMeasurements.tenantId, tenantId),
+          eq(batchMeasurements.batchId, batchId),
+          eq(batchMeasurements.notes, key)
+        )
+      )
+      .limit(1);
+
+    if (existing[0]) {
+      await db
+        .update(batchMeasurements)
+        .set({ value })
+        .where(
+          and(
+            eq(batchMeasurements.tenantId, tenantId),
+            eq(batchMeasurements.id, existing[0].id)
+          )
+        );
+    } else {
+      await db.insert(batchMeasurements).values({
+        tenantId,
+        batchId,
+        measurementType: "volume",
+        value,
+        notes: key,
+        measuredAt: sql`now()`,
+      });
+    }
+  });
+}
+
+/**
+ * Record that a fermentation/conditioning ingredient was added to the batch.
+ * Stores { addedAt, notes } keyed by recipeItemId in batches.ingredient_additions JSONB.
+ */
+export async function recordIngredientAddition(
+  batchId: string,
+  recipeItemId: string,
+  addedAt: string,
+  notes: string
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({ ingredientAdditions: batches.ingredientAdditions })
+      .from(batches)
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)))
+      .limit(1);
+    const current = (rows[0]?.ingredientAdditions as Record<string, { addedAt: string; notes: string }>) ?? {};
+    current[recipeItemId] = { addedAt, notes };
+    await db
+      .update(batches)
+      .set({ ingredientAdditions: current, updatedAt: sql`now()` })
+      .where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)));
+    revalidatePath(`/brewery/batches/${batchId}/brew`, "layout");
+  });
+}
+
 /** Update an existing measurement. */
 export async function updateBatchMeasurement(
   measurementId: string,
@@ -1331,6 +1421,7 @@ export async function getRecipeIngredients(
       unitSymbol: row.unitSymbol ?? null,
       useStage: row.recipeItem.useStage,
       useTimeMin: row.recipeItem.useTimeMin,
+      notes: row.recipeItem.notes ?? null,
       sortOrder: row.recipeItem.sortOrder ?? 0,
     }));
   });
@@ -2798,7 +2889,8 @@ export async function getBottlingLines(
  */
 export async function advanceBatchPhase(
   batchId: string,
-  targetPhase: BatchPhase
+  targetPhase: BatchPhase,
+  options?: { temperatureC?: string }
 ): Promise<Batch> {
   return withTenant(async (tenantId) => {
     const result = await db.transaction(async (tx) => {
@@ -2858,6 +2950,22 @@ export async function advanceBatchPhase(
       }
       if (targetPhase === "fermentation") {
         updates.fermentationStart = sql`CURRENT_DATE`;
+        // Auto-generate first measurement with OG value
+        if (batch.ogActual) {
+          const ogNum = Number(batch.ogActual);
+          const ogSg = 1 + ogNum / (258.6 - 0.8796 * ogNum); // platoToSg
+          await tx.insert(batchMeasurements).values({
+            tenantId,
+            batchId,
+            measurementType: "gravity",
+            valuePlato: batch.ogActual,
+            valueSg: String(ogSg.toFixed(4)),
+            temperatureC: options?.temperatureC ?? null,
+            phase: "fermentation",
+            notes: "OG",
+            measuredAt: sql`now()`,
+          });
+        }
       }
       if (targetPhase === "conditioning") {
         updates.conditioningStart = sql`CURRENT_DATE`;
@@ -2923,6 +3031,141 @@ export async function advanceBatchPhase(
     // Invalidate Next.js cache so router.push() gets fresh data
     revalidatePath(`/brewery/batches/${batchId}/brew`, "layout");
     return result;
+  });
+}
+
+/**
+ * Rollback batch to a previous phase.
+ * Fermentation → Brewing: deletes all fermentation measurements, clears fermentationStart.
+ * Brewing → Preparation: resets step tracking (times + hop confirmations), clears brewDate.
+ */
+export async function rollbackBatchPhase(
+  batchId: string,
+  targetPhase: "brewing" | "preparation" | "fermentation"
+): Promise<void> {
+  return withTenant(async (tenantId) => {
+    await db.transaction(async (tx) => {
+      const batchRows = await tx
+        .select()
+        .from(batches)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        )
+        .limit(1);
+      const batch = batchRows[0];
+      if (!batch) throw new Error("BATCH_NOT_FOUND");
+
+      const currentPhase = batch.currentPhase as string;
+
+      // Validate allowed rollbacks
+      if (targetPhase === "brewing" && currentPhase !== "fermentation") {
+        throw new Error("Can only rollback to brewing from fermentation");
+      }
+      if (targetPhase === "preparation" && currentPhase !== "brewing") {
+        throw new Error("Can only rollback to preparation from brewing");
+      }
+      if (targetPhase === "fermentation" && currentPhase !== "conditioning") {
+        throw new Error("Can only rollback to fermentation from conditioning");
+      }
+
+      // Phase-specific cleanup
+      if (targetPhase === "brewing") {
+        // Delete ALL fermentation measurements (including OG row)
+        await tx
+          .delete(batchMeasurements)
+          .where(
+            and(
+              eq(batchMeasurements.tenantId, tenantId),
+              eq(batchMeasurements.batchId, batchId),
+              eq(batchMeasurements.phase, "fermentation")
+            )
+          );
+      }
+
+      if (targetPhase === "fermentation") {
+        // Delete ALL conditioning measurements
+        await tx
+          .delete(batchMeasurements)
+          .where(
+            and(
+              eq(batchMeasurements.tenantId, tenantId),
+              eq(batchMeasurements.batchId, batchId),
+              eq(batchMeasurements.phase, "conditioning")
+            )
+          );
+      }
+
+      if (targetPhase === "preparation") {
+        // Reset step tracking (same logic as resetBrewTracking)
+        const allSteps = await tx
+          .select()
+          .from(batchSteps)
+          .where(
+            and(
+              eq(batchSteps.tenantId, tenantId),
+              eq(batchSteps.batchId, batchId)
+            )
+          );
+
+        for (const step of allSteps) {
+          let resetHops: unknown = undefined;
+          if (step.hopAdditions && Array.isArray(step.hopAdditions)) {
+            resetHops = (step.hopAdditions as HopAddition[]).map((h) => ({
+              ...h,
+              confirmed: false,
+              actualTime: null,
+            }));
+          }
+          await tx
+            .update(batchSteps)
+            .set({
+              startTimeReal: null,
+              endTimeReal: null,
+              actualDurationMin: null,
+              ...(resetHops !== undefined ? { hopAdditions: resetHops } : {}),
+            })
+            .where(
+              and(
+                eq(batchSteps.tenantId, tenantId),
+                eq(batchSteps.id, step.id)
+              )
+            );
+        }
+      }
+
+      // Update phase history
+      const history = (batch.phaseHistory ?? {}) as PhaseHistory;
+      delete history[currentPhase as BatchPhase];
+      if (history[targetPhase]) {
+        history[targetPhase]!.completed_at = null;
+      }
+
+      // Build batch updates
+      const updates: Record<string, unknown> = {
+        currentPhase: targetPhase,
+        phaseHistory: history,
+        updatedAt: sql`now()`,
+      };
+
+      if (targetPhase === "fermentation") {
+        updates.conditioningStart = null;
+      }
+      if (targetPhase === "brewing") {
+        updates.fermentationStart = null;
+      }
+      if (targetPhase === "preparation") {
+        updates.brewDate = null;
+      }
+
+      await tx
+        .update(batches)
+        .set(updates)
+        .where(
+          and(eq(batches.tenantId, tenantId), eq(batches.id, batchId))
+        );
+    });
+
+    revalidatePath(`/brewery/batches/${batchId}/brew`, "layout");
   });
 }
 

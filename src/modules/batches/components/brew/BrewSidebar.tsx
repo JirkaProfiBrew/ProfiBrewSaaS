@@ -43,7 +43,8 @@ import {
   getBatchLotTracking,
   getBatchExciseSummary,
   getRecipeIngredients,
-  addBatchMeasurement,
+  updateBatch,
+  upsertSidebarMeasurement,
 } from "../../actions";
 import type { RecipeCalculationResult } from "@/modules/recipes/types";
 
@@ -476,8 +477,13 @@ function MeasuredPanel({ batch, measurements, calcResult, t }: { batch: Batch; m
   const [values, setValues] = useState<Record<MeasurementKey, string>>(() => {
     const init: Record<string, string> = {};
     for (const key of MEASUREMENT_KEYS) {
-      const existing = measurements.find((m) => m.notes === key);
-      init[key] = existing?.value ?? "";
+      if (key === "ogMeasured") {
+        // OG reads from batch.ogActual (single source of truth)
+        init[key] = batch.ogActual ?? "";
+      } else {
+        const existing = measurements.find((m) => m.notes === key);
+        init[key] = existing?.value ?? "";
+      }
     }
     return init as Record<MeasurementKey, string>;
   });
@@ -493,14 +499,13 @@ function MeasuredPanel({ batch, measurements, calcResult, t }: { batch: Batch; m
       saveTimers.current[key] = setTimeout(async () => {
         if (value === "") return;
         try {
-          await addBatchMeasurement(batch.id, {
-            measurementType: key === "ogMeasured" ? "gravity" : "volume",
-            value,
-            valuePlato: key === "ogMeasured" ? value : undefined,
-            isStart: false,
-            isEnd: false,
-            notes: key,
-          });
+          if (key === "ogMeasured") {
+            // OG → update batch column (single source of truth)
+            await updateBatch(batch.id, { ogActual: value });
+          } else {
+            // Volume keys → upsert measurement (no duplicates)
+            await upsertSidebarMeasurement(batch.id, key, value);
+          }
         } catch {
           // Silent — user can retry
         }

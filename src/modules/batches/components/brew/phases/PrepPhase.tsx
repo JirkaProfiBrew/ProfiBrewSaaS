@@ -500,12 +500,12 @@ export function PrepPhase({ batchId }: Props): React.ReactNode {
                 </div>
               </div>
               {/* Brew start datetime + recalculate */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="datetime-local"
                   value={brewStartInput}
                   onChange={(e) => setBrewStartInput(e.target.value)}
-                  className="h-8 text-sm w-auto"
+                  className="h-8 text-sm w-[11rem] shrink-0"
                 />
                 <Button
                   variant="outline"

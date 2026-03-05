@@ -1,6 +1,6 @@
 # PRODUCT-SPEC — Funkční specifikace
 ## ProfiBrew.com | Jak systém funguje
-### Aktualizováno: 05.03.2026 | Poslední sprint: Sprint 7 Patch (BrewingPhase UI)
+### Aktualizováno: 05.03.2026 | Poslední sprint: Sprint 7 Patch (FermentCondPhase, OG, Rollback)
 
 > **Tento dokument je živý.** Aktualizuje se po každém sprintu. Popisuje reálný stav systému — co funguje, jak to funguje, jaká jsou pravidla. Slouží jako source of truth pro vývoj i jako základ budoucí uživatelské dokumentace.
 
@@ -383,16 +383,23 @@ Přechody fází jsou řízeny mapou `PHASE_TRANSITIONS` — každá fáze má d
 - Reset button v záhlaví — vymaže všechny skutečné časy, potvrzení surovin (ne výdeje ze skladu), s potvrzovacím dialogem
 - Dialog přechodu fáze s potvrzením (OG měření)
 
-**F4 Kvašení (FermentationPhase):**
+**F4 Kvašení (FermentationPhase):** ✅
 - Sdílená komponenta `FermentCondPhase` konfigurovaná pro kvašení
-- Info o nádobě (tank, objem, typ)
-- Progress bar (aktuální den / plánované dny kvašení)
-- CRUD měření (SG, teplota, pH, poznámky)
-- Přechod na další fázi (conditioning)
+- Info o nádobě (tank, objem, typ), kvasnice, zahájení, plánovaný konec
+- Progress bar (aktuální den / plánované dny kvašení) s overdue badge
+- Dual-axis Recharts graf: hustota (°P, levá osa) + teplota (°C, pravá osa, červená čárkovaná)
+- Tabulka měření: Datum | °P | SG | ABV | Teplota | Poznámka | Akce
+- ABV výpočet: (OG_SG − FG_SG) × 131.25, OG z `batches.og_actual` nebo `recipeOg`
+- Auto-generovaný OG řádek při přechodu na kvašení (nesmazatelný, synchronizovaný s og_actual)
+- Dialog měření: propojené Plato↔SG, teplota, poznámka, editace existujících
+- Suroviny pro kvašení — ingredience z receptu (useStage: fermentation, dry_hop), poznámka z receptu, zaznamenání přidání s datem a poznámkou (`ingredient_additions` JSONB)
+- Tlačítko "Zpět na var" — rollback s destruktivním dialogem, smazání fermentation measurements
+- Přechod na ležení (conditioning)
 
-**F5 Dokvašování (ConditioningPhase):**
+**F5 Dokvašování (ConditioningPhase):** ✅
 - Sdílená komponenta `FermentCondPhase` konfigurovaná pro dokvašování
-- Stejná funkčnost jako F4, jiné parametry (conditioningDays)
+- Stejná funkčnost jako F4, jiné parametry (conditioningDays, useStage: conditioning)
+- Tlačítko "Zpět na kvašení" — rollback, smazání conditioning measurements
 
 **F6 Stáčení (PackagingPhase):**
 - Embedding existujícího `BatchBottlingTab` (viz detail šarže výše)

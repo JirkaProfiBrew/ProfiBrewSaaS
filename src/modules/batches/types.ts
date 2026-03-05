@@ -45,6 +45,7 @@ export interface Batch {
   fermentationStart: string | null;
   conditioningStart: string | null;
   estimatedEnd: string | null;
+  ingredientAdditions: Record<string, { addedAt: string; notes: string }>;
   // Joined fields:
   recipeName?: string | null;
   sourceRecipeId?: string | null;
@@ -145,6 +146,7 @@ export interface RecipeIngredient {
   unitSymbol: string | null;
   useStage: string | null;
   useTimeMin: number | null;
+  notes: string | null;
   sortOrder: number;
 }
 

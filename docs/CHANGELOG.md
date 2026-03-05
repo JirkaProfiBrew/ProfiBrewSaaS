@@ -5,6 +5,46 @@
 
 ---
 
+## [0.7.12] — Sprint 7 Patch: FermentCondPhase, OG Unification, Phase Rollback
+**Období:** T16 (05.03.2026)
+**Status:** ✅ Done
+
+### Kvašení / Ležení (FermentCondPhase)
+- [x] Recharts dual-axis graf (°P vlevo, °C vpravo) s teplotní křivkou
+- [x] Rozšířená tabulka měření: Plato, SG, ABV, teplota, poznámka
+- [x] ABV výpočet na každém řádku (OG_SG - FG_SG) × 131.25
+- [x] Dialog měření: propojené Plato↔SG vstupy, typ (disabled pro MVP)
+- [x] Suroviny pro fázi — zobrazení ingrediencí z receptu (fermentation, dry_hop, conditioning)
+- [x] Zaznamenání přidání suroviny s datem a poznámkou (ingredient_additions JSONB)
+- [x] Titulek tabulky "Měření" místo "Přidat měření"
+
+### OG sjednocení
+- [x] Jedna pravda pro OG = `batches.og_actual`
+- [x] Sidebar ogMeasured → `updateBatch({ ogActual })` místo addBatchMeasurement
+- [x] Auto-generování prvního měření s OG + teplotou při přechodu na kvašení
+- [x] OG measurement řádek nelze smazat (notes === "OG")
+- [x] Synchronizace OG measurement při editaci ogActual (updateBatch propagace)
+- [x] Sidebar volume values: UPSERT místo INSERT (upsertSidebarMeasurement)
+
+### Phase Rollback — návrat do předchozí fáze
+- [x] Kvašení → Var: smaže fermentation measurements, vyčistí fermentationStart
+- [x] Var → Příprava: reset tracking kroků (časy, hopAdditions), zachová kroky + výdejky
+- [x] Ležení → Kvašení: smaže conditioning measurements, vyčistí conditioningStart
+- [x] Destructive AlertDialog s červeným varováním na každém rollbacku
+- [x] Tlačítka zobrazena jen v aktivní fázi (ne při prohlížení historie)
+
+### Vizualizace prohlížené fáze
+- [x] BatchPhaseBar: ring-2 + tmavší pozadí na aktivně prohlížené historické fázi
+
+### UI opravy
+- [x] Datetime-local input zúžen (w-[11rem]) + flex-wrap na řádku kroků varu
+- [x] Pole teplota v dialogu přechodu Var→Kvašení
+
+### DB migrace
+- [x] `batches.ingredient_additions` (JSONB) — záznam přidání surovin během kvašení/ležení
+
+---
+
 ## [0.7.11] — Sprint 7 Patch: BrewingPhase UI — Timers, Done, Reset
 **Období:** T16 (05.03.2026)
 **Status:** ✅ Done

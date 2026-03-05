@@ -11,7 +11,7 @@ import React, {
 import { useTranslations } from "next-intl";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Play, Pause, Square, ArrowRight, RefreshCw, Timer, Check, RotateCcw, X } from "lucide-react";
+import { Play, Pause, Square, ArrowRight, ArrowLeft, RefreshCw, Timer, Check, RotateCcw, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ import {
   updateBatchPlanData,
   regenBrewSteps,
   resetBrewTracking,
+  rollbackBatchPhase,
 } from "../../../actions";
 
 // ── Phase colors (matching BrewStepTimeline) ───────────────────
@@ -140,6 +141,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
   const [localTimes, setLocalTimes] = useState<Record<string, string>>({});
   const [finishOg, setFinishOg] = useState("");
   const [finishVolume, setFinishVolume] = useState("");
+  const [finishTemp, setFinishTemp] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const [resetOpen, setResetOpen] = useState(false);
@@ -741,7 +743,9 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           actualVolumeL: finishVolume,
         });
 
-        await advanceBatchPhase(batchId, "fermentation" as BatchPhase);
+        await advanceBatchPhase(batchId, "fermentation" as BatchPhase, {
+          temperatureC: finishTemp || undefined,
+        });
 
         toast.success(t("brew.phaseAdvanced"));
         router.push(`/${locale}/brewery/batches/${batchId}/brew/ferm`);
@@ -754,6 +758,7 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
     batchId,
     finishOg,
     finishVolume,
+    finishTemp,
     t,
     router,
     locale,
@@ -816,13 +821,54 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
           {t("brew.brewing.steps")}
         </h3>
 
+        {/* Back to preparation — only when viewing the current phase */}
+        {batch?.currentPhase === "brewing" && <div className="mb-3">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <ArrowLeft className="size-3.5 mr-1.5" />
+                {t("brew.brewing.backToPrep")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("brew.brewing.backToPrepTitle")}
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-destructive font-semibold">
+                  {t("brew.brewing.backToPrepWarning")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={isPending}
+                  onClick={async (): Promise<void> => {
+                    startTransition(async () => {
+                      try {
+                        await rollbackBatchPhase(batchId, "preparation");
+                        router.push(`/${locale}/brewery/batches/${batchId}/brew/prep`);
+                      } catch {
+                        toast.error("Error");
+                      }
+                    });
+                  }}
+                >
+                  {t("brew.brewing.backToPrepConfirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>}
+
         {/* Brew start datetime + recalculate + end time */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <Input
             type="datetime-local"
             value={brewStartInput}
             onChange={(e): void => setBrewStartInput(e.target.value)}
-            className="h-8 text-sm w-auto"
+            className="h-8 text-sm w-[11rem] shrink-0"
           />
           <Button
             variant="outline"
@@ -1547,6 +1593,19 @@ export function BrewingPhase({ batchId }: Props): React.ReactNode {
                   value={finishVolume}
                   onChange={(e): void => setFinishVolume(e.target.value)}
                   placeholder="e.g. 100"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {t("brew.fermentation.temperature")}
+                </label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  value={finishTemp}
+                  onChange={(e): void => setFinishTemp(e.target.value)}
+                  placeholder="e.g. 12"
                 />
               </div>
             </div>
