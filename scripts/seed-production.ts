@@ -102,6 +102,15 @@ async function seedUnits(): Promise<void> {
 async function seedExciseRates(): Promise<void> {
   console.log("[seed] Excise rates...");
 
+  // Check if table exists first
+  const tableCheck = await sql`
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'excise_rates') AS exists
+  ` as { exists: boolean }[];
+  if (!tableCheck[0]?.exists) {
+    console.log("[seed] excise_rates table does not exist, skipping");
+    return;
+  }
+
   // System-wide defaults (tenant_id = NULL)
   // Categories A–E based on Czech beer tax law
   const rates = [
