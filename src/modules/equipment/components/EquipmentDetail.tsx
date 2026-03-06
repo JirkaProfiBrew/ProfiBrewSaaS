@@ -84,10 +84,9 @@ export function EquipmentDetail({ id }: EquipmentDetailProps): React.ReactNode {
           type: "select",
           required: true,
           options: [
-            { value: "fermenter", label: t("equipmentType.fermenter") },
-            { value: "brite_tank", label: t("equipmentType.brite_tank") },
+            { value: "fermentation", label: t("equipmentType.fermentation") },
             { value: "conditioning", label: t("equipmentType.conditioning") },
-            { value: "ckt", label: t("equipmentType.ckt") },
+            { value: "universal", label: t("equipmentType.universal") },
           ],
         },
         {

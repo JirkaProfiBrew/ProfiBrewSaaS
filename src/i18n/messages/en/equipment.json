@@ -1,12 +1,11 @@
 {
   "title": "Tanks",
-  "create": "+ Tank",
+  "create": "Tank",
   "quickFilters": {
     "all": "All",
-    "fermenter": "Fermenters",
-    "brite_tank": "Brite Tanks",
+    "fermentation": "Fermentation",
     "conditioning": "Conditioning",
-    "ckt": "CKT"
+    "universal": "Universal"
   },
   "columns": {
     "name": "Name",
@@ -22,10 +21,9 @@
     "isActive": "Active"
   },
   "equipmentType": {
-    "fermenter": "Fermenter",
-    "brite_tank": "Brite Tank",
-    "conditioning": "Conditioning Tank",
-    "ckt": "CKT"
+    "fermentation": "Fermentation vessel",
+    "conditioning": "Conditioning vessel",
+    "universal": "Universal (CKT)"
   },
   "status": {
     "available": "Available",

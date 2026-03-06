@@ -1,12 +1,11 @@
 {
   "title": "Tanky",
-  "create": "+ Tank",
+  "create": "Tank",
   "quickFilters": {
     "all": "Vše",
-    "fermenter": "Fermentory",
-    "brite_tank": "Ležácké",
-    "conditioning": "Ležáky",
-    "ckt": "CKT"
+    "fermentation": "Kvasné",
+    "conditioning": "Ležácké",
+    "universal": "Univerzální"
   },
   "columns": {
     "name": "Název",
@@ -22,10 +21,9 @@
     "isActive": "Aktivní"
   },
   "equipmentType": {
-    "fermenter": "Fermentor",
-    "brite_tank": "Ležácký tank",
-    "conditioning": "Ležácký tank",
-    "ckt": "CKT"
+    "fermentation": "Kvasná nádoba",
+    "conditioning": "Ležácká nádoba",
+    "universal": "Univerzální (CKT)"
   },
   "status": {
     "available": "Dostupný",

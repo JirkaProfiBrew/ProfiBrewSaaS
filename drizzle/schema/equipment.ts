@@ -20,7 +20,7 @@ export const equipment = pgTable("equipment", {
     .references(() => tenants.id),
   shopId: uuid("shop_id").references(() => shops.id),
   name: text("name").notNull(),
-  equipmentType: text("equipment_type").notNull(), // 'fermenter' | 'brite_tank' | 'conditioning'
+  equipmentType: text("equipment_type").notNull(), // 'fermentation' | 'conditioning' | 'universal'
   volumeL: decimal("volume_l"),
   status: text("status").default("available"), // 'available' | 'in_use' | 'maintenance' | 'retired'
   currentBatchId: uuid("current_batch_id"), // FK to batches added in Sprint 2

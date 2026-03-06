@@ -5,9 +5,9 @@
  */
 
 export type EquipmentType =
-  | "fermenter"
-  | "brite_tank"
-  | "conditioning";
+  | "fermentation"
+  | "conditioning"
+  | "universal";
 
 export type EquipmentStatus =
   | "available"

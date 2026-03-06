@@ -188,10 +188,10 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
 
   // ── Vessel filtering ─────────────────────────────────────
   const fermVessels = vessels.filter((v) =>
-    ["fermenter", "ckt"].includes(v.equipmentType)
+    ["fermentation", "universal"].includes(v.equipmentType)
   );
   const condVessels = vessels.filter((v) =>
-    ["conditioning", "brite_tank", "ckt"].includes(v.equipmentType)
+    ["conditioning", "universal"].includes(v.equipmentType)
   );
 
   // ── Loading / empty ──────────────────────────────────────
@@ -433,7 +433,7 @@ export function PlanPhase({ batchId }: Props): React.ReactNode {
                   void savePlanField("equipmentId", v || null);
                   // CKT auto-fill: if selected vessel is CKT, also set conditioning vessel
                   const vessel = vessels.find((x) => x.id === v);
-                  if (vessel?.equipmentType === "ckt") {
+                  if (vessel?.equipmentType === "universal") {
                     setCondVesselId(v);
                     void savePlanField("conditioningEquipmentId", v || null);
                   }

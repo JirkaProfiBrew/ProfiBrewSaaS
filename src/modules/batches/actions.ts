@@ -3294,10 +3294,9 @@ export async function getAvailableVessels(
           eq(equipment.tenantId, tenantId),
           eq(equipment.isActive, true),
           inArray(equipment.equipmentType, [
-            "fermenter",
-            "brite_tank",
+            "fermentation",
             "conditioning",
-            "ckt",
+            "universal",
           ]),
           shopId ? eq(equipment.shopId, shopId) : undefined
         )

@@ -5,6 +5,20 @@
 
 ---
 
+## [0.7.14] — Sprint 7 Patch: Equipment Types Simplification
+**Období:** T16 (06.03.2026)
+**Status:** ✅ Done
+
+### Typy tanků → účel nádoby
+- [x] Zjednodušení ze 4 typů (fermenter, brite_tank, conditioning, ckt) na 3: `fermentation`, `conditioning`, `universal`
+- [x] Sidebar ikona Tanky: `Wrench` → `Cylinder`
+- [x] Oprava duplikátu "++ Tank" na tlačítku → "+ Tank"
+- [x] Quick filtry: Kvasné | Ležácké | Univerzální
+- [x] PlanPhase: universal se nabízí v obou vessel dropdownech + auto-fill
+- [x] DB migrace: nutno spustit ručně v Supabase (`fermenter→fermentation`, `ckt→universal`, `brite_tank→conditioning`)
+
+---
+
 ## [0.7.13] — Sprint 7 Patch: Batch Tracking, Lot Editing, Excise Fixes
 **Období:** T16 (06.03.2026)
 **Status:** ✅ Done

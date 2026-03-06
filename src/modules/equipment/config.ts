@@ -34,19 +34,19 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
   quickFilters: [
     { key: "all", label: "Vše", filter: {} },
     {
-      key: "fermenter",
-      label: "Fermentory",
-      filter: { equipmentType: "fermenter" },
-    },
-    {
-      key: "brite_tank",
-      label: "Ležácké",
-      filter: { equipmentType: "brite_tank" },
+      key: "fermentation",
+      label: "Kvasné",
+      filter: { equipmentType: "fermentation" },
     },
     {
       key: "conditioning",
-      label: "CKT",
+      label: "Ležácké",
       filter: { equipmentType: "conditioning" },
+    },
+    {
+      key: "universal",
+      label: "Univerzální",
+      filter: { equipmentType: "universal" },
     },
   ],
 
@@ -56,9 +56,9 @@ export const equipmentBrowserConfig: DataBrowserConfig = {
       label: "Typ",
       type: "select",
       options: [
-        { value: "fermenter", label: "Fermentor" },
-        { value: "brite_tank", label: "Ležácký tank" },
-        { value: "conditioning", label: "CKT" },
+        { value: "fermentation", label: "Kvasná nádoba" },
+        { value: "conditioning", label: "Ležácká nádoba" },
+        { value: "universal", label: "Univerzální (CKT)" },
       ],
     },
     {
