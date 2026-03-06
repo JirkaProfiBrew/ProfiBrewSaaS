@@ -12,6 +12,11 @@
 ### 9A: CI/CD + Infrastruktura
 - [x] `.github/workflows/deploy.yml` — GitHub Actions: npm ci → drizzle-kit migrate → Vercel deploy --prod
 - [x] `src/app/api/cron/monthly-usage/route.ts` — placeholder cron endpoint (Bearer CRON_SECRET auth)
+- [x] Supabase prod projekt (eu-west-1) + session pooler
+- [x] Vercel deploy + custom doména `app.profibrew.com`
+- [x] DNS CNAME na Forpsi → cname.vercel-dns.com
+- [x] GitHub Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, PRODUCTION_DATABASE_URL
+- [x] Root page redirect `/` → `/cs`
 
 ### 9B: Tenant Provisioning
 - [x] Registrační formulář: fullName, purpose (professional/homebrewer), dynamické labely
@@ -45,6 +50,15 @@
 ### 9G: Seed Scripts
 - [x] `scripts/seed-production.ts` — idempotentní seed: plans, countries, units, excise rates
 - [x] Beer styles: odkazuje na existující import-beer-styles.mjs
+
+### S9 Patch: Prod Schema Sync
+- [x] Migrace `0029_prod_schema_sync.sql` — 803 řádků, plně idempotentní
+- [x] Vytvoření 25 chybějících tabulek (warehouses, stock, orders, cashflows, brewing_systems, excise, deposits, hop/yeast/fermentable codebooks, batch_lot_tracking, community_applications)
+- [x] ALTER 12 existujících tabulek — 80+ nových sloupců (batches lifecycle, recipe targets, beer style expansion, mashing profile expansion, counters warehouse_id)
+- [x] Seed: hop_forms (4), yeast_forms (2), fermentable_types (6), excise_rates (5 kategorií)
+- [x] Beer styles: 13 skupin, 118 stylů importováno na prod
+- [x] Countries (18), units (7), excise rates (5) seednuty na prod
+- [x] 3 tenanty na produkci: pivovar, admin (superadmin), demo
 
 ---
 
