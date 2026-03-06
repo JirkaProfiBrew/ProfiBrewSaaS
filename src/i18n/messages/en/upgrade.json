@@ -1,0 +1,27 @@
+{
+  "title": "Plans & Pricing",
+  "subtitle": "Choose the plan that fits your brewery's needs.",
+  "moduleBlocked": "The \"{module}\" module is not available on your current plan.",
+  "currentPlan": "Current plan",
+  "recommended": "Recommended",
+  "free": "Free",
+  "month": "mo",
+  "includedHl": "Included volume",
+  "maxUsers": "Users",
+  "unlimited": "Unlimited",
+  "modules": "Modules",
+  "moduleNames": {
+    "brewery": "Brewery",
+    "stock": "Stock",
+    "sales": "Sales",
+    "finance": "Finance",
+    "plan": "Planning"
+  },
+  "apiAccess": "API access",
+  "integrations": "Integrations",
+  "prioritySupport": "Priority support",
+  "contactTitle": "Want to upgrade?",
+  "contactDescription": "Contact us to change your plan or get a custom offer.",
+  "upgradePromptTitle": "Module not available",
+  "upgradePromptDescription": "You need a higher plan to access this module."
+}

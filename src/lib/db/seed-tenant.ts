@@ -7,6 +7,8 @@
 import { db } from "@/lib/db";
 import { deposits } from "@/../drizzle/schema/deposits";
 import { cashflowCategories } from "@/../drizzle/schema/cashflows";
+import { shops } from "@/../drizzle/schema/shops";
+import { warehouses } from "@/../drizzle/schema/warehouses";
 import { eq } from "drizzle-orm";
 import { count } from "drizzle-orm";
 import { seedDefaultCounters } from "./counters";
@@ -141,13 +143,65 @@ async function seedDefaultCashFlowCategories(tenantId: string): Promise<void> {
   await insertGroup(SEED_EXPENSE, "expense");
 }
 
+// -- Default Shop + Warehouse ------------------------------------------------
+
+async function seedDefaultShopAndWarehouse(
+  tenantId: string,
+  breweryName: string
+): Promise<void> {
+  const existingShops = await db
+    .select({ value: count() })
+    .from(shops)
+    .where(eq(shops.tenantId, tenantId));
+
+  if ((existingShops[0]?.value ?? 0) > 0) return;
+
+  const [shop] = await db
+    .insert(shops)
+    .values({
+      tenantId,
+      name: breweryName || "Hlavní provozovna",
+      shopType: "brewery",
+      isDefault: true,
+    })
+    .returning();
+
+  if (!shop) return;
+
+  const existingWarehouses = await db
+    .select({ value: count() })
+    .from(warehouses)
+    .where(eq(warehouses.tenantId, tenantId));
+
+  if ((existingWarehouses[0]?.value ?? 0) > 0) return;
+
+  await db.insert(warehouses).values({
+    tenantId,
+    shopId: shop.id,
+    name: "Hlavní sklad",
+    code: "HLS",
+    categories: ["suroviny", "pivo", "obaly"],
+    isDefault: true,
+    isExciseRelevant: false,
+  });
+}
+
 // -- Main entry point -------------------------------------------------------
 
 /**
  * Seed all default data for a newly created tenant.
  * Called from the signUp flow. Idempotent — safe to re-run.
  */
-export async function seedTenantDefaults(tenantId: string): Promise<void> {
+export async function seedTenantDefaults(
+  tenantId: string,
+  breweryName?: string
+): Promise<void> {
+  try {
+    await seedDefaultShopAndWarehouse(tenantId, breweryName || "Hlavní provozovna");
+  } catch (err) {
+    console.error("[seed] seedDefaultShopAndWarehouse failed:", err);
+  }
+
   try {
     await seedDefaultCounters(tenantId);
   } catch (err) {

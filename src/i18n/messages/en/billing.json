@@ -1,0 +1,15 @@
+{
+  "title": "Billing",
+  "currentPlan": "Current Plan",
+  "noSubscription": "No active subscription.",
+  "statusActive": "Active",
+  "statusTrial": "Trial",
+  "statusExpired": "Expired",
+  "trialRemaining": "Trial period",
+  "trialDays": "{days} days remaining",
+  "trialExpiredLabel": "Expired",
+  "modulesTitle": "Available Modules",
+  "upgradeHint": "Want to unlock more features for your brewery?",
+  "viewPlans": "View Plans",
+  "contactHint": "For a custom offer, contact us at"
+}

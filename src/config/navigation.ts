@@ -28,6 +28,7 @@ import {
   Repeat,
   GlassWater,
   Thermometer,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -135,4 +136,5 @@ export const settingsSubAgendas: AgendaConfig[] = [
   { slug: "cashflowCategories", icon: Banknote, labelKey: "cashflowCategories", path: "settings/cashflow-categories" },
   { slug: "cashDesks", icon: Landmark, labelKey: "cashDesks", path: "settings/cash-desks" },
   { slug: "exciseSettings", icon: FileText, labelKey: "exciseSettings", path: "settings/excise" },
+  { slug: "billing", icon: CreditCard, labelKey: "billing", path: "settings/billing" },
 ];

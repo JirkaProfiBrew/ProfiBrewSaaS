@@ -77,6 +77,9 @@ export default async function middleware(
   // 3. Run next-intl middleware (handles locale negotiation + rewrites)
   const intlResponse = intlMiddleware(request);
 
+  // Pass pathname to server components (used by ModuleGuard)
+  intlResponse.headers.set("x-next-pathname", pathname);
+
   // Copy Supabase auth cookies onto the intl response
   supabaseResponse.cookies.getAll().forEach((cookie) => {
     intlResponse.cookies.set(cookie.name, cookie.value, {

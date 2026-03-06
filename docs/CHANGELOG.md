@@ -5,6 +5,49 @@
 
 ---
 
+## [0.9.0] — Sprint 9: SaaS + Deployment
+**Období:** T16 (06.03.2026)
+**Status:** ✅ Done
+
+### 9A: CI/CD + Infrastruktura
+- [x] `.github/workflows/deploy.yml` — GitHub Actions: npm ci → drizzle-kit migrate → Vercel deploy --prod
+- [x] `src/app/api/cron/monthly-usage/route.ts` — placeholder cron endpoint (Bearer CRON_SECRET auth)
+
+### 9B: Tenant Provisioning
+- [x] Registrační formulář: fullName, purpose (professional/homebrewer), dynamické labely
+- [x] signUp(): Professional → Pro trial 30 dní, Homebrewer → community_homebrewer (active, trvale zdarma)
+- [x] Tenant settings: currency=CZK, locale=cs, timezone=Europe/Prague, excise defaults
+- [x] seedDefaultShopAndWarehouse(): výchozí provozovna + sklad při registraci
+- [x] Launch promo: 6měsíční overage waiver pro komerční plány
+
+### 9C: Plans Seed
+- [x] Migrace `0028_plans_seed_v2.sql`: ALTER plans (watermark, is_hard_hl_stop), ALTER subscriptions (trial_ends_at)
+- [x] Reálné ceny: Free 0 / Starter 1490 / Pro 3490 / Business 6990 CZK
+- [x] Community plány: community_homebrewer (2 hl, watermark), community_school (unlimited)
+- [x] Tabulka community_applications + RLS policy
+
+### 9D: Module Gating
+- [x] ModuleGuard integrován do dashboard layout (server component pojistka)
+- [x] Middleware: x-next-pathname header pro ModuleGuard
+- [x] Upgrade page: porovnávací tabulka plánů, aktuální plán badge, moduly ✅/❌, limity, extras
+- [x] i18n: cs/upgrade.json + en/upgrade.json
+
+### 9E: Settings → Billing
+- [x] `/settings/billing` — aktuální plán, trial progress bar, moduly, limity
+- [x] Navigace: CreditCard ikona v settings sidebar
+- [x] i18n: cs/billing.json + en/billing.json
+
+### 9F: Trial Banner
+- [x] TrialBanner server component v dashboard layout
+- [x] Žlutý banner ≤7 dní, červený po vypršení
+- [x] Link na /settings/billing
+
+### 9G: Seed Scripts
+- [x] `scripts/seed-production.ts` — idempotentní seed: plans, countries, units, excise rates
+- [x] Beer styles: odkazuje na existující import-beer-styles.mjs
+
+---
+
 ## [0.7.14] — Sprint 7 Patch: Equipment Types Simplification
 **Období:** T16 (06.03.2026)
 **Status:** ✅ Done

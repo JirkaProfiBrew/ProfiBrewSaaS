@@ -40,6 +40,10 @@ export const plans = pgTable(
     integrations: boolean("integrations").default(false),
     prioritySupport: boolean("priority_support").default(false),
 
+    // Community / restrictions
+    watermark: boolean("watermark").default(false),
+    isHardHlStop: boolean("is_hard_hl_stop").default(false),
+
     // Versioning
     version: integer("version").notNull().default(1),
     validFrom: date("valid_from").notNull(),
@@ -74,6 +78,7 @@ export const subscriptions = pgTable(
     currentPeriodEnd: date("current_period_end").notNull(),
     cancelledAt: date("cancelled_at"),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
 
     // Promo / Override
     promoCode: text("promo_code"),

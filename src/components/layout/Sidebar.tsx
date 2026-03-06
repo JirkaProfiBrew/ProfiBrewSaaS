@@ -40,6 +40,10 @@ export function Sidebar(): React.ReactNode {
 
   function isAgendaActive(agenda: AgendaConfig): boolean {
     const agendaPath = `/${locale}/${agenda.path}`;
+    // settingsGeneral path "settings" would match all /settings/* — use exact match
+    if (agenda.slug === "settingsGeneral") {
+      return pathname === agendaPath;
+    }
     return pathname === agendaPath || pathname.startsWith(agendaPath + "/");
   }
 

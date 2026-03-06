@@ -1,0 +1,27 @@
+{
+  "title": "Plány a ceny",
+  "subtitle": "Vyberte si plán, který odpovídá potřebám vašeho pivovaru.",
+  "moduleBlocked": "Modul \"{module}\" není dostupný ve vašem aktuálním plánu.",
+  "currentPlan": "Aktuální plán",
+  "recommended": "Doporučujeme",
+  "free": "Zdarma",
+  "month": "měs.",
+  "includedHl": "Objem v ceně",
+  "maxUsers": "Uživatelé",
+  "unlimited": "Neomezeně",
+  "modules": "Moduly",
+  "moduleNames": {
+    "brewery": "Pivovar",
+    "stock": "Sklad",
+    "sales": "Prodej",
+    "finance": "Finance",
+    "plan": "Plánování"
+  },
+  "apiAccess": "API přístup",
+  "integrations": "Integrace",
+  "prioritySupport": "Prioritní podpora",
+  "contactTitle": "Chcete upgradovat?",
+  "contactDescription": "Kontaktujte nás pro změnu plánu nebo individuální nabídku.",
+  "upgradePromptTitle": "Modul není dostupný",
+  "upgradePromptDescription": "Pro přístup k tomuto modulu je potřeba vyšší plán."
+}

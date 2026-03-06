@@ -1,0 +1,15 @@
+{
+  "title": "Předplatné",
+  "currentPlan": "Aktuální plán",
+  "noSubscription": "Žádné aktivní předplatné.",
+  "statusActive": "Aktivní",
+  "statusTrial": "Zkušební",
+  "statusExpired": "Vypršelo",
+  "trialRemaining": "Zkušební období",
+  "trialDays": "{days} dní zbývá",
+  "trialExpiredLabel": "Vypršelo",
+  "modulesTitle": "Dostupné moduly",
+  "upgradeHint": "Chcete rozšířit možnosti vašeho pivovaru?",
+  "viewPlans": "Zobrazit plány",
+  "contactHint": "Pro individuální nabídku nás kontaktujte na"
+}

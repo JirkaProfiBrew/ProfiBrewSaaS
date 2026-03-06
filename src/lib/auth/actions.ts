@@ -53,10 +53,14 @@ export async function signIn(
   redirect(`/${locale}/dashboard`);
 }
 
+export type SignUpPurpose = "professional" | "homebrewer";
+
 export async function signUp(
   email: string,
   password: string,
-  breweryName: string
+  breweryName: string,
+  fullName?: string,
+  purpose: SignUpPurpose = "professional"
 ): Promise<AuthResult> {
   try {
     const supabase = await createServerSupabaseClient();
@@ -79,17 +83,31 @@ export async function signUp(
     // 2. Create user profile
     await db.insert(userProfiles).values({
       id: userId,
-      fullName: null,
+      fullName: fullName || null,
     });
 
     // 3. Create tenant
+    const isHomebrewer = purpose === "homebrewer";
+    const trialDays = isHomebrewer ? 0 : 30;
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
     const [tenant] = await db
       .insert(tenants)
       .values({
         name: breweryName,
         slug: slugify(breweryName),
-        status: "trial",
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        status: isHomebrewer ? "active" : "trial",
+        trialEndsAt: isHomebrewer ? null : trialEndsAt,
+        settings: {
+          currency: "CZK",
+          locale: "cs",
+          timezone: "Europe/Prague",
+          excise_enabled: false,
+          excise_category: "A",
+          excise_tax_point_mode: "production",
+          excise_default_plato_source: "measurement",
+        },
       })
       .returning();
 
@@ -105,32 +123,40 @@ export async function signUp(
       joinedAt: new Date(),
     });
 
-    // 5. Create free trial subscription
-    const [freePlan] = await db
+    // 5. Create subscription (Pro trial for professionals, community for homebrewers)
+    const planSlug = isHomebrewer ? "community_homebrewer" : "pro";
+    const [selectedPlan] = await db
       .select()
       .from(plans)
-      .where(eq(plans.slug, "free"))
+      .where(eq(plans.slug, planSlug))
       .limit(1);
 
-    if (freePlan) {
+    if (selectedPlan) {
       const now = new Date();
       const periodEnd = new Date(now);
       periodEnd.setMonth(periodEnd.getMonth() + 1);
 
+      // Launch promo: overage waived for 6 months on commercial plans
+      const overageWaivedUntil = new Date(now);
+      overageWaivedUntil.setMonth(overageWaivedUntil.getMonth() + 6);
+
       await db.insert(subscriptions).values({
         tenantId: tenant.id,
-        planId: freePlan.id,
-        status: "trialing",
+        planId: selectedPlan.id,
+        status: isHomebrewer ? "active" : "trialing",
         startedAt: now.toISOString().split("T")[0]!,
         currentPeriodStart: now.toISOString().split("T")[0]!,
         currentPeriodEnd: periodEnd.toISOString().split("T")[0]!,
+        trialEndsAt: isHomebrewer ? null : trialEndsAt,
+        overageWaivedUntil: isHomebrewer
+          ? null
+          : overageWaivedUntil.toISOString().split("T")[0]!,
       });
     }
 
-    // 6. Seed default data (counters, deposits, CF categories)
-    // Non-blocking: registration must succeed even if seeding fails
+    // 6. Seed default data (counters, deposits, CF categories, shop, warehouse)
     try {
-      await seedTenantDefaults(tenant.id);
+      await seedTenantDefaults(tenant.id, breweryName);
     } catch (seedErr) {
       console.error("seedTenantDefaults failed (non-fatal):", seedErr);
     }
