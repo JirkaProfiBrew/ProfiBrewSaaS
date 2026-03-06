@@ -45,6 +45,7 @@ import type {
   BatchIngredientRow,
   ProductionIssueInfo,
   BatchLotEntry,
+  BatchInputLot,
   ExciseSummary,
 } from "./types";
 import { PHASE_TRANSITIONS } from "./types";
@@ -3621,10 +3622,66 @@ export async function getBatchLotTracking(
   });
 }
 
+export async function getBatchInputLots(
+  batchId: string
+): Promise<BatchInputLot[]> {
+  return withTenant(async (tenantId) => {
+    const rows = await db
+      .select({
+        id: stockMovements.id,
+        issueDate: stockIssues.date,
+        receiptDate: sql<string | null>`ri."date"`,
+        itemName: items.name,
+        quantity: stockMovements.quantity,
+        unitSymbol: units.symbol,
+        lotNumber: sql<string | null>`rl."lot_number"`,
+        receiptIssueId: sql<string | null>`ri."id"`,
+        issueId: stockIssues.id,
+      })
+      .from(stockMovements)
+      .innerJoin(stockIssueLines, eq(stockMovements.stockIssueLineId, stockIssueLines.id))
+      .innerJoin(stockIssues, and(
+        eq(stockIssueLines.stockIssueId, stockIssues.id),
+        eq(stockIssues.tenantId, tenantId),
+        eq(stockIssues.batchId, batchId),
+        eq(stockIssues.movementPurpose, "production_out"),
+        eq(stockIssues.status, "confirmed"),
+      ))
+      .innerJoin(items, eq(stockMovements.itemId, items.id))
+      .leftJoin(units, eq(items.unitId, units.id))
+      .leftJoin(
+        sql`stock_issue_lines rl`,
+        sql`rl.id = ${stockMovements.receiptLineId}`
+      )
+      .leftJoin(
+        sql`stock_issues ri`,
+        sql`ri.id = rl."stock_issue_id"`
+      )
+      .where(sql`${stockMovements.quantity}::decimal < 0`)
+      .orderBy(asc(stockIssues.date), asc(items.name));
+
+    return rows.map((r): BatchInputLot => ({
+      id: r.id,
+      receiptDate: r.receiptDate ?? r.issueDate,
+      issueDate: r.issueDate,
+      itemName: r.itemName ?? "",
+      quantity: Math.abs(Number(r.quantity)),
+      unit: r.unitSymbol ?? "",
+      lotNumber: r.lotNumber,
+      receiptIssueId: r.receiptIssueId ?? "",
+      issueId: r.issueId,
+    }));
+  });
+}
+
 export async function getBatchExciseSummary(
   batchId: string
 ): Promise<ExciseSummary> {
   return withTenant(async (tenantId) => {
+    // Load tenant excise settings for tax point info
+    const { getTenantExciseSettings } = await import("@/modules/excise/actions");
+    const exciseSettings = await getTenantExciseSettings(tenantId);
+
     // Load excise movements for this batch
     const movements = await db
       .select()
@@ -3669,6 +3726,7 @@ export async function getBatchExciseSummary(
       currentTaxCzk: totalTaxIn - totalTaxOut,
       diffCzk: -totalTaxOut,
       currentVolumeHl: (totalVolumeIn - totalVolumeOut) / 100,
+      taxPoint: exciseSettings.excise_tax_point,
       movements: movementList,
     };
   });

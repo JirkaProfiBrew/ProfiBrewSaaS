@@ -270,12 +270,26 @@ export interface BatchLotEntry {
   createdAt: string;
 }
 
+/** Input lot row for batch tracking sidebar (from stock movements) */
+export interface BatchInputLot {
+  id: string;               // stock_movement.id
+  receiptDate: string;      // receipt stock_issue.date
+  issueDate: string;        // issue stock_issue.date
+  itemName: string;
+  quantity: number;          // ABS(stock_movement.quantity)
+  unit: string;             // stock unit symbol
+  lotNumber: string | null;  // from receipt line
+  receiptIssueId: string;   // receipt stock_issue.id (for link)
+  issueId: string;          // issue stock_issue.id (for link)
+}
+
 /** Excise summary for batch sidebar */
 export interface ExciseSummary {
   plannedTaxCzk: number;
   currentTaxCzk: number;
   diffCzk: number;
   currentVolumeHl: number;
+  taxPoint: "production" | "release";
   movements: Array<{
     phase: string;
     label: string;

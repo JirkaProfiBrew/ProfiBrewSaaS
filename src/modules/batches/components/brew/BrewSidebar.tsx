@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { useParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   ScrollText,
   Droplets,
@@ -36,11 +38,13 @@ import type {
   BatchMeasurement,
   BatchNote,
   BatchLotEntry,
+  BatchInputLot,
   ExciseSummary,
   RecipeIngredient,
 } from "../../types";
 import {
   getBatchLotTracking,
+  getBatchInputLots,
   getBatchExciseSummary,
   getRecipeIngredients,
   updateBatch,
@@ -79,14 +83,18 @@ export function BrewSidebar({
   const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
 
   // Lazy-loaded data for tracking and excise panels
-  const [lotEntries, setLotEntries] = useState<BatchLotEntry[] | null>(null);
+  const [inputLots, setInputLots] = useState<BatchInputLot[] | null>(null);
+  const [outputLots, setOutputLots] = useState<BatchLotEntry[] | null>(null);
   const [exciseSummary, setExciseSummary] = useState<ExciseSummary | null>(null);
   const [ingredients, setIngredients] = useState<RecipeIngredient[] | null>(null);
 
   // Load data when panels open
   useEffect(() => {
-    if (openPanel === "tracking" && lotEntries === null) {
-      getBatchLotTracking(batch.id).then(setLotEntries);
+    if (openPanel === "tracking" && inputLots === null) {
+      getBatchInputLots(batch.id).then(setInputLots);
+      getBatchLotTracking(batch.id).then((entries) =>
+        setOutputLots(entries.filter((e) => e.direction === "out"))
+      );
     }
     if (openPanel === "excise" && exciseSummary === null) {
       getBatchExciseSummary(batch.id).then(setExciseSummary);
@@ -94,7 +102,7 @@ export function BrewSidebar({
     if (openPanel === "recipe" && ingredients === null && batch.recipeId) {
       getRecipeIngredients(batch.recipeId).then(setIngredients);
     }
-  }, [openPanel, batch.id, batch.recipeId, lotEntries, exciseSummary, ingredients]);
+  }, [openPanel, batch.id, batch.recipeId, inputLots, outputLots, exciseSummary, ingredients]);
 
   return (
     <>
@@ -149,7 +157,7 @@ export function BrewSidebar({
               <ComparisonPanel batch={batch} steps={steps} calcResult={calcResult} t={t} />
             )}
             {openPanel === "tracking" && (
-              <TrackingPanel lotEntries={lotEntries} t={t} />
+              <TrackingPanel inputLots={inputLots} outputLots={outputLots} t={t} />
             )}
             {openPanel === "excise" && (
               <ExcisePanel exciseSummary={exciseSummary} t={t} />
@@ -680,17 +688,29 @@ function ComparisonPanel({ batch, steps, calcResult, t }: { batch: Batch; steps:
   );
 }
 
-function TrackingPanel({ lotEntries, t }: { lotEntries: BatchLotEntry[] | null; t: TFunc }): React.ReactNode {
-  if (!lotEntries) {
+function TrackingPanel({ inputLots, outputLots, t }: {
+  inputLots: BatchInputLot[] | null;
+  outputLots: BatchLotEntry[] | null;
+  t: TFunc;
+}): React.ReactNode {
+  const params = useParams();
+  const pathname = usePathname();
+  const locale = params.locale as string;
+  const fromParam = encodeURIComponent(pathname);
+
+  if (!inputLots) {
     return <p className="text-sm text-muted-foreground py-4">Loading...</p>;
   }
 
-  const inputLots = lotEntries.filter(e => e.direction === "in");
-  const outputLots = lotEntries.filter(e => e.direction === "out");
+  const fmtDate = (d: string): string => {
+    try {
+      return new Date(d).toLocaleDateString("cs-CZ", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    } catch { return d; }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Input lots */}
+      {/* Input lots (ingredients) */}
       <div>
         <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
           {t("brew.sidebar.inputLots")}
@@ -698,32 +718,55 @@ function TrackingPanel({ lotEntries, t }: { lotEntries: BatchLotEntry[] | null; 
         {inputLots.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("brew.sidebar.noInputLots")}</p>
         ) : (
-          <div className="space-y-1">
-            {inputLots.map(lot => (
-              <div key={lot.id} className="text-sm flex justify-between">
-                <span>{lot.itemName}</span>
-                <span className="text-muted-foreground">
-                  {lot.amount} {lot.unit}
-                  {lot.lotNumber && ` \u00b7 ${lot.lotNumber}`}
-                </span>
-              </div>
-            ))}
-          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-muted-foreground text-left border-b">
+                <th className="pb-1 font-medium">{t("brew.sidebar.receiptDate")}</th>
+                <th className="pb-1 font-medium">{t("brew.sidebar.issueDate")}</th>
+                <th className="pb-1 font-medium">{t("brew.sidebar.item")}</th>
+                <th className="pb-1 font-medium text-right">{t("brew.sidebar.amount")}</th>
+                <th className="pb-1 font-medium">{t("brew.sidebar.lot")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inputLots.map((lot) => (
+                <tr key={lot.id} className="border-b border-muted/30">
+                  <td className="py-1">
+                    {lot.receiptIssueId ? (
+                      <Link href={`/${locale}/stock/movements/${lot.receiptIssueId}?from=${fromParam}`} className="text-primary hover:underline">
+                        {fmtDate(lot.receiptDate)}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="py-1">
+                    <Link href={`/${locale}/stock/movements/${lot.issueId}?from=${fromParam}`} className="text-primary hover:underline">
+                      {fmtDate(lot.issueDate)}
+                    </Link>
+                  </td>
+                  <td className="py-1">{lot.itemName}</td>
+                  <td className="py-1 text-right tabular-nums">{lot.quantity} {lot.unit}</td>
+                  <td className="py-1 text-muted-foreground">{lot.lotNumber ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       <Separator />
 
-      {/* Output lots */}
+      {/* Output lots (beer) */}
       <div>
         <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
           {t("brew.sidebar.outputLots")}
         </p>
-        {outputLots.length === 0 ? (
+        {!outputLots || outputLots.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("brew.sidebar.noOutputLots")}</p>
         ) : (
           <div className="space-y-1">
-            {outputLots.map(lot => (
+            {outputLots.map((lot) => (
               <div key={lot.id} className="text-sm flex justify-between">
                 <span>{lot.itemName}</span>
                 <span className="text-muted-foreground">
@@ -746,6 +789,11 @@ function ExcisePanel({ exciseSummary, t }: { exciseSummary: ExciseSummary | null
 
   const fmt = (n: number): string => n.toLocaleString("cs-CZ", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+  // Translate excise movement type labels
+  const labelFor = (m: { phase: string; label: string }): string => {
+    try { return t(`brew.sidebar.exciseType.${m.phase}` as Parameters<typeof t>[0]); } catch { return m.label; }
+  };
+
   return (
     <div className="space-y-3">
       {/* Summary */}
@@ -766,6 +814,12 @@ function ExcisePanel({ exciseSummary, t }: { exciseSummary: ExciseSummary | null
         </div>
       </div>
 
+      {exciseSummary.taxPoint === "release" && exciseSummary.plannedTaxCzk === 0 && (
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+          {t("brew.sidebar.taxPointRelease")}
+        </p>
+      )}
+
       <Separator />
 
       {/* Movements */}
@@ -779,8 +833,8 @@ function ExcisePanel({ exciseSummary, t }: { exciseSummary: ExciseSummary | null
           <div className="space-y-1">
             {exciseSummary.movements.map((m, idx) => (
               <div key={idx} className="text-sm flex justify-between">
-                <span className="text-muted-foreground">{m.label}</span>
-                <span>{m.volumeL > 0 ? "+" : ""}{m.volumeL.toFixed(1)} L \u00b7 {fmt(m.taxCzk)} {t("brew.sidebar.taxCzk")}</span>
+                <span className="text-muted-foreground">{labelFor(m)}</span>
+                <span>{m.volumeL > 0 ? "+" : ""}{m.volumeL.toFixed(1)} L · {fmt(m.taxCzk)} {t("brew.sidebar.taxCzk")}</span>
               </div>
             ))}
           </div>

@@ -214,7 +214,8 @@
     "unitPrice": "Cena",
     "in": "PŘÍJEM",
     "out": "VÝDEJ",
-    "noMovements": "Doklad nemá žádné pohyby"
+    "noMovements": "Doklad nemá žádné pohyby",
+    "receiptLot": "Příjmová šarže"
   },
   "allocationsTab": {
     "line": "Položka",

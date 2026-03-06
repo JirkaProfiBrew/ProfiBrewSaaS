@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Trash2, CheckCircle, XCircle, ScrollText, Banknote, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
@@ -49,6 +49,7 @@ import {
   getPartnerOptions,
   getItemOptions,
   getStockIssueMovements,
+  type StockMovementRow,
 } from "../actions";
 import { createCashFlowFromReceipt } from "@/modules/cashflows/actions";
 import type { MovementType, MovementPurpose } from "../types";
@@ -174,7 +175,7 @@ export function StockIssueDetail({
 
   // Movements (loaded on demand)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types are complex
-  const [movements, setMovements] = useState<any[]>([]);
+  const [movements, setMovements] = useState<StockMovementRow[]>([]);
 
   // Dialog states
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -818,10 +819,26 @@ function MovementsTable({
   movements,
   t,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle inferred types
-  movements: any[];
+  movements: Array<{
+    id: string;
+    date: string;
+    itemId: string;
+    itemCode: string | null;
+    itemName: string;
+    movementType: string;
+    quantity: string;
+    unitPrice: string | null;
+    receiptIssueId: string | null;
+    receiptIssueCode: string | null;
+    lotNumber: string | null;
+  }>;
   t: ReturnType<typeof useTranslations>;
 }): React.ReactNode {
+  const params = useParams();
+  const pathname = usePathname();
+  const locale = params.locale as string;
+  const fromParam = encodeURIComponent(pathname);
+
   if (movements.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
@@ -829,6 +846,9 @@ function MovementsTable({
       </p>
     );
   }
+
+  // Show receipt lot column only for issues (out movements)
+  const hasOutMovements = movements.some((m) => m.movementType === "out");
 
   return (
     <Table>
@@ -843,54 +863,62 @@ function MovementsTable({
           <TableHead className="text-right">
             {t("movementsTab.unitPrice")}
           </TableHead>
+          {hasOutMovements && (
+            <TableHead>{t("movementsTab.receiptLot")}</TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {movements.map(
-          (
-            m: {
-              id: string;
-              date: string;
-              itemId: string;
-              movementType: string;
-              quantity: string;
-              unitPrice: string | null;
-            },
-            idx: number
-          ) => {
-            const qty = Number(m.quantity);
-            const isIn = m.movementType === "in";
-            const isStorno = qty < 0;
-            return (
-              <TableRow key={m.id ?? idx}>
-                <TableCell>{m.date}</TableCell>
-                <TableCell className="font-mono text-xs">
-                  {m.itemId}
-                </TableCell>
+        {movements.map((m, idx) => {
+          const qty = Number(m.quantity);
+          const isIn = m.movementType === "in";
+          const isStorno = qty < 0;
+          return (
+            <TableRow key={m.id ?? idx}>
+              <TableCell>{m.date}</TableCell>
+              <TableCell>
+                <span className="text-xs text-muted-foreground">{m.itemCode}</span>
+                {" "}
+                {m.itemName}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={
+                    isIn
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }
+                >
+                  {isIn ? t("movementsTab.in") : t("movementsTab.out")}
+                </Badge>
+              </TableCell>
+              <TableCell className={`text-right font-mono${isStorno ? " text-red-600" : ""}`}>
+                {isStorno ? "- " : ""}{Math.abs(qty).toLocaleString("cs-CZ")}
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {m.unitPrice
+                  ? Number(m.unitPrice).toLocaleString("cs-CZ")
+                  : "—"}
+              </TableCell>
+              {hasOutMovements && (
                 <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={
-                      isIn
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }
-                  >
-                    {isIn ? t("movementsTab.in") : t("movementsTab.out")}
-                  </Badge>
+                  {m.receiptIssueId ? (
+                    <Link
+                      href={`/${locale}/stock/movements/${m.receiptIssueId}?from=${fromParam}`}
+                      className="text-primary hover:underline text-xs"
+                    >
+                      {m.receiptIssueCode ?? "—"}
+                      {m.lotNumber && ` · ${m.lotNumber}`}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
-                <TableCell className={`text-right font-mono${isStorno ? " text-red-600" : ""}`}>
-                  {isStorno ? "- " : ""}{Math.abs(qty).toLocaleString("cs-CZ")}
-                </TableCell>
-                <TableCell className="text-right font-mono">
-                  {m.unitPrice
-                    ? Number(m.unitPrice).toLocaleString("cs-CZ")
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            );
-          }
-        )}
+              )}
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );

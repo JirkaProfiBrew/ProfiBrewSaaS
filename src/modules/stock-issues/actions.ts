@@ -475,7 +475,13 @@ export async function updateStockIssueLine(
 
     if (!lineRow[0]) throw new Error("Stock issue line not found");
     if (lineRow[0].issueStatus !== "draft") {
-      throw new Error("Can only edit lines on draft stock issues");
+      // On confirmed receipts, allow editing lot fields only
+      const lotFields = ["lotNumber", "expiryDate", "lotAttributes"];
+      const editedFields = Object.keys(data);
+      const isLotOnly = editedFields.every((k) => lotFields.includes(k));
+      if (!(lineRow[0].issueMovementType === "receipt" && isLotOnly)) {
+        throw new Error("Can only edit lot fields on confirmed receipts");
+      }
     }
 
     const current = lineRow[0].line;
@@ -512,8 +518,9 @@ export async function updateStockIssueLine(
     const row = rows[0];
     if (!row) throw new Error("Stock issue line not found");
 
-    // Recalculate VPN if this is a receipt (qty or price changed → overhead redistribution)
-    if (lineRow[0].issueMovementType === "receipt") {
+    // Recalculate VPN if this is a receipt and qty/price changed (skip for lot-only edits)
+    const hasQtyOrPriceChange = data.requestedQty !== undefined || data.issuedQty !== undefined || data.unitPrice !== undefined;
+    if (lineRow[0].issueMovementType === "receipt" && hasQtyOrPriceChange) {
       await recalculateOverheadForReceipt(tenantId, current.stockIssueId);
     }
 
@@ -1532,13 +1539,50 @@ export async function getItemStockStatus(
 }
 
 /** Get movements for a stock issue. */
+export interface StockMovementRow {
+  id: string;
+  date: string;
+  itemId: string;
+  itemCode: string | null;
+  itemName: string;
+  movementType: string;
+  quantity: string;
+  unitPrice: string | null;
+  receiptLineId: string | null;
+  receiptIssueId: string | null;
+  receiptIssueCode: string | null;
+  lotNumber: string | null;
+}
+
 export async function getStockIssueMovements(
   issueId: string
-): Promise<Array<typeof stockMovements.$inferSelect>> {
+): Promise<StockMovementRow[]> {
   return withTenant(async (tenantId) => {
-    return db
-      .select()
+    const rows = await db
+      .select({
+        id: stockMovements.id,
+        date: stockMovements.date,
+        itemId: stockMovements.itemId,
+        itemCode: items.code,
+        itemName: items.name,
+        movementType: stockMovements.movementType,
+        quantity: stockMovements.quantity,
+        unitPrice: stockMovements.unitPrice,
+        receiptLineId: stockMovements.receiptLineId,
+        receiptIssueId: sql<string | null>`ri."id"`,
+        receiptIssueCode: sql<string | null>`ri."code"`,
+        lotNumber: sql<string | null>`rl."lot_number"`,
+      })
       .from(stockMovements)
+      .innerJoin(items, eq(stockMovements.itemId, items.id))
+      .leftJoin(
+        sql`stock_issue_lines rl`,
+        sql`rl.id = ${stockMovements.receiptLineId}`
+      )
+      .leftJoin(
+        sql`stock_issues ri`,
+        sql`ri.id = rl."stock_issue_id"`
+      )
       .where(
         and(
           eq(stockMovements.tenantId, tenantId),
@@ -1546,6 +1590,21 @@ export async function getStockIssueMovements(
         )
       )
       .orderBy(stockMovements.createdAt);
+
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.date,
+      itemId: r.itemId,
+      itemCode: r.itemCode,
+      itemName: r.itemName ?? "",
+      movementType: r.movementType,
+      quantity: r.quantity,
+      unitPrice: r.unitPrice,
+      receiptLineId: r.receiptLineId,
+      receiptIssueId: r.receiptIssueId,
+      receiptIssueCode: r.receiptIssueCode,
+      lotNumber: r.lotNumber,
+    }));
   });
 }
 

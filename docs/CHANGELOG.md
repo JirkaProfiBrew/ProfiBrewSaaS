@@ -5,6 +5,32 @@
 
 ---
 
+## [0.7.13] — Sprint 7 Patch: Batch Tracking, Lot Editing, Excise Fixes
+**Období:** T16 (06.03.2026)
+**Status:** ✅ Done
+
+### Sledování šarží (Batch Tracking Sidebar)
+- [x] Vstupní šarže: řádkový seznam z reálných stock_movements (ne prázdná batch_lot_tracking)
+- [x] Datum příjemky, datum výdeje, položka, množství, číslo šarže
+- [x] Aktivní linky na příjemku i výdejku s `?from=` parametrem pro zpětnou navigaci
+
+### Pohyby na výdejce (Stock Issue Movements Tab)
+- [x] Zobrazení kódu a názvu položky místo UUID
+- [x] Nový sloupec "Příjmová šarže" s linkem na příjemku
+- [x] Správná navigace zpět na batch brew view po prokliku
+
+### Editace šarže na potvrzených příjemkách
+- [x] Editace lot_number, expiry_date, lot_attributes na confirmed receipts
+- [x] Ostatní pole (qty, price) zůstávají zamčená
+- [x] VPN rekalkulace přeskočena pro lot-only edity
+
+### Spotřební daň — opravy zobrazení
+- [x] Oprava literal `\u00b7` → skutečný `·` v JSX
+- [x] i18n překlady pro typy pohybů (production, release, transfer_in/out, destruction, adjustment, loss)
+- [x] Info zpráva při daňovém režimu "daň na výdeji" a nulové dani
+
+---
+
 ## [0.7.12] — Sprint 7 Patch: FermentCondPhase, OG Unification, Phase Rollback
 **Období:** T16 (05.03.2026)
 **Status:** ✅ Done

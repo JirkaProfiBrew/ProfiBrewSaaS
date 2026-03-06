@@ -472,6 +472,7 @@ function StockIssueLineRow({
   const [notes, setNotes] = useState(line.notes ?? "");
   const [lotNumber, setLotNumber] = useState(line.lotNumber ?? "");
   const [expiryDate, setExpiryDate] = useState(line.expiryDate ?? "");
+  const canEditLot = isDraft || (isReceipt && !isDraft); // lot fields editable on confirmed receipts
 
   const requestedNum = toNumber(requestedQty);
   const issuedNum = toNumber(line.issuedQty);
@@ -669,7 +670,7 @@ function StockIssueLineRow({
       {/* Lot Number (receipt only) */}
       {isReceipt && (
         <TableCell>
-          {isDraft ? (
+          {canEditLot ? (
             <Input
               className="h-8 w-24"
               value={lotNumber}
@@ -690,7 +691,7 @@ function StockIssueLineRow({
       {/* Expiry Date (receipt only) */}
       {isReceipt && (
         <TableCell>
-          {isDraft ? (
+          {canEditLot ? (
             <Input
               type="date"
               className="h-8 w-28"
@@ -715,7 +716,7 @@ function StockIssueLineRow({
             <LotAttributesSection
               materialType={materialType}
               lotAttributes={line.lotAttributes}
-              isDraft={isDraft}
+              isDraft={canEditLot}
               onUpdate={(attrs) => {
                 void onUpdateLotAttributes(line.id, attrs);
               }}

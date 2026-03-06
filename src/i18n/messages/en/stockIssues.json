@@ -214,7 +214,8 @@
     "unitPrice": "Price",
     "in": "IN",
     "out": "OUT",
-    "noMovements": "No movements for this document"
+    "noMovements": "No movements for this document",
+    "receiptLot": "Receipt Lot"
   },
   "allocationsTab": {
     "line": "Line",
