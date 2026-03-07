@@ -42,7 +42,7 @@ export async function createTemplate(data: {
 
 export async function updateTemplate(
   id: string,
-  data: { name?: string; sortOrder?: number; isActive?: boolean }
+  data: { name?: string; sortOrder?: number; isActive?: boolean; parentId?: string | null }
 ): Promise<CashflowTemplate> {
   return withSuperadmin(async () => {
     const updateData: Record<string, unknown> = {
@@ -52,6 +52,7 @@ export async function updateTemplate(
     if (data.name !== undefined) updateData.name = data.name;
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.parentId !== undefined) updateData.parentId = data.parentId;
 
     const [row] = await db
       .update(cashflowCategoryTemplates)

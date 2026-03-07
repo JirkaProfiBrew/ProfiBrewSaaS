@@ -142,6 +142,7 @@ export function TemplateBrowser(): React.ReactNode {
         await updateTemplate(editId, {
           name: formName.trim(),
           sortOrder: formSortOrder,
+          parentId: formParentId,
         });
       } else {
         await createTemplate({
@@ -261,31 +262,29 @@ export function TemplateBrowser(): React.ReactNode {
             )}
 
             {/* Parent category */}
-            {!editId && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">{t("parent")}</Label>
-                <Select
-                  value={formParentId ?? "__none__"}
-                  onValueChange={(val) =>
-                    setFormParentId(val === "__none__" ? null : val)
-                  }
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">
-                      {t("parentNone")}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{t("parent")}</Label>
+              <Select
+                value={formParentId ?? "__none__"}
+                onValueChange={(val) =>
+                  setFormParentId(val === "__none__" ? null : val)
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    {t("parentNone")}
+                  </SelectItem>
+                  {parentOptions.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.id}>
+                      {opt.name}
                     </SelectItem>
-                    {parentOptions.map((opt) => (
-                      <SelectItem key={opt.id} value={opt.id}>
-                        {opt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Sort order */}
             <div className="grid grid-cols-4 items-center gap-4">
