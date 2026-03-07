@@ -15,6 +15,13 @@
       "when": 1741340000000,
       "tag": "0030_sprint9_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1741430000000,
+      "tag": "0031_fix_cf_templates",
+      "breakpoints": true
     }
   ]
 }
