@@ -59,13 +59,13 @@ ALTER TABLE brewing_systems ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   CREATE POLICY brewing_systems_tenant_isolation ON brewing_systems
     USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
   CREATE POLICY brewing_systems_tenant_insert ON brewing_systems
     FOR INSERT WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
-EXCEPTION WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- 4. FK: recipes.brewing_system_id
