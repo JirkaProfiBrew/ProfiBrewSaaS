@@ -1,0 +1,26 @@
+{
+  "title": "Choose a plan for your brewery",
+  "subtitle": "30 days free \u2014 no credit card required",
+  "ctaFree": "Start for free",
+  "ctaTrial": "Try for free",
+  "ctaRegister": "Register",
+  "ctaSchool": "Request access",
+  "communityTitle": "Homebrewing and education",
+  "month": "month",
+  "free": "Free",
+  "includedHl": "Volume",
+  "maxUsers": "Users",
+  "unlimited": "Unlimited",
+  "modules": "Modules",
+  "moduleNames": {
+    "brewery": "Brewery",
+    "stock": "Stock",
+    "sales": "Sales",
+    "finance": "Finance",
+    "plan": "Plan"
+  },
+  "apiAccess": "API access",
+  "integrations": "Integrations",
+  "prioritySupport": "Priority support",
+  "recommended": "Recommended"
+}

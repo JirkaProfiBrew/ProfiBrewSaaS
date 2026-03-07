@@ -17,6 +17,9 @@ const DASHBOARD_ROUTES = [
   "/upgrade",
 ];
 
+/** Route segments that require auth but are NOT dashboard (no tenant sidebar) */
+const PROTECTED_ROUTES = ["/onboarding"];
+
 /** Route segments that map to auth route group */
 const AUTH_ROUTES = ["/login", "/register"];
 
@@ -25,7 +28,7 @@ const ADMIN_ROUTES = ["/admin"];
 
 function getRouteGroup(
   pathname: string
-): "marketing" | "auth" | "dashboard" | "admin" {
+): "marketing" | "auth" | "dashboard" | "admin" | "protected" {
   const pathWithoutLocale = pathname.replace(/^\/(cs|en)/, "") || "/";
 
   if (ADMIN_ROUTES.some((r) => pathWithoutLocale.startsWith(r))) {
@@ -33,6 +36,9 @@ function getRouteGroup(
   }
   if (AUTH_ROUTES.some((r) => pathWithoutLocale.startsWith(r))) {
     return "auth";
+  }
+  if (PROTECTED_ROUTES.some((r) => pathWithoutLocale.startsWith(r))) {
+    return "protected";
   }
   if (DASHBOARD_ROUTES.some((r) => pathWithoutLocale.startsWith(r))) {
     return "dashboard";
@@ -60,6 +66,10 @@ export default async function middleware(
     return NextResponse.redirect(
       new URL(`/${locale}/dashboard`, request.url)
     );
+  }
+
+  if (routeGroup === "protected" && !user) {
+    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
 
   if (routeGroup === "dashboard" && !user) {

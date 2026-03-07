@@ -1,0 +1,26 @@
+{
+  "title": "Vyberte pl\u00e1n pro v\u00e1\u0161 pivovar",
+  "subtitle": "30 dn\u00ed zdarma \u2014 bez platebn\u00ed karty",
+  "ctaFree": "Za\u010d\u00edt zdarma",
+  "ctaTrial": "Vyzkou\u0161et zdarma",
+  "ctaRegister": "Registrovat",
+  "ctaSchool": "Po\u017e\u00e1dat o p\u0159\u00edstup",
+  "communityTitle": "Dom\u00e1c\u00ed va\u0159en\u00ed a vzd\u011bl\u00e1v\u00e1n\u00ed",
+  "month": "m\u011bs\u00edc",
+  "free": "Zdarma",
+  "includedHl": "Objem",
+  "maxUsers": "U\u017eivatel\u016f",
+  "unlimited": "Neomezeno",
+  "modules": "Moduly",
+  "moduleNames": {
+    "brewery": "Pivovar",
+    "stock": "Sklad",
+    "sales": "Obchod",
+    "finance": "Finance",
+    "plan": "Pl\u00e1n"
+  },
+  "apiAccess": "API p\u0159\u00edstup",
+  "integrations": "Integrace",
+  "prioritySupport": "Prioritn\u00ed podpora",
+  "recommended": "Doporu\u010dujeme"
+}

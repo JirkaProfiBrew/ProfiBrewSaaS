@@ -17,11 +17,41 @@ import {
 import { signUp } from "@/lib/auth/actions";
 import type { SignUpPurpose } from "@/lib/auth/actions";
 
-export function RegisterForm(): React.ReactNode {
+interface RegisterFormProps {
+  planSlug?: string;
+  planName?: string;
+  planPrice?: string;
+  inviteEmail?: string;
+}
+
+const TRIAL_PLANS = ["starter", "pro", "business"];
+const FREE_PLANS = ["free", "community_homebrewer"];
+
+function derivePurpose(planSlug?: string): SignUpPurpose {
+  if (planSlug === "community_homebrewer") return "homebrewer";
+  return "professional";
+}
+
+function isTrialPlan(slug?: string): boolean {
+  return slug !== undefined && TRIAL_PLANS.includes(slug);
+}
+
+function isFreePlan(slug?: string): boolean {
+  return slug !== undefined && FREE_PLANS.includes(slug);
+}
+
+export function RegisterForm({
+  planSlug,
+  planName,
+  planPrice,
+  inviteEmail,
+}: RegisterFormProps): React.ReactNode {
   const t = useTranslations("auth");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [purpose, setPurpose] = useState<SignUpPurpose>("professional");
+  const [purpose, setPurpose] = useState<SignUpPurpose>(derivePurpose(planSlug));
+
+  const hasPlan = planSlug !== undefined;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
@@ -41,7 +71,14 @@ export function RegisterForm(): React.ReactNode {
 
     setLoading(true);
 
-    const result = await signUp(email, password, breweryName, fullName, purpose);
+    const result = await signUp(
+      email,
+      password,
+      breweryName,
+      fullName,
+      hasPlan ? derivePurpose(planSlug) : purpose,
+      planSlug,
+    );
 
     if (result?.error) {
       setError(t("registerError"));
@@ -54,6 +91,23 @@ export function RegisterForm(): React.ReactNode {
       <CardHeader />
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Plan summary card when plan is selected */}
+          {hasPlan && planName && (
+            <div className="rounded-md border bg-muted/50 p-3 text-center space-y-1">
+              <p className="text-sm font-medium">
+                {isTrialPlan(planSlug)
+                  ? t("planSummaryTrial", { planName })
+                  : t("planSummaryFree", { planName })}
+              </p>
+              <Link
+                href="/pricing"
+                className="text-xs text-primary hover:underline"
+              >
+                {t("changePlan")}
+              </Link>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="fullName">{t("fullName")}</Label>
             <Input
@@ -64,31 +118,34 @@ export function RegisterForm(): React.ReactNode {
             />
           </div>
 
-          <div className="space-y-3">
-            <Label>{t("purpose")}</Label>
-            <RadioGroup
-              value={purpose}
-              onValueChange={(v) => setPurpose(v as SignUpPurpose)}
-              className="space-y-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="professional" id="purpose-pro" />
-                <Label htmlFor="purpose-pro" className="font-normal">
-                  {t("purposeProfessional")}
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="homebrewer" id="purpose-home" />
-                <Label htmlFor="purpose-home" className="font-normal">
-                  {t("purposeHomebrewer")}
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
+          {/* Purpose radio — only when no plan is selected */}
+          {!hasPlan && (
+            <div className="space-y-3">
+              <Label>{t("purpose")}</Label>
+              <RadioGroup
+                value={purpose}
+                onValueChange={(v) => setPurpose(v as SignUpPurpose)}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="professional" id="purpose-pro" />
+                  <Label htmlFor="purpose-pro" className="font-normal">
+                    {t("purposeProfessional")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="homebrewer" id="purpose-home" />
+                  <Label htmlFor="purpose-home" className="font-normal">
+                    {t("purposeHomebrewer")}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="breweryName">
-              {purpose === "professional"
+              {(hasPlan ? derivePurpose(planSlug) : purpose) === "professional"
                 ? t("breweryName")
                 : t("breweryNameHomebrewer")}
             </Label>
@@ -107,6 +164,9 @@ export function RegisterForm(): React.ReactNode {
               type="email"
               required
               autoComplete="email"
+              defaultValue={inviteEmail ?? ""}
+              readOnly={inviteEmail !== undefined}
+              className={inviteEmail !== undefined ? "bg-muted" : ""}
             />
           </div>
           <div className="space-y-2">
@@ -132,9 +192,37 @@ export function RegisterForm(): React.ReactNode {
             />
           </div>
 
-          {/* Info text based on purpose */}
+          {/* Info text — plan-aware */}
           <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground space-y-1">
-            {purpose === "professional" ? (
+            {hasPlan ? (
+              isTrialPlan(planSlug) ? (
+                <>
+                  <p>{t("infoTrial1")}</p>
+                  <p>{t("infoTrial2")}</p>
+                  <p>{t("infoTrial3")}</p>
+                </>
+              ) : isFreePlan(planSlug) ? (
+                planSlug === "community_homebrewer" ? (
+                  <>
+                    <p>{t("infoHomebrewer1")}</p>
+                    <p>{t("infoHomebrewer2")}</p>
+                    <p>{t("infoHomebrewer3")}</p>
+                  </>
+                ) : (
+                  <>
+                    <p>{t("infoFree1")}</p>
+                    <p>{t("infoFree2")}</p>
+                    <p>{t("infoFree3")}</p>
+                  </>
+                )
+              ) : (
+                <>
+                  <p>{t("infoFree1")}</p>
+                  <p>{t("infoFree2")}</p>
+                  <p>{t("infoFree3")}</p>
+                </>
+              )
+            ) : purpose === "professional" ? (
               <>
                 <p>{t("infoProfessional1")}</p>
                 <p>{t("infoProfessional2")}</p>

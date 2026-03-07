@@ -1,0 +1,76 @@
+{
+  "step": "Step {current} of {total}",
+  "next": "Continue",
+  "back": "Back",
+  "skip": "Skip — I'll set it up myself",
+  "welcome": {
+    "title": "Welcome to ProfiBrew!",
+    "subtitle": "This wizard will help you set up your brewery",
+    "created": "We've automatically prepared for you:",
+    "warehouses": "3 warehouses (Raw Materials, Beer, Other)",
+    "cashDesk": "Main cash desk",
+    "cashflowCategories": "Cash flow categories",
+    "counters": "Document number sequences",
+    "start": "Start wizard"
+  },
+  "brewery": {
+    "title": "Your Brewery",
+    "nameLabel": "Brewery name",
+    "addressLabel": "Address",
+    "streetLabel": "Street",
+    "cityLabel": "City",
+    "zipLabel": "ZIP code",
+    "icoLabel": "Company ID (IČO)",
+    "dicLabel": "VAT ID (DIČ)",
+    "info": "This information will appear on documents and exports."
+  },
+  "warehouses": {
+    "title": "Warehouses",
+    "subtitle": "Verify the pre-created warehouses and choose the beer stocking method.",
+    "nameLabel": "Name",
+    "activeLabel": "Active",
+    "stockModeLabel": "Beer stocking method",
+    "stockModeLiters": "In liters",
+    "stockModeLitersDesc": "Simple, suitable for small breweries.",
+    "stockModePackages": "In packages",
+    "stockModePackagesDesc": "Precise tracking of kegs, bottles, and KEGs."
+  },
+  "economics": {
+    "title": "Economic Parameters",
+    "subtitle": "Set default values for cost calculation.",
+    "overheadPercentage": "Material overhead",
+    "overheadPercentageUnit": "%",
+    "overheadPercentageDesc": "X% will be added to raw material costs to cover losses and indirect costs.",
+    "overheadFixed": "Fixed overhead per batch",
+    "overheadFixedUnit": "CZK",
+    "overheadFixedDesc": "Fixed costs per batch (energy, water, labor).",
+    "batchCost": "Batch cost",
+    "batchCostUnit": "CZK",
+    "batchCostDesc": "Total variable cost per batch.",
+    "generateExpense": "Generate expense from receipt",
+    "generateExpenseDesc": "Automatically record an expense in cash flow when stocking raw materials."
+  },
+  "excise": {
+    "title": "Excise Duty",
+    "enabledLabel": "Do you track excise duty?",
+    "info": "Breweries with annual production over 200,000 liters are excise duty payers. Small independent breweries under 200,000 l/year have a reduced rate or exemption."
+  },
+  "done": {
+    "title": "Your brewery is ready!",
+    "subtitle": "Settings summary",
+    "goToDashboard": "Go to dashboard",
+    "breweryName": "Brewery",
+    "stockMode": "Stocking method",
+    "overhead": "Material overhead",
+    "overheadFixed": "Fixed overhead",
+    "batchCost": "Batch cost",
+    "excise": "Excise duty",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "reminder": {
+    "message": "You skipped the setup wizard. Would you like to go back to it?",
+    "resume": "Start wizard",
+    "dismiss": "Don't show again"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "step": "Krok {current} z {total}",
+  "next": "Pokračovat",
+  "back": "Zpět",
+  "skip": "Přeskočit — nastavím si to sám",
+  "welcome": {
+    "title": "Vítejte v ProfiBrew!",
+    "subtitle": "Průvodce vám pomůže nastavit váš pivovar",
+    "created": "Automaticky jsme pro vás připravili:",
+    "warehouses": "3 sklady (Suroviny, Pivo, Ostatní)",
+    "cashDesk": "Hlavní pokladna",
+    "cashflowCategories": "Kategorie cash flow",
+    "counters": "Číselné řady dokladů",
+    "start": "Začít průvodce"
+  },
+  "brewery": {
+    "title": "Váš pivovar",
+    "nameLabel": "Název pivovaru",
+    "addressLabel": "Adresa",
+    "streetLabel": "Ulice",
+    "cityLabel": "Město",
+    "zipLabel": "PSČ",
+    "icoLabel": "IČO",
+    "dicLabel": "DIČ",
+    "info": "Tyto údaje se zobrazí na dokumentech a exportech."
+  },
+  "warehouses": {
+    "title": "Sklady",
+    "subtitle": "Ověřte předvytvořené sklady a zvolte způsob naskladnění piva.",
+    "nameLabel": "Název",
+    "activeLabel": "Aktivní",
+    "stockModeLabel": "Způsob naskladnění piva",
+    "stockModeLiters": "V litrech",
+    "stockModeLitersDesc": "Jednoduché, vhodné pro malé pivovary.",
+    "stockModePackages": "V obalech",
+    "stockModePackagesDesc": "Přesná evidence sudů, lahví a KEGů."
+  },
+  "economics": {
+    "title": "Ekonomické parametry",
+    "subtitle": "Nastavte výchozí hodnoty pro kalkulaci nákladů.",
+    "overheadPercentage": "Režie surovin",
+    "overheadPercentageUnit": "%",
+    "overheadPercentageDesc": "K ceně surovin se přidá X % na pokrytí ztrát a vedlejších nákladů.",
+    "overheadFixed": "Fixní režie na várku",
+    "overheadFixedUnit": "Kč",
+    "overheadFixedDesc": "Fixní náklady na každou várku (energie, voda, čas).",
+    "batchCost": "Náklady na var",
+    "batchCostUnit": "Kč",
+    "batchCostDesc": "Celkové variabilní náklady na jednu várku.",
+    "generateExpense": "Generovat výdaj z příjemky",
+    "generateExpenseDesc": "Při naskladnění surovin automaticky zaznamenat výdaj v cash flow."
+  },
+  "excise": {
+    "title": "Spotřební daň",
+    "enabledLabel": "Evidujete spotřební daň?",
+    "info": "Pivovary s ročním výstavem nad 200 000 litrů jsou plátci spotřební daně. Malé nezávislé pivovary do 200 000 l/rok mají sníženou sazbu nebo osvobození."
+  },
+  "done": {
+    "title": "Váš pivovar je připraven!",
+    "subtitle": "Shrnutí nastavení",
+    "goToDashboard": "Přejít na dashboard",
+    "breweryName": "Pivovar",
+    "stockMode": "Způsob naskladnění",
+    "overhead": "Režie surovin",
+    "overheadFixed": "Fixní režie",
+    "batchCost": "Náklady na var",
+    "excise": "Spotřební daň",
+    "yes": "Ano",
+    "no": "Ne"
+  },
+  "reminder": {
+    "message": "Průvodce nastavením jste přeskočili. Chcete se k němu vrátit?",
+    "resume": "Spustit průvodce",
+    "dismiss": "Příště nezobrazovat"
+  }
+}
