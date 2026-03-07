@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, ChevronRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   listTemplates,
   createTemplate,
@@ -28,9 +30,12 @@ import {
 } from "../actions";
 import type { CashflowTemplate } from "../actions";
 
+// ── Tree helpers ─────────────────────────────────────────────
+
 interface TreeNode {
   template: CashflowTemplate;
   children: TreeNode[];
+  depth: number;
 }
 
 function buildTree(templates: CashflowTemplate[]): TreeNode[] {
@@ -39,13 +44,15 @@ function buildTree(templates: CashflowTemplate[]): TreeNode[] {
   const roots: TreeNode[] = [];
 
   for (const tmpl of active) {
-    map.set(tmpl.id, { template: tmpl, children: [] });
+    map.set(tmpl.id, { template: tmpl, children: [], depth: 0 });
   }
 
   for (const tmpl of active) {
     const node = map.get(tmpl.id)!;
     if (tmpl.parentId && map.has(tmpl.parentId)) {
-      map.get(tmpl.parentId)!.children.push(node);
+      const parent = map.get(tmpl.parentId)!;
+      parent.children.push(node);
+      node.depth = parent.depth + 1;
     } else {
       roots.push(node);
     }
@@ -54,28 +61,31 @@ function buildTree(templates: CashflowTemplate[]): TreeNode[] {
   return roots;
 }
 
-interface EditDialogState {
-  open: boolean;
-  mode: "create" | "edit" | "child";
-  parentId?: string;
-  editId?: string;
-  name: string;
-  cashflowType: string;
-  sortOrder: number;
+function flattenTree(nodes: TreeNode[]): TreeNode[] {
+  const result: TreeNode[] = [];
+  for (const node of nodes) {
+    result.push(node);
+    if (node.children.length > 0) {
+      result.push(...flattenTree(node.children));
+    }
+  }
+  return result;
 }
 
-const initialDialogState: EditDialogState = {
-  open: false,
-  mode: "create",
-  name: "",
-  cashflowType: "expense",
-  sortOrder: 0,
-};
+// ── Component ────────────────────────────────────────────────
 
 export function TemplateBrowser(): React.ReactNode {
   const t = useTranslations("admin.templates");
   const [templates, setTemplates] = useState<CashflowTemplate[]>([]);
-  const [dialog, setDialog] = useState<EditDialogState>(initialDialogState);
+  const [activeTab, setActiveTab] = useState<"income" | "expense">("income");
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formType, setFormType] = useState<"income" | "expense">("income");
+  const [formParentId, setFormParentId] = useState<string | null>(null);
+  const [formSortOrder, setFormSortOrder] = useState(0);
 
   const loadData = useCallback(async (): Promise<void> => {
     try {
@@ -90,52 +100,58 @@ export function TemplateBrowser(): React.ReactNode {
     void loadData();
   }, [loadData]);
 
-  function openCreate(): void {
-    setDialog({
-      ...initialDialogState,
-      open: true,
-      mode: "create",
-    });
-  }
+  // ── Derived data ─────────────────────────────────────────
 
-  function openChild(parentId: string): void {
-    const parent = templates.find((t) => t.id === parentId);
-    setDialog({
-      ...initialDialogState,
-      open: true,
-      mode: "child",
-      parentId,
-      cashflowType: parent?.cashflowType ?? "expense",
-    });
+  const active = templates.filter((t) => t.isActive !== false);
+  const incomeTemplates = active.filter((t) => t.cashflowType === "income");
+  const expenseTemplates = active.filter((t) => t.cashflowType === "expense");
+
+  const incomeFlat = flattenTree(buildTree(incomeTemplates));
+  const expenseFlat = flattenTree(buildTree(expenseTemplates));
+
+  const currentFlat = activeTab === "income" ? incomeFlat : expenseFlat;
+
+  /** Root templates for parent selection (same type, not self) */
+  const parentOptions = active.filter(
+    (t) => t.cashflowType === formType && t.parentId === null && t.id !== editId
+  );
+
+  // ── Handlers ─────────────────────────────────────────────
+
+  function openCreate(): void {
+    setEditId(null);
+    setFormName("");
+    setFormType(activeTab);
+    setFormParentId(null);
+    setFormSortOrder(0);
+    setDialogOpen(true);
   }
 
   function openEdit(tmpl: CashflowTemplate): void {
-    setDialog({
-      open: true,
-      mode: "edit",
-      editId: tmpl.id,
-      name: tmpl.name,
-      cashflowType: tmpl.cashflowType,
-      sortOrder: tmpl.sortOrder ?? 0,
-    });
+    setEditId(tmpl.id);
+    setFormName(tmpl.name);
+    setFormType(tmpl.cashflowType as "income" | "expense");
+    setFormParentId(tmpl.parentId);
+    setFormSortOrder(tmpl.sortOrder ?? 0);
+    setDialogOpen(true);
   }
 
   async function handleSave(): Promise<void> {
     try {
-      if (dialog.mode === "edit" && dialog.editId) {
-        await updateTemplate(dialog.editId, {
-          name: dialog.name,
-          sortOrder: dialog.sortOrder,
+      if (editId) {
+        await updateTemplate(editId, {
+          name: formName.trim(),
+          sortOrder: formSortOrder,
         });
       } else {
         await createTemplate({
-          name: dialog.name,
-          cashflowType: dialog.cashflowType,
-          parentId: dialog.parentId,
-          sortOrder: dialog.sortOrder,
+          name: formName.trim(),
+          cashflowType: formType,
+          parentId: formParentId ?? undefined,
+          sortOrder: formSortOrder,
         });
       }
-      setDialog(initialDialogState);
+      setDialogOpen(false);
       void loadData();
     } catch {
       console.error("Failed to save template");
@@ -151,112 +167,89 @@ export function TemplateBrowser(): React.ReactNode {
     }
   }
 
-  function renderNode(node: TreeNode, depth: number): React.ReactNode {
-    const tmpl = node.template;
-    return (
-      <div key={tmpl.id}>
-        <div
-          className="flex items-center gap-2 py-2 px-3 hover:bg-muted/50 rounded-md"
-          style={{ paddingLeft: `${depth * 24 + 12}px` }}
-        >
-          {node.children.length > 0 && (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="flex-1 text-sm">{tmpl.name}</span>
-          <Badge variant="outline" className="text-xs">
-            {tmpl.cashflowType === "income" ? t("income") : t("expense")}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            #{tmpl.sortOrder}
-          </span>
-          {depth === 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openChild(tmpl.id)}
-              title={t("addChild")}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => openEdit(tmpl)}
-            title={t("edit")}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void handleDelete(tmpl.id)}
-            title={t("delete")}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-        {node.children.map((child) => renderNode(child, depth + 1))}
-      </div>
-    );
-  }
-
-  const tree = buildTree(templates);
-
   return (
     <div className="p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <div>
+          <h1 className="text-2xl font-bold">{t("title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("description")}
+          </p>
+        </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="mr-1.5 h-4 w-4" />
           {t("addRoot")}
         </Button>
       </div>
 
-      {tree.length === 0 ? (
-        <p className="text-muted-foreground">{t("noTemplates")}</p>
-      ) : (
-        <div className="border rounded-md divide-y">
-          {tree.map((node) => renderNode(node, 0))}
+      {/* Tabs */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => setActiveTab(val as "income" | "expense")}
+      >
+        <TabsList>
+          <TabsTrigger value="income">{t("income")}</TabsTrigger>
+          <TabsTrigger value="expense">{t("expense")}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="income">
+          <TemplateList
+            items={currentFlat}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            t={t}
+          />
+        </TabsContent>
+
+        <TabsContent value="expense">
+          <TemplateList
+            items={expenseFlat}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            t={t}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {active.length === 0 && (
+        <div className="rounded-md border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground">{t("noTemplates")}</p>
         </div>
       )}
 
-      <Dialog
-        open={dialog.open}
-        onOpenChange={(open) =>
-          setDialog((prev) => ({ ...prev, open }))
-        }
-      >
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialog.mode === "edit"
-                ? t("editCategory")
-                : dialog.mode === "child"
-                  ? t("newSubcategory")
-                  : t("newCategory")}
+              {editId ? t("editCategory") : t("newCategory")}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("name")}</Label>
+
+          <div className="grid gap-4 py-4">
+            {/* Name */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{t("name")}</Label>
               <Input
-                value={dialog.name}
-                onChange={(e) =>
-                  setDialog((prev) => ({ ...prev, name: e.target.value }))
-                }
+                className="col-span-3"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
               />
             </div>
-            {dialog.mode !== "edit" && dialog.mode !== "child" && (
-              <div className="space-y-2">
-                <Label>{t("type")}</Label>
+
+            {/* Type (only on create) */}
+            {!editId && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{t("type")}</Label>
                 <Select
-                  value={dialog.cashflowType}
-                  onValueChange={(v) =>
-                    setDialog((prev) => ({ ...prev, cashflowType: v }))
-                  }
+                  value={formType}
+                  onValueChange={(val) => {
+                    setFormType(val as "income" | "expense");
+                    setFormParentId(null);
+                  }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -266,33 +259,124 @@ export function TemplateBrowser(): React.ReactNode {
                 </Select>
               </div>
             )}
-            <div className="space-y-2">
-              <Label>{t("sortOrder")}</Label>
+
+            {/* Parent category */}
+            {!editId && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">{t("parent")}</Label>
+                <Select
+                  value={formParentId ?? "__none__"}
+                  onValueChange={(val) =>
+                    setFormParentId(val === "__none__" ? null : val)
+                  }
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">
+                      {t("parentNone")}
+                    </SelectItem>
+                    {parentOptions.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.id}>
+                        {opt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Sort order */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">{t("sortOrder")}</Label>
               <Input
+                className="col-span-3"
                 type="number"
-                value={dialog.sortOrder}
+                value={formSortOrder}
                 onChange={(e) =>
-                  setDialog((prev) => ({
-                    ...prev,
-                    sortOrder: parseInt(e.target.value, 10) || 0,
-                  }))
+                  setFormSortOrder(parseInt(e.target.value, 10) || 0)
                 }
               />
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setDialog(initialDialogState)}
-              >
-                {t("cancel")}
-              </Button>
-              <Button onClick={() => void handleSave()}>
-                {t("save")}
-              </Button>
-            </div>
           </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button onClick={() => void handleSave()}>
+              {t("save")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── Sub-component: template list ─────────────────────────────
+
+interface TemplateListProps {
+  items: TreeNode[];
+  onEdit: (tmpl: CashflowTemplate) => void;
+  onDelete: (id: string) => void;
+  t: ReturnType<typeof useTranslations<"admin.templates">>;
+}
+
+function TemplateList({
+  items,
+  onEdit,
+  onDelete,
+  t,
+}: TemplateListProps): React.ReactNode {
+  if (items.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        {t("noTemplates")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {items.map((node) => (
+        <div
+          key={node.template.id}
+          className="flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-muted/50"
+          style={{ paddingLeft: `${node.depth * 24 + 12}px` }}
+        >
+          <span className="flex-1 text-sm font-medium">
+            {node.template.name}
+          </span>
+
+          <span className="text-xs text-muted-foreground">
+            #{node.template.sortOrder}
+          </span>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onEdit(node.template)}
+            title={t("edit")}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive"
+            onClick={() => void onDelete(node.template.id)}
+            title={t("delete")}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }

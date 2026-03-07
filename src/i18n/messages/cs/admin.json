@@ -21,22 +21,23 @@
     "noInvitations": "Žádné pozvánky"
   },
   "templates": {
-    "title": "Cashflow Templates",
+    "title": "Šablony kategorií CF",
+    "description": "Správa šablon kategorií příjmů a výdajů pro nové tenanty",
     "addRoot": "Přidat kategorii",
-    "addChild": "Přidat podkategorii",
     "edit": "Upravit",
     "delete": "Deaktivovat",
     "name": "Název",
     "type": "Typ",
-    "income": "Příjem",
-    "expense": "Výdaj",
+    "income": "Příjmy",
+    "expense": "Výdaje",
     "save": "Uložit",
     "cancel": "Zrušit",
     "noTemplates": "Žádné šablony",
     "sortOrder": "Pořadí",
+    "parent": "Nadřazená kategorie",
+    "parentNone": "Žádná (kořenová)",
     "editCategory": "Upravit kategorii",
-    "newCategory": "Nová kategorie",
-    "newSubcategory": "Nová podkategorie"
+    "newCategory": "Nová kategorie"
   },
   "billingEvents": {
     "title": "Billing Events",

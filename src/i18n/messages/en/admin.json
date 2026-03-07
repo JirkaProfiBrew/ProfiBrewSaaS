@@ -21,9 +21,9 @@
     "noInvitations": "No invitations"
   },
   "templates": {
-    "title": "Cashflow Templates",
+    "title": "Cashflow Category Templates",
+    "description": "Manage category templates for new tenant onboarding",
     "addRoot": "Add Category",
-    "addChild": "Add Subcategory",
     "edit": "Edit",
     "delete": "Deactivate",
     "name": "Name",
@@ -34,9 +34,10 @@
     "cancel": "Cancel",
     "noTemplates": "No templates",
     "sortOrder": "Sort Order",
+    "parent": "Parent Category",
+    "parentNone": "None (root)",
     "editCategory": "Edit Category",
-    "newCategory": "New Category",
-    "newSubcategory": "New Subcategory"
+    "newCategory": "New Category"
   },
   "billingEvents": {
     "title": "Billing Events",
