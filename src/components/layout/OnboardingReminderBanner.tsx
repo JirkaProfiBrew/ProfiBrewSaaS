@@ -15,17 +15,29 @@ export async function OnboardingReminderBanner({
   const t = await getTranslations("onboarding.reminder");
   const locale = await getLocale();
 
-  const rows = await db
-    .select({
-      onboardingSkipped: tenants.onboardingSkipped,
-      onboardingSkipReminderDisabled: tenants.onboardingSkipReminderDisabled,
-      onboardingStep: tenants.onboardingStep,
-    })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .limit(1);
+  let tenant: {
+    onboardingSkipped: boolean | null;
+    onboardingSkipReminderDisabled: boolean | null;
+    onboardingStep: number | null;
+  } | undefined;
 
-  const tenant = rows[0];
+  try {
+    const rows = await db
+      .select({
+        onboardingSkipped: tenants.onboardingSkipped,
+        onboardingSkipReminderDisabled: tenants.onboardingSkipReminderDisabled,
+        onboardingStep: tenants.onboardingStep,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    tenant = rows[0];
+  } catch {
+    // Columns don't exist yet — skip
+    return null;
+  }
+
   if (!tenant) return null;
 
   // Show only if skipped AND reminder not dismissed AND not completed
