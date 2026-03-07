@@ -1,0 +1,60 @@
+{
+  "pilots": {
+    "title": "Pilot Partners",
+    "createInvitation": "Nová pozvánka",
+    "email": "Email",
+    "plan": "Plán",
+    "trialDays": "Dní trialu",
+    "priceOverride": "Speciální cena",
+    "notes": "Poznámky",
+    "status": "Status",
+    "actions": "Akce",
+    "copyLink": "Kopírovat odkaz",
+    "linkCopied": "Odkaz zkopírován",
+    "create": "Vytvořit",
+    "pending": "Čeká",
+    "sent": "Odesláno",
+    "registered": "Registrován",
+    "expired": "Expirováno",
+    "inviteUrl": "Odkaz pro registraci",
+    "createdAt": "Vytvořeno",
+    "noInvitations": "Žádné pozvánky"
+  },
+  "templates": {
+    "title": "Cashflow Templates",
+    "addRoot": "Přidat kategorii",
+    "addChild": "Přidat podkategorii",
+    "edit": "Upravit",
+    "delete": "Deaktivovat",
+    "name": "Název",
+    "type": "Typ",
+    "income": "Příjem",
+    "expense": "Výdaj",
+    "save": "Uložit",
+    "cancel": "Zrušit",
+    "noTemplates": "Žádné šablony",
+    "sortOrder": "Pořadí",
+    "editCategory": "Upravit kategorii",
+    "newCategory": "Nová kategorie",
+    "newSubcategory": "Nová podkategorie"
+  },
+  "billingEvents": {
+    "title": "Billing Events",
+    "tenant": "Pivovar",
+    "type": "Typ",
+    "plan": "Plán",
+    "amount": "Částka",
+    "date": "Datum",
+    "processed": "Zpracováno",
+    "markProcessed": "Zpracovat",
+    "pending": "Ke zpracování",
+    "done": "Hotovo",
+    "noEvents": "Žádné události",
+    "notes": "Poznámky"
+  },
+  "nav": {
+    "templates": "CF Templates",
+    "pilots": "Piloti",
+    "billing": "Billing"
+  }
+}

@@ -24,6 +24,21 @@ export async function TrialBanner({ tenantId }: TrialBannerProps): Promise<React
   const sub = subRows[0];
   if (!sub) return null;
 
+  // Handle pending_payment status
+  if (sub.status === "pending_payment") {
+    return (
+      <div className="flex items-center justify-between px-4 py-2 text-sm bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
+        <span>{t("pendingPaymentBanner")}</span>
+        <Link
+          href={`/${locale}/settings/billing`}
+          className="font-medium underline hover:no-underline"
+        >
+          {t("viewPlans")}
+        </Link>
+      </div>
+    );
+  }
+
   const isTrial = sub.status === "trial" || sub.status === "trialing";
   if (!isTrial || !sub.trialEndsAt) return null;
 
@@ -31,7 +46,7 @@ export async function TrialBanner({ tenantId }: TrialBannerProps): Promise<React
   const now = new Date();
   const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  // Only show banner when ≤7 days remaining or expired
+  // Only show banner when <=7 days remaining or expired
   if (daysLeft > 7) return null;
 
   const expired = daysLeft <= 0;

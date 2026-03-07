@@ -22,6 +22,7 @@ interface RegisterFormProps {
   planName?: string;
   planPrice?: string;
   inviteEmail?: string;
+  inviteToken?: string;
 }
 
 const TRIAL_PLANS = ["starter", "pro", "business"];
@@ -45,6 +46,7 @@ export function RegisterForm({
   planName,
   planPrice,
   inviteEmail,
+  inviteToken,
 }: RegisterFormProps): React.ReactNode {
   const t = useTranslations("auth");
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export function RegisterForm({
       fullName,
       hasPlan ? derivePurpose(planSlug) : purpose,
       planSlug,
+      inviteToken,
     );
 
     if (result?.error) {

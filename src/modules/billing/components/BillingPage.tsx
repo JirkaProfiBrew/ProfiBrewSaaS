@@ -7,8 +7,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X } from "lucide-react";
 import Link from "next/link";
+import { PaymentInstructions } from "./PaymentInstructions";
+import { TrialPlanChanger } from "./TrialPlanChanger";
 
 const ALL_MODULES = ["brewery", "stock", "sales", "finance", "plan"] as const;
+
+function getStatusBadge(
+  status: string,
+  isTrial: boolean,
+  trialExpired: boolean,
+  t: (key: string) => string,
+): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+  if (status === "pending_payment") {
+    return { label: t("pendingPayment"), variant: "outline" };
+  }
+  if (status === "past_due") {
+    return { label: t("pastDue"), variant: "destructive" };
+  }
+  if (trialExpired) {
+    return { label: t("statusExpired"), variant: "destructive" };
+  }
+  if (isTrial) {
+    return { label: t("statusTrial"), variant: "secondary" };
+  }
+  return { label: t("statusActive"), variant: "default" };
+}
 
 export async function BillingPage(): Promise<React.ReactNode> {
   const t = await getTranslations("billing");
@@ -49,12 +72,52 @@ export async function BillingPage(): Promise<React.ReactNode> {
   }
 
   const isTrial = sub.status === "trial" || sub.status === "trialing";
+  const isPendingPayment = sub.status === "pending_payment";
+  const isPastDue = sub.status === "past_due";
   const trialEnd = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null;
   const now = new Date();
   const trialDaysLeft = trialEnd
     ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
-  const trialExpired = isTrial && trialEnd && trialEnd < now;
+  const trialExpired = isTrial && trialEnd !== null && trialEnd < now;
+  const trialActive = isTrial && !trialExpired;
+
+  const badge = getStatusBadge(sub.status, isTrial, trialExpired ?? false, t);
+
+  // Load available plans for TrialPlanChanger
+  let availablePlans: Array<{
+    slug: string;
+    name: string;
+    basePrice: string;
+    currency: string;
+    includedModules: string[];
+  }> = [];
+  if (trialActive) {
+    const planRows = await db
+      .select({
+        slug: plans.slug,
+        name: plans.name,
+        basePrice: plans.basePrice,
+        currency: plans.currency,
+        includedModules: plans.includedModules,
+      })
+      .from(plans)
+      .where(eq(plans.isActive, true));
+
+    availablePlans = planRows.map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      basePrice: p.basePrice,
+      currency: p.currency,
+      includedModules: p.includedModules,
+    }));
+  }
+
+  // Build module name map for TrialPlanChanger
+  const moduleNames: Record<string, string> = {};
+  for (const mod of ALL_MODULES) {
+    moduleNames[mod] = tUpgrade(`moduleNames.${mod}`);
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -65,12 +128,15 @@ export async function BillingPage(): Promise<React.ReactNode> {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{t("currentPlan")}</CardTitle>
-            <Badge variant={trialExpired ? "destructive" : isTrial ? "secondary" : "default"}>
-              {trialExpired
-                ? t("statusExpired")
-                : isTrial
-                  ? t("statusTrial")
-                  : t("statusActive")}
+            <Badge
+              variant={badge.variant}
+              className={
+                isPendingPayment
+                  ? "border-yellow-500 bg-yellow-50 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-300"
+                  : undefined
+              }
+            >
+              {badge.label}
             </Badge>
           </div>
         </CardHeader>
@@ -122,6 +188,41 @@ export async function BillingPage(): Promise<React.ReactNode> {
           </div>
         </CardContent>
       </Card>
+
+      {/* Payment instructions — pending_payment */}
+      {isPendingPayment && (
+        <PaymentInstructions
+          tenantId={tenantData.tenantId}
+          amount={sub.basePrice}
+          currency={sub.currency}
+        />
+      )}
+
+      {/* Past due warning */}
+      {isPastDue && (
+        <Card className="border-destructive bg-red-50 dark:bg-red-950/20">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive font-medium">
+              {t("pastDue")}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("paymentContact")}{" "}
+              <a href="mailto:info@profibrew.com" className="text-primary hover:underline">
+                info@profibrew.com
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Trial plan changer — only during active trial */}
+      {trialActive && availablePlans.length > 0 && (
+        <TrialPlanChanger
+          currentPlanSlug={sub.planSlug}
+          plans={availablePlans}
+          moduleNames={moduleNames}
+        />
+      )}
 
       {/* Modules card */}
       <Card>

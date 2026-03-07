@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, Thermometer, LayoutDashboard, ArrowLeft } from "lucide-react";
+import { ShieldCheck, Thermometer, LayoutDashboard, ArrowLeft, Users, FolderTree, Receipt } from "lucide-react";
 import { getCurrentSuperadmin } from "@/lib/auth/superadmin";
 
 interface AdminLayoutProps {
@@ -60,6 +60,31 @@ export default async function AdminLayout({
             >
               <Thermometer className="h-4 w-4" />
               Rmutovací profily
+            </Link>
+            <Link
+              href={`/${locale}/admin/cashflow-templates`}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <FolderTree className="h-4 w-4" />
+              CF Templates
+            </Link>
+
+            <div className="mt-4 mb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Pilot & Billing
+            </div>
+            <Link
+              href={`/${locale}/admin/pilots`}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <Users className="h-4 w-4" />
+              Piloti
+            </Link>
+            <Link
+              href={`/${locale}/admin/billing`}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              <Receipt className="h-4 w-4" />
+              Billing
             </Link>
           </nav>
         </aside>

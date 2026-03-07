@@ -1,0 +1,60 @@
+{
+  "pilots": {
+    "title": "Pilot Partners",
+    "createInvitation": "New Invitation",
+    "email": "Email",
+    "plan": "Plan",
+    "trialDays": "Trial Days",
+    "priceOverride": "Price Override",
+    "notes": "Notes",
+    "status": "Status",
+    "actions": "Actions",
+    "copyLink": "Copy Link",
+    "linkCopied": "Link Copied",
+    "create": "Create",
+    "pending": "Pending",
+    "sent": "Sent",
+    "registered": "Registered",
+    "expired": "Expired",
+    "inviteUrl": "Registration Link",
+    "createdAt": "Created",
+    "noInvitations": "No invitations"
+  },
+  "templates": {
+    "title": "Cashflow Templates",
+    "addRoot": "Add Category",
+    "addChild": "Add Subcategory",
+    "edit": "Edit",
+    "delete": "Deactivate",
+    "name": "Name",
+    "type": "Type",
+    "income": "Income",
+    "expense": "Expense",
+    "save": "Save",
+    "cancel": "Cancel",
+    "noTemplates": "No templates",
+    "sortOrder": "Sort Order",
+    "editCategory": "Edit Category",
+    "newCategory": "New Category",
+    "newSubcategory": "New Subcategory"
+  },
+  "billingEvents": {
+    "title": "Billing Events",
+    "tenant": "Brewery",
+    "type": "Type",
+    "plan": "Plan",
+    "amount": "Amount",
+    "date": "Date",
+    "processed": "Processed",
+    "markProcessed": "Mark Processed",
+    "pending": "Pending",
+    "done": "Done",
+    "noEvents": "No events",
+    "notes": "Notes"
+  },
+  "nav": {
+    "templates": "CF Templates",
+    "pilots": "Pilots",
+    "billing": "Billing"
+  }
+}

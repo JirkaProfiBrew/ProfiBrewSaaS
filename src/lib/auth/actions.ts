@@ -11,6 +11,8 @@ import { subscriptions, plans } from "@/../drizzle/schema/subscriptions";
 import { eq } from "drizzle-orm";
 import { routing } from "@/i18n/routing";
 import { seedTenantDefaults } from "@/lib/db/seed-tenant";
+import { validateInviteToken } from "@/admin/pilots/actions";
+import { pilotInvitations } from "@/../drizzle/schema/pilots";
 
 async function getLocale(): Promise<string> {
   const cookieStore = await cookies();
@@ -61,7 +63,8 @@ export async function signUp(
   breweryName: string,
   fullName?: string,
   purpose: SignUpPurpose = "professional",
-  planSlug?: string
+  planSlug?: string,
+  inviteToken?: string
 ): Promise<AuthResult> {
   try {
     const supabase = await createServerSupabaseClient();
@@ -87,19 +90,34 @@ export async function signUp(
       fullName: fullName || null,
     });
 
+    // Validate invite token if present
+    let invitation: Awaited<ReturnType<typeof validateInviteToken>> = null;
+    if (inviteToken) {
+      invitation = await validateInviteToken(inviteToken);
+      if (!invitation) {
+        return { error: "Invalid or expired invitation" };
+      }
+    }
+
     // 3. Create tenant
+    // Override planSlug from invitation if present
+    const effectiveInvitePlanSlug = invitation?.planSlug;
     const isHomebrewer =
       purpose === "homebrewer" || planSlug === "community_homebrewer";
 
-    // Determine the effective plan slug
+    // Determine the effective plan slug (invitation takes priority)
     const effectivePlanSlug =
-      planSlug || (isHomebrewer ? "community_homebrewer" : "pro");
+      effectiveInvitePlanSlug || planSlug || (isHomebrewer ? "community_homebrewer" : "pro");
     const isFreeOrCommunity =
       effectivePlanSlug === "free" ||
       effectivePlanSlug === "community_homebrewer";
 
-    // Trial days: 0 for free/community, 30 for paid plans
-    const trialDays = isFreeOrCommunity ? 0 : 30;
+    // Trial days: invitation override > default (0 for free, 30 for paid)
+    const trialDays = invitation
+      ? invitation.trialDays
+      : isFreeOrCommunity
+        ? 0
+        : 30;
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
@@ -108,8 +126,8 @@ export async function signUp(
       .values({
         name: breweryName,
         slug: slugify(breweryName),
-        status: isFreeOrCommunity ? "active" : "trial",
-        trialEndsAt: isFreeOrCommunity ? null : trialEndsAt,
+        status: isFreeOrCommunity && !invitation ? "active" : "trial",
+        trialEndsAt: isFreeOrCommunity && !invitation ? null : trialEndsAt,
         settings: {
           currency: "CZK",
           locale: "cs",
@@ -150,23 +168,40 @@ export async function signUp(
       const overageWaivedUntil = new Date(now);
       overageWaivedUntil.setMonth(overageWaivedUntil.getMonth() + 6);
 
+      const isPilot = invitation !== null;
+      const subscriptionTrialEndsAt = isFreeOrCommunity && !isPilot ? null : trialEndsAt;
+
       await db.insert(subscriptions).values({
         tenantId: tenant.id,
         planId: selectedPlan.id,
-        status: isFreeOrCommunity ? "active" : "trialing",
+        status: isFreeOrCommunity && !isPilot ? "active" : "trialing",
         startedAt: now.toISOString().split("T")[0]!,
         currentPeriodStart: now.toISOString().split("T")[0]!,
         currentPeriodEnd: periodEnd.toISOString().split("T")[0]!,
-        trialEndsAt: isFreeOrCommunity ? null : trialEndsAt,
-        overageWaivedUntil: isFreeOrCommunity
+        trialEndsAt: subscriptionTrialEndsAt,
+        overageWaivedUntil: isFreeOrCommunity && !isPilot
           ? null
           : overageWaivedUntil.toISOString().split("T")[0]!,
-        source: "self_service",
+        priceOverride: invitation?.priceOverride ?? null,
+        source: isPilot ? "pilot" : "self_service",
+        inviteId: invitation?.id ?? null,
         originalTrialPlanSlug: effectivePlanSlug,
       });
     }
 
-    // 6. Seed default data (counters, deposits, CF categories, shop, warehouses, cash desk)
+    // 6. Update invitation status if pilot registration
+    if (invitation) {
+      await db
+        .update(pilotInvitations)
+        .set({
+          status: "registered",
+          registeredAt: new Date(),
+          registeredTenantId: tenant.id,
+        })
+        .where(eq(pilotInvitations.id, invitation.id));
+    }
+
+    // 7. Seed default data (counters, deposits, CF categories, shop, warehouses, cash desk)
     try {
       await seedTenantDefaults(tenant.id, breweryName, effectivePlanSlug);
     } catch (seedErr) {
