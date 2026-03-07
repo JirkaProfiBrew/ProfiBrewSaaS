@@ -5,6 +5,69 @@
 
 ---
 
+## [0.9.2] — Sprint 9 Patch 9.1/9.2: Onboarding, Trial Conversion, Pilots
+**Období:** T16 (07.03.2026)
+**Status:** ✅ Done
+
+### DB Migrace (0030_sprint9_patch.sql)
+- [x] tenants: 5 onboarding sloupců (onboarding_completed_at, onboarding_step, onboarding_skipped, onboarding_skip_reminder_disabled, conversion_modal_shown_at)
+- [x] warehouses: type column (raw_materials | beer | other)
+- [x] subscriptions: source, original_trial_plan_slug, invite_id
+- [x] cashflow_categories: template_id FK
+- [x] Nová tabulka: cashflow_category_templates (globální, bez tenant_id)
+- [x] Nová tabulka: billing_events (tenant-scoped, ruční tracking konverzí)
+- [x] Nová tabulka: pilot_invitations (superadmin-only, invite tokeny)
+- [x] Seed: 2 kořenové + 9 podkategorií cashflow templates
+
+### Provisioning + Seed Refactor
+- [x] 3 sklady při registraci: Suroviny (SUR), Pivo (PIVO), Ostatní (OST)
+- [x] Shop settings JSONB: stockMode dle plánu, warehouse IDs, ekonomické parametry
+- [x] Default pokladna "Hlavní pokladna"
+- [x] Cashflow kategorie z globálních templates (fallback na hardcoded)
+- [x] signUp přijímá planSlug parametr (místo purpose-based odvození)
+
+### Pricing Page + Registration s ?plan=
+- [x] `/pricing` — veřejná stránka s 4 komerčními + 2 community plány z DB
+- [x] Marketing layout (logo + login link)
+- [x] Registrace vyžaduje ?plan= parametr (bez → redirect na /pricing)
+- [x] Plan summary card v registračním formuláři
+- [x] Purpose odvozeno z planSlug (community_homebrewer → homebrewer)
+- [x] Plan-aware info text pod formulářem
+
+### Onboarding Wizard (6 kroků)
+- [x] `/onboarding` — fullscreen route mimo dashboard layout
+- [x] Krok 1: Vítejte — shrnutí auto-vytvořených dat, Začít/Přeskočit
+- [x] Krok 2: Info o pivovaru — název, adresa, IČO, DIČ
+- [x] Krok 3: Sklady — 3 sklady, stock mode volba (litry/obaly)
+- [x] Krok 4: Ekonomické parametry — režie, fixní náklady, batch cost
+- [x] Krok 5: Spotřební daň — toggle + info
+- [x] Krok 6: Hotovo — souhrn + redirect na dashboard
+- [x] Skip → onboarding_skipped=true + reminder banner na dashboardu
+- [x] Reminder banner s možností dismiss
+
+### Post-trial Conversion + Billing
+- [x] Conversion modal při prvním přihlášení po expiraci trialu
+- [x] Výběr plánu + consent checkbox → status=pending_payment + billing_event
+- [x] Změna plánu v trialu (trial_ends_at se nemění)
+- [x] BillingPage: pending_payment stav + platební instrukce (účet, VS)
+- [x] BillingPage: past_due stav
+- [x] TrialPlanChanger v billing settings
+- [x] TrialBanner: pending_payment žlutý banner
+
+### Pilot Invitations + Admin UI
+- [x] Admin: Cashflow Templates CRUD (tree view, add/edit/soft-delete)
+- [x] Admin: Pilot Invitations (create, list, copy invite URL)
+- [x] Admin: Billing Events (list, mark processed)
+- [x] Admin sidebar: 3 nové sekce (CF Templates, Piloti, Billing)
+- [x] `/register?invite=<token>` — email readonly, plán z pozvánky
+- [x] signUp: invite token handling (source=pilot, inviteId)
+
+### i18n
+- [x] Nové namespace: pricing, onboarding, admin
+- [x] Rozšířené: auth (plan-aware klíče), billing (conversion, payment)
+
+---
+
 ## [0.9.0] — Sprint 9: SaaS + Deployment
 **Období:** T16 (06.03.2026)
 **Status:** ✅ Done

@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.4 | 07.03.2026 | Sprint 9 Patch: 3 new tables (cashflow_category_templates, billing_events, pilot_invitations). tenants +5 onboarding cols. warehouses +type. subscriptions +source/invite_id/original_trial_plan_slug. cashflow_categories +template_id. Pricing page, onboarding wizard, post-trial conversion, pilot invitations, admin UI (templates, pilots, billing events). |
 | 2.3 | 24.02.2026 | Sprint 4 Patch: recipes.item_id, batches.packaging_loss_l, bottling_items.quantity integer→decimal, bottling tab redesign (bulk/packaged/none modes), onBatchCompleted rewrite (receipt from bottling_items), shop settings resolution, item detail tabs (Recipes + Products). |
 | 2.2 | 20.02.2026 | Sprint 4: Orders, deposits, cashflows, cashflow_categories, cashflow_templates, cash_desks tables. Reserved qty on stock_status. Production issues with recipe_item_id. Auto-receipts on batch completion. |
 | 2.1 | 17.02.2026 | Pricing model: tier-based + add-on modules + overage per hl. Temporal plans/subscriptions in DB. Subscription decoupled from tenants table. Usage records for billing. |
@@ -1766,6 +1767,78 @@ CREATE TABLE cash_desks (
 -- and atomically update cash_desks.current_balance in the same transaction.
 ```
 
+### 5.10a SaaS Billing & Pilots (Sprint 9 Patch)
+
+```sql
+-- ============================================================
+-- CASHFLOW CATEGORY TEMPLATES (global — no tenant_id)
+-- ============================================================
+CREATE TABLE cashflow_category_templates (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  type        TEXT NOT NULL,              -- 'income' | 'expense'
+  parent_id   UUID REFERENCES cashflow_category_templates(id),
+  sort_order  INTEGER DEFAULT 0,
+  is_active   BOOLEAN DEFAULT true,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+-- Seed: 2 roots (Příjmy, Výdaje) + 9 children
+-- cashflow_categories.template_id FK → tracks origin
+
+-- ============================================================
+-- BILLING EVENTS (manual payment tracking before Stripe)
+-- ============================================================
+CREATE TABLE billing_events (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    UUID NOT NULL REFERENCES tenants(id),
+  type         TEXT NOT NULL,       -- 'conversion_confirmed' | 'invoice_sent' | 'payment_received' | 'subscription_cancelled'
+  plan_slug    TEXT,
+  amount       DECIMAL(10,2),
+  notes        TEXT,
+  processed    BOOLEAN DEFAULT false,
+  processed_at TIMESTAMPTZ,
+  processed_by UUID,                -- superadmin user_id
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================================
+-- PILOT INVITATIONS (superadmin-managed invite tokens)
+-- ============================================================
+CREATE TABLE pilot_invitations (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token                TEXT UNIQUE NOT NULL,    -- 32-char random hex
+  email                TEXT NOT NULL,
+  plan_slug            TEXT NOT NULL DEFAULT 'pro',
+  trial_days           INTEGER NOT NULL DEFAULT 30,
+  price_override       DECIMAL(10,2),           -- NULL = standard price
+  notes                TEXT,
+  status               TEXT NOT NULL DEFAULT 'pending',  -- pending | sent | registered | expired
+  sent_at              TIMESTAMPTZ,
+  registered_at        TIMESTAMPTZ,
+  registered_tenant_id UUID REFERENCES tenants(id),
+  expires_at           TIMESTAMPTZ,
+  created_by           UUID NOT NULL,
+  created_at           TIMESTAMPTZ DEFAULT now()
+);
+-- subscriptions.invite_id FK → pilot_invitations(id)
+-- subscriptions.source: 'self_service' | 'pilot' | 'admin'
+
+-- ============================================================
+-- TENANTS — ONBOARDING COLUMNS (added Sprint 9 Patch)
+-- ============================================================
+-- onboarding_completed_at TIMESTAMPTZ
+-- onboarding_step INTEGER DEFAULT 0    (0=not started, 1-6=in progress, 99=done)
+-- onboarding_skipped BOOLEAN DEFAULT false
+-- onboarding_skip_reminder_disabled BOOLEAN DEFAULT false
+-- conversion_modal_shown_at TIMESTAMPTZ
+
+-- ============================================================
+-- WAREHOUSES — TYPE COLUMN (added Sprint 9 Patch)
+-- ============================================================
+-- type TEXT NOT NULL DEFAULT 'other'   ('raw_materials' | 'beer' | 'other')
+```
+
 ### 5.11 Excise Tax
 
 ```sql
@@ -1893,8 +1966,18 @@ tenants
   ├── categories (hierarchical categories)
   └── units (units of measure)
 
+  ├── billing_events (conversion tracking, manual payment processing)
+  │
+  └── onboarding state (onboarding_step, onboarding_skipped, etc. on tenants)
+
 plans (global — without tenant_id, versioned)
   └── plan_addons (global — without tenant_id, versioned)
+
+cashflow_category_templates (global — without tenant_id)
+  └── → cashflow_categories.template_id (per-tenant copy)
+
+pilot_invitations (global — superadmin-managed)
+  └── → subscriptions.invite_id, registered_tenant_id
 ```
 
 ---
