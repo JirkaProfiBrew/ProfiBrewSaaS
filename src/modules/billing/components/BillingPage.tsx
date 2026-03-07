@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { loadTenantForUser } from "@/lib/db/tenant-loader";
 import { db } from "@/lib/db";
 import { subscriptions, plans } from "@/../drizzle/schema/subscriptions";
@@ -13,6 +13,7 @@ const ALL_MODULES = ["brewery", "stock", "sales", "finance", "plan"] as const;
 export async function BillingPage(): Promise<React.ReactNode> {
   const t = await getTranslations("billing");
   const tUpgrade = await getTranslations("upgrade");
+  const locale = await getLocale();
   const tenantData = await loadTenantForUser();
 
   if (!tenantData) return null;
@@ -148,7 +149,7 @@ export async function BillingPage(): Promise<React.ReactNode> {
         <CardContent className="pt-6 text-center space-y-2">
           <p className="text-sm text-muted-foreground">{t("upgradeHint")}</p>
           <Link
-            href="upgrade"
+            href={`/${locale}/upgrade`}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             {t("viewPlans")}
