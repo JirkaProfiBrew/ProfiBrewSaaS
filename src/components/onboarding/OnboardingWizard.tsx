@@ -76,11 +76,11 @@ export function OnboardingWizard({
   const effectiveTenantName = overrides.tenantName ?? tenantName;
   const effectiveShopSettings: Record<string, unknown> = {
     ...shopSettings,
-    ...(overrides.stockMode !== undefined && { stockMode: overrides.stockMode }),
-    ...(overrides.overheadPercentage !== undefined && { overheadPercentage: overrides.overheadPercentage }),
-    ...(overrides.overheadFixed !== undefined && { overheadFixed: overrides.overheadFixed }),
-    ...(overrides.batchCost !== undefined && { batchCost: overrides.batchCost }),
-    ...(overrides.generateExpenseFromReceipt !== undefined && { generateExpenseFromReceipt: overrides.generateExpenseFromReceipt }),
+    ...(overrides.stockMode !== undefined && { stock_mode: overrides.stockMode }),
+    ...(overrides.overheadPercentage !== undefined && { overhead_pct: overrides.overheadPercentage }),
+    ...(overrides.overheadFixed !== undefined && { overhead_czk: overrides.overheadFixed }),
+    ...(overrides.batchCost !== undefined && { brew_cost_czk: overrides.batchCost }),
+    ...(overrides.generateExpenseFromReceipt !== undefined && { auto_cf_from_receipt: overrides.generateExpenseFromReceipt }),
   };
   const effectiveTenantSettings: Record<string, unknown> = {
     ...tenantSettings,

@@ -37,16 +37,16 @@ export function EconomicsStep({
   const [isPending, startTransition] = useTransition();
 
   const [overheadPercentage, setOverheadPercentage] = useState<number>(
-    (shopSettings.overheadPercentage as number) ?? 15
+    (shopSettings.overhead_pct as number) ?? 15
   );
   const [overheadFixed, setOverheadFixed] = useState<number>(
-    (shopSettings.overheadFixed as number) ?? 1000
+    (shopSettings.overhead_czk as number) ?? 1000
   );
   const [batchCost, setBatchCost] = useState<number>(
-    (shopSettings.batchCost as number) ?? 2000
+    (shopSettings.brew_cost_czk as number) ?? 2000
   );
   const [generateExpense, setGenerateExpense] = useState<boolean>(
-    (shopSettings.generateExpenseFromReceipt as boolean) ?? false
+    (shopSettings.auto_cf_from_receipt as boolean) ?? false
   );
 
   function handleSubmit(): void {

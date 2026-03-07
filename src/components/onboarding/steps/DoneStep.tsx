@@ -38,10 +38,10 @@ export function DoneStep({
     });
   }
 
-  const stockMode = (shopSettings.stockMode as string) ?? "liters";
-  const overheadPct = (shopSettings.overheadPercentage as number) ?? 15;
-  const overheadFixed = (shopSettings.overheadFixed as number) ?? 1000;
-  const batchCost = (shopSettings.batchCost as number) ?? 2000;
+  const stockMode = (shopSettings.stock_mode as string) ?? "liters";
+  const overheadPct = (shopSettings.overhead_pct as number) ?? 15;
+  const overheadFixed = (shopSettings.overhead_czk as number) ?? 1000;
+  const batchCost = (shopSettings.brew_cost_czk as number) ?? 2000;
   const exciseEnabled = (tenantSettings.excise_enabled as boolean) ?? false;
 
   return (

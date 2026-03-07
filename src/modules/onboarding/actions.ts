@@ -149,7 +149,7 @@ export async function updateWarehouseSettings(
     await db
       .update(shops)
       .set({
-        settings: { ...currentSettings, stockMode },
+        settings: { ...currentSettings, stock_mode: stockMode },
         updatedAt: new Date(),
       })
       .where(eq(shops.id, shopRows[0].id));
@@ -188,10 +188,10 @@ export async function updateEconomicParams(
       .set({
         settings: {
           ...currentSettings,
-          overheadPercentage: params.overheadPercentage,
-          overheadFixed: params.overheadFixed,
-          batchCost: params.batchCost,
-          generateExpenseFromReceipt: params.generateExpenseFromReceipt,
+          overhead_pct: params.overheadPercentage,
+          overhead_czk: params.overheadFixed,
+          brew_cost_czk: params.batchCost,
+          auto_cf_from_receipt: params.generateExpenseFromReceipt,
         },
         updatedAt: new Date(),
       })

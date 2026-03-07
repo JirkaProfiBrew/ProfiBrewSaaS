@@ -39,7 +39,7 @@ export function WarehousesStep({
     initialWarehouses.map((w) => ({ ...w }))
   );
   const [stockMode, setStockMode] = useState<string>(
-    (shopSettings.stockMode as string) ?? "liters"
+    (shopSettings.stock_mode as string) ?? "liters"
   );
 
   function updateWarehouse(

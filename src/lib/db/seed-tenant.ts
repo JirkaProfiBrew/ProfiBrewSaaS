@@ -262,7 +262,7 @@ async function seedDefaultShopAndWarehouse(
       type: "beer" as const,
       isDefault: false,
       isExciseRelevant: true,
-      categories: ["pivo", "obaly"],
+      categories: ["pivo"],
     },
     {
       name: "Ostatní",
@@ -270,7 +270,7 @@ async function seedDefaultShopAndWarehouse(
       type: "other" as const,
       isDefault: false,
       isExciseRelevant: false,
-      categories: ["ostatní"],
+      categories: ["ostatní", "obaly"],
     },
   ];
 
@@ -295,15 +295,15 @@ async function seedDefaultShopAndWarehouse(
     .update(shops)
     .set({
       settings: {
-        stockMode: getStockModeForPlan(planSlug),
-        rawMaterialWarehouseId: rawWarehouse?.id ?? null,
-        beerWarehouseId: beerWarehouse?.id ?? null,
-        rawMaterialPriceSource: "calc_price",
-        beerPriceSource: "fixed_price",
-        overheadPercentage: 15,
-        overheadFixed: 1000,
-        batchCost: 2000,
-        generateExpenseFromReceipt: false,
+        stock_mode: getStockModeForPlan(planSlug),
+        default_warehouse_raw_id: rawWarehouse?.id ?? null,
+        default_warehouse_beer_id: beerWarehouse?.id ?? null,
+        ingredient_pricing_mode: "calc_price",
+        beer_pricing_mode: "fixed",
+        overhead_pct: 15,
+        overhead_czk: 1000,
+        brew_cost_czk: 2000,
+        auto_cf_from_receipt: false,
       },
     })
     .where(eq(shops.id, shop.id));
