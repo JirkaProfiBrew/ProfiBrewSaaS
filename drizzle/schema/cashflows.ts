@@ -32,6 +32,7 @@ export const cashflowCategories = pgTable(
     cashflowType: text("cashflow_type").notNull(), // 'income' | 'expense'
     isSystem: boolean("is_system").default(false),
     sortOrder: integer("sort_order").default(0),
+    templateId: uuid("template_id"), // FK to cashflow_category_templates — added in migration SQL
     isActive: boolean("is_active").default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },

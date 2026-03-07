@@ -22,6 +22,7 @@ export const warehouses = pgTable(
     shopId: uuid("shop_id").references(() => shops.id),
     code: text("code").notNull(),
     name: text("name").notNull(),
+    type: text("type").notNull().default("other"),
     isExciseRelevant: boolean("is_excise_relevant").default(false),
     categories: text("categories").array(), // postgres text[]
     isDefault: boolean("is_default").default(false),

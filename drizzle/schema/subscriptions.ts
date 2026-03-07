@@ -89,6 +89,11 @@ export const subscriptions = pgTable(
     stripeSubscriptionId: text("stripe_subscription_id"),
     stripeCustomerId: text("stripe_customer_id"),
 
+    // Source & pilot tracking
+    source: text("source").default("self_service"),
+    originalTrialPlanSlug: text("original_trial_plan_slug"),
+    inviteId: uuid("invite_id"), // FK to pilot_invitations — added in migration SQL
+
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
