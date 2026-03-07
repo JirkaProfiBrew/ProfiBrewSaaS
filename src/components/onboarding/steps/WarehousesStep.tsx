@@ -22,6 +22,7 @@ interface WarehousesStepProps {
   shopSettings: Record<string, unknown>;
   onNext: () => Promise<void>;
   onBack: () => void;
+  onSave?: (stockMode: string) => void;
 }
 
 export function WarehousesStep({
@@ -29,6 +30,7 @@ export function WarehousesStep({
   shopSettings,
   onNext,
   onBack,
+  onSave,
 }: WarehousesStepProps): React.ReactNode {
   const t = useTranslations("onboarding");
   const [isPending, startTransition] = useTransition();
@@ -60,6 +62,7 @@ export function WarehousesStep({
         })),
         stockMode
       );
+      onSave?.(stockMode);
       await onNext();
     });
   }

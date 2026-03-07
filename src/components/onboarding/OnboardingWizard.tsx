@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { BreweryInfoStep } from "./steps/BreweryInfoStep";
 import { WarehousesStep } from "./steps/WarehousesStep";
@@ -22,6 +21,17 @@ export interface WarehouseData {
   isActive: boolean;
 }
 
+/** Tracks values changed by the user during onboarding steps */
+interface OnboardingOverrides {
+  tenantName?: string;
+  stockMode?: string;
+  overheadPercentage?: number;
+  overheadFixed?: number;
+  batchCost?: number;
+  generateExpenseFromReceipt?: boolean;
+  exciseEnabled?: boolean;
+}
+
 interface OnboardingWizardProps {
   tenantId: string;
   tenantName: string;
@@ -33,7 +43,6 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({
-  tenantId,
   tenantName,
   currentStep,
   tenantSettings,
@@ -45,6 +54,7 @@ export function OnboardingWizard({
   const [step, setStep] = useState<number>(
     currentStep > 0 && currentStep < 99 ? currentStep : 1
   );
+  const [overrides, setOverrides] = useState<OnboardingOverrides>({});
 
   const goNext = useCallback(async (): Promise<void> => {
     const nextStep = step + 1;
@@ -62,6 +72,21 @@ export function OnboardingWizard({
 
   const progressValue = (step / TOTAL_STEPS) * 100;
 
+  // Merge overrides into settings for DoneStep
+  const effectiveTenantName = overrides.tenantName ?? tenantName;
+  const effectiveShopSettings: Record<string, unknown> = {
+    ...shopSettings,
+    ...(overrides.stockMode !== undefined && { stockMode: overrides.stockMode }),
+    ...(overrides.overheadPercentage !== undefined && { overheadPercentage: overrides.overheadPercentage }),
+    ...(overrides.overheadFixed !== undefined && { overheadFixed: overrides.overheadFixed }),
+    ...(overrides.batchCost !== undefined && { batchCost: overrides.batchCost }),
+    ...(overrides.generateExpenseFromReceipt !== undefined && { generateExpenseFromReceipt: overrides.generateExpenseFromReceipt }),
+  };
+  const effectiveTenantSettings: Record<string, unknown> = {
+    ...tenantSettings,
+    ...(overrides.exciseEnabled !== undefined && { excise_enabled: overrides.exciseEnabled }),
+  };
+
   return (
     <div className="space-y-6">
       {/* Progress bar */}
@@ -78,39 +103,43 @@ export function OnboardingWizard({
       {step === 1 && <WelcomeStep onNext={goNext} locale={locale} />}
       {step === 2 && (
         <BreweryInfoStep
-          tenantName={tenantName}
-          tenantSettings={tenantSettings}
+          tenantName={effectiveTenantName}
+          tenantSettings={effectiveTenantSettings}
           onNext={goNext}
           onBack={goBack}
+          onSave={(name) => setOverrides((prev) => ({ ...prev, tenantName: name }))}
         />
       )}
       {step === 3 && (
         <WarehousesStep
           warehouses={warehouses}
-          shopSettings={shopSettings}
+          shopSettings={effectiveShopSettings}
           onNext={goNext}
           onBack={goBack}
+          onSave={(stockMode) => setOverrides((prev) => ({ ...prev, stockMode }))}
         />
       )}
       {step === 4 && (
         <EconomicsStep
-          shopSettings={shopSettings}
+          shopSettings={effectiveShopSettings}
           onNext={goNext}
           onBack={goBack}
+          onSave={(params) => setOverrides((prev) => ({ ...prev, ...params }))}
         />
       )}
       {step === 5 && (
         <ExciseStep
-          tenantSettings={tenantSettings}
+          tenantSettings={effectiveTenantSettings}
           onNext={goNext}
           onBack={goBack}
+          onSave={(enabled) => setOverrides((prev) => ({ ...prev, exciseEnabled: enabled }))}
         />
       )}
       {step === 6 && (
         <DoneStep
-          tenantName={tenantName}
-          tenantSettings={tenantSettings}
-          shopSettings={shopSettings}
+          tenantName={effectiveTenantName}
+          tenantSettings={effectiveTenantSettings}
+          shopSettings={effectiveShopSettings}
           locale={locale}
         />
       )}

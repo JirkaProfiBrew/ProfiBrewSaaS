@@ -19,12 +19,19 @@ interface EconomicsStepProps {
   shopSettings: Record<string, unknown>;
   onNext: () => Promise<void>;
   onBack: () => void;
+  onSave?: (params: {
+    overheadPercentage: number;
+    overheadFixed: number;
+    batchCost: number;
+    generateExpenseFromReceipt: boolean;
+  }) => void;
 }
 
 export function EconomicsStep({
   shopSettings,
   onNext,
   onBack,
+  onSave,
 }: EconomicsStepProps): React.ReactNode {
   const t = useTranslations("onboarding");
   const [isPending, startTransition] = useTransition();
@@ -45,6 +52,12 @@ export function EconomicsStep({
   function handleSubmit(): void {
     startTransition(async () => {
       await updateEconomicParams({
+        overheadPercentage,
+        overheadFixed,
+        batchCost,
+        generateExpenseFromReceipt: generateExpense,
+      });
+      onSave?.({
         overheadPercentage,
         overheadFixed,
         batchCost,

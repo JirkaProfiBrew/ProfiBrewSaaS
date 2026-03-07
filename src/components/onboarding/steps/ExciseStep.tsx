@@ -18,12 +18,14 @@ interface ExciseStepProps {
   tenantSettings: Record<string, unknown>;
   onNext: () => Promise<void>;
   onBack: () => void;
+  onSave?: (enabled: boolean) => void;
 }
 
 export function ExciseStep({
   tenantSettings,
   onNext,
   onBack,
+  onSave,
 }: ExciseStepProps): React.ReactNode {
   const t = useTranslations("onboarding");
   const [isPending, startTransition] = useTransition();
@@ -35,6 +37,7 @@ export function ExciseStep({
   function handleSubmit(): void {
     startTransition(async () => {
       await updateExciseSettings(exciseEnabled);
+      onSave?.(exciseEnabled);
       await onNext();
     });
   }

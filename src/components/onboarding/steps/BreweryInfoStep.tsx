@@ -19,6 +19,7 @@ interface BreweryInfoStepProps {
   tenantSettings: Record<string, unknown>;
   onNext: () => Promise<void>;
   onBack: () => void;
+  onSave?: (name: string) => void;
 }
 
 export function BreweryInfoStep({
@@ -26,6 +27,7 @@ export function BreweryInfoStep({
   tenantSettings,
   onNext,
   onBack,
+  onSave,
 }: BreweryInfoStepProps): React.ReactNode {
   const t = useTranslations("onboarding");
   const [isPending, startTransition] = useTransition();
@@ -46,6 +48,7 @@ export function BreweryInfoStep({
   function handleSubmit(): void {
     startTransition(async () => {
       await updateBreweryInfo({ name, street, city, zip, ico, dic });
+      onSave?.(name);
       await onNext();
     });
   }
