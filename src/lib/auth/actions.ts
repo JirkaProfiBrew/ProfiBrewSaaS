@@ -60,7 +60,8 @@ export async function signUp(
   password: string,
   breweryName: string,
   fullName?: string,
-  purpose: SignUpPurpose = "professional"
+  purpose: SignUpPurpose = "professional",
+  planSlug?: string
 ): Promise<AuthResult> {
   try {
     const supabase = await createServerSupabaseClient();
@@ -87,8 +88,18 @@ export async function signUp(
     });
 
     // 3. Create tenant
-    const isHomebrewer = purpose === "homebrewer";
-    const trialDays = isHomebrewer ? 0 : 30;
+    const isHomebrewer =
+      purpose === "homebrewer" || planSlug === "community_homebrewer";
+
+    // Determine the effective plan slug
+    const effectivePlanSlug =
+      planSlug || (isHomebrewer ? "community_homebrewer" : "pro");
+    const isFreeOrCommunity =
+      effectivePlanSlug === "free" ||
+      effectivePlanSlug === "community_homebrewer";
+
+    // Trial days: 0 for free/community, 30 for paid plans
+    const trialDays = isFreeOrCommunity ? 0 : 30;
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
@@ -97,8 +108,8 @@ export async function signUp(
       .values({
         name: breweryName,
         slug: slugify(breweryName),
-        status: isHomebrewer ? "active" : "trial",
-        trialEndsAt: isHomebrewer ? null : trialEndsAt,
+        status: isFreeOrCommunity ? "active" : "trial",
+        trialEndsAt: isFreeOrCommunity ? null : trialEndsAt,
         settings: {
           currency: "CZK",
           locale: "cs",
@@ -123,12 +134,11 @@ export async function signUp(
       joinedAt: new Date(),
     });
 
-    // 5. Create subscription (Pro trial for professionals, community for homebrewers)
-    const planSlug = isHomebrewer ? "community_homebrewer" : "pro";
+    // 5. Create subscription
     const [selectedPlan] = await db
       .select()
       .from(plans)
-      .where(eq(plans.slug, planSlug))
+      .where(eq(plans.slug, effectivePlanSlug))
       .limit(1);
 
     if (selectedPlan) {
@@ -143,20 +153,22 @@ export async function signUp(
       await db.insert(subscriptions).values({
         tenantId: tenant.id,
         planId: selectedPlan.id,
-        status: isHomebrewer ? "active" : "trialing",
+        status: isFreeOrCommunity ? "active" : "trialing",
         startedAt: now.toISOString().split("T")[0]!,
         currentPeriodStart: now.toISOString().split("T")[0]!,
         currentPeriodEnd: periodEnd.toISOString().split("T")[0]!,
-        trialEndsAt: isHomebrewer ? null : trialEndsAt,
-        overageWaivedUntil: isHomebrewer
+        trialEndsAt: isFreeOrCommunity ? null : trialEndsAt,
+        overageWaivedUntil: isFreeOrCommunity
           ? null
           : overageWaivedUntil.toISOString().split("T")[0]!,
+        source: "self_service",
+        originalTrialPlanSlug: effectivePlanSlug,
       });
     }
 
-    // 6. Seed default data (counters, deposits, CF categories, shop, warehouse)
+    // 6. Seed default data (counters, deposits, CF categories, shop, warehouses, cash desk)
     try {
-      await seedTenantDefaults(tenant.id, breweryName);
+      await seedTenantDefaults(tenant.id, breweryName, effectivePlanSlug);
     } catch (seedErr) {
       console.error("seedTenantDefaults failed (non-fatal):", seedErr);
     }

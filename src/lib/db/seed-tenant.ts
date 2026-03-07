@@ -7,8 +7,10 @@
 import { db } from "@/lib/db";
 import { deposits } from "@/../drizzle/schema/deposits";
 import { cashflowCategories } from "@/../drizzle/schema/cashflows";
+import { cashDesks } from "@/../drizzle/schema/cashflows";
 import { shops } from "@/../drizzle/schema/shops";
 import { warehouses } from "@/../drizzle/schema/warehouses";
+import { cashflowCategoryTemplates } from "@/../drizzle/schema/billing";
 import { eq } from "drizzle-orm";
 import { count } from "drizzle-orm";
 import { seedDefaultCounters } from "./counters";
@@ -94,14 +96,51 @@ const SEED_EXPENSE: SeedCategory[] = [
   { name: "Ostatní výdaje", sortOrder: 6 },
 ];
 
-async function seedDefaultCashFlowCategories(tenantId: string): Promise<void> {
-  const existing = await db
-    .select({ value: count() })
-    .from(cashflowCategories)
-    .where(eq(cashflowCategories.tenantId, tenantId));
+async function seedFromTemplates(
+  tenantId: string,
+  templates: (typeof cashflowCategoryTemplates.$inferSelect)[]
+): Promise<void> {
+  const idMap = new Map<string, string>(); // template.id → new category.id
 
-  if ((existing[0]?.value ?? 0) > 0) return;
+  // Pass 1: roots (parentId IS NULL)
+  const roots = templates.filter((t) => t.parentId === null);
+  for (const template of roots) {
+    const [cat] = await db
+      .insert(cashflowCategories)
+      .values({
+        tenantId,
+        name: template.name,
+        cashflowType: template.cashflowType,
+        isSystem: true,
+        sortOrder: template.sortOrder ?? 0,
+        templateId: template.id,
+      })
+      .returning();
+    if (cat) idMap.set(template.id, cat.id);
+  }
 
+  // Pass 2: children
+  const children = templates.filter((t) => t.parentId !== null);
+  for (const template of children) {
+    const newParentId = idMap.get(template.parentId!);
+    if (!newParentId) continue;
+    const [cat] = await db
+      .insert(cashflowCategories)
+      .values({
+        tenantId,
+        name: template.name,
+        parentId: newParentId,
+        cashflowType: template.cashflowType,
+        isSystem: true,
+        sortOrder: template.sortOrder ?? 0,
+        templateId: template.id,
+      })
+      .returning();
+    if (cat) idMap.set(template.id, cat.id);
+  }
+}
+
+async function seedFromHardcoded(tenantId: string): Promise<void> {
   async function insertGroup(
     items: SeedCategory[],
     cashflowType: "income" | "expense"
@@ -143,11 +182,44 @@ async function seedDefaultCashFlowCategories(tenantId: string): Promise<void> {
   await insertGroup(SEED_EXPENSE, "expense");
 }
 
-// -- Default Shop + Warehouse ------------------------------------------------
+async function seedDefaultCashFlowCategories(tenantId: string): Promise<void> {
+  const existing = await db
+    .select({ value: count() })
+    .from(cashflowCategories)
+    .where(eq(cashflowCategories.tenantId, tenantId));
+
+  if ((existing[0]?.value ?? 0) > 0) return;
+
+  // Try template-based seeding first
+  const templates = await db
+    .select()
+    .from(cashflowCategoryTemplates)
+    .where(eq(cashflowCategoryTemplates.isActive, true));
+
+  if (templates.length > 0) {
+    await seedFromTemplates(tenantId, templates);
+  } else {
+    // Fallback to hardcoded
+    await seedFromHardcoded(tenantId);
+  }
+}
+
+// -- Default Shop + Warehouses + Cash Desk ----------------------------------
+
+function getStockModeForPlan(slug: string): string {
+  if (slug === "free") return "none";
+  if (
+    ["starter", "community_homebrewer", "community_school"].includes(slug)
+  )
+    return "liters";
+  if (["pro", "business"].includes(slug)) return "packages";
+  return "liters"; // fallback
+}
 
 async function seedDefaultShopAndWarehouse(
   tenantId: string,
-  breweryName: string
+  breweryName: string,
+  planSlug: string
 ): Promise<void> {
   const existingShops = await db
     .select({ value: count() })
@@ -175,15 +247,80 @@ async function seedDefaultShopAndWarehouse(
 
   if ((existingWarehouses[0]?.value ?? 0) > 0) return;
 
-  await db.insert(warehouses).values({
-    tenantId,
-    shopId: shop.id,
-    name: "Hlavní sklad",
-    code: "HLS",
-    categories: ["suroviny", "pivo", "obaly"],
-    isDefault: true,
-    isExciseRelevant: false,
-  });
+  const warehouseDefs = [
+    {
+      name: "Suroviny",
+      code: "SUR",
+      type: "raw_materials" as const,
+      isDefault: true,
+      isExciseRelevant: false,
+      categories: ["suroviny"],
+    },
+    {
+      name: "Pivo",
+      code: "PIVO",
+      type: "beer" as const,
+      isDefault: false,
+      isExciseRelevant: true,
+      categories: ["pivo", "obaly"],
+    },
+    {
+      name: "Ostatní",
+      code: "OST",
+      type: "other" as const,
+      isDefault: false,
+      isExciseRelevant: false,
+      categories: ["ostatní"],
+    },
+  ];
+
+  const createdWarehouses = await db
+    .insert(warehouses)
+    .values(
+      warehouseDefs.map((w) => ({
+        tenantId,
+        shopId: shop.id,
+        ...w,
+      }))
+    )
+    .returning();
+
+  // Update shop settings with warehouse references
+  const rawWarehouse = createdWarehouses.find(
+    (w) => w.type === "raw_materials"
+  );
+  const beerWarehouse = createdWarehouses.find((w) => w.type === "beer");
+
+  await db
+    .update(shops)
+    .set({
+      settings: {
+        stockMode: getStockModeForPlan(planSlug),
+        rawMaterialWarehouseId: rawWarehouse?.id ?? null,
+        beerWarehouseId: beerWarehouse?.id ?? null,
+        rawMaterialPriceSource: "calc_price",
+        beerPriceSource: "fixed_price",
+        overheadPercentage: 15,
+        overheadFixed: 1000,
+        batchCost: 2000,
+        generateExpenseFromReceipt: false,
+      },
+    })
+    .where(eq(shops.id, shop.id));
+
+  // Seed default cash desk
+  const existingDesks = await db
+    .select({ value: count() })
+    .from(cashDesks)
+    .where(eq(cashDesks.tenantId, tenantId));
+
+  if ((existingDesks[0]?.value ?? 0) === 0) {
+    await db.insert(cashDesks).values({
+      tenantId,
+      shopId: shop.id,
+      name: "Hlavní pokladna",
+    });
+  }
 }
 
 // -- Main entry point -------------------------------------------------------
@@ -194,10 +331,15 @@ async function seedDefaultShopAndWarehouse(
  */
 export async function seedTenantDefaults(
   tenantId: string,
-  breweryName?: string
+  breweryName?: string,
+  planSlug?: string
 ): Promise<void> {
   try {
-    await seedDefaultShopAndWarehouse(tenantId, breweryName || "Hlavní provozovna");
+    await seedDefaultShopAndWarehouse(
+      tenantId,
+      breweryName || "Hlavní provozovna",
+      planSlug || "pro"
+    );
   } catch (err) {
     console.error("[seed] seedDefaultShopAndWarehouse failed:", err);
   }
