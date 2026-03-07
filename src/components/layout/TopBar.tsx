@@ -3,7 +3,7 @@
 import { useTranslations, useLocale } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Globe, Lock, LogOut, Settings, ShieldCheck, User } from "lucide-react";
+import { Globe, Crown, LogOut, Settings, ShieldCheck, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -66,12 +66,12 @@ export function TopBar(): React.ReactNode {
                   ? "bg-primary text-primary-foreground"
                   : hasAccess
                     ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    : "text-muted-foreground/50 cursor-not-allowed"
+                    : "text-muted-foreground/60 hover:bg-primary/10 hover:text-primary"
               )}
             >
               <mod.icon className="h-4 w-4" />
               <span>{t(`modules.${mod.labelKey}`)}</span>
-              {!hasAccess && <Lock className="h-3 w-3" />}
+              {!hasAccess && <Crown className="h-3 w-3 text-amber-500" />}
             </Link>
           );
         })}

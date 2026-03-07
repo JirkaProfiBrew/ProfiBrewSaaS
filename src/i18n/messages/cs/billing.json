@@ -8,6 +8,8 @@
   "trialRemaining": "Zkušební období",
   "trialDays": "{days} dní zbývá",
   "trialExpiredLabel": "Vypršelo",
+  "trialEndsAt": "Končí",
+  "trialEndedAt": "Skončilo",
   "modulesTitle": "Dostupné moduly",
   "upgradeHint": "Chcete rozšířit možnosti vašeho pivovaru?",
   "viewPlans": "Zobrazit plány",

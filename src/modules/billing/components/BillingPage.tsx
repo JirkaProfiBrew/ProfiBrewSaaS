@@ -93,6 +93,11 @@ export async function BillingPage(): Promise<React.ReactNode> {
                   {trialExpired ? t("trialExpiredLabel") : t("trialDays", { days: trialDaysLeft })}
                 </span>
               </div>
+              <div className="text-xs text-muted-foreground">
+                {trialExpired
+                  ? `${t("trialEndedAt")}: ${trialEnd.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                  : `${t("trialEndsAt")}: ${trialEnd.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+              </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${trialExpired ? "bg-destructive" : trialDaysLeft <= 7 ? "bg-yellow-500" : "bg-primary"}`}

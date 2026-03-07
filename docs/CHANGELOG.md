@@ -51,6 +51,16 @@
 - [x] `scripts/seed-production.ts` — idempotentní seed: plans, countries, units, excise rates
 - [x] Beer styles: odkazuje na existující import-beer-styles.mjs
 
+### S9 Patch 2: UI Polish
+- [x] TrialBanner: červený banner s bílým textem, text "Zkušební období skončilo: {datum}"
+- [x] TrialBanner: žlutý banner zobrazuje zbývající dny
+- [x] BillingPage: konkrétní datum a čas konce trialu pod progress barem
+- [x] BillingPage: oprava odkazu "Zobrazit plány" (relativní → absolutní s locale)
+- [x] TopBar: zamčené moduly — Lock ikona → Crown (zlatá korunka), hover zvýrazní primary barvou
+- [x] i18n: "Číslovací řady" → "Číselné řady" (nav + counters)
+- [x] i18n: přidán překlad entity cashflow v číselných řadách
+- [x] i18n: přidány klíče trialEndsAt, trialEndedAt (cs + en)
+
 ### S9 Patch: Prod Schema Sync
 - [x] Migrace `0029_prod_schema_sync.sql` — 803 řádků, plně idempotentní
 - [x] Vytvoření 25 chybějících tabulek (warehouses, stock, orders, cashflows, brewing_systems, excise, deposits, hop/yeast/fermentable codebooks, batch_lot_tracking, community_applications)

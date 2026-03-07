@@ -40,13 +40,13 @@ export async function TrialBanner({ tenantId }: TrialBannerProps): Promise<React
     <div
       className={`flex items-center justify-between px-4 py-2 text-sm ${
         expired
-          ? "bg-destructive text-destructive-foreground"
+          ? "bg-destructive text-white"
           : "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200"
       }`}
     >
       <span>
         {expired
-          ? t("statusExpired") + " — " + t("trialExpiredLabel")
+          ? t("trialRemaining") + " " + t("trialEndedAt").toLowerCase() + ": " + trialEnd.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })
           : t("trialRemaining") + ": " + t("trialDays", { days: daysLeft })}
       </span>
       <Link

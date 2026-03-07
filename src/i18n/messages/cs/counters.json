@@ -1,5 +1,5 @@
 {
-  "title": "Číslovací řady",
+  "title": "Číselné řady",
   "description": "Konfigurace automatického číslování dokladů a položek.",
   "columns": {
     "entity": "Entita",
@@ -16,7 +16,8 @@
     "batch": "Várka",
     "order": "Objednávka",
     "stock_issue_receipt": "Příjemka",
-    "stock_issue_dispatch": "Výdejka"
+    "stock_issue_dispatch": "Výdejka",
+    "cashflow": "Cash Flow"
   },
   "editTitle": "Úprava řady: {entity}",
   "edit": "Upravit",
@@ -24,5 +25,5 @@
   "cancel": "Zrušit",
   "yes": "Ano",
   "no": "Ne",
-  "noCounters": "Žádné číslovací řady. Budou vytvořeny při registraci pivovaru."
+  "noCounters": "Žádné číselné řady. Budou vytvořeny při registraci pivovaru."
 }

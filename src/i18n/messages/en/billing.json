@@ -8,6 +8,8 @@
   "trialRemaining": "Trial period",
   "trialDays": "{days} days remaining",
   "trialExpiredLabel": "Expired",
+  "trialEndsAt": "Ends",
+  "trialEndedAt": "Ended",
   "modulesTitle": "Available Modules",
   "upgradeHint": "Want to unlock more features for your brewery?",
   "viewPlans": "View Plans",
