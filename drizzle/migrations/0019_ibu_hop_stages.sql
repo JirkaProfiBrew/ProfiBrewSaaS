@@ -5,10 +5,10 @@
 -- ================================================
 
 -- 1. Add whirlpool temperature to brewing_systems
-ALTER TABLE brewing_systems ADD COLUMN whirlpool_temperature_c NUMERIC DEFAULT 85;
+ALTER TABLE brewing_systems ADD COLUMN IF NOT EXISTS whirlpool_temperature_c NUMERIC DEFAULT 85;
 
 -- 2. Add temperature to recipe_items
-ALTER TABLE recipe_items ADD COLUMN temperature_c NUMERIC;
+ALTER TABLE recipe_items ADD COLUMN IF NOT EXISTS temperature_c NUMERIC;
 
 -- 3. Migrate hop stages: fermentation → dry_hop_cold for hops only
 UPDATE recipe_items SET use_stage = 'dry_hop_cold' WHERE category = 'hop' AND use_stage = 'fermentation';

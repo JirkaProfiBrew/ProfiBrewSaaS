@@ -10,6 +10,209 @@
       "breakpoints": true
     },
     {
+      "idx": 1,
+      "version": "7",
+      "when": 1771448472032,
+      "tag": "0001_sprint3_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771448472033,
+      "tag": "0002_sprint3_patch_lots",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771448472034,
+      "tag": "0003_sprint3_patch_cancel_alloc",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771448472035,
+      "tag": "0004_recipe_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771448472036,
+      "tag": "0005_sprint4_orders_finance",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771448472037,
+      "tag": "0006_sprint4_patch_demand",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771448472038,
+      "tag": "0007_sprint4_patch_bottling",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771448472039,
+      "tag": "0008_cashflow_template_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771448472040,
+      "tag": "0009_cf_auto_generate",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771448472041,
+      "tag": "0010_excise_rates_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771448472042,
+      "tag": "0011_receipt_line_excise",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1771448472043,
+      "tag": "0012_brewing_systems",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1771448472044,
+      "tag": "0013_beer_styles_expansion",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1771448472045,
+      "tag": "0014_mashing_profiles_expansion",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1771448472046,
+      "tag": "0015_recipe_constants_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1771448472047,
+      "tag": "0016_recipe_design_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1771448472048,
+      "tag": "0017_stock_issue_lines_recipe_item_on_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1771448472049,
+      "tag": "0018_brewing_system_evaporation_params",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1771448472050,
+      "tag": "0019_ibu_hop_stages",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1771448472051,
+      "tag": "0020_malt_percentage_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1771448472052,
+      "tag": "0021_batch_brew_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1771448472053,
+      "tag": "0022_drop_kettle_trub_loss",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1771448472054,
+      "tag": "0023_hop_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1771448472055,
+      "tag": "0024_yeast_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1771448472056,
+      "tag": "0025_fermentable_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1771448472057,
+      "tag": "0026_unify_batch_phase",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1771448472058,
+      "tag": "0027_ingredient_additions",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1771448472059,
+      "tag": "0028_plans_seed_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1771448472060,
+      "tag": "0029_prod_schema_sync",
+      "breakpoints": true
+    },
+    {
       "idx": 30,
       "version": "7",
       "when": 1741340000000,

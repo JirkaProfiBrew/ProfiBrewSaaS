@@ -19,12 +19,18 @@ CREATE TABLE IF NOT EXISTS "warehouses" (
   "updated_at" timestamptz DEFAULT now()
 );
 
-ALTER TABLE "warehouses" ADD CONSTRAINT "warehouses_tenant_code" UNIQUE ("tenant_id", "code");
+DO $$ BEGIN
+  ALTER TABLE "warehouses" ADD CONSTRAINT "warehouses_tenant_code" UNIQUE ("tenant_id", "code");
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RLS
 ALTER TABLE "warehouses" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "warehouses_tenant_isolation" ON "warehouses"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "warehouses_tenant_isolation" ON "warehouses"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 2. COUNTERS — add warehouse_id column
@@ -33,8 +39,11 @@ ALTER TABLE "counters" ADD COLUMN IF NOT EXISTS "warehouse_id" uuid;
 
 -- Drop old unique constraint and create new one (tenant_id, entity, warehouse_id)
 ALTER TABLE "counters" DROP CONSTRAINT IF EXISTS "counters_tenant_entity";
-ALTER TABLE "counters" ADD CONSTRAINT "counters_tenant_entity_warehouse"
-  UNIQUE ("tenant_id", "entity", "warehouse_id");
+DO $$ BEGIN
+  ALTER TABLE "counters" ADD CONSTRAINT "counters_tenant_entity_warehouse"
+    UNIQUE ("tenant_id", "entity", "warehouse_id");
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 3. ITEMS — add base_item columns
@@ -69,14 +78,20 @@ CREATE TABLE IF NOT EXISTS "stock_issues" (
   "updated_at" timestamptz DEFAULT now()
 );
 
-ALTER TABLE "stock_issues" ADD CONSTRAINT "stock_issues_tenant_code" UNIQUE ("tenant_id", "code");
+DO $$ BEGIN
+  ALTER TABLE "stock_issues" ADD CONSTRAINT "stock_issues_tenant_code" UNIQUE ("tenant_id", "code");
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 CREATE INDEX IF NOT EXISTS "idx_stock_issues_tenant_status" ON "stock_issues" ("tenant_id", "status");
 CREATE INDEX IF NOT EXISTS "idx_stock_issues_tenant_date" ON "stock_issues" ("tenant_id", "date");
 
 -- RLS
 ALTER TABLE "stock_issues" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "stock_issues_tenant_isolation" ON "stock_issues"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "stock_issues_tenant_isolation" ON "stock_issues"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 5. STOCK ISSUE LINES
@@ -102,8 +117,11 @@ CREATE INDEX IF NOT EXISTS "idx_stock_issue_lines_issue" ON "stock_issue_lines" 
 
 -- RLS
 ALTER TABLE "stock_issue_lines" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "stock_issue_lines_tenant_isolation" ON "stock_issue_lines"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "stock_issue_lines_tenant_isolation" ON "stock_issue_lines"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 6. STOCK MOVEMENTS
@@ -132,8 +150,11 @@ CREATE INDEX IF NOT EXISTS "idx_stock_movements_date" ON "stock_movements" ("ten
 
 -- RLS
 ALTER TABLE "stock_movements" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "stock_movements_tenant_isolation" ON "stock_movements"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "stock_movements_tenant_isolation" ON "stock_movements"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 7. STOCK ISSUE ALLOCATIONS (FIFO/LIFO)
@@ -152,8 +173,11 @@ CREATE INDEX IF NOT EXISTS "idx_stock_issue_allocations_line" ON "stock_issue_al
 
 -- RLS
 ALTER TABLE "stock_issue_allocations" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "stock_issue_allocations_tenant_isolation" ON "stock_issue_allocations"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "stock_issue_allocations_tenant_isolation" ON "stock_issue_allocations"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 8. STOCK STATUS (materialized current levels)
@@ -168,13 +192,19 @@ CREATE TABLE IF NOT EXISTS "stock_status" (
   "updated_at" timestamptz DEFAULT now()
 );
 
-ALTER TABLE "stock_status" ADD CONSTRAINT "stock_status_tenant_item_warehouse"
-  UNIQUE ("tenant_id", "item_id", "warehouse_id");
+DO $$ BEGIN
+  ALTER TABLE "stock_status" ADD CONSTRAINT "stock_status_tenant_item_warehouse"
+    UNIQUE ("tenant_id", "item_id", "warehouse_id");
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RLS
 ALTER TABLE "stock_status" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "stock_status_tenant_isolation" ON "stock_status"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "stock_status_tenant_isolation" ON "stock_status"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 9. MATERIAL LOTS
@@ -200,11 +230,17 @@ CREATE INDEX IF NOT EXISTS "idx_material_lots_item" ON "material_lots" ("tenant_
 
 -- RLS
 ALTER TABLE "material_lots" ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "material_lots_tenant_isolation" ON "material_lots"
-  USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+DO $$ BEGIN
+  CREATE POLICY "material_lots_tenant_isolation" ON "material_lots"
+    USING ("tenant_id" = (current_setting('app.tenant_id', true))::uuid);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================
 -- 10. Add FK on batch_material_lots.lot_id (now that material_lots exists)
 -- ============================================================
-ALTER TABLE "batch_material_lots" ADD CONSTRAINT "batch_material_lots_lot_fk"
-  FOREIGN KEY ("lot_id") REFERENCES "material_lots"("id");
+DO $$ BEGIN
+  ALTER TABLE "batch_material_lots" ADD CONSTRAINT "batch_material_lots_lot_fk"
+    FOREIGN KEY ("lot_id") REFERENCES "material_lots"("id");
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

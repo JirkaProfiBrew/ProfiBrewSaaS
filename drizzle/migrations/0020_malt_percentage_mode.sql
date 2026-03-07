@@ -1,2 +1,2 @@
-ALTER TABLE recipe_items ADD COLUMN percent NUMERIC;
-ALTER TABLE recipes ADD COLUMN malt_input_mode TEXT DEFAULT 'percent';
+ALTER TABLE recipe_items ADD COLUMN IF NOT EXISTS percent NUMERIC;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS malt_input_mode TEXT DEFAULT 'percent';
